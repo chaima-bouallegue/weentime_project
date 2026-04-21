@@ -1,0 +1,54 @@
+<div class="soldes-grid">
+  @if (isLoading) {
+    <!-- Skeleton Loaders -->
+    @for (i of [1,2,3,4]; track i) {
+      <div class="solde-card skeleton">
+        <div class="skeleton-header">
+          <div class="skeleton-icon"></div>
+          <div class="skeleton-title"></div>
+        </div>
+        <div class="skeleton-value"></div>
+        <div class="skeleton-progress"></div>
+        <div class="skeleton-footer"></div>
+      </div>
+    }
+  } @else {
+    @for (solde of soldes; track solde.type; let i = $index) {
+      <div
+        class="solde-card animate-in"
+        [style.animation-delay]="i * 100 + 'ms'"
+        (click)="filterByType.emit(solde.type)"
+      >
+        <div class="card-header">
+          <div class="icon-wrapper" [style.background-color]="solde.couleur + '15'" [style.color]="solde.couleur">
+            <lucide-icon [name]="solde.icone" size="18"></lucide-icon>
+          </div>
+          <span class="type-label">{{ solde.label }}</span>
+        </div>
+
+        <div class="card-main">
+          <span class="available-value">{{ solde.disponible }}</span>
+          <span class="unit-label">jours dispos.</span>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-bar-bg">
+            <div
+              class="progress-bar-fill"
+              [style.width.%]="calculatePercentage(solde)"
+              [style.background-color]="solde.couleur"
+            ></div>
+          </div>
+          <div class="progress-stats">
+            <span class="stat-item">
+              <strong>{{ solde.pris }}</strong> pris
+            </span>
+            <span class="stat-item" *ngIf="solde.enAttente > 0">
+              <strong>{{ solde.enAttente }}</strong> en attente
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

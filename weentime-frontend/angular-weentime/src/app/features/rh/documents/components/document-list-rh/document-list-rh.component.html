@@ -1,0 +1,104 @@
+<div class="table-container">
+  <table class="rh-table">
+    <thead>
+      <tr>
+        <th (click)="toggleSort('employe')">
+          <div class="header-cell">
+            Employé
+            <lucide-icon [name]="sortKey() === 'employe' ? (sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down') : 'list'" size="14"></lucide-icon>
+          </div>
+        </th>
+        <th (click)="toggleSort('type')">
+          <div class="header-cell">
+            Type de document
+            <lucide-icon [name]="sortKey() === 'type' ? (sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down') : 'list'" size="14"></lucide-icon>
+          </div>
+        </th>
+        <th (click)="toggleSort('date')">
+          <div class="header-cell">
+            Date demande
+            <lucide-icon [name]="sortKey() === 'date' ? (sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down') : 'list'" size="14"></lucide-icon>
+          </div>
+        </th>
+        <th (click)="toggleSort('delai')">
+          <div class="header-cell">
+            Délai estimé
+            <lucide-icon [name]="sortKey() === 'delai' ? (sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down') : 'list'" size="14"></lucide-icon>
+          </div>
+        </th>
+        <th (click)="toggleSort('statut')">
+          <div class="header-cell">
+            Statut
+            <lucide-icon [name]="sortKey() === 'statut' ? (sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down') : 'list'" size="14"></lucide-icon>
+          </div>
+        </th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (d of sortedDemandes(); track d.id) {
+        <tr (click)="selectDemande.emit(d)">
+          <td>
+            <div class="employe-cell">
+              <div class="avatar" [style.background]="getAvatarColor(d.employe.nom)">
+                {{ getInitials(d.employe.nom, d.employe.prenom) }}
+              </div>
+              <div class="user-info">
+                <span class="name">{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                <span class="role">{{ d.employe.poste }}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="doc-label">
+              <span class="type">{{ d.label }}</span>
+              @if (d.urgente && d.statut === 'EN_ATTENTE') {
+                <span class="urgent-tag">URGENT</span>
+              }
+            </div>
+          </td>
+          <td>{{ d.dateCreation | date:'dd/MM/yyyy HH:mm' }}</td>
+          <td>
+            <span class="delai-text" [class.urgent]="d.urgente && d.statut === 'EN_ATTENTE'">{{ d.delaiEstime }}</span>
+          </td>
+          <td>
+            <div class="statut-badge" [ngClass]="getStatutClass(d.statut)">
+              {{ getStatutLabel(d.statut) }}
+              @if (d.generatedByAI && d.statut === 'PRET') {
+                <lucide-icon name="sparkles" size="10"></lucide-icon>
+              }
+            </div>
+          </td>
+          <td (click)="$event.stopPropagation()">
+            <div class="actions">
+              @if (d.statut === 'EN_ATTENTE' || d.statut === 'EN_COURS') {
+                <button class="btn-icon ia" (click)="generateAI.emit(d)" title="Générer avec IA">
+                  <lucide-icon name="sparkles" size="16"></lucide-icon>
+                </button>
+                <button class="btn-icon upload" (click)="uploadDoc.emit(d)" title="Uploader">
+                  <lucide-icon name="upload" size="16"></lucide-icon>
+                </button>
+                <button class="btn-icon reject" (click)="rejectDemande.emit(d)" title="Refuser">
+                  <lucide-icon name="x" size="16"></lucide-icon>
+                </button>
+              }
+
+              @if (d.statut === 'PRET') {
+                <button class="btn-icon view" (click)="viewDoc.emit(d)" title="Voir document">
+                  <lucide-icon name="eye" size="16"></lucide-icon>
+                </button>
+              }
+            </div>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="6" class="empty-state">
+            <lucide-icon name="folder-open" size="32"></lucide-icon>
+            <p>Aucune demande trouvée</p>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

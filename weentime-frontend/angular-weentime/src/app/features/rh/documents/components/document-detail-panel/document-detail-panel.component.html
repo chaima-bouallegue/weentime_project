@@ -1,0 +1,149 @@
+<div class="panel-overlay" (click)="close.emit()">
+  <div class="panel-container animate-slide-in-right" (click)="$event.stopPropagation()">
+    @if (demande) {
+      <header class="panel-header">
+        <div class="header-top">
+          <h2 class="panel-title">Détails de la demande</h2>
+          <button class="close-btn" (click)="close.emit()">
+            <lucide-icon name="x" size="20"></lucide-icon>
+          </button>
+        </div>
+        <div class="statut-indicator" [ngClass]="demande.statut.toLowerCase().replace('_', '-')">
+          <lucide-icon [name]="demande.statut === 'PRET' ? 'check-circle' : 'clock'" size="16"></lucide-icon>
+          <span>{{ getStatutLabel(demande.statut) }}</span>
+        </div>
+      </header>
+
+      <div class="panel-body">
+        <!-- Section: Employé -->
+        <section class="panel-section">
+          <h3 class="section-title">Employé</h3>
+          <div class="employe-card">
+            <div class="avatar" [style.background]="getAvatarColor(demande.employe.nom)">
+              {{ getInitials(demande.employe.nom, demande.employe.prenom) }}
+            </div>
+            <div class="info">
+              <p class="name">{{ demande.employe.prenom }} {{ demande.employe.nom }}</p>
+              <p class="role">{{ demande.employe.poste }}</p>
+              <p class="dept">{{ demande.employe.departement }}</p>
+            </div>
+          </div>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="label">Email</span>
+              <span class="value">{{ demande.employe.email }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Ancienneté</span>
+              <span class="value">Depuis le {{ demande.employe.dateEntree | date:'longDate':'':'fr' }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Demande -->
+        <section class="panel-section">
+          <h3 class="section-title">Détails du document</h3>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="label">Type de document</span>
+              <span class="value highlight">{{ demande.label }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Date de la demande</span>
+              <span class="value">{{ demande.dateCreation | date:'dd MMMM yyyy HH:mm':'':'fr' }}</span>
+            </div>
+            @if (demande.moisConcerne) {
+              <div class="detail-item">
+                <span class="label">Mois concerné</span>
+                <span class="value">{{ demande.moisConcerne }}</span>
+              </div>
+            }
+            @if (demande.motif) {
+              <div class="detail-item full">
+                <span class="label">Motif / Commentaire employé</span>
+                <p class="text-block">{{ demande.motif }}</p>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Section: Actions/Historique -->
+        <section class="panel-section">
+          <h3 class="section-title">Historique & Actions</h3>
+          <div class="timeline">
+            <div class="timeline-item active">
+              <div class="dot"></div>
+              <div class="content">
+                <p class="title">Demande créée</p>
+                <p class="time">{{ demande.dateCreation | date:'short':'':'fr' }}</p>
+              </div>
+            </div>
+            @if (demande.statut !== 'EN_ATTENTE') {
+              <div class="timeline-item active">
+                <div class="dot"></div>
+                <div class="content">
+                  <p class="title">Traitement initié</p>
+                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
+                </div>
+              </div>
+            }
+            @if (demande.statut === 'PRET') {
+              <div class="timeline-item success">
+                <div class="dot"></div>
+                <div class="content">
+                  <p class="title">Document prêt et envoyé</p>
+                  <p class="desc">{{ demande.generatedByAI ? 'Généré par assistant IA' : 'Uploader manuellement' }}</p>
+                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
+                </div>
+              </div>
+            }
+            @if (demande.statut === 'REFUSE') {
+              <div class="timeline-item error">
+                <div class="dot"></div>
+                <div class="content">
+                  <p class="title">Demande refusée</p>
+                  <p class="desc">{{ demande.commentaireRH }}</p>
+                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+
+      <footer class="panel-footer">
+        @if (demande.statut === 'EN_ATTENTE' || demande.statut === 'EN_COURS') {
+          <div class="actions-group">
+            <button class="btn-primary ia" (click)="generateAI.emit(demande)">
+              <lucide-icon name="sparkles" size="18"></lucide-icon>
+              <span>Générer avec IA</span>
+            </button>
+            <div class="row">
+              <button class="btn-secondary" (click)="uploadDoc.emit(demande)">
+                <lucide-icon name="upload" size="18"></lucide-icon>
+                <span>Uploader PDF</span>
+              </button>
+              <button class="btn-danger-outline" (click)="rejectDemande.emit(demande)">
+                <lucide-icon name="x" size="18"></lucide-icon>
+                <span>Refuser</span>
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (demande.statut === 'PRET') {
+          <button class="btn-primary view" (click)="viewDoc.emit(demande)">
+            <lucide-icon name="eye" size="18"></lucide-icon>
+            <span>Consulter le document</span>
+          </button>
+        }
+
+        @if (demande.statut === 'REFUSE' || demande.statut === 'ANNULE') {
+          <button class="btn-secondary full" (click)="close.emit()">
+            Fermer le panneau
+          </button>
+        }
+      </footer>
+    }
+  </div>
+</div>

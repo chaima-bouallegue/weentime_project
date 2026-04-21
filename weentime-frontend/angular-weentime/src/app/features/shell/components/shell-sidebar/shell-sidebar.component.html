@@ -1,0 +1,97 @@
+<!-- Mobile overlay -->
+@if (mobileOpen()) {
+<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-40 lg:hidden fade-in" (click)="mobileOpen.set(false)">
+</div>
+}
+
+<!-- Mobile hamburger -->
+<button (click)="mobileOpen.set(true)"
+  class="fixed top-4 left-4 z-30 lg:hidden w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl shadow-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all">
+  <lucide-angular [img]="iconMenu" size="24"></lucide-angular>
+</button>
+
+<!-- Sidebar Container -->
+<aside class="sidebar-bento-container" [class.collapsed]="collapsed()" [class.mobile-open]="mobileOpen()"
+  [style.width.px]="collapsed() ? 88 : 280">
+
+  <!-- Header Section -->
+  <div class="sidebar-header-area">
+    <div class="logo-wrapper">
+      @if (!collapsed()) {
+      <app-logo [variant]="themeService.isDark() ? 'white' : 'full'" [size]="10" [showText]="true" />
+      } @else {
+      <div class="mini-logo">W</div>
+      }
+    </div>
+
+    <button (click)="toggleCollapsed()" class="collapse-trigger hidden lg:flex group">
+      <lucide-angular [img]="collapsed() ? iconPanelOpen : iconPanelClose" size="18"
+        class="group-hover:text-indigo-500 transition-colors"></lucide-angular>
+    </button>
+  </div>
+
+  <!-- Main Navigation Area -->
+  <div class="sidebar-content custom-scrollbar">
+    <nav class="nav-sections">
+      <div class="nav-section-label" [class.hidden]="collapsed()">Menu Principal</div>
+
+      <div class="nav-items-grid">
+        @for (item of navItems(); track item.route) {
+        <a [routerLink]="item.route" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: true }"
+          (click)="mobileOpen.set(false)" class="bento-nav-item group" [class.is-collapsed]="collapsed()"
+          [title]="collapsed() ? item.label : ''">
+
+          <div class="item-icon-box">
+            <lucide-angular [img]="getNavItemIcon(item.icon)" size="20"></lucide-angular>
+            @if (collapsed()) {
+            <div class="collapsed-tooltip">{{ item.label }}</div>
+            }
+          </div>
+
+          @if (!collapsed()) {
+          <div class="item-info">
+            <span class="item-label">{{ item.label }}</span>
+            <span class="item-desc">Consulter {{ item.label | lowercase }}</span>
+          </div>
+          <lucide-angular [img]="iconChevronRight" size="14" class="chevron-indicator"></lucide-angular>
+          }
+
+          <!-- Background Glow Effect on Active -->
+          <div class="active-glow"></div>
+        </a>
+        }
+      </div>
+    </nav>
+
+
+  </div>
+
+  <!-- Footer Section: User Profile -->
+  <div class="sidebar-footer-area">
+    <div class="user-bento-card" [class.collapsed]="collapsed()">
+      <div class="user-avatar-stack">
+        <div class="avatar-glow"></div>
+        <div class="avatar-circle" [style.background]="avatarColor()">
+          {{ initials() }}
+        </div>
+      </div>
+
+      @if (!collapsed()) {
+      <div class="user-details">
+        <div class="user-name-line">
+          <span class="name">{{ fullName() }}</span>
+          <lucide-angular [img]="iconCheck" size="12" class="text-indigo-500"></lucide-angular>
+        </div>
+        <span class="role">{{ roleLabel() }}</span>
+      </div>
+      }
+
+      <div class="footer-actions" [class.collapsed]="collapsed()">
+        <button (click)="onLogout()" class="logout-trigger group" title="Déconnexion">
+          <lucide-angular [img]="iconLogout" size="18"
+            class="group-hover:text-red-500 transition-colors"></lucide-angular>
+        </button>
+      </div>
+    </div>
+  </div>
+</aside>

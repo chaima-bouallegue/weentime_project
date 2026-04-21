@@ -1,0 +1,160 @@
+<div class="drawer-overlay" (click)="close.emit()">
+  <div class="drawer-content" (click)="$event.stopPropagation()">
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">Nouveau Gestionnaire RH</h2>
+        <p class="drawer-subtitle">Créez un compte RH et assignez-le à une entreprise.</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+      <div class="form-scroll">
+        <!-- Section: Identité -->
+        <section class="form-section">
+          <h3 class="section-title">Identité</h3>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="rh-prenom">Prénom *</label>
+              <div class="input-wrapper" [class.error]="form.get('prenom')?.invalid && form.get('prenom')?.touched">
+                <lucide-icon name="user" size="18" class="field-icon"></lucide-icon>
+                <input id="rh-prenom" type="text" formControlName="prenom" placeholder="Marie">
+              </div>
+              @if (form.get('prenom')?.invalid && form.get('prenom')?.touched) {
+                <span class="error-msg">Prénom requis (min. 2 caractères)</span>
+              }
+            </div>
+
+            <div class="form-field">
+              <label for="rh-nom">Nom *</label>
+              <div class="input-wrapper" [class.error]="form.get('nom')?.invalid && form.get('nom')?.touched">
+                <lucide-icon name="user" size="18" class="field-icon"></lucide-icon>
+                <input id="rh-nom" type="text" formControlName="nom" placeholder="Dupont">
+              </div>
+              @if (form.get('nom')?.invalid && form.get('nom')?.touched) {
+                <span class="error-msg">Nom requis (min. 2 caractères)</span>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Contact -->
+        <section class="form-section">
+          <h3 class="section-title">Contact</h3>
+
+          <div class="form-field">
+            <label for="rh-email">Email *</label>
+            <div class="input-wrapper" [class.error]="(form.get('email')?.invalid && form.get('email')?.touched) || !emailUnique()">
+              <lucide-icon name="mail" size="18" class="field-icon"></lucide-icon>
+              <input id="rh-email" type="email" formControlName="email" placeholder="marie.dupont&#64;entreprise.fr" (blur)="checkEmailUnique()">
+              @if (emailChecking()) {
+                <lucide-icon name="loader-2" size="16" class="field-suffix animate-spin"></lucide-icon>
+              }
+            </div>
+            @if (form.get('email')?.invalid && form.get('email')?.touched) {
+              <span class="error-msg">Email valide requis</span>
+            }
+            @if (!emailUnique()) {
+              <span class="error-msg">Cet email est déjà utilisé</span>
+            }
+          </div>
+
+          <div class="form-field">
+            <label for="rh-telephone">Téléphone</label>
+            <div class="input-wrapper">
+              <lucide-icon name="phone" size="18" class="field-icon"></lucide-icon>
+              <input id="rh-telephone" type="tel" formControlName="telephone" placeholder="+33 6 12 34 56 78">
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Sécurité -->
+        <section class="form-section">
+          <h3 class="section-title">Sécurité</h3>
+
+          <div class="form-field">
+            <label for="rh-password">Mot de passe temporaire *</label>
+            <div class="password-field-wrapper">
+              <div class="input-wrapper password-input" [class.error]="form.get('motDePasse')?.invalid && form.get('motDePasse')?.touched">
+                <lucide-icon name="key-round" size="18" class="field-icon"></lucide-icon>
+                <input
+                  id="rh-password"
+                  [type]="showPassword() ? 'text' : 'password'"
+                  formControlName="motDePasse"
+                  placeholder="Min. 8 caractères"
+                  (input)="onPasswordInput()"
+                >
+                <div class="password-actions">
+                  <button type="button" class="icon-btn" (click)="togglePasswordVisibility()" title="Afficher/masquer">
+                    <lucide-icon [name]="showPassword() ? 'eye-off' : 'eye'" size="16"></lucide-icon>
+                  </button>
+                  <button type="button" class="icon-btn" (click)="copyPassword()" title="Copier">
+                    <lucide-icon name="copy" size="16"></lucide-icon>
+                  </button>
+                </div>
+              </div>
+              <button type="button" class="generate-btn" (click)="generatePassword()">
+                <lucide-icon name="zap" size="14"></lucide-icon>
+                Générer
+              </button>
+            </div>
+            @if (form.get('motDePasse')?.invalid && form.get('motDePasse')?.touched) {
+              <span class="error-msg">Minimum 8 caractères requis</span>
+            }
+            @if (form.get('motDePasse')?.value) {
+              <div class="strength-indicator">
+                <div class="strength-bars">
+                  <div class="strength-bar" [class.active]="true" [class]="passwordStrength()"></div>
+                  <div class="strength-bar" [class.active]="passwordStrength() === 'medium' || passwordStrength() === 'strong'" [class]="passwordStrength()"></div>
+                  <div class="strength-bar" [class.active]="passwordStrength() === 'strong'" [class]="passwordStrength()"></div>
+                </div>
+                <span class="strength-label" [class]="passwordStrength()">
+                  {{ passwordStrength() === 'weak' ? 'Faible' : passwordStrength() === 'medium' ? 'Moyen' : 'Fort' }}
+                </span>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Section: Entreprise -->
+        <section class="form-section">
+          <h3 class="section-title">Entreprise</h3>
+
+          <div class="form-field">
+            <label for="rh-entreprise">Entreprise *</label>
+            <div class="input-wrapper select-wrapper" [class.error]="form.get('entrepriseId')?.invalid && form.get('entrepriseId')?.touched">
+              <lucide-icon name="building" size="18" class="field-icon"></lucide-icon>
+              <select id="rh-entreprise" formControlName="entrepriseId">
+                <option [ngValue]="null" disabled>Sélectionner une entreprise</option>
+                @for (e of entreprises; track e.id) {
+                  <option [ngValue]="e.id">{{ e.nom }} — {{ e.codeInvitation }}</option>
+                }
+              </select>
+            </div>
+            @if (form.get('entrepriseId')?.invalid && form.get('entrepriseId')?.touched) {
+              <span class="error-msg">Sélectionnez une entreprise</span>
+            }
+          </div>
+
+          @if (getSelectedEntreprise(); as ent) {
+            <div class="selected-entreprise-info">
+              <lucide-icon name="info" size="14"></lucide-icon>
+              <span>Code d'invitation : <strong>{{ ent.codeInvitation }}</strong></span>
+            </div>
+          }
+        </section>
+      </div>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn-ghost" (click)="close.emit()" [disabled]="isSubmitting()">Annuler</button>
+        <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting() || !emailUnique()">
+          <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20" [class.animate-spin]="isSubmitting()"></lucide-icon>
+          <span>Créer le compte RH</span>
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

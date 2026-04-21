@@ -1,0 +1,544 @@
+// Variables
+$transition-smooth: all 0.3s cubic-bezier(0.4,0,0.2,1);
+$shadow-light: 0 1px 2px rgba(0,0,0,0.1);
+$shadow-medium: 0 2px 8px rgba(0,0,0,0.1);
+$shadow-hover: 0 4px 16px rgba(0,0,0,0.12);
+
+// Colors
+$colors: (
+  'indigo': #6366f1,
+  'red': #ef4444,
+  'cyan': #06b6d4,
+  'pink': #ec4899,
+  'amber': #f59e0b,
+  'slate': #94a3b8
+);
+
+.leave-type-selection-container {
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.selection-header {
+  text-align: center;
+  margin-bottom: 12px;
+
+  .selection-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+  }
+
+  .selection-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: 16px;
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f4f6;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+
+  .error-icon {
+    flex-shrink: 0;
+    color: #ef4444;
+  }
+
+  .error-content {
+    flex: 1;
+
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #dc2626;
+      margin: 0 0 4px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #991b1b;
+      margin: 0 0 8px;
+    }
+
+    .retry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: none;
+      background: #ef4444;
+      color: white;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: $transition-smooth;
+
+      &:hover {
+        background: #dc2626;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+.leave-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 8px;
+}
+
+.type-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 2px solid transparent;
+  background: white;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: $transition-smooth;
+  box-shadow: $shadow-light;
+  text-align: left;
+
+  // Default State
+  &:not(.disabled) {
+    &:hover {
+      box-shadow: $shadow-hover;
+      transform: translateY(-2px);
+
+      .card-inner {
+        .icon-wrapper {
+          transform: scale(1.1) rotate(5deg);
+        }
+      }
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+
+  &.available {
+    border-color: var(--card-color,#6366f1);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.02) 0%, rgba(99, 102, 241, 0.08) 100%);
+
+    .card-inner {
+      .icon-wrapper {
+        background: linear-gradient(135deg, var(--card-color,#6366f1) 0%, rgba(99, 102, 241, 0.5) 100%);
+        color: white;
+      }
+
+      .status-badge {
+        background: var(--card-color,#6366f1);
+        color: white;
+      }
+    }
+  }
+
+
+  &.unavailable,
+  &.disabled {
+    opacity: 0.6;
+    border-color: #e5e7eb;
+    background: #f9fafb;
+    cursor: not-allowed;
+
+    &:hover {
+      box-shadow: $shadow-light;
+      transform: none;
+    }
+
+    &:active {
+      transform: none;
+    }
+
+    .card-inner {
+      .icon-wrapper {
+        background: #e5e7eb;
+        color: #9ca3af;
+      }
+
+      .leave-label {
+        color: #9ca3af;
+      }
+
+      .status-badge {
+        background: #e5e7eb;
+        color: #6b7280;
+      }
+    }
+  }
+
+
+  &.unpaid {
+    border-style: dashed;
+    border-color: #cbd5e1;
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.03) 0%, rgba(148, 163, 184, 0.08) 100%);
+
+    .card-inner {
+      .icon-wrapper {
+        background: linear-gradient(135deg, #94a3b8 0%, rgba(148, 163, 184, 0.5) 100%);
+        color: white;
+
+        &.icon-slate {
+          opacity: 0.8;
+        }
+      }
+
+      .status-badge.unpaid-badge {
+        background: #e2e8f0;
+        color: #475569;
+      }
+    }
+  }
+
+
+  &.selected {
+    border-color: var(--card-color,#6366f1);
+    border-width: 3px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0.12) 100%);
+
+    .card-inner {
+      .icon-wrapper {
+        transform: scale(1.15) !important;
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+      }
+    }
+
+    .selection-indicator {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+.card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+
+  .icon-section {
+    display: flex;
+    justify-content: center;
+
+    .icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: $transition-smooth;
+      font-weight: 600;
+
+      @each $name, $color in $colors {
+        &.icon-#{$name} {
+          background: linear-gradient(135deg, $color 0%, rgba($color, 0.5) 100%);
+          color: white;
+        }
+      }
+    }
+  }
+
+  .info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+
+    .leave-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0;
+    }
+
+    .leave-description {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0;
+    }
+  }
+
+  .days-section {
+    display: flex;
+    justify-content: center;
+
+    .days-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+
+      &.available {
+        .days-value {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--card-color, #6366f1);
+        }
+
+        .days-label {
+          font-size: 12px;
+          color: var(--card-color, #6366f1);
+          font-weight: 500;
+        }
+      }
+
+      &.unavailable {
+        .days-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: #d1d5db;
+        }
+
+        .days-label {
+          font-size: 12px;
+          color: #9ca3af;
+          font-weight: 500;
+        }
+      }
+
+      &.unpaid {
+        .days-value {
+          font-size: 24px;
+          font-weight: 700;
+          color: #94a3b8;
+        }
+
+        .days-badge {
+          font-size: 20px;
+          color: #475569;
+        }
+
+        .days-label {
+          font-size: 11px;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+    }
+  }
+
+  .status-badge-section {
+    display: flex;
+    justify-content: center;
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: $transition-smooth;
+
+      &.available-badge {
+        background: #d1fae5;
+        color: #047857;
+      }
+
+      &.unavailable-badge {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      &.unpaid-badge {
+        background: #e2e8f0;
+        color: #475569;
+      }
+    }
+  }
+}
+
+.selection-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: $transition-smooth;
+  color: #10b981;
+  background: white;
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: $shadow-medium;
+}
+
+.message-section {
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+
+  .availability-message {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+    font-weight: 500;
+  }
+}
+
+// Variant messages
+.type-card {
+  &.available .availability-message {
+    color: var(--card-color, #6366f1);
+    font-weight: 600;
+  }
+
+  &.unavailable .availability-message {
+    color: #ef4444;
+  }
+
+  &.unpaid .availability-message {
+    color: #94a3b8;
+  }
+}
+
+.info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  margin-top: 8px;
+
+  .info-icon {
+    flex-shrink: 0;
+    color: #0284c7;
+    margin-top: 2px;
+  }
+
+  .info-text {
+    font-size: 13px;
+    color: #0c4a6e;
+    margin: 0;
+
+    strong {
+      color: #0369a1;
+      font-weight: 600;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .leave-type-selection-container {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .leave-types-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .selection-header {
+    .selection-title {
+      font-size: 18px;
+    }
+
+    .selection-subtitle {
+      font-size: 13px;
+    }
+  }
+
+  .type-card {
+    padding: 14px;
+
+    &:hover {
+      transform: none;
+    }
+
+    .card-inner {
+      .icon-wrapper {
+        width: 40px;
+        height: 40px;
+      }
+
+      .leave-label {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .leave-type-selection-container {
+    padding: 12px;
+  }
+
+  .leave-types-grid {
+    gap: 10px;
+    padding: 4px;
+  }
+
+  .type-card {
+    padding: 12px;
+
+    .card-inner {
+      gap: 8px;
+
+      .days-section {
+        .days-info.available {
+          .days-value {
+            font-size: 24px;
+          }
+        }
+      }
+    }
+  }
+
+  .selection-indicator {
+    top: 8px;
+    right: 8px;
+  }
+}

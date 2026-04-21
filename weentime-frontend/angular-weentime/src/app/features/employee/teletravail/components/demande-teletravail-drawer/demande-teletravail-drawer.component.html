@@ -1,0 +1,238 @@
+<div class="drawer-overlay" (click)="close.emit()">
+  <div class="drawer-content bento-drawer" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <header class="drawer-header p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+          <lucide-angular [img]="iconLaptop" size="20"></lucide-angular>
+        </div>
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white leading-none">Nouvelle demande</h2>
+          <p class="text-xs text-slate-500 font-bold mt-1 uppercase tracking-wider">Télétravail</p>
+        </div>
+      </div>
+      
+      <button (click)="close.emit()" class="close-btn group">
+        <lucide-angular [img]="iconX" size="20" class="transition-transform group-hover:rotate-90"></lucide-angular>
+      </button>
+    </header>
+
+    <!-- Stepper Indicator -->
+    <div class="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        @for (s of [1,2,3]; track s) {
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300"
+                 [class.bg-indigo-500]="step() >= s"
+                 [class.text-white]="step() >= s"
+                 [class.bg-slate-200]="step() < s"
+                 [class.text-slate-500]="step() < s"
+                 [class.dark:bg-slate-800]="step() < s">
+              {{ s }}
+            </div>
+            @if (s < 3) {
+              <div class="w-8 h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full bg-indigo-500 transition-all duration-300" [style.width]="step() > s ? '100%' : '0%'"></div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="text-[10px] font-black uppercase text-slate-400">Étape {{ step() }} / 3</div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+      
+      <!-- STEP 1: Type Selection -->
+      @if (step() === 1) {
+        <div class="animate-in slide-in-from-right-4 duration-300">
+          <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Quel type de télétravail ?</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">Choisissez la modalité qui vous convient le mieux.</p>
+          
+          <div class="grid grid-cols-1 gap-4">
+            @for (type of types; track type.value) {
+              <div 
+                (click)="selectType(type.value)"
+                class="selection-card group"
+                [class.active]="selectedType() === type.value"
+                [class.disabled]="joursRestants === 0"
+              >
+                <div class="icon-wrapper" [class]="type.color">
+                  <lucide-angular [img]="type.icon" size="24"></lucide-angular>
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="font-black text-slate-900 dark:text-white">{{ type.label }}</span>
+                    <lucide-angular [img]="iconCheck" size="18" class="text-indigo-500 transition-opacity" [class.opacity-0]="selectedType() !== type.value"></lucide-angular>
+                  </div>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{{ type.desc }}</p>
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (joursRestants === 0) {
+            <div class="mt-8 p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/10 flex items-start gap-3">
+              <lucide-angular [img]="iconAlert" size="18" class="text-rose-500 mt-0.5"></lucide-angular>
+              <div>
+                <p class="text-xs font-black text-rose-600 dark:text-rose-400">Quota épuisé</p>
+                <p class="text-[11px] text-rose-500/80 font-medium">Vous avez atteint votre limite de jours de télétravail pour cette période.</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- STEP 2: Date Selection -->
+      @if (step() === 2) {
+        <div class="animate-in slide-in-from-right-4 duration-300">
+          <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Sélectionnez les dates</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">
+            {{ selectedType() === 'SEMAINE_COMPLETE' ? 'Choisissez une semaine (Lundi au Vendredi).' : 'Cliquez sur les jours souhaités.' }}
+          </p>
+
+          <div class="bento-card p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+              <button (click)="prevMonth()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                <lucide-angular [img]="iconChevronLeft" size="18"></lucide-angular>
+              </button>
+              <h4 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">{{ getMonthLabel() }}</h4>
+              <button (click)="nextMonth()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                <lucide-angular [img]="iconChevronRight" size="18"></lucide-angular>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1">
+              @for (day of ['L', 'M', 'M', 'J', 'V', 'S', 'D']; track day) {
+                <div class="text-[10px] font-black text-slate-400 text-center py-2 uppercase">{{ day }}</div>
+              }
+              @for (day of calendarDays(); track day.date) {
+                <div 
+                  (click)="day.isSelectable && selectDate(day.date.toISOString().split('T')[0])"
+                  class="calendar-day"
+                  [class.other-month]="!day.isCurrentMonth"
+                  [class.weekend]="day.isWeekend"
+                  [class.selected]="day.isSelected"
+                  [class.in-range]="day.isInRange"
+                  [class.range-start]="day.isRangeStart"
+                  [class.range-end]="day.isRangeEnd"
+                  [class.disabled]="!day.isSelectable"
+                >
+                  {{ day.date.getDate() }}
+                </div>
+              }
+            </div>
+          </div>
+
+          @if (selectedType()?.startsWith('DEMI_JOURNEE')) {
+            <div class="space-y-4">
+              <h4 class="text-sm font-black text-slate-900 dark:text-white mb-3">Quelle période ?</h4>
+              <div class="grid grid-cols-2 gap-4">
+                <button (click)="periodeDemiJournee.set('MATIN')" 
+                        class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
+                        [class.border-indigo-500]="periodeDemiJournee() === 'MATIN'"
+                        [class.bg-indigo-50]="periodeDemiJournee() === 'MATIN'"
+                        [class.text-indigo-600]="periodeDemiJournee() === 'MATIN'"
+                        [class.border-slate-100]="periodeDemiJournee() !== 'MATIN'">
+                  <lucide-angular [img]="iconSunrise" size="20"></lucide-angular>
+                  <span class="text-xs font-black">Matin</span>
+                </button>
+                <button (click)="periodeDemiJournee.set('APRES_MIDI')" 
+                        class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
+                        [class.border-indigo-500]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.bg-indigo-50]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.text-indigo-600]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.border-slate-100]="periodeDemiJournee() !== 'APRES_MIDI'">
+                  <lucide-angular [img]="iconSunset" size="20"></lucide-angular>
+                  <span class="text-xs font-black">Après-midi</span>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- STEP 3: Final Details -->
+      @if (step() === 3) {
+        <div class="animate-in slide-in-from-right-4 duration-300">
+          <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Motif & Justification</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">Expliquez brièvement les raisons de cette demande.</p>
+          
+          <div class="space-y-6">
+            <div class="form-group">
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Votre motif</label>
+              <textarea 
+                [(ngModel)]="motif"
+                placeholder="Ex: Besoin de calme pour finaliser le projet X, rendez-vous personnel à proximité, etc."
+                class="w-full h-32 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
+              ></textarea>
+              <div class="flex items-center justify-between mt-2 px-1 text-[10px]">
+                <span class="font-bold" [class.text-rose-500]="motif().length < (selectedType() === 'SEMAINE_COMPLETE' ? 20 : 10)">
+                  Min. {{ selectedType() === 'SEMAINE_COMPLETE' ? '20' : '10' }} caractères
+                </span>
+                <span class="text-slate-400">{{ motif().length }} caractères</span>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-3xl bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/10">
+              <h4 class="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-4">Récapitulatif</h4>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500 font-medium">Type</span>
+                  <span class="text-xs font-bold text-slate-900 dark:text-white">{{ selectedType() }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500 font-medium">Dates</span>
+                  <span class="text-xs font-bold text-slate-900 dark:text-white">{{ selectedStartDate() }} → {{ selectedEndDate() }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500 font-medium">Impact Quota</span>
+                  <span class="text-xs font-black text-slate-900 dark:text-white">{{ nombreJoursSelectionnes() }} jours</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
+      <button 
+        (click)="prevStep()"
+        [disabled]="step() === 1"
+        class="btn-secondary px-6 py-3 rounded-2xl font-bold flex items-center gap-2 disabled:opacity-0 transition-all"
+      >
+        <lucide-angular [img]="iconChevronLeft" size="18"></lucide-angular>
+        Retour
+      </button>
+
+      @if (step() < 3) {
+        <button 
+          (click)="nextStep()"
+          [disabled]="(step() === 1 && !isStep1Valid()) || (step() === 2 && !isStep2Valid())"
+          class="btn-primary group px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:shadow-none transition-all"
+        >
+          Continuer
+          <lucide-angular [img]="iconChevronRight" size="18" class="group-hover:translate-x-1 transition-transform"></lucide-angular>
+        </button>
+      } @else {
+        <button 
+          (click)="onSubmit()"
+          [disabled]="!isStep3Valid() || isSubmitting()"
+          class="btn-primary px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 transition-all"
+        >
+          @if (isSubmitting()) {
+            <lucide-angular [img]="iconLoader" size="18" class="animate-spin"></lucide-angular>
+            Soumission...
+          } @else {
+            <lucide-angular [img]="iconSend" size="18"></lucide-angular>
+            Confirmer la demande
+          }
+        </button>
+      }
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,226 @@
+<div class="rh-bento-container fade-in">
+  <!-- RH Analytics Hero -->
+  <header class="dashboard-hero mb-10">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#ec4899'"></div>
+      
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10 p-10">
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-pink-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-pink-200 dark:shadow-none">
+              Intelligence RH
+            </span>
+          </div>
+          
+          <h1 class="text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
+            Analytiques RH
+          </h1>
+          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            Consultez le taux de présence, les heures de travail, la répartition par département et l'évolution globale des requêtes.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+           <button class="hero-btn secondary" (click)="refreshData()" [disabled]="isLoading()">
+              <lucide-angular [img]="iconActivity" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
+              <span>Regénérer les modèles</span>
+           </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+       @for (i of [1,2,3,4]; track i) {
+         <div class="h-40 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+       }
+    </div>
+  } @else {
+    <!-- KPI Grid -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="bento-stat-card success relative">
+        <div class="stat-icon-box"><lucide-angular [img]="iconActivity" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Taux d'Affluence</span>
+          <div class="stat-value-line">
+            <span class="value">{{ attendanceRate() }}<span class="text-xl">%</span></span>
+            <span class="delta success">Présent aujourd'hui</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card danger relative">
+        <div class="stat-icon-box"><lucide-angular [img]="iconUserX" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Taux d'Absence</span>
+          <div class="stat-value-line">
+            <span class="value">{{ absenceRate() }}<span class="text-xl">%</span></span>
+            <span class="delta danger">Hors société</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card warning relative">
+        <div class="stat-icon-box"><lucide-angular [img]="iconTimer" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Heures Suppl.</span>
+          <div class="stat-value-line">
+            <span class="value">{{ overtimeHours() }}</span>
+            <span class="delta warning">Reportées</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card info relative">
+        <div class="stat-icon-box"><lucide-angular [img]="iconInbox" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Stock de requêtes</span>
+          <div class="stat-value-line">
+            <span class="value">{{ pendingRequestsCount() }}</span>
+            <span class="delta info">En attente RH/Mngr</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+    </section>
+
+    <!-- Complex Visualizations Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+      
+      <!-- Department Bars (6 cols) -->
+      <section class="lg:col-span-6 space-y-8 bento-card p-8 group overflow-hidden relative">
+         <div class="flex items-center justify-between mb-8 relative z-10">
+            <div>
+               <h3 class="text-2xl font-black text-slate-900 dark:text-white">Répartition Structurelle</h3>
+               <p class="text-xs font-black uppercase text-pink-500 tracking-widest mt-1">Par département principal</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-inner">
+               <lucide-angular [img]="iconNetwork" size="18" class="text-slate-400"></lucide-angular>
+            </div>
+         </div>
+
+         @if (departmentBars().length === 0) {
+            <p class="text-center text-slate-400 py-10 italic relative z-10">Aucune distribution d'employés disponible.</p>
+         } @else {
+            <div class="flex items-end gap-3 md:gap-6 h-[260px] pt-4 relative z-10 overflow-x-auto custom-scrollbar">
+               @for (item of departmentBars(); track item.label) {
+                  <div class="flex-1 min-w-[60px] flex flex-col items-center gap-4 group/bar">
+                     <div class="font-black text-lg text-slate-900 dark:text-white group-hover/bar:-translate-y-1 transition-transform">{{ item.value }}</div>
+                     <div class="w-full relative bg-slate-100 dark:bg-slate-900/50 rounded-xl flex-1 flex items-end p-1 overflow-hidden">
+                        <div class="analytics-bar-fill w-full rounded-lg bg-gradient-to-t from-pink-500 to-rose-400 transition-all duration-1000 relative" 
+                             [style.height]="item.percent + '%'">
+                           <div class="absolute inset-x-0 -top-1 h-3 bg-white/20 rounded-t-lg"></div>
+                        </div>
+                     </div>
+                     <div class="text-[10px] font-black uppercase text-slate-400 tracking-wider text-center max-w-full truncate px-1" [title]="item.label">
+                        {{ item.label }}
+                     </div>
+                  </div>
+               }
+            </div>
+         }
+      </section>
+
+      <!-- Trend Area Chart (6 cols) -->
+      <section class="lg:col-span-6 space-y-8 bento-card p-8">
+         <div class="flex items-center justify-between mb-8">
+            <div>
+               <h3 class="text-2xl font-black text-slate-900 dark:text-white">Évolution Mensuelle</h3>
+               <p class="text-xs font-black uppercase text-blue-500 tracking-widest mt-1">Génération de requêtes</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-inner">
+               <lucide-angular [img]="iconBarChart2" size="18" class="text-slate-400"></lucide-angular>
+            </div>
+         </div>
+
+         @if (chartPoints().length === 0) {
+            <p class="text-center text-slate-400 py-10 italic">Aucune donnée temporelle disponible.</p>
+         } @else {
+            <div class="relative w-full h-[240px] overflow-visible mb-6">
+               <svg viewBox="0 -10 640 260" class="w-full h-full" preserveAspectRatio="none">
+                  <!-- Gradient Definition -->
+                  <defs>
+                     <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"></stop>
+                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.01"></stop>
+                     </linearGradient>
+                     
+                     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="5" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                     </filter>
+                  </defs>
+
+                  <!-- Area Path -->
+                  <path [attr.d]="lineAreaPath()" class="trend-area"></path>
+                  
+                  <!-- Stroke Path -->
+                  <path [attr.d]="linePath()" class="trend-stroke glow-effect"></path>
+
+                  <!-- Data Points -->
+                  @for (point of chartPoints(); track point.label) {
+                     <circle [attr.cx]="point.x" [attr.cy]="point.y" r="5" class="trend-dot"></circle>
+                  }
+               </svg>
+            </div>
+
+            <!-- X Axis Labels underneath chart -->
+            <div class="flex justify-between items-center px-2">
+               @for (item of monthlySeries(); track item.label) {
+                  @if ($index % 2 === 0) {
+                     <div class="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                        {{ item.label }}
+                     </div>
+                  }
+               }
+            </div>
+         }
+      </section>
+
+    </div>
+
+    <!-- Request Types Horizontal Bars Row -->
+    <div class="grid grid-cols-1 gap-8">
+      <section class="bento-card p-8 group relative overflow-hidden">
+         <!-- Decorator -->
+         <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none"></div>
+
+         <div class="flex items-center justify-between mb-8 relative z-10">
+            <div>
+               <h3 class="text-2xl font-black text-slate-900 dark:text-white">Distribution des flux de travail</h3>
+               <p class="text-xs font-black uppercase text-emerald-500 tracking-widest mt-1">Conçue pour les audits RH</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-inner">
+               <lucide-angular [img]="iconBriefcase" size="18" class="text-slate-400"></lucide-angular>
+            </div>
+         </div>
+
+         @if (requestTypeEntries().length === 0) {
+            <p class="text-center text-slate-400 py-10 italic relative z-10">Aucun historique de requête disponible.</p>
+         } @else {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 relative z-10">
+               @for (item of requestTypeEntries(); track item.label) {
+                  <div class="group/mix">
+                     <div class="flex justify-between items-end mb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-4">{{ item.label }}</span>
+                        <span class="text-lg font-black text-slate-900 dark:text-white">{{ item.value }}</span>
+                     </div>
+                     <div class="h-4 rounded-full bg-slate-100 dark:bg-slate-800/50 shadow-inner overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-1000 relative group-hover/mix:brightness-110" 
+                             [style.width.%]="item.percent">
+                             <!-- Subtle internal reflection -->
+                             <div class="absolute inset-x-0 top-0 h-1/2 bg-white/20 rounded-full"></div>
+                        </div>
+                     </div>
+                  </div>
+               }
+            </div>
+         }
+      </section>
+    </div>
+  }
+</div>

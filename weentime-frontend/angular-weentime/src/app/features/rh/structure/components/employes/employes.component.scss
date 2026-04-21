@@ -1,0 +1,404 @@
+.employes-wrapper {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ── */
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-title-text {
+    font-size: 1.875rem;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+}
+
+/* ── Button primary ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+
+  &:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+  }
+}
+
+/* ── Filters Bar ── */
+.filters-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .search-wrapper {
+    position: relative;
+    flex: 1;
+    max-width: 480px;
+
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.75rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #0f172a;
+      outline: none;
+      transition: all 0.2s;
+
+      &::placeholder { color: #94a3b8; }
+      &:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        background: white;
+      }
+    }
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-shrink: 0;
+
+    .filter-select {
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #475569;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover { border-color: #6366f1; }
+      &:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+    }
+  }
+}
+
+/* ── Table ── */
+.table-wrapper {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.employee-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+
+    th {
+      padding: 0.875rem 1.25rem;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.15s;
+
+      &:last-child { border-bottom: none; }
+      &:hover { background: #fafafa; }
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      color: #0f172a;
+      vertical-align: middle;
+
+      &.text-muted { color: #64748b; }
+    }
+  }
+}
+
+/* ── Employee cell (avatar + name) ── */
+.emp-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+.emp-avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;   /* FIX: empêche l'avatar de s'écraser */
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;    /* FIX: empêche l'avatar de déborder */
+}
+
+.emp-name {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+/* ── Status badge ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+
+  &.actif {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  &.inactif {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+  }
+}
+
+/* ── Icon button ── */
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #6366f1;
+  }
+}
+
+/* ── Skeleton ── */
+.skeleton-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.skeleton-row {
+  height: 60px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  color: #94a3b8;
+  text-align: center;
+  border: 2px dashed #e2e8f0;
+  border-radius: 1.5rem;
+
+  p { font-size: 0.9375rem; font-weight: 600; margin: 0; }
+}
+
+/* ── Pagination ── */
+.pagination {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  .page-info {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .page-controls {
+    display: flex;
+    gap: 0.5rem;
+
+    .page-btn {
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
+      background: white;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      z-index: 1;
+
+      &:hover:not(:disabled) {
+        background: #6366f1;
+        color: white;
+        border-color: #6366f1;
+      }
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+/* ── Dark mode ── */
+:host-context(.dark) {
+  .section-title-text { color: white; }
+
+  .filters-bar,
+  .table-wrapper,
+  .pagination {
+    background: #0f172a;
+    border-color: #1e293b;
+  }
+
+  .employee-table {
+    thead {
+      background: #1e293b;
+      border-bottom-color: #334155;
+      th { color: #94a3b8; }
+    }
+    tbody {
+      tr { border-bottom-color: #1e293b; &:hover { background: #1e293b; } }
+      td { color: #f1f5f9; &.text-muted { color: #64748b; } }
+    }
+  }
+
+  .emp-name { color: white; }
+
+  .search-wrapper .search-input {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+    &:focus { border-color: #6366f1; background: #1e293b; }
+  }
+
+  .filter-group .filter-select {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+  }
+
+  .icon-btn:hover { background: #1e293b; color: #818cf8; }
+
+  .skeleton-row {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+  }
+
+  .empty-state { border-color: #1e293b; color: #475569; }
+
+  .page-controls .page-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+  }
+
+  .status-badge {
+    &.actif { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    &.inactif { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+  }
+}

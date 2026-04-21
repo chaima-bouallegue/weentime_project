@@ -1,0 +1,106 @@
+<!-- Filter chips -->
+<div class="filter-chips">
+  @for (f of filters; track f.value) {
+    <button
+      class="chip"
+      [class.active]="currentFilter === f.value"
+      (click)="filterChange.emit(f.value)"
+    >
+      {{ f.label }}
+      <span class="chip-count">{{ getCountForFilter(f.value) }}</span>
+    </button>
+  }
+</div>
+
+<!-- Loading skeleton -->
+@if (isLoading) {
+  <div class="history-list">
+    @for (item of [1,2,3]; track item) {
+      <div class="history-item skeleton">
+        <div class="skel-icon"></div>
+        <div class="skel-body">
+          <div class="skel-line skel-title"></div>
+          <div class="skel-line skel-sub"></div>
+        </div>
+        <div class="skel-badge"></div>
+      </div>
+    }
+  </div>
+} @else if (demandes.length === 0) {
+  <!-- Empty state -->
+  <div class="empty-state">
+    <div class="empty-icon">
+      <lucide-icon [name]="getEmptyIcon()" size="32"></lucide-icon>
+    </div>
+    <p class="empty-message">{{ getEmptyMessage() }}</p>
+  </div>
+} @else {
+  <!-- History list -->
+  <div class="history-list">
+    @for (d of demandes; track d.id; let i = $index) {
+      <div class="history-item animate-stagger" [style.animation-delay]="(i * 60) + 'ms'">
+        <!-- Type icon -->
+        <div
+          class="item-icon"
+          [style.background]="(getConfigForType(d)?.couleur ?? '#64748b') + '14'"
+          [style.color]="getConfigForType(d)?.couleur ?? '#64748b'"
+        >
+          <lucide-icon [name]="getConfigForType(d)?.icone ?? 'file-text'" size="20"></lucide-icon>
+        </div>
+
+        <!-- Info -->
+        <div class="item-info">
+          <div class="item-header-row">
+            <h4 class="item-label">{{ d.label }}</h4>
+            <app-document-status-badge [statut]="d.statut"></app-document-status-badge>
+          </div>
+          <div class="item-meta">
+            <span class="meta-date">
+              <lucide-icon name="calendar" size="12"></lucide-icon>
+              Demandé le {{ d.dateCreation }}
+            </span>
+            <span class="meta-delay">
+              <lucide-icon name="clock" size="12"></lucide-icon>
+              Délai : {{ d.delaiEstime }}
+            </span>
+            @if (d.moisConcerne) {
+              <span class="meta-mois">
+                <lucide-icon name="calendar-days" size="12"></lucide-icon>
+                {{ d.moisConcerne }}
+              </span>
+            }
+          </div>
+
+          <!-- RH comment for refused -->
+          @if (d.statut === 'REFUSE' && d.commentaireRH) {
+            <div class="rh-comment">
+              <lucide-icon name="alert-circle" size="14"></lucide-icon>
+              <span>{{ d.commentaireRH }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Actions -->
+        <div class="item-actions">
+          @if (d.statut === 'EN_ATTENTE') {
+            <button class="btn-cancel" (click)="cancelRequest.emit(d)">
+              <lucide-icon name="trash-2" size="15"></lucide-icon>
+              Annuler
+            </button>
+          }
+          @if (d.statut === 'EN_COURS') {
+            <div class="progress-indicator">
+              <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
+            </div>
+          }
+          @if (d.statut === 'PRET') {
+            <button class="btn-download" (click)="downloadRequest.emit(d)">
+              <lucide-icon name="download" size="16"></lucide-icon>
+              Télécharger
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,8 @@
+<span class="status-badge" [ngClass]="config.colorClass">
+  <lucide-icon 
+    [name]="config.icon" 
+    size="14"
+    [class.animate-spin]="statut === 'EN_COURS'"
+  ></lucide-icon>
+  <span class="badge-label">{{ config.label }}</span>
+</span>

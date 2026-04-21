@@ -1,0 +1,87 @@
+<div class="managers-wrapper">
+  <div class="section-header">
+    <h2 class="section-title-text">Managers</h2>
+    <div class="section-actions">
+      <span class="manager-count">{{ managers().length }} managers</span>
+      <button class="btn-primary" (click)="showCreateDrawer.set(true)">
+        <lucide-icon name="user-plus" size="16"></lucide-icon>
+        <span>Nouveau manager</span>
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="skeleton-grid">
+      @for (i of [1,2,3]; track i) { <div class="skeleton-card"></div> }
+    </div>
+  } @else if (managers().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="user-cog" size="48"></lucide-icon>
+      <p>Aucun manager</p>
+    </div>
+  } @else {
+    <div class="manager-grid">
+      @for (mgr of managers(); track mgr.id) {
+        <div class="manager-card">
+          <div class="manager-top">
+            <div class="manager-avatar" [style.background-color]="getAvatarColor(mgr.prenom + mgr.nom)">
+              {{ getInitials(mgr.prenom, mgr.nom) }}
+            </div>
+            <div class="manager-info">
+              <h3 class="manager-name">{{ mgr.prenom }} {{ mgr.nom }}</h3>
+              <p class="manager-poste">{{ mgr.poste }}</p>
+            </div>
+            <span class="status-badge" [class]="mgr.statut.toLowerCase()">
+              {{ mgr.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
+            </span>
+          </div>
+
+          <div class="manager-team">
+            <lucide-icon name="git-branch" size="14"></lucide-icon>
+            @if (mgr.equipeNom) {
+              <span>{{ mgr.equipeNom }}</span>
+            } @else {
+              <span class="no-team">Aucune équipe assignée</span>
+            }
+          </div>
+
+          <div class="manager-actions">
+            @if (!mgr.equipeNom) {
+              <button class="btn-assign" (click)="showAssignModal.set(mgr)">
+                <lucide-icon name="git-branch" size="14"></lucide-icon>
+                Assigner une équipe
+              </button>
+            }
+            <button class="btn-toggle" (click)="onToggleStatus(mgr.id)">
+              <lucide-icon [name]="mgr.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="14"></lucide-icon>
+              {{ mgr.statut === 'ACTIF' ? 'Désactiver' : 'Activer' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (showAssignModal(); as mgr) {
+    <app-manager-form
+      [manager]="mgr"
+      [equipesSansManager]="equipesSansManager()"
+      (close)="showAssignModal.set(null)"
+      (assigned)="onAssigned()"
+    />
+  }
+
+  @if (showCreateDrawer()) {
+    <app-employe-form
+      [departements]="departements()"
+      [equipes]="equipes()"
+      [managers]="managers()"
+      title="Nouveau manager"
+      submitLabel="Creer le manager"
+      defaultRole="ROLE_MANAGER"
+      [allowRoleChange]="false"
+      (close)="showCreateDrawer.set(false)"
+      (saved)="onManagerCreated()"
+    />
+  }
+</div>

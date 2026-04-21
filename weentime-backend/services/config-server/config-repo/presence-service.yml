@@ -1,0 +1,86 @@
+server:
+  port: ${SERVER_PORT:8093}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${PRESENCE_DB_NAME:${DB_NAME:presence_db}}
+    username: ${PRESENCE_DB_USERNAME:${DB_USERNAME:weentime}}
+    password: ${PRESENCE_DB_PASSWORD:${DB_PASSWORD:170502}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      initialization-fail-timeout: 0
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    connect-retries: 2
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+management:
+  health:
+    db:
+      enabled: true
+
+presence:
+  default:
+    start-time: ${PRESENCE_DEFAULT_START_TIME:09:00}
+    end-time: ${PRESENCE_DEFAULT_END_TIME:18:00}
+    tolerance-minutes: ${PRESENCE_TOLERANCE_MINUTES:10}
+    working-days:
+      - MONDAY
+      - TUESDAY
+      - WEDNESDAY
+      - THURSDAY
+      - FRIDAY
+  half-day-threshold-hours: ${PRESENCE_HALF_DAY_THRESHOLD_HOURS:4.0}
+  absence-detection:
+    cron: ${PRESENCE_ABSENCE_CRON:0 55 23 * * *}
+
+integration:
+  organisation-service:
+    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8090}}
+  user-service:
+    url: ${USER_SERVICE_URL:${integration.organisation-service.url}}
+  leave-service:
+    url: ${LEAVE_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}}
+  telework-service:
+    url: ${TELEWORK_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      organisationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+      rhService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      organisationService:
+        timeout-duration: 3s
+      rhService:
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.presenceservice: INFO
+    com.weentime.weentimeapp: INFO

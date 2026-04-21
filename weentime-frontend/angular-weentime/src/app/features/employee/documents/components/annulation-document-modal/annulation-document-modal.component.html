@@ -1,0 +1,50 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content animate-pop-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="icon-warning">
+        <lucide-icon name="alert-triangle" size="24"></lucide-icon>
+      </div>
+      <h3>Confirmer l'annulation</h3>
+    </div>
+
+    @if (demande) {
+      <div class="modal-body">
+        <p class="warning-text">
+          Êtes-vous sûr de vouloir annuler cette demande de document ?
+          <span class="highlight">Cette action est irréversible.</span>
+        </p>
+
+        <div class="request-preview">
+          <div class="preview-item">
+            <span class="label">Document</span>
+            <span class="value">{{ demande.label }}</span>
+          </div>
+          <div class="preview-item">
+            <span class="label">Date de demande</span>
+            <span class="value">{{ formatDate(demande.dateCreation) }}</span>
+          </div>
+          @if (demande.moisConcerne) {
+            <div class="preview-item">
+              <span class="label">Mois concerné</span>
+              <span class="value">{{ demande.moisConcerne }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="close.emit()" [disabled]="isAnnulating">
+          Garder
+        </button>
+        <button class="btn-danger" (click)="onConfirm()" [disabled]="isAnnulating">
+          @if (isAnnulating) {
+            <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
+            Annulation...
+          } @else {
+            Confirmer l'annulation
+          }
+        </button>
+      </div>
+    }
+  </div>
+</div>

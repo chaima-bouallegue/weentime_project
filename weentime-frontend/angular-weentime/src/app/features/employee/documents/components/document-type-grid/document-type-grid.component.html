@@ -1,0 +1,27 @@
+<div class="documents-grid">
+  @if (isLoading) {
+    @for (_ of skeletonItems; track $index) {
+      <div class="doc-card-skeleton animate-pulse"></div>
+    }
+  } @else {
+    @for (t of types; track t.type; let i = $index) {
+      <div class="doc-card group" (click)="onCardClick(t.type)">
+        <div class="doc-card-overlay"></div>
+        <div class="doc-card-body">
+          <div class="doc-icon-box" [style.--icon-color]="t.couleur || '#6366f1'">
+            <lucide-angular [img]="getIcon(t.icone || 'default')" size="24"></lucide-angular>
+          </div>
+          <div class="doc-info">
+            <h3 class="doc-title">{{ t.label }}</h3>
+            <p class="doc-desc">Délai estimé : {{ t.delaiEstime }}</p>
+          </div>
+          <div class="doc-action">
+            <div class="action-circle">
+              <lucide-angular [img]="iconArrow" size="16"></lucide-angular>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

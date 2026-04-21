@@ -1,0 +1,225 @@
+<div class="chat-widget" [attr.data-role]="assistantRole().toLowerCase()">
+  <div
+    class="chat-panel-shell"
+    cdkDrag
+    [cdkDragDisabled]="!isOpen()"
+    [cdkDragFreeDragPosition]="panelPosition()"
+    (cdkDragEnded)="onDragEnd($event)"
+  >
+    <section
+      class="chat-panel"
+      [class.chat-panel--open]="isOpen()"
+      [attr.aria-hidden]="!isOpen()"
+    >
+      <header class="chat-panel__header" cdkDragHandle>
+        <div class="chat-panel__identity">
+          <div class="chat-panel__avatar">
+            <lucide-icon name="sparkles" [size]="18"></lucide-icon>
+          </div>
+          <div class="chat-panel__title-group">
+            <span class="chat-panel__title">{{ panelTitle() }}</span>
+            <span class="chat-panel__subtitle">{{ statusLabel() }}</span>
+          </div>
+        </div>
+
+        <div class="chat-panel__header-actions">
+          <button
+            type="button"
+            class="chat-panel__mode-toggle"
+            (click)="toggleHandsFreeMode()"
+            [attr.aria-pressed]="handsFreeMode()"
+            aria-label="Basculer le mode vocal automatique"
+          >
+            <lucide-icon name="mic" [size]="14"></lucide-icon>
+            <span>{{ handsFreeMode() ? 'Auto' : 'Manuel' }}</span>
+          </button>
+          <button
+            type="button"
+            class="chat-panel__icon"
+            aria-label="Deplacer le panneau"
+          >
+            <lucide-icon name="move" [size]="16"></lucide-icon>
+          </button>
+          <button
+            type="button"
+            class="chat-panel__icon"
+            (click)="closeChat()"
+            aria-label="Fermer le chat"
+          >
+            <lucide-icon name="x" [size]="18"></lucide-icon>
+          </button>
+        </div>
+      </header>
+
+      <div class="chat-panel__status-strip">
+        <span class="chat-panel__status-pill chat-panel__status-pill--accent">{{ roleLabel() }}</span>
+        <span class="chat-panel__status-pill">{{ handsFreeMode() ? 'Voice auto' : 'Mode manuel' }}</span>
+        <span class="chat-panel__status-pill chat-panel__status-pill--ghost">
+          {{ speaking() ? 'Audio en cours' : 'Temps reel actif' }}
+        </span>
+      </div>
+
+      <div class="chat-panel__quick-actions">
+        <button
+          *ngFor="let prompt of quickActions()"
+          type="button"
+          class="chat-panel__quick-action"
+          (click)="sendQuickAction(prompt)"
+          [disabled]="loading() || recording()"
+        >
+          {{ prompt }}
+        </button>
+      </div>
+
+      <div class="chat-panel__messages" #messageContainer>
+        <div *ngIf="loadingHistory()" class="chat-panel__loading-history">
+          <lucide-icon name="loader-2" [size]="16" class="is-spinning"></lucide-icon>
+          <span>Chargement de l'historique...</span>
+        </div>
+
+        <article
+          *ngFor="let message of messages(); trackBy: trackByMessageId"
+          class="message-row"
+          [class.message-row--user]="message.sender === 'user'"
+          [class.message-row--assistant]="message.sender === 'assistant'"
+          [class.message-row--system]="message.sender === 'system'"
+        >
+          <div class="message-bubble" [class.message-bubble--error]="message.isError">
+            <div class="message-bubble__meta">
+              <span class="message-bubble__sender">
+                {{
+                  message.sender === 'user'
+                    ? 'Vous'
+                    : message.sender === 'assistant'
+                      ? 'Assistant RH'
+                      : 'Systeme'
+                }}
+              </span>
+              <span class="message-bubble__time">{{ formatTimestamp(message.timestamp) }}</span>
+            </div>
+
+            <p class="message-bubble__text">{{ message.text }}</p>
+
+            <section *ngIf="message.workflow?.steps?.length" class="message-bubble__workflow">
+              <div class="message-bubble__workflow-head">
+                <span>{{ workflowStatusLabel(message.workflow) }}</span>
+                <span>{{ message.workflow?.name || message.intent }}</span>
+              </div>
+
+              <div
+                *ngFor="let step of message.workflow?.steps"
+                class="workflow-step"
+                [attr.data-status]="step.status"
+              >
+                <lucide-icon
+                  [name]="workflowStepIcon(step.status)"
+                  [size]="15"
+                  [class.is-spinning]="step.status === 'running'"
+                ></lucide-icon>
+                <div class="workflow-step__body">
+                  <span class="workflow-step__label">{{ step.label }}</span>
+                  <span *ngIf="step.text" class="workflow-step__text">{{ step.text }}</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="message-bubble__footer">
+              <span *ngIf="message.intent" class="message-bubble__tag">{{ message.intent }}</span>
+              <div class="message-bubble__actions">
+                <button
+                  *ngIf="message.actionLabel && message.actionTarget"
+                  type="button"
+                  class="message-bubble__cta"
+                  (click)="runMessageAction(message)"
+                >
+                  <lucide-icon [name]="message.actionKind === 'link' ? 'external-link' : message.actionKind === 'confirm' ? 'check' : 'arrow-right'" [size]="14"></lucide-icon>
+                  <span>{{ message.actionLabel }}</span>
+                </button>
+
+                <button
+                  *ngIf="message.sender === 'assistant'"
+                  type="button"
+                  class="message-bubble__action"
+                  (click)="playMessageAudio(message)"
+                  aria-label="Ecouter la reponse"
+                >
+                  <lucide-icon name="play" [size]="14"></lucide-icon>
+                </button>
+
+                <button
+                  *ngIf="message.retryable && (message.retryPayload || message.retryKind === 'voice')"
+                  type="button"
+                  class="message-bubble__retry"
+                  (click)="retryFailedMessage(message)"
+                  [disabled]="loading()"
+                >
+                  <lucide-icon name="rotate-ccw" [size]="14"></lucide-icon>
+                  <span>Reessayer</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article *ngIf="loading()" class="message-row message-row--assistant">
+          <div class="message-bubble message-bubble--typing">
+            <lucide-icon name="loader-2" [size]="16" class="is-spinning"></lucide-icon>
+            <span class="message-bubble__typing-label">{{ statusLabel() }}</span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+        </article>
+      </div>
+
+      <div *ngIf="liveTranscript()" class="chat-panel__live-transcript">
+        <span>Transcription partielle</span>
+        <p>{{ liveTranscript() }}</p>
+      </div>
+
+      <div class="chat-panel__composer">
+        <textarea
+          class="chat-panel__input"
+          rows="1"
+          placeholder="Posez une question RH, ou parlez pour lancer une action..."
+          [ngModel]="input()"
+          (ngModelChange)="onInputChange($event)"
+          (keydown)="onInputKeydown($event)"
+          [disabled]="loading() || recording()"
+        ></textarea>
+
+        <button
+          type="button"
+          class="chat-panel__voice"
+          [class.chat-panel__voice--recording]="recording()"
+          (click)="toggleRecording()"
+          [disabled]="loading()"
+          aria-label="Enregistrer un message vocal"
+        >
+          <lucide-icon [name]="recording() ? 'square' : 'mic'" [size]="18"></lucide-icon>
+        </button>
+
+        <button
+          type="button"
+          class="chat-panel__send"
+          (click)="sendMessage()"
+          [disabled]="!canSend()"
+          aria-label="Envoyer"
+        >
+          <lucide-icon name="send-horizontal" [size]="18"></lucide-icon>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <button
+    type="button"
+    class="chat-toggle"
+    (click)="toggleChat()"
+    [attr.aria-expanded]="isOpen()"
+    aria-label="Ouvrir le chat RH"
+  >
+    <span class="chat-toggle__halo"></span>
+    <lucide-icon [name]="isOpen() ? 'x' : 'message-square'" [size]="22"></lucide-icon>
+  </button>
+</div>

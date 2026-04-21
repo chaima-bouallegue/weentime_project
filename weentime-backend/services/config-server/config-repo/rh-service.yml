@@ -1,0 +1,72 @@
+server:
+  port: ${SERVER_PORT:8092}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${RH_DB_NAME:${DB_NAME:rh_db}}
+    username: ${RH_DB_USERNAME:${DB_USERNAME:weentime}}
+    password: ${RH_DB_PASSWORD:${DB_PASSWORD:170502}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      initialization-fail-timeout: 0
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    connect-retries: 2
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+management:
+  health:
+    db:
+      enabled: true
+
+minio:
+  endpoint: ${MINIO_URL:http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET:weentime-justificatifs}
+
+integration:
+  organisation-service:
+    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8090}}
+  presence-service:
+    url: ${PRESENCE_SERVICE_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8093}}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      organisationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+      presenceService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      organisationService:
+        timeout-duration: 3s
+      presenceService:
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.weentimeapp: INFO

@@ -1,0 +1,110 @@
+<div class="page-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-main">
+      <div class="title-group">
+        <h1 class="page-title">Gestion des documents RH</h1>
+        <p class="page-subtitle">Suivez et générez les documents officiels pour vos collaborateurs</p>
+      </div>
+      
+      <div class="header-actions">
+        <!-- View Toggle -->
+        <div class="view-toggle">
+          <button 
+            [class.active]="vueActive() === 'kanban'" 
+            (click)="vueActive.set('kanban')"
+            title="Vue Kanban"
+          >
+            <lucide-icon name="kanban" size="18"></lucide-icon>
+          </button>
+          <button 
+            [class.active]="vueActive() === 'liste'" 
+            (click)="vueActive.set('liste')"
+            title="Vue Liste"
+          >
+            <lucide-icon name="list" size="18"></lucide-icon>
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-box">
+          <lucide-icon name="search" size="18"></lucide-icon>
+          <input 
+            type="text" 
+            placeholder="Rechercher un employé ou document..." 
+            [(ngModel)]="searchQuery"
+          >
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats Section -->
+  <app-document-stats [stats]="stats()"></app-document-stats>
+
+  <!-- Main Content Area -->
+  <main class="content-area">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <lucide-icon name="loader-2" size="48" class="animate-spin text-indigo-500"></lucide-icon>
+        <p>Chargement des demandes...</p>
+      </div>
+    } @else {
+      @if (vueActive() === 'kanban') {
+        <app-document-kanban 
+          [demandes]="demandesFiltrees()"
+          (selectDemande)="onSelectDemande($event)"
+          (generateAI)="onGenerateAI($event)"
+          (uploadDoc)="onUploadDoc($event)"
+          (rejectDemande)="onRejectDemande($event)"
+          (viewDoc)="onViewDoc($event)"
+        ></app-document-kanban>
+      } @else {
+        <app-document-list-rh
+          [demandes]="demandesFiltrees()"
+          (selectDemande)="onSelectDemande($event)"
+          (generateAI)="onGenerateAI($event)"
+          (uploadDoc)="onUploadDoc($event)"
+          (rejectDemande)="onRejectDemande($event)"
+          (viewDoc)="onViewDoc($event)"
+        ></app-document-list-rh>
+      }
+    }
+  </main>
+
+  <!-- Modals & Panels -->
+  @if (showDetailPanel()) {
+    <app-document-detail-panel
+      [demande]="demandeSelectionnee()"
+      (close)="showDetailPanel.set(false)"
+      (generateAI)="onGenerateAI($event); showDetailPanel.set(false)"
+      (uploadDoc)="onUploadDoc($event); showDetailPanel.set(false)"
+      (rejectDemande)="onRejectDemande($event); showDetailPanel.set(false)"
+      (viewDoc)="onViewDoc($event)"
+    ></app-document-detail-panel>
+  }
+
+  @if (showAIModal()) {
+    <app-ai-generation-modal
+      [demande]="demandeSelectionnee()"
+      (close)="showAIModal.set(false)"
+      (validate)="handleAIGeneration($event)"
+    ></app-ai-generation-modal>
+  }
+
+  @if (showUploadModal()) {
+    <app-upload-document-modal
+      [demande]="demandeSelectionnee()"
+      (close)="showUploadModal.set(false)"
+      (confirm)="handleUpload($event)"
+    ></app-upload-document-modal>
+  }
+
+  @if (showRejectModal()) {
+    <app-reject-modal
+      [demande]="demandeSelectionnee()"
+      (close)="showRejectModal.set(false)"
+      (confirm)="handleReject($event)"
+    ></app-reject-modal>
+  }
+</div>

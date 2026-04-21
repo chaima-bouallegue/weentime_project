@@ -1,0 +1,24 @@
+<section class="stats-section">
+  <div class="section-header">
+    <h2 class="section-title">Statistiques de la semaine</h2>
+  </div>
+
+  <div *ngIf="isLoading(); else statsContent">
+    <div class="stats-grid">
+      <div class="stat-card skeleton" *ngFor="let i of [1, 2, 3, 4]"></div>
+    </div>
+  </div>
+
+  <ng-template #statsContent>
+    <div class="stats-grid">
+      <div class="stat-card" *ngFor="let stat of stats(); trackBy: trackByLabel">
+        <div class="stat-badge" [style.background-color]="stat.backgroundColor">
+          <lucide-icon [name]="stat.icon"></lucide-icon>
+        </div>
+        <div class="stat-label">{{ stat.label }}</div>
+        <div class="stat-value">{{ stat.value }}</div>
+        <div class="stat-unit">{{ stat.unit }}</div>
+      </div>
+    </div>
+  </ng-template>
+</section>

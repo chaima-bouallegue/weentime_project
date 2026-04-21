@@ -1,0 +1,70 @@
+<div class="drawer-overlay" (click)="close.emit()">
+  <div class="drawer-content" (click)="$event.stopPropagation()">
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">{{ equipe ? 'Modifier' : 'Nouvelle' }} équipe</h2>
+        <p class="drawer-subtitle">{{ equipe ? "Modifiez les informations de l'équipe." : "Créez une nouvelle équipe." }}</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+      <div class="form-scroll">
+        <div class="form-field">
+          <label for="eq-nom">Nom de l'équipe *</label>
+          <div class="input-wrapper" [class.error]="form.get('nom')?.invalid && form.get('nom')?.touched">
+            <lucide-icon name="git-branch" size="18" class="field-icon"></lucide-icon>
+            <input id="eq-nom" type="text" formControlName="nom" placeholder="ex: Frontend">
+          </div>
+          @if (form.get('nom')?.invalid && form.get('nom')?.touched) {
+            <span class="error-msg">Nom requis (min. 2 caractères)</span>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="eq-desc">Description</label>
+          <div class="input-wrapper align-top">
+            <lucide-icon name="file-text" size="18" class="field-icon"></lucide-icon>
+            <textarea id="eq-desc" formControlName="description" rows="3" placeholder="Description (optionnel)"></textarea>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="eq-dept">Département *</label>
+          <div class="input-wrapper" [class.error]="form.get('departementId')?.invalid && form.get('departementId')?.touched">
+            <lucide-icon name="building" size="18" class="field-icon"></lucide-icon>
+            <select id="eq-dept" formControlName="departementId">
+              <option [ngValue]="null" disabled>Sélectionner un département</option>
+              @for (d of departements; track d.id) {
+                <option [ngValue]="d.id">{{ d.nom }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="eq-manager">Manager (optionnel)</label>
+          <div class="input-wrapper">
+            <lucide-icon name="user-cog" size="18" class="field-icon"></lucide-icon>
+            <select id="eq-manager" formControlName="responsableId">
+              <option [ngValue]="null">Aucun manager</option>
+              @for (m of managers; track m.id) {
+                <option [ngValue]="m.id">{{ m.prenom }} {{ m.nom }} — {{ m.poste }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn-ghost" (click)="close.emit()" [disabled]="isSubmitting()">Annuler</button>
+        <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
+          <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20" [class.animate-spin]="isSubmitting()"></lucide-icon>
+          <span>{{ equipe ? 'Enregistrer' : 'Créer' }}</span>
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

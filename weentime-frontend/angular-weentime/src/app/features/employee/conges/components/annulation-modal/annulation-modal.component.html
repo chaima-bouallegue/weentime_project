@@ -1,0 +1,51 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content animate-pop-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="icon-warning">
+        <lucide-angular [img]="iconAlert" size="24"></lucide-angular>
+      </div>
+      <h3>Confirmer l'annulation</h3>
+      <button class="close-modal-btn" (click)="close.emit()" [disabled]="isAnnulating">
+        <lucide-angular [img]="iconX" size="20"></lucide-angular>
+      </button>
+    </div>
+
+    @if (demande) {
+      <div class="modal-body">
+        <p class="warning-text">
+          Êtes-vous sûr de vouloir annuler cette demande de congé ? 
+          <span class="highlight">Cette action est irréversible.</span>
+        </p>
+
+        <div class="request-preview">
+          <div class="preview-item">
+            <span class="label">Type de congé</span>
+            <span class="value">{{ demande.typeCongeNom }}</span>
+          </div>
+          <div class="preview-item">
+            <span class="label">Dates</span>
+            <span class="value">Du {{ demande.dateDebut | date:'dd/MM' }} au {{ demande.dateFin | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="preview-item">
+            <span class="label">Durée totale</span>
+            <span class="value font-black text-indigo-500">{{ demande.nombreJours }} jours</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="close.emit()" [disabled]="isAnnulating">
+          Garder la demande
+        </button>
+        <button class="btn-danger" (click)="confirm.emit(demande.id)" [disabled]="isAnnulating">
+          @if (isAnnulating) {
+            <lucide-angular [img]="iconLoader" size="18" class="animate-spin"></lucide-angular>
+            Annulation...
+          } @else {
+            Confirmer l'annulation
+          }
+        </button>
+      </div>
+    }
+  </div>
+</div>

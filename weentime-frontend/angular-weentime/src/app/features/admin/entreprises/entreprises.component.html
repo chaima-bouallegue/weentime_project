@@ -1,0 +1,93 @@
+<div class="rh-bento-container fade-in">
+  <!-- Bento Hero Header -->
+  <header class="dashboard-hero mb-8">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#3b82f6'"></div>
+      
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-blue-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-blue-200 dark:shadow-none">
+              Administration
+            </span>
+          </div>
+          
+          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
+            Gestion des Entreprises
+          </h1>
+          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            Configurez et supervisez la flotte complète des organisations clientes. {{ entreprises().length }} sociétés référencées.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+           <button class="hero-btn secondary" (click)="loadEntreprises()" [disabled]="loading()">
+              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="loading()"></lucide-angular>
+              <span>Actualiser</span>
+           </button>
+           <button class="hero-btn primary-blue" (click)="openCreateForm()">
+              <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
+              <span>Nouvelle Entreprise</span>
+           </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Left Column: List -->
+    <section class="lg:col-span-4 flex flex-col gap-6">
+      <app-entreprise-list
+        class="block h-full"
+        [entreprises]="filteredEntreprises()"
+        [loading]="loading()"
+        [selectedId]="selectedId()"
+        (search)="searchQuery.set($event)"
+        (filter)="statusFilter.set($event)"
+        (select)="onSelect($event)"
+        (edit)="openEditForm($event)"
+        (delete)="openDeleteConfirm($event)"
+      ></app-entreprise-list>
+    </section>
+
+    <!-- Right Column: Detail -->
+    <section class="lg:col-span-8 flex flex-col gap-6">
+      @if (selectedId()) {
+        <app-entreprise-detail
+          [entreprise]="selectedEntreprise()"
+          (close)="selectedId.set(null)"
+          (edit)="openEditForm($event)"
+          (delete)="openDeleteConfirm($event)"
+        ></app-entreprise-detail>
+      } @else {
+        <div class="bento-card flex-1 min-h-[500px] flex flex-col items-center justify-center p-10 text-center border-dashed border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          <div class="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+             <lucide-angular [img]="iconMouse" size="40"></lucide-angular>
+          </div>
+          <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Sélection requise</h3>
+          <p class="text-sm font-medium text-slate-500 max-w-sm">
+            Cliquez sur une entreprise dans la liste latérale pour consulter l'intégralité de sa fiche d'identité et de ses coordonnées.
+          </p>
+        </div>
+      }
+    </section>
+  </main>
+
+  <!-- Modals -->
+  @if (isFormOpen()) {
+    <app-entreprise-form
+      [entreprise]="entrepriseToEdit()"
+      (close)="isFormOpen.set(false)"
+      (saved)="onFormSaved()"
+    ></app-entreprise-form>
+  }
+
+  @if (isDeleteConfirmOpen()) {
+    <app-entreprise-delete-confirm
+      [entreprise]="entrepriseToDelete()"
+      (close)="isDeleteConfirmOpen.set(false)"
+      (deleted)="onDeleted()"
+    ></app-entreprise-delete-confirm>
+  }
+</div>

@@ -1,0 +1,287 @@
+<div class="stepper-page">
+
+  <!-- Back button -->
+  <button class="back-btn" (click)="close.emit()">
+    <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+    Retour à l'historique
+  </button>
+
+  <!-- Progress bar -->
+  <div class="stepper-header">
+    @for (step of steps; track step.num) {
+      <div class="step-item" [class.active]="currentStep() === step.num"
+           [class.done]="currentStep() > step.num">
+        <div class="step-circle">
+          @if (currentStep() > step.num) {
+            <lucide-icon name="check" [size]="14"></lucide-icon>
+          } @else {
+            {{ step.num }}
+          }
+        </div>
+        <span class="step-label">{{ step.label }}</span>
+      </div>
+      @if (step.num < 3) {
+        <div class="step-connector" [class.done]="currentStep() > step.num"></div>
+      }
+    }
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ÉTAPE 1 — Type d'absence
+  ═══════════════════════════════════════════════════════════════ -->
+  @if (currentStep() === 1) {
+    <div class="step-card fade-in">
+      <div class="step-card-header">
+        <span class="step-icon">🏷️</span>
+        <h2>Quel type d'absence souhaitez-vous déclarer ?</h2>
+        <p>Sélectionnez la catégorie qui correspond à votre situation.</p>
+      </div>
+
+      <div class="type-grid">
+        @for (type of absenceTypes; track type.code) {
+          <button
+            class="type-card"
+            [class.selected]="selectedType()?.code === type.code"
+            [class.impact-salary]="type.impactSalaire"
+            (click)="selectType(type)"
+            type="button"
+          >
+            <span class="tc-emoji">{{ type.emoji }}</span>
+            <span class="tc-label">{{ type.libelle }}</span>
+            <span class="tc-desc">{{ type.description }}</span>
+            <span class="tc-badge" [class]="'badge-' + type.badgeColor">
+              @if (type.impactSalaire) {
+                💸 Impact salaire
+              } @else {
+                ✅ Sans impact
+              }
+            </span>
+            @if (selectedType()?.code === type.code) {
+              <span class="tc-check"><lucide-icon name="check-circle" [size]="20"></lucide-icon></span>
+            }
+          </button>
+        }
+      </div>
+
+      <div class="step-actions">
+        <div></div>
+        <button class="btn-primary" [disabled]="!canGoStep2()" (click)="nextStep()">
+          Suivant
+          <lucide-icon name="arrow-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ÉTAPE 2 — Période
+  ═══════════════════════════════════════════════════════════════ -->
+  @if (currentStep() === 2) {
+    <div class="step-card fade-in">
+      <div class="step-card-header">
+        <span class="step-icon">📅</span>
+        <h2>Quelle est la période d'absence ?</h2>
+        <p>Indiquez les dates de début et de fin.</p>
+      </div>
+
+      <!-- Recap type sélectionné -->
+      <div class="selected-type-recap">
+        <span>{{ selectedType()?.emoji }}</span>
+        <span>{{ selectedType()?.libelle }}</span>
+      </div>
+
+      <form [formGroup]="periodeForm" class="periode-form">
+        <div class="date-row">
+          <div class="field-group">
+            <label class="field-label">Date de début</label>
+            <input
+              id="dateDebut"
+              type="date"
+              formControlName="dateDebut"
+              class="form-input"
+            />
+          </div>
+          <div class="date-arrow"><lucide-icon name="arrow-right" [size]="20"></lucide-icon></div>
+          <div class="field-group">
+            <label class="field-label">Date de fin</label>
+            <input
+              id="dateFin"
+              type="date"
+              formControlName="dateFin"
+              class="form-input"
+            />
+          </div>
+        </div>
+
+        <!-- Durée calculée en temps réel -->
+        @if (dureeJours() > 0) {
+          <div class="duree-chip">
+            <lucide-icon name="clock" [size]="16"></lucide-icon>
+            <strong>{{ dureeJours() }}</strong>
+            jour{{ dureeJours() > 1 ? 's' : '' }} calendaire{{ dureeJours() > 1 ? 's' : '' }}
+          </div>
+        }
+
+        @if (dateError()) {
+          <div class="alert-error">
+            <lucide-icon name="alert-triangle" [size]="16"></lucide-icon>
+            {{ dateError() }}
+          </div>
+        }
+      </form>
+
+      <div class="step-actions">
+        <button class="btn-secondary" (click)="prevStep()">
+          <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+          Retour
+        </button>
+        <button class="btn-primary" [disabled]="!canGoStep3()" (click)="nextStep()">
+          Suivant
+          <lucide-icon name="arrow-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ÉTAPE 3 — Justificatif & Motif
+  ═══════════════════════════════════════════════════════════════ -->
+  @if (currentStep() === 3) {
+    <div class="step-card fade-in">
+      <div class="step-card-header">
+        <span class="step-icon">📎</span>
+        <h2>Justificatif & Motif</h2>
+        <p>Joignez un document et précisez le motif si nécessaire.</p>
+      </div>
+
+      <!-- Drop zone -->
+      <div
+        class="drop-zone"
+        [class.drag-over]="isDragOver()"
+        [class.has-file]="uploadedFile()"
+        [class.uploading]="uploadProgress() === 'uploading'"
+        [class.upload-done]="uploadProgress() === 'done'"
+        [class.upload-error]="uploadProgress() === 'error'"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+      >
+        @if (!uploadedFile()) {
+          <div class="drop-zone-idle">
+            <div class="drop-icon">☁️</div>
+            <p class="drop-title">Glissez votre fichier ici</p>
+            <p class="drop-sub">ou <label class="drop-link" for="fileInput">parcourir</label></p>
+            <p class="drop-hint">PDF, JPG, PNG — max 5 Mo</p>
+            <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png"
+                   hidden (change)="onFileSelect($event)" />
+          </div>
+        } @else {
+          <div class="file-preview">
+            @if (isImageFile()) {
+              <img [src]="getFileObjectUrl()" alt="Aperçu" class="preview-img" />
+            } @else {
+              <div class="pdf-icon">📄</div>
+            }
+            <div class="file-info">
+              <span class="file-name">{{ uploadedFile()!.name }}</span>
+              <span class="file-size">{{ (uploadedFile()!.size / 1024 / 1024).toFixed(2) }} Mo</span>
+              @if (uploadProgress() === 'uploading') {
+                <span class="upload-status uploading">⏳ Upload en cours...</span>
+              } @else if (uploadProgress() === 'done') {
+                <span class="upload-status done">✅ Uploadé avec succès</span>
+              } @else if (uploadProgress() === 'error') {
+                <span class="upload-status error">❌ Échec de l'upload</span>
+              }
+            </div>
+            <button class="remove-file" (click)="removeFile()" type="button">
+              <lucide-icon name="x" [size]="16"></lucide-icon>
+            </button>
+          </div>
+        }
+        @if (selectedType()?.requireJustificatif) {
+          <p class="required-hint">
+            <lucide-icon name="info" [size]="14"></lucide-icon>
+            Justificatif obligatoire pour ce type d'absence
+          </p>
+        }
+      </div>
+
+      <!-- Motif -->
+      <form [formGroup]="motifForm">
+        <div class="field-group mt-4">
+          <label class="field-label">
+            Motif
+            <span class="optional">(optionnel — min. 10 caractères)</span>
+          </label>
+          <textarea
+            id="motif"
+            formControlName="motif"
+            class="form-textarea"
+            rows="4"
+            placeholder="Décrivez brièvement la raison de votre absence..."
+          ></textarea>
+          <span class="char-counter" [class.over-min]="motifLength() >= 10">
+            {{ motifLength() }} / 1000
+          </span>
+          @if (motifLength() > 0 && motifLength() < 10) {
+            <span class="field-error">Le motif doit faire au moins 10 caractères</span>
+          }
+        </div>
+      </form>
+
+      <!-- Récapitulatif -->
+      <div class="recap-card">
+        <h4 class="recap-title">📋 Récapitulatif</h4>
+        <div class="recap-grid">
+          <div class="recap-item">
+            <span class="recap-key">Type</span>
+            <span class="recap-val">{{ selectedType()?.emoji }} {{ selectedType()?.libelle }}</span>
+          </div>
+          <div class="recap-item">
+            <span class="recap-key">Début</span>
+            <span class="recap-val">{{ periodeForm.value.dateDebut | date:'dd MMM yyyy':'':'fr' }}</span>
+          </div>
+          <div class="recap-item">
+            <span class="recap-key">Fin</span>
+            <span class="recap-val">{{ periodeForm.value.dateFin | date:'dd MMM yyyy':'':'fr' }}</span>
+          </div>
+          <div class="recap-item">
+            <span class="recap-key">Durée</span>
+            <span class="recap-val">{{ dureeJours() }} jour{{ dureeJours() > 1 ? 's' : '' }}</span>
+          </div>
+          <div class="recap-item">
+            <span class="recap-key">Impact salaire</span>
+            <span class="recap-val" [class.impact-yes]="selectedType()?.impactSalaire">
+              {{ selectedType()?.impactSalaire ? '💸 Oui' : '✅ Non' }}
+            </span>
+          </div>
+          <div class="recap-item">
+            <span class="recap-key">Justificatif</span>
+            <span class="recap-val">{{ uploadedFile() ? '📎 ' + uploadedFile()!.name : 'Aucun' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn-secondary" (click)="prevStep()">
+          <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+          Retour
+        </button>
+        <button
+          class="btn-submit"
+          [disabled]="!canSubmit() || submitting()"
+          (click)="onSubmit()"
+        >
+          @if (submitting()) {
+            <span class="spinner"></span>
+            Envoi en cours...
+          } @else {
+            <lucide-icon name="send" [size]="16"></lucide-icon>
+            Soumettre ma déclaration
+          }
+        </button>
+      </div>
+    </div>
+  }
+
+</div>

@@ -1,0 +1,149 @@
+.teletravail-historique {
+  /* --- Filters --- */
+  .filter-chip {
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    .label {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: #64748b;
+    }
+    
+    .count {
+      font-size: 0.75rem;
+      font-weight: 900;
+      color: #94a3b8;
+      background: rgba(0, 0, 0, 0.03);
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    &.active {
+      background: #4f46e5;
+      border-color: #4f46e5;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+      
+      .label { color: white; }
+      .count { 
+        color: #4f46e5; 
+        background: white;
+      }
+    }
+  }
+
+  .dark .filter-chip {
+    border-color: rgba(255, 255, 255, 0.05);
+    .label { color: #94a3b8; }
+    .count { background: rgba(255, 255, 255, 0.05); color: #64748b; }
+
+    &:hover { background: rgba(255, 255, 255, 0.05); }
+
+    &.active {
+      background: #4f46e5;
+      .label { color: white; }
+      .count { background: white; color: #4f46e5; }
+    }
+  }
+
+  /* --- Cards --- */
+  .teletravail-item-card {
+    background: white;
+    padding: 1.25rem 1.5rem;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateX(4px);
+      border-color: rgba(79, 70, 229, 0.2);
+      box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+    }
+
+    .type-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* --- Status Pills --- */
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+
+      &.warning { background: #fffbeb; color: #b45309; }
+      &.indigo { background: #eef2ff; color: #4338ca; }
+      &.success { background: #ecfdf5; color: #047857; }
+      &.danger { background: #fef2f2; color: #b91c1c; }
+      &.gray { background: #f8fafc; color: #475569; }
+    }
+  }
+
+  .dark .teletravail-item-card {
+    background: rgba(30, 41, 59, 0.4);
+    border-color: rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      background: rgba(30, 41, 59, 0.6);
+      border-color: rgba(79, 70, 229, 0.4);
+    }
+
+    .status-pill {
+      &.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      &.indigo { background: rgba(79, 70, 229, 0.1); color: #818cf8; }
+      &.success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      &.danger { background: rgba(244, 63, 94, 0.1); color: #fb7185; }
+      &.gray { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+    }
+  }
+
+  /* --- Action Buttons --- */
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: transparent;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    &.danger:hover {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+  }
+
+  .dark .icon-btn {
+    color: #94a3b8;
+    &:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+    &.danger:hover { background: rgba(244, 63, 94, 0.1); color: #fb7185; }
+  }
+}

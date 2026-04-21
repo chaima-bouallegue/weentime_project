@@ -1,0 +1,259 @@
+<div class="presence-page">
+  <div class="page-aura page-aura-left"></div>
+  <div class="page-aura page-aura-right"></div>
+
+  <section class="hero-shell">
+    <div class="hero-copy">
+      <span class="eyebrow">Attendance Control</span>
+      <h1>Pointage temps reel, fiable jusqu'a la base.</h1>
+
+    </div>
+
+    <button type="button" class="refresh-chip" [disabled]="presenceService.isLoading()" (click)="onRefresh()">
+      <i-lucide name="refresh-cw" class="icon" [class.spin]="presenceService.isLoading()"></i-lucide>
+      <span>{{ presenceService.isLoading() ? 'Actualisation...' : 'Actualiser' }}</span>
+    </button>
+  </section>
+
+  @if (presenceService.isLoadingToday() && !presenceService.today()) {
+    <section class="hero-card skeleton-card">
+      <div class="skeleton-line skeleton-pill"></div>
+      <div class="skeleton-line skeleton-title"></div>
+      <div class="skeleton-line skeleton-timer"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-panel"></div>
+        <div class="skeleton-panel"></div>
+        <div class="skeleton-panel"></div>
+      </div>
+    </section>
+  } @else {
+    <section class="hero-card">
+      <div class="card-noise"></div>
+
+      <div class="hero-topline">
+        <div class="status-pill" [class.working]="presenceService.uiState() === 'WORKING'" [class.finished]="presenceService.uiState() === 'FINISHED'">
+          <span class="status-dot"></span>
+          <span>{{ statusLabel() }}</span>
+        </div>
+
+        <div class="date-badge">
+          <i-lucide name="calendar-days" class="icon"></i-lucide>
+          <span>{{ longDate() }}</span>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <div class="hero-primary">
+          <div class="clock-block">
+            <span class="clock-caption">Heure locale</span>
+            <div class="clock-value">{{ currentTime() }}</div>
+          </div>
+
+          <div class="timer-block">
+            <span class="timer-caption">Compteur du jour</span>
+            <div class="timer-value">{{ presenceService.formattedTimer() }}</div>
+            <p class="timer-footnote">{{ timerFootnote() }}</p>
+          </div>
+
+          <div class="hero-actions">
+            <button
+              type="button"
+              class="primary-action"
+              [class.stop]="presenceService.uiState() === 'WORKING'"
+              [class.is-rippling]="isRippling()"
+              [disabled]="presenceService.isSubmitting()"
+              (click)="onPrimaryAction()"
+            >
+              <span class="button-ripple"></span>
+              @if (presenceService.isSubmitting()) {
+                <span class="button-spinner"></span>
+                <span>Traitement...</span>
+              } @else {
+                <i-lucide [name]="presenceService.uiState() === 'WORKING' ? 'square' : 'play'" class="icon"></i-lucide>
+                <span>{{ primaryLabel() }}</span>
+              }
+            </button>
+
+            <button type="button" class="secondary-action" [disabled]="presenceService.isLoading()" (click)="onRefresh()">
+              <i-lucide name="history" class="icon"></i-lucide>
+              <span>Synchroniser</span>
+            </button>
+          </div>
+
+          @if (presenceService.error()) {
+            <div class="feedback-banner error-banner">
+              <i-lucide name="triangle-alert" class="icon"></i-lucide>
+              <span>{{ presenceService.error() }}</span>
+            </div>
+          } @else if (presenceService.uiState() === 'WORKING') {
+            <div class="feedback-banner success-banner">
+              <i-lucide name="badge-check" class="icon"></i-lucide>
+              <span>Session ouverte et minuterie active. La page peut etre rechargee sans perdre l'etat.</span>
+            </div>
+          } @else if (presenceService.uiState() === 'FINISHED') {
+            <div class="feedback-banner neutral-banner">
+              <i-lucide name="sparkles" class="icon"></i-lucide>
+              <span>Journee cloturee. Le resume reste persistant et visible dans l'historique.</span>
+            </div>
+          }
+        </div>
+
+        <div class="hero-side">
+          <div class="metric-card">
+            <span class="metric-label">Check-in</span>
+            <strong>{{ presenceService.formattedTime().arrival }}</strong>
+            <small>Premiere entree enregistree</small>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Check-out</span>
+            <strong>{{ presenceService.formattedTime().departure }}</strong>
+            <small>Derniere sortie enregistree</small>
+          </div>
+
+          <div class="metric-card accent-card">
+            <span class="metric-label">Session active</span>
+            <strong>{{ activeSessionLabel() }}</strong>
+            <small>{{ activeSessionMeta() }}</small>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <section class="content-grid">
+    <article class="surface-card summary-card" [class.surface-hover]="presenceService.uiState() !== 'NOT_STARTED'">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Etat du jour</span>
+          <h2>Resume instantane</h2>
+        </div>
+        <i-lucide name="activity" class="section-icon"></i-lucide>
+      </div>
+
+      @if (presenceService.uiState() === 'NOT_STARTED') {
+        <div class="empty-cta">
+          <div class="empty-illustration">
+            <i-lucide name="timer-reset" class="icon"></i-lucide>
+          </div>
+          <h3>Commencez votre journee maintenant</h3>
+          <p>Declenchez votre premiere session pour lancer le compteur, alimenter l'historique et verifier la persistance.</p>
+          <button type="button" class="ghost-cta" [disabled]="presenceService.isSubmitting()" (click)="onPrimaryAction()">
+            <i-lucide name="play" class="icon"></i-lucide>
+            <span>Pointer</span>
+          </button>
+        </div>
+      } @else {
+        <div class="summary-grid">
+          <div class="summary-tile">
+            <span>Etat</span>
+            <strong>{{ statusLabel() }}</strong>
+          </div>
+          <div class="summary-tile">
+            <span>Duree</span>
+            <strong>{{ presenceService.formattedTimer() }}</strong>
+          </div>
+          <div class="summary-tile">
+            <span>Sessions</span>
+            <strong>{{ presenceService.today()?.sessions?.length ?? 0 }}</strong>
+          </div>
+          <div class="summary-tile">
+            <span>Source</span>
+            <strong>{{ (presenceService.today()?.source ?? 'WEB') | uppercase }}</strong>
+          </div>
+        </div>
+      }
+    </article>
+
+    <article class="surface-card stats-card surface-hover">
+      <div class="section-head">
+        <div>
+          <span class="section-kicker">Vue hebdomadaire</span>
+          <h2>Statistiques</h2>
+        </div>
+        <i-lucide name="bar-chart-3" class="section-icon"></i-lucide>
+      </div>
+
+      @if (presenceService.isLoadingStats() && !presenceService.stats()) {
+        <div class="stats-skeleton">
+          @for (item of [1, 2, 3, 4]; track item) {
+            <div class="stats-skeleton-tile"></div>
+          }
+        </div>
+      } @else {
+        <div class="stats-grid">
+          @for (stat of statsCards(); track stat.label) {
+            <div class="stats-tile">
+              <span>{{ stat.label }}</span>
+              <strong>{{ stat.value }}</strong>
+              <small>{{ stat.hint }}</small>
+            </div>
+          }
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="surface-card history-card surface-hover">
+    <div class="section-head">
+      <div>
+        <span class="section-kicker">Persistence</span>
+        <h2>Historique des sessions</h2>
+      </div>
+      <i-lucide name="logs" class="section-icon"></i-lucide>
+    </div>
+
+    @if (presenceService.isLoadingHistory() && presenceService.history().length === 0) {
+      <div class="history-skeleton">
+        @for (item of [1, 2, 3, 4]; track item) {
+          <div class="history-skeleton-row"></div>
+        }
+      </div>
+    } @else if (presenceService.history().length === 0) {
+      <div class="history-empty">
+        <div class="history-empty-icon">
+          <i-lucide name="archive-x" class="icon"></i-lucide>
+        </div>
+        <h3>Aucun pointage enregistre pour le moment</h3>
+        <p>Le premier check-in ajoutera instantanement une session ici, avec conservation apres rechargement.</p>
+      </div>
+    } @else {
+      <div class="history-list">
+        @for (session of presenceService.history(); track session.id; let index = $index) {
+          <article class="history-item" [style.animationDelay.ms]="index * 55">
+            <div class="history-item-main">
+              <div class="history-date">
+                <span class="history-date-day">{{ formatSessionDay(session.date) }}</span>
+                <small>{{ formatSessionDate(session.date) }}</small>
+              </div>
+
+              <div class="history-meta">
+                <div class="history-line">
+                  <span>Entree</span>
+                  <strong>{{ formatDateTime(session.checkInTime) }}</strong>
+                </div>
+                <div class="history-line">
+                  <span>Sortie</span>
+                  <strong>{{ session.checkOutTime ? formatDateTime(session.checkOutTime) : '--:--' }}</strong>
+                </div>
+                <div class="history-line">
+                  <span>Duree</span>
+                  <strong>{{ formatDuration(session.duration) }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="history-badges">
+              <span class="history-badge" [class.badge-open]="session.status === openStatus">
+                {{ session.status === openStatus ? 'OPEN' : 'CLOSED' }}
+              </span>
+              @if (session.lateArrival) {
+                <span class="history-badge badge-late">LATE</span>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </section>
+</div>

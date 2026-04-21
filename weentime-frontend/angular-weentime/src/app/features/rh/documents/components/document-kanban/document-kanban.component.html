@@ -1,0 +1,108 @@
+<div class="kanban-container">
+  @for (col of columns; track col.status) {
+    <div class="kanban-column">
+      <div class="column-header">
+        <h3 class="column-title">{{ col.label }}</h3>
+        <span class="count-badge">{{ getDemandesByStatus(col.status).length }}</span>
+      </div>
+
+      <div class="column-body">
+        @for (d of getDemandesByStatus(col.status); track d.id) {
+          <div class="kanban-card" (click)="selectDemande.emit(d)">
+            <!-- Card Header: User -->
+            <div class="card-header">
+              <div class="employe-info">
+                <div class="avatar" [style.background]="getAvatarColor(d.employe.nom)">
+                  {{ getInitials(d.employe.nom, d.employe.prenom) }}
+                </div>
+                <div class="user-meta">
+                  <span class="user-name">{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                  <span class="user-role">{{ d.employe.poste }}</span>
+                </div>
+              </div>
+              @if (isUrgent(d.dateCreation) && d.statut === 'EN_ATTENTE') {
+                <span class="urgent-indicator" title="Plus de 48h">
+                  <lucide-icon name="alert-triangle" size="14"></lucide-icon>
+                  URGENT
+                </span>
+              }
+            </div>
+
+            <!-- Card Body: Doc Type -->
+            <div class="card-body">
+              <div class="doc-type" [ngClass]="getTypeColor(d.type)">
+                <lucide-icon [name]="getTypeIcon(d.type)" size="18"></lucide-icon>
+                <span>{{ d.label }}</span>
+              </div>
+              <div class="date-info">
+                <lucide-icon name="calendar" size="14"></lucide-icon>
+                <span>Demandé le {{ d.dateCreation | date:'dd MMM yyyy':'':'fr' }}</span>
+              </div>
+            </div>
+
+            <!-- Progress Indicator for EN_COURS -->
+            @if (d.statut === 'EN_COURS') {
+              <div class="card-progress">
+                <div class="progress-label">En cours de traitement...</div>
+                <div class="mini-bar">
+                  <div class="bar-fill animate-pulse"></div>
+                </div>
+              </div>
+            }
+
+            <!-- AI Badge for PRET -->
+            @if (d.statut === 'PRET' && d.generatedByAI) {
+              <div class="ai-badge">
+                <lucide-icon name="sparkles" size="12"></lucide-icon>
+                <span>Généré par IA</span>
+              </div>
+            }
+
+            <!-- Card Actions -->
+            <div class="card-actions" (click)="$event.stopPropagation()">
+              @if (col.status === 'EN_ATTENTE') {
+                <div class="action-grid">
+                  <button class="btn-action generate" (click)="generateAI.emit(d)" title="Générer avec IA">
+                    <lucide-icon name="sparkles" size="16"></lucide-icon>
+                    <span>IA</span>
+                  </button>
+                  <button class="btn-action upload" (click)="uploadDoc.emit(d)" title="Uploader document">
+                    <lucide-icon name="upload" size="16"></lucide-icon>
+                    <span>Upload</span>
+                  </button>
+                  <button class="btn-action reject" (click)="rejectDemande.emit(d)" title="Refuser">
+                    <lucide-icon name="x" size="16"></lucide-icon>
+                  </button>
+                </div>
+              }
+
+              @if (col.status === 'EN_COURS') {
+                <div class="action-grid">
+                  <button class="btn-action generate" (click)="generateAI.emit(d)">
+                    <lucide-icon name="sparkles" size="16"></lucide-icon>
+                    <span>Finaliser via IA</span>
+                  </button>
+                  <button class="btn-action upload" (click)="uploadDoc.emit(d)">
+                    <lucide-icon name="upload" size="16"></lucide-icon>
+                    <span>Uploader</span>
+                  </button>
+                </div>
+              }
+
+              @if (col.status === 'PRET') {
+                <button class="btn-view" (click)="viewDoc.emit(d)">
+                  <lucide-icon name="eye" size="16"></lucide-icon>
+                  <span>Voir le document</span>
+                </button>
+              }
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-column">
+            <p>Aucune demande ici</p>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

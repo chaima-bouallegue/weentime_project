@@ -1,0 +1,183 @@
+<div class="profile-container fade-in">
+  <!-- Profile Hero Header -->
+  <section class="profile-hero mb-10">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#6366f1'"></div>
+      
+      <div class="relative z-10 flex flex-col md:flex-row items-center gap-10 p-10">
+        <!-- Avatar Section -->
+        <div class="relative group">
+          <div class="avatar-ring animate-pulse-slow"></div>
+          <app-profile-avatar 
+            [profile]="profile()" 
+            (avatarChanged)="onAvatarChanged($event)"
+            class="relative z-10"
+          ></app-profile-avatar>
+          <div class="camera-badge">
+            <lucide-angular [img]="iconCamera" size="14"></lucide-angular>
+          </div>
+        </div>
+
+        <!-- User Identity -->
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-indigo-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-200 dark:shadow-none">
+              {{ roleLabel() }}
+            </span>
+            <div class="status-pill" [class]="'status-' + (profile()?.statut ?? 'ACTIF').toLowerCase()">
+              <div class="status-dot"></div>
+              <span>{{ statusLabel() }}</span>
+            </div>
+          </div>
+
+          <h2 class="text-5xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">{{ fullName() }}</h2>
+          
+          <div class="flex flex-wrap items-center justify-center md:justify-start gap-6 text-sm font-bold text-slate-500 dark:text-slate-400">
+            @if (profile()?.entreprise) {
+              <div class="flex items-center gap-2">
+                <lucide-angular [img]="iconBuilding" size="16" class="text-indigo-400"></lucide-angular>
+                {{ profile()?.entreprise?.nom }}
+              </div>
+            }
+            <div class="flex items-center gap-2">
+              <lucide-angular [img]="iconCalendar" size="16" class="text-indigo-400"></lucide-angular>
+              Membre depuis {{ memberSince() }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex md:flex-col gap-3">
+          <button class="action-btn circle" title="Partager le profil">
+            <lucide-angular [img]="iconExternalLink" size="18"></lucide-angular>
+          </button>
+          <button class="action-btn circle" title="Options">
+            <lucide-angular [img]="iconMoreHorizontal" size="18"></lucide-angular>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="bento-layout grid grid-cols-12 gap-8">
+    <!-- Left: Navigation Sidebar (4 cols) -->
+    <aside class="col-span-12 lg:col-span-4">
+      <div class="bento-card sticky-sidebar p-6">
+        <div class="px-4 mb-6">
+          <h3 class="text-xs font-black uppercase tracking-widest text-slate-400">Paramètres</h3>
+        </div>
+        
+        <nav class="flex flex-col gap-2">
+          @for (tab of tabs; track tab.key) {
+            <button 
+              (click)="activeTab.set(tab.key)"
+              class="nav-tab group"
+              [class.active]="activeTab() === tab.key"
+            >
+              <div class="tab-icon">
+                <lucide-angular [img]="tab.key === 'info' ? iconUser : (tab.key === 'security' ? iconLock : iconActivity)" size="18"></lucide-angular>
+              </div>
+              <div class="flex-1 text-left">
+                <div class="font-black text-sm text-slate-700 dark:text-slate-200 group-hover:text-indigo-500 transition-colors">
+                  {{ tab.label }}
+                </div>
+                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                  {{ tab.key === 'info' ? 'Coordonnées & Poste' : (tab.key === 'security' ? 'Mot de passe & 2FA' : 'Historique de connexion') }}
+                </div>
+              </div>
+              <lucide-angular [img]="iconChevronRight" size="16" class="opacity-0 group-hover:opacity-100 transition-all"></lucide-angular>
+            </button>
+          }
+        </nav>
+
+        <!-- Help Box -->
+        <div class="mt-8 p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+          <div class="flex items-center gap-3 mb-4">
+            <lucide-angular [img]="iconSparkles" size="18" class="text-indigo-500"></lucide-angular>
+            <span class="text-xs font-black uppercase tracking-widest">Support RH</span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium leading-relaxed mb-4">
+            Une erreur dans vos informations ? Contactez votre gestionnaire RH.
+          </p>
+          <button class="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition-colors">
+            Ouvrir un ticket
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right: Content Area (8 cols) -->
+    <main class="col-span-12 lg:col-span-8">
+      <div class="bento-card p-10 min-h-[600px]">
+        @if (loading()) {
+          <div class="skeleton-grid">
+            <div class="h-10 bg-slate-50 dark:bg-slate-800 rounded-xl w-32 mb-8 animate-pulse"></div>
+            <div class="grid grid-cols-2 gap-6">
+              @for (i of [1,2,3,4,5,6]; track i) {
+                <div class="h-20 bg-slate-50 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="tab-view animate-in slide-in-from-bottom-4 duration-500">
+            @switch (activeTab()) {
+              @case ('info') {
+                <div class="mb-10">
+                  <h3 class="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                    <span class="w-2 h-10 bg-indigo-500 rounded-full"></span>
+                    Informations Personnelles
+                  </h3>
+                  <p class="text-sm text-slate-500 font-medium">Gérez vos détails personnels et professionnels.</p>
+                </div>
+                <app-profile-info [profile]="profile()" (profileUpdated)="onProfileUpdated($event)" />
+              }
+              
+              @case ('security') {
+                <div class="mb-10">
+                  <h3 class="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                    <span class="w-2 h-10 bg-indigo-500 rounded-full"></span>
+                    Sécurité & Accès
+                  </h3>
+                  <p class="text-sm text-slate-500 font-medium">Sécurisez votre compte WeenTime.</p>
+                </div>
+                
+                <div class="flex flex-col gap-12">
+                  <section class="bento-sub-card p-8 rounded-[32px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-3 mb-6">
+                      <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shadow-sm">
+                        <lucide-angular [img]="iconLock" size="20"></lucide-angular>
+                      </div>
+                      <h4 class="font-black text-slate-900 dark:text-white">Mot de passe</h4>
+                    </div>
+                    <app-profile-password />
+                  </section>
+                  
+                  <section class="bento-sub-card p-8 rounded-[32px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-3 mb-6">
+                      <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shadow-sm">
+                        <lucide-angular [img]="iconShield" size="20"></lucide-angular>
+                      </div>
+                      <h4 class="font-black text-slate-900 dark:text-white">Authentification Forte</h4>
+                    </div>
+                    <app-profile-two-factor [profile]="profile()" />
+                  </section>
+                </div>
+              }
+              
+              @case ('activity') {
+                <div class="mb-10">
+                  <h3 class="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3 mb-2">
+                    <span class="w-2 h-10 bg-indigo-500 rounded-full"></span>
+                    Journal d'Activité
+                  </h3>
+                  <p class="text-sm text-slate-500 font-medium">Historique de vos dernières connexions.</p>
+                </div>
+                <app-profile-activity />
+              }
+            }
+          </div>
+        }
+      </div>
+    </main>
+  </div>
+</div>

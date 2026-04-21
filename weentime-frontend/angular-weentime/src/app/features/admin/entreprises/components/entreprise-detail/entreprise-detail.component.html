@@ -1,0 +1,128 @@
+@if (entreprise) {
+  <div class="bento-card flex flex-col h-full bg-white dark:bg-slate-900 border-0 shadow-2xl relative overflow-hidden animate-slide-in">
+    <!-- Header Decorator -->
+    <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start relative z-10 shrink-0">
+      <div class="flex gap-4">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl flex items-center justify-center shrink-0">
+          <span class="text-2xl font-black text-white">
+            {{ entreprise.nom.substring(0, 2).toUpperCase() }}
+          </span>
+        </div>
+        <div>
+          <button class="lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-white mb-2 transition-colors" (click)="close.emit()">
+            <lucide-angular [img]="iconArrowLeft" size="18"></lucide-angular>
+          </button>
+          <h2 class="text-3xl font-black text-slate-900 dark:text-white mb-1">{{ entreprise.nom }}</h2>
+          <span class="status-pill-small" [class.success]="entreprise.statut === 'ACTIF'" [class.danger]="entreprise.statut !== 'ACTIF'">
+            {{ entreprise.statut === 'ACTIF' ? 'Ouvrée' : 'Fermée' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" (click)="edit.emit(entreprise)" title="Modifier les informations">
+          <lucide-angular [img]="iconEdit" size="18"></lucide-angular>
+        </button>
+        <button class="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 transition-colors" (click)="delete.emit(entreprise)" title="Supprimer la société">
+          <lucide-angular [img]="iconTrash" size="18"></lucide-angular>
+        </button>
+        <button class="hidden lg:flex w-10 h-10 rounded-full items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors" (click)="close.emit()" title="Fermer le panneau">
+          <lucide-angular [img]="iconX" size="20"></lucide-angular>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content internal Bento Grid -->
+    <div class="p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10 space-y-6">
+      
+      <!-- Identity block -->
+      <section class="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-700/50">
+           <lucide-angular [img]="iconBriefcase" size="20" class="text-blue-500"></lucide-angular>
+           <h4 class="text-lg font-black text-slate-900 dark:text-white">Identité Légale</h4>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="space-y-1">
+            <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">N° SIRET</span>
+            <p class="text-base font-bold text-slate-900 dark:text-white">{{ entreprise.siret }}</p>
+          </div>
+          <div class="space-y-1">
+            <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">Secteur</span>
+            <p class="text-base font-bold text-slate-900 dark:text-white">{{ entreprise.secteur || 'Non défini' }}</p>
+          </div>
+          
+          <div class="sm:col-span-2 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-4 flex items-center justify-between border border-indigo-100 dark:border-indigo-500/20">
+             <div>
+                <span class="text-[10px] uppercase tracking-widest font-black text-indigo-500">Code d'invitation Collaborateur</span>
+                <p class="text-lg font-black tracking-widest text-slate-900 dark:text-white mt-1 font-mono">{{ entreprise.codeInvitation }}</p>
+             </div>
+             <button (click)="copyCode(entreprise.codeInvitation || '')" class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:scale-105 transition-all">
+                <lucide-angular [img]="iconCopy" size="18"></lucide-angular>
+             </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contact block -->
+      <section class="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800">
+        <h4 class="text-lg font-black text-slate-900 dark:text-white mb-6">Canaux de communication</h4>
+        
+        <div class="space-y-4">
+           <div class="flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
+              <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+                 <lucide-angular [img]="iconMail" size="18"></lucide-angular>
+              </div>
+              <div class="flex-1 min-w-0">
+                 <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ entreprise.email || 'Aucune adresse e-mail' }}</p>
+                 <span class="text-[11px] font-medium text-slate-400">E-mail principal</span>
+              </div>
+           </div>
+
+           <div class="flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
+              <div class="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                 <lucide-angular [img]="iconPhone" size="18"></lucide-angular>
+              </div>
+              <div class="flex-1 min-w-0">
+                 <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ entreprise.telephone || 'Aucun numéro' }}</p>
+                 <span class="text-[11px] font-medium text-slate-400">Standard</span>
+              </div>
+           </div>
+
+           <div class="flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
+              <div class="w-10 h-10 rounded-full bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
+                 <lucide-angular [img]="iconExternal" size="18"></lucide-angular>
+              </div>
+              <div class="flex-1 min-w-0">
+                 @if (entreprise.siteWeb) {
+                   <a [href]="entreprise.siteWeb" target="_blank" class="text-sm font-bold text-purple-600 dark:text-purple-400 hover:underline truncate block w-full">
+                     {{ entreprise.siteWeb }}
+                   </a>
+                 } @else {
+                   <p class="text-sm font-bold text-slate-900 dark:text-white">Aucun domaine</p>
+                 }
+                 <span class="text-[11px] font-medium text-slate-400">Site Web</span>
+              </div>
+           </div>
+        </div>
+      </section>
+
+      <!-- Localisation block -->
+      <section class="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800">
+        <div class="flex items-start gap-4">
+           <div class="mt-1 w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+              <lucide-angular [img]="iconMap" size="16"></lucide-angular>
+           </div>
+           <div>
+              <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">Siège Social</span>
+              <p class="text-base font-medium leading-relaxed text-slate-900 dark:text-white mt-1.5">{{ entreprise.adresse || 'Aucune adresse renseignée.' }}</p>
+           </div>
+        </div>
+      </section>
+      
+    </div>
+  </div>
+}

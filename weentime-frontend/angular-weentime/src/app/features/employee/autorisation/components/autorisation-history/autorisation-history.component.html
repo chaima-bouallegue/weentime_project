@@ -1,0 +1,78 @@
+<div class="history-content">
+  @if (!demandes || demandes.length === 0) {
+    <div class="empty-status py-20 flex flex-col items-center text-center">
+      <div class="empty-icon-container mb-6">
+        <lucide-angular [img]="iconList" size="48"></lucide-angular>
+      </div>
+      <h3 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-2">Aucune demande trouvée</h3>
+      <p class="text-slate-500 max-w-xs">Vous n'avez pas encore effectué de demande d'autorisation de sortie.</p>
+    </div>
+  } @else {
+    <div class="requests-list">
+      @for (item of demandes; track item.id; let i = $index) {
+        <div class="request-item group fade-in" [style.animation-delay]="(i * 50) + 'ms'">
+          <div class="request-card">
+            <div class="card-left">
+              <div class="type-icon-wrapper" [style.--icon-color]="'#6366f1'">
+                <lucide-angular [img]="iconClock" size="20"></lucide-angular>
+              </div>
+              <div class="request-info">
+                <h4 class="request-title font-black text-slate-900 dark:text-white">{{ formatType(item.typeAutorisation) }}</h4>
+                <div class="request-meta">
+                  <span class="meta-item">
+                    <lucide-angular [img]="iconCalendar" size="12"></lucide-angular>
+                    {{ item.dateAutorisation | date:'dd MMM yyyy' }}
+                  </span>
+                  <span class="meta-item ml-3">
+                    <lucide-angular [img]="iconTimer" size="12"></lucide-angular>
+                    {{ item.heureDebut?.substring(0, 5) || '--:--' }} - {{ item.heureFin?.substring(0, 5) || '--:--' }}
+                    ({{ formatDuree(item.duree) }})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-right">
+              <div class="status-zone mr-6">
+                <!-- Inline Tag Style for Status -->
+                <span [class]="getStatusClass(item.statut)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors">
+                  <span class="w-1.5 h-1.5 rounded-full" [class]="getStatusDotClass(item.statut)"></span>
+                  {{ formatStatut(item.statut) }}
+                  @if (item.statut === 'EN_ATTENTE_MANAGER' && item.duree > 120) {
+                    <lucide-angular [img]="iconArrowRight" size="10" class="ml-1 opacity-50"></lucide-angular>
+                    <span class="text-[9px] opacity-70 uppercase tracking-tighter">RH</span>
+                  }
+                </span>
+              </div>
+              
+              <div class="actions-zone flex items-center gap-2">
+                <button class="icon-btn secondary" title="Détails">
+                  <lucide-angular [img]="iconEye" size="18"></lucide-angular>
+                </button>
+                @if (canCancel(item.statut)) {
+                  <button class="icon-btn danger" title="Annuler" [disabled]="cancellingId === item.id" (click)="cancelRequest.emit(item)">
+                    @if (cancellingId === item.id) {
+                      <lucide-angular [img]="iconLoader" size="18" class="animate-spin"></lucide-angular>
+                    } @else {
+                      <lucide-angular [img]="iconTrash" size="18"></lucide-angular>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+          
+          <!-- Motif Box -->
+          @if (item.motif) {
+            <div class="motif-box mt-3 group-hover:translate-x-1 transition-transform">
+              <div class="box-content flex gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <lucide-angular [img]="iconInfo" size="14" class="text-slate-400 flex-shrink-0"></lucide-angular>
+                <p class="leading-relaxed">{{ item.motif }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

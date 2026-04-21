@@ -1,0 +1,84 @@
+<div class="list-container">
+  <!-- Filters -->
+  <div class="filters-header">
+    <div class="filters-chips">
+      @for (f of filters; track f.value) {
+        <button 
+          class="filter-chip" 
+          [class.active]="currentFilter === f.value"
+          (click)="filterChange.emit(f.value)"
+        >
+          <span class="dot" [style.background-color]="f.color"></span>
+          {{ f.label }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="items-stack">
+    @if (isLoading) {
+      @for (i of [1,2,3,4,5]; track i) {
+        <div class="historique-item skeleton">
+          <div class="skeleton-icon"></div>
+          <div class="skeleton-content">
+            <div class="skeleton-title"></div>
+            <div class="skeleton-subtitle"></div>
+          </div>
+          <div class="skeleton-badge"></div>
+        </div>
+      }
+    } @else {
+      @for (demande of demandes; track demande.id; let i = $index) {
+        <div class="historique-item animate-in" [style.animation-delay]="i * 50 + 'ms'">
+          <div class="item-type-icon" [class]="(demande.typeCongeNom || 'annuel').toLowerCase().split(' ')[0]">
+            <lucide-angular [img]="getTypeIcon(demande.typeCongeNom)" size="20"></lucide-angular>
+          </div>
+
+          <div class="item-details">
+            <div class="item-header">
+              <span class="type-name">{{ demande.typeCongeNom || 'Congé' }}</span>
+              <span class="duration">{{ demande.nombreJours }} jours</span>
+            </div>
+            <div class="item-meta">
+              <span class="flex items-center gap-1.5">
+                <lucide-angular [img]="iconCalendar" size="12"></lucide-angular>
+                Du {{ demande.dateDebut | date:'dd/MM/yyyy' }} au {{ demande.dateFin | date:'dd/MM/yyyy' }}
+              </span>
+              <span class="separator text-slate-300">·</span>
+              <span class="created-at text-slate-400 font-medium">Soumis le {{ demande.dateCreation | date:'dd/MM/yyyy' }}</span>
+            </div>
+            
+            @if (demande.commentaireValidateur) {
+              <div class="manager-comment" [class.refuse]="demande.statut === 'REFUSE'">
+                <lucide-angular [img]="demande.statut === 'REFUSE' ? iconAlert : iconInfo" size="14"></lucide-angular>
+                <span>{{ demande.commentaireValidateur }}</span>
+              </div>
+            }
+          </div>
+
+          <div class="item-status">
+            <div class="status-badge" [class]="demande.statut.toLowerCase()">
+              <lucide-angular [img]="getStatusIcon(demande.statut)" size="14" class="mr-1"></lucide-angular>
+              <span>{{ getStatusLabel(demande.statut) }}</span>
+            </div>
+
+            @if (demande.statut === 'EN_ATTENTE_MANAGER' || demande.statut === 'EN_ATTENTE_RH') {
+              <button class="btn-cancel" (click)="cancelRequest.emit(demande)" title="Annuler la demande">
+                <lucide-angular [img]="iconTrash" size="16"></lucide-angular>
+              </button>
+            }
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state group">
+          <lucide-angular [img]="iconCalendar" size="48" class="text-slate-300 dark:text-slate-700 opacity-50 mb-4"></lucide-angular>
+          <div class="text-center">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">Aucune demande pour le moment.</h3>
+            <p class="text-sm text-slate-500 font-medium">Prenez un peu de repos !</p>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>

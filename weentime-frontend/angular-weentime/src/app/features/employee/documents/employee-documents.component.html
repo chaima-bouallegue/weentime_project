@@ -1,0 +1,158 @@
+<div class="bento-container fade-in">
+  
+  <!-- Header Section (page-header: FIX z-index pour bouton cliquable) -->
+  <div class="page-header flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+    <div>
+      <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Documents Externes</h1>
+      <p class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+        <lucide-angular [img]="iconClock" size="16"></lucide-angular>
+        {{ currentDate() }}
+      </p>
+    </div>
+    <button class="action-button primary group" (click)="onOpenDrawer()">
+      <div class="button-content">
+        <div class="icon-box">
+          <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
+        </div>
+        <span>Demander un document</span>
+      </div>
+      <div class="button-glow"></div>
+    </button>
+  </div>
+
+  <!-- Bento Grid -->
+  <div class="bento-layout">
+    
+    <!-- Stats Row (KPIs) -->
+    <div class="stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      
+      <!-- KPI: Prêts -->
+      <div class="bento-card kpi-card group" style="--card-color: #10b981">
+        <div class="card-mesh"></div>
+        <div class="card-content flex items-center gap-5">
+          <div class="kpi-icon-wrapper">
+            <lucide-angular [img]="iconCheck" size="24"></lucide-angular>
+          </div>
+          <div>
+            <div class="kpi-value">{{ countByStatut('PRET') }}</div>
+            <div class="kpi-label">Prêts à télécharger</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI: En attente -->
+      <div class="bento-card kpi-card group" style="--card-color: #f59e0b">
+        <div class="card-mesh"></div>
+        <div class="card-content flex items-center gap-5">
+          <div class="kpi-icon-wrapper">
+            <lucide-angular [img]="iconClock" size="24"></lucide-angular>
+          </div>
+          <div>
+            <div class="kpi-value">{{ countByStatut('EN_ATTENTE') }}</div>
+            <div class="kpi-label">En attente manager</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI: En cours -->
+      <div class="bento-card kpi-card group" style="--card-color: #6366f1">
+        <div class="card-mesh"></div>
+        <div class="card-content flex items-center gap-5">
+          <div class="kpi-icon-wrapper">
+            <lucide-angular [img]="iconLoader" size="24" [class.animate-spin]="countByStatut('EN_COURS') > 0"></lucide-angular>
+          </div>
+          <div>
+            <div class="kpi-value">{{ countByStatut('EN_COURS') }}</div>
+            <div class="kpi-label">En cours de traitement</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI: Total -->
+      <div class="bento-card kpi-card group" style="--card-color: #8b5cf6">
+        <div class="card-mesh"></div>
+        <div class="card-content flex items-center gap-5">
+          <div class="kpi-icon-wrapper">
+            <lucide-angular [img]="iconFile" size="24"></lucide-angular>
+          </div>
+          <div>
+            <div class="kpi-value">{{ historique().length }}</div>
+            <div class="kpi-label">Total des demandes</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 align-start">
+      
+      <!-- Left: Document Types (Bento Block) -->
+      <div class="xl:col-span-12">
+        <div class="bento-card main-section p-8">
+          <div class="flex items-center justify-between mb-8">
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
+              Types de documents disponibles
+            </h2>
+            <div class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl border border-indigo-100 dark:border-indigo-500/20 text-sm font-bold">
+              {{ types().length }} Catégories
+            </div>
+          </div>
+          
+          <app-document-type-grid
+            [types]="types()"
+            [isLoading]="isLoading()"
+            (demander)="onDemanderType($event)"
+          ></app-document-type-grid>
+        </div>
+      </div>
+
+      <!-- Bottom: Historique (Full Width Bento Block) -->
+      <div class="xl:col-span-12">
+        <div class="bento-card main-section p-8">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
+              Historique des demandes
+            </h2>
+          </div>
+          
+          <app-document-historique
+            [demandes]="historiqueFiltre()"
+            [allDemandes]="historique()"
+            [isLoading]="isLoading()"
+            [currentFilter]="filtreStatut()"
+            [typesConfig]="types()"
+            (filterChange)="onFilterChange($event)"
+            (cancelRequest)="onCancelRequest($event)"
+            (downloadRequest)="onDownloadRequest($event)"
+          ></app-document-historique>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Drawer -->
+@if (showDrawer()) {
+  <app-demande-document-drawer
+    [types]="types()"
+    [typePreselectionne]="typePreselectionne()"
+    [isSubmitting]="isSubmittingRequest()"
+    (close)="onCloseDrawer()"
+    (submitted)="soumettreDemande($event)"
+  ></app-demande-document-drawer>
+}
+
+<!-- Annulation modal -->
+@if (demandeAnnuler()) {
+  <app-annulation-document-modal
+    [demande]="demandeAnnuler()"
+    [isAnnulating]="isAnnulating()"
+    (close)="demandeAnnuler.set(null)"
+    (confirm)="confirmAnnulation($event)"
+  ></app-annulation-document-modal>
+}

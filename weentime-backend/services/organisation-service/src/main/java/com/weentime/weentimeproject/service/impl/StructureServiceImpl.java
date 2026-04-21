@@ -1,0 +1,146 @@
+package com.weentime.weentimeproject.service.impl;
+
+import com.weentime.weentimeproject.dto.response.StructureDepartmentResponse;
+import com.weentime.weentimeproject.dto.response.StructureEmployeeResponse;
+import com.weentime.weentimeproject.dto.response.StructureTeamResponse;
+import com.weentime.weentimeproject.entity.Departement;
+import com.weentime.weentimeproject.entity.Equipe;
+import com.weentime.weentimeproject.entity.Utilisateur;
+import com.weentime.weentimeproject.enums.RoleNom;
+import com.weentime.weentimeproject.repository.DepartementRepository;
+import com.weentime.weentimeproject.repository.EquipeRepository;
+import com.weentime.weentimeproject.repository.UtilisateurRepository;
+import com.weentime.weentimeproject.service.StructureService;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class StructureServiceImpl implements StructureService {
+
+    private final DepartementRepository departementRepository;
+    private final EquipeRepository equipeRepository;
+    private final UtilisateurRepository utilisateurRepository;
+
+    @Override
+    public List<StructureDepartmentResponse> getDepartments() {
+        return departementRepository.findByEntreprise_IdOrderByNomAsc(resolveEntrepriseId()).stream()
+                .map(this::toDepartmentResponse)
+                .toList();
+    }
+
+    @Override
+    public List<StructureTeamResponse> getTeams() {
+        return equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(resolveEntrepriseId()).stream()
+                .map(this::toTeamResponse)
+                .toList();
+    }
+
+    @Override
+    public List<StructureEmployeeResponse> getManagers() {
+        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(resolveEntrepriseId(), RoleNom.ROLE_MANAGER).stream()
+                .map(this::toEmployeeResponse)
+                .toList();
+    }
+
+    @Override
+    public List<StructureEmployeeResponse> getEmployees() {
+        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(resolveEntrepriseId(), RoleNom.ROLE_EMPLOYEE).stream()
+                .map(this::toEmployeeResponse)
+                .toList();
+    }
+
+    private Long resolveEntrepriseId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("Aucun utilisateur authentifie.");
+        }
+
+        String email = authentication.getName();
+        Utilisateur currentUser = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur authentifie non trouve : " + email));
+
+        if (currentUser.getEntrepriseId() == null) {
+            throw new IllegalStateException("L'utilisateur courant n'est rattache a aucune entreprise.");
+        }
+
+        return currentUser.getEntrepriseId();
+    }
+
+    private StructureDepartmentResponse toDepartmentResponse(Departement departement) {
+        return StructureDepartmentResponse.builder()
+                .id(departement.getId())
+                .nom(departement.getNom())
+                .description(departement.getDescription())
+                .codeInterne(departement.getCodeInterne())
+                .entrepriseId(departement.getEntreprise() != null ? departement.getEntreprise().getId() : null)
+                .entrepriseNom(departement.getEntreprise() != null ? departement.getEntreprise().getNom() : null)
+                .nombreEquipes(departement.getEquipes() == null ? 0 : departement.getEquipes().size())
+                .nombreEmployes(departement.getUtilisateurs() == null ? 0 : departement.getUtilisateurs().size())
+                .build();
+    }
+
+    private StructureTeamResponse toTeamResponse(Equipe equipe) {
+        String managerNom = equipe.getResponsable() == null
+                ? null
+                : ((equipe.getResponsable().getPrenom() == null ? "" : equipe.getResponsable().getPrenom() + " ")
+                + (equipe.getResponsable().getNom() == null ? "" : equipe.getResponsable().getNom())).trim();
+
+        return StructureTeamResponse.builder()
+                .id(equipe.getId())
+                .nom(equipe.getNom())
+                .description(equipe.getDescription())
+                .departementId(equipe.getDepartement() != null ? equipe.getDepartement().getId() : null)
+                .departement(equipe.getDepartement() != null ? equipe.getDepartement().getNom() : null)
+                .entrepriseId(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null ? equipe.getDepartement().getEntreprise().getId() : null)
+                .entreprise(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null ? equipe.getDepartement().getEntreprise().getNom() : null)
+                .estActive(equipe.getEstActive())
+                .effectifMaximum(equipe.getEffectifMaximum())
+                .managerId(equipe.getResponsable() != null ? equipe.getResponsable().getId() : null)
+                .managerNom(managerNom == null || managerNom.isBlank() ? null : managerNom)
+                .managerEmail(equipe.getResponsable() != null ? equipe.getResponsable().getEmail() : null)
+                .nombreEmployes(equipe.getMembres() == null ? 0 : equipe.getMembres().size())
+                .build();
+    }
+
+    private StructureEmployeeResponse toEmployeeResponse(Utilisateur utilisateur) {
+        String fullName = ((utilisateur.getPrenom() == null ? "" : utilisateur.getPrenom() + " ")
+                + (utilisateur.getNom() == null ? "" : utilisateur.getNom())).trim();
+        String managerNom = utilisateur.getManager() == null
+                ? null
+                : ((utilisateur.getManager().getPrenom() == null ? "" : utilisateur.getManager().getPrenom() + " ")
+                + (utilisateur.getManager().getNom() == null ? "" : utilisateur.getManager().getNom())).trim();
+
+        return StructureEmployeeResponse.builder()
+                .id(utilisateur.getId())
+                .nom(utilisateur.getNom())
+                .prenom(utilisateur.getPrenom())
+                .fullName(fullName.isBlank() ? utilisateur.getEmail() : fullName)
+                .email(utilisateur.getEmail())
+                .telephone(utilisateur.getTelephone())
+                .poste(utilisateur.getPoste())
+                .statut(utilisateur.getStatut() != null ? utilisateur.getStatut().name() : null)
+                .dateCreation(utilisateur.getDateCreation())
+                .departementId(utilisateur.getDepartement() != null ? utilisateur.getDepartement().getId() : null)
+                .departement(utilisateur.getDepartement() != null ? utilisateur.getDepartement().getNom() : null)
+                .equipeId(utilisateur.getEquipe() != null ? utilisateur.getEquipe().getId() : null)
+                .equipe(utilisateur.getEquipe() != null ? utilisateur.getEquipe().getNom() : null)
+                .managerId(utilisateur.getManager() != null ? utilisateur.getManager().getId() : null)
+                .managerNom(managerNom == null || managerNom.isBlank() ? null : managerNom)
+                .managerEmail(utilisateur.getManager() != null ? utilisateur.getManager().getEmail() : null)
+                .entrepriseId(utilisateur.getEntrepriseId())
+                .entreprise(utilisateur.getEntreprise() != null ? utilisateur.getEntreprise().getNom() : null)
+                .roles(utilisateur.getRoles() == null ? List.of() : utilisateur.getRoles().stream()
+                        .map(role -> role.getNom().name())
+                        .sorted()
+                        .toList())
+                .build();
+    }
+}

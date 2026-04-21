@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+httpx
+pydantic
+python-multipart
+faster-whisper
+webrtcvad-wheels
+soundfile
+numpy
+pydub
+imageio-ffmpeg
+TTS
+pypdf

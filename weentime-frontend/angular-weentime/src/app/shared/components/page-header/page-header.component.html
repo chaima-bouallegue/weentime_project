@@ -1,0 +1,28 @@
+<div class="page-header bg-white/80 dark:bg-slate-900/40 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/60 px-8 py-8 mb-10 transition-all duration-500 animate-fade-in">
+  <div class="max-w-7xl mx-auto">
+
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+      <div class="space-y-2">
+        <div class="flex items-center gap-3 mb-2" *ngIf="showEnterpriseBadge">
+          <span class="badge-pill bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+            {{ enterpriseName() }}
+          </span>
+        </div>
+        
+        <h1 class="text-3xl md:text-4xl font-[900] text-slate-900 dark:text-white tracking-tight leading-none mb-1">
+          {{ title }}
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 font-semibold text-base sm:text-lg opacity-80 first-letter:uppercase">
+          {{ subtitle || defaultSubtitle() }}
+        </p>
+      </div>
+
+      <!-- Action Slots -->
+      <div class="flex items-center gap-4 lg:self-center">
+        <ng-content select="[actions]"></ng-content>
+        <ng-content select="[widgets]"></ng-content>
+      </div>
+    </div>
+  </div>
+</div>

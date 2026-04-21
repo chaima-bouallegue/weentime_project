@@ -1,0 +1,110 @@
+<div class="employes-wrapper">
+  <div class="section-header">
+    <h2 class="section-title-text">Employés</h2>
+    <button class="btn-primary" (click)="showDrawer.set(true)">
+      <lucide-icon name="user-plus" size="16"></lucide-icon>
+      <span>Nouvel employé</span>
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <div class="search-wrapper">
+      <lucide-icon name="search" size="16" class="search-icon"></lucide-icon>
+      <input type="text" (input)="onSearchInput($any($event.target).value)" placeholder="Rechercher un employé..." class="search-input">
+    </div>
+    <div class="filter-group">
+      <select class="filter-select" (change)="setDeptFilter($any($event.target).value ? +$any($event.target).value : null)">
+        <option value="">Tous les départements</option>
+        @for (d of departements(); track d.id) {
+          <option [value]="d.id">{{ d.nom }}</option>
+        }
+      </select>
+      <select class="filter-select" (change)="setStatutFilter($any($event.target).value)">
+        <option value="ALL">Tous les statuts</option>
+        <option value="ACTIF">Actifs</option>
+        <option value="INACTIF">Inactifs</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Table -->
+  @if (isLoading()) {
+    <div class="skeleton-table">
+      @for (i of [1,2,3,4,5]; track i) { <div class="skeleton-row"></div> }
+    </div>
+  } @else if (filteredEmployes().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="users" size="48"></lucide-icon>
+      <p>Aucun employé trouvé</p>
+    </div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="employee-table">
+        <thead>
+          <tr>
+            <th>Employé</th>
+            <th>Email</th>
+            <th>Poste</th>
+            <th>Département</th>
+            <th>Équipe</th>
+            <th>Statut</th>
+            <th>Date d'entrée</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (emp of paginatedEmployes(); track emp.id) {
+            <tr>
+              <td>
+                <div class="emp-cell">
+                  <div class="emp-avatar" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
+                    {{ getInitials(emp.prenom, emp.nom) }}
+                  </div>
+                  <span class="emp-name">{{ emp.prenom }} {{ emp.nom }}</span>
+                </div>
+              </td>
+              <td class="text-muted">{{ emp.email }}</td>
+              <td>{{ emp.poste }}</td>
+              <td>{{ emp.departementNom }}</td>
+              <td class="text-muted">{{ emp.equipeNom ?? '—' }}</td>
+              <td>
+                <span class="status-badge" [class]="emp.statut.toLowerCase()">
+                  {{ emp.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
+                </span>
+              </td>
+              <td class="text-muted">{{ formatDate(emp.dateCreation) }}</td>
+              <td>
+                <button class="icon-btn" (click)="onToggleStatus(emp.id)" [title]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'">
+                  <lucide-icon [name]="emp.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="14"></lucide-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <span class="page-info">Page {{ currentPage() }} sur {{ totalPages() }} — {{ filteredEmployes().length }} résultats</span>
+      <div class="page-controls">
+        <button class="page-btn" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+          <lucide-icon name="chevron-left" size="16"></lucide-icon>
+        </button>
+        <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
+          <lucide-icon name="chevron-right" size="16"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (showDrawer()) {
+    <app-employe-form
+      [departements]="departements()"
+      [equipes]="equipes()"
+      (close)="showDrawer.set(false)"
+      (saved)="onFormSaved()"
+    />
+  }
+</div>

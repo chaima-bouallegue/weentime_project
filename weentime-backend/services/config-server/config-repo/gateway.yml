@@ -1,0 +1,82 @@
+server:
+  port: ${SERVER_PORT:8222}
+
+spring:
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials RETAIN_FIRST
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - ${FRONTEND_ORIGIN:http://localhost:4200}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URI:lb://auth-service}
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: organisation-service
+          uri: ${ORGANISATION_SERVICE_URI:lb://organisation-service}
+          predicates:
+            - Path=/api/v1/admin/**, /api/v1/organisations/**, /api/v1/users/**, /api/v1/notifications/**, /api/v1/structure/**
+        - id: rh-service
+          uri: ${RH_SERVICE_URI:lb://rh-service}
+          predicates:
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**
+        - id: presence-service
+          uri: ${PRESENCE_SERVICE_URI:lb://presence-service}
+          predicates:
+            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
+        - id: organisation-ws
+          uri: ${ORGANISATION_SERVICE_URI:lb://organisation-service}
+          predicates:
+            - Path=/ws/**, /ws-org/**
+        - id: rh-ws
+          uri: ${RH_SERVICE_URI:lb://rh-service}
+          predicates:
+            - Path=/ws-rh/**
+          filters:
+            - RewritePath=/ws-rh(?<segment>/?.*), /ws$\{segment}
+        - id: presence-ws
+          uri: ${PRESENCE_SERVICE_URI:lb://presence-service}
+          predicates:
+            - Path=/ws-presence/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Auth Service
+        url: ${AUTH_SERVICE_DOCS_URL:http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}/v3/api-docs}
+      - name: Organisation Service
+        url: ${ORGANISATION_SERVICE_DOCS_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8090}/v3/api-docs}
+      - name: RH Service
+        url: ${RH_SERVICE_DOCS_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}/v3/api-docs}
+      - name: Presence Service
+        url: ${PRESENCE_SERVICE_DOCS_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8093}/v3/api-docs}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

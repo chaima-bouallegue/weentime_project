@@ -1,0 +1,165 @@
+<div class="absence-list-page">
+
+  <!-- Header -->
+  <div class="list-header">
+    <div class="header-left">
+      <h1 class="page-title">Mes Absences</h1>
+      <p class="page-sub">{{ totalItems() }} absence{{ totalItems() !== 1 ? 's' : '' }} enregistrée{{ totalItems() !== 1 ? 's' : '' }}</p>
+    </div>
+    <button class="btn-declare" (click)="addNew.emit()" id="btn-declare-absence">
+      <lucide-icon name="plus" [size]="18"></lucide-icon>
+      Déclarer une absence
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <select class="filter-select" [(ngModel)]="filterStatut" (change)="onFilterChange()" id="filter-statut">
+      @for (opt of statutOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <select class="filter-select" [(ngModel)]="filterType" (change)="onFilterChange()" id="filter-type">
+      @for (opt of typeOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Skeleton Loader -->
+  @if (loading()) {
+    <div class="skeleton-list">
+      @for (_ of [1,2,3]; track $index) {
+        <div class="skeleton-row">
+          <div class="sk sk-badge"></div>
+          <div class="sk sk-text-wide"></div>
+          <div class="sk sk-text"></div>
+          <div class="sk sk-text-sm"></div>
+          <div class="sk sk-btn"></div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Empty State -->
+  @if (!loading() && absences().length === 0) {
+    <div class="empty-state">
+      <div class="empty-illustration">
+        <svg viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="30" y="20" width="140" height="120" rx="12" fill="#1e293b" opacity="0.6"/>
+          <rect x="50" y="45" width="100" height="8" rx="4" fill="#334155"/>
+          <rect x="50" y="65" width="70" height="8" rx="4" fill="#334155"/>
+          <rect x="50" y="85" width="90" height="8" rx="4" fill="#334155"/>
+          <circle cx="155" cy="115" r="28" fill="#6366f1"/>
+          <path d="M147 115 l5 5 l11-12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h3>Aucune absence trouvée</h3>
+      <p>Vous n'avez aucune absence déclarée pour ces critères.</p>
+      <button class="btn-declare" (click)="addNew.emit()">
+        <lucide-icon name="plus" [size]="16"></lucide-icon>
+        Déclarer ma première absence
+      </button>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!loading() && absences().length > 0) {
+    <div class="table-container">
+      <table class="absence-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Période</th>
+            <th>Durée</th>
+            <th>Statut</th>
+            <th>Justificatif</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (absence of absences(); track absence.id; let i = $index) {
+            <tr class="table-row" [style.animation-delay]="(i * 50) + 'ms'">
+              <td class="td-type">
+                <span class="type-emoji">{{ getTypeEmoji(absence.typeAbsenceCode) }}</span>
+                <span class="type-label">{{ absence.typeAbsenceLibelle }}</span>
+              </td>
+              <td class="td-periode">
+                <span class="date-range">
+                  {{ formatDate(absence.dateDebut) }}
+                  <lucide-icon name="arrow-right" [size]="12"></lucide-icon>
+                  {{ formatDate(absence.dateFin) }}
+                </span>
+              </td>
+              <td class="td-duree">
+                <span class="duree-chip">{{ absence.dureeJours }}j</span>
+              </td>
+              <td class="td-statut">
+                <span class="statut-badge" [class]="getStatutConfig(absence.statut).cssClass">
+                  {{ getStatutConfig(absence.statut).label }}
+                </span>
+              </td>
+              <td class="td-justif">
+                @if (absence.justificatif) {
+                  <span class="justif-ok">📎 Fourni</span>
+                } @else {
+                  <span class="justif-none">—</span>
+                }
+              </td>
+              <td class="td-actions">
+                @if (absence.statut === 'EN_ATTENTE') {
+                  <button
+                    class="btn-cancel"
+                    [disabled]="cancelingId() === absence.id"
+                    (click)="annuler(absence.id)"
+                    [id]="'btn-cancel-' + absence.id"
+                  >
+                    @if (cancelingId() === absence.id) {
+                      <span class="spinner-sm"></span>
+                    } @else {
+                      <lucide-icon name="x" [size]="14"></lucide-icon>
+                    }
+                    Annuler
+                  </button>
+                } @else {
+                  <span class="no-action">—</span>
+                }
+              </td>
+            </tr>
+            <!-- Motif refus inline -->
+            @if (absence.statut === 'REFUSE' && absence.motifRefus) {
+              <tr class="tr-motif-refus">
+                <td colspan="6">
+                  <div class="motif-refus">
+                    <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+                    <strong>Motif du refus :</strong> {{ absence.motifRefus }}
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <div class="pagination">
+        <button class="page-btn" [disabled]="page() === 0" (click)="goToPage(page() - 1)">
+          <lucide-icon name="chevron-left" [size]="16"></lucide-icon>
+        </button>
+        @for (p of pages(); track p) {
+          <button
+            class="page-btn"
+            [class.active]="p === page()"
+            (click)="goToPage(p)"
+          >{{ p + 1 }}</button>
+        }
+        <button class="page-btn" [disabled]="page() === totalPages() - 1" (click)="goToPage(page() + 1)">
+          <lucide-icon name="chevron-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    }
+  }
+
+</div>

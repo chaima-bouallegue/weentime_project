@@ -1,0 +1,63 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-container animate-fade-in" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="title-group">
+        <h2 class="modal-title">Uploader le document</h2>
+        <p class="modal-subtitle">Format PDF uniquement (Max 5MB)</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      @if (demande) {
+        <div class="demande-summary">
+          <span class="label">Document pour :</span>
+          <span class="value">{{ demande.employe.prenom }} {{ demande.employe.nom }} — {{ demande.label }}</span>
+        </div>
+      }
+
+      <div 
+        class="upload-area" 
+        [class.dragging]="isDragging()"
+        [class.has-file]="selectedFile()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+      >
+        <input type="file" #fileInput (change)="onFileSelected($event)" accept=".pdf" hidden>
+
+        @if (!selectedFile()) {
+          <div class="empty-state" (click)="fileInput.click()">
+            <div class="upload-icon">
+              <lucide-icon name="upload" size="32"></lucide-icon>
+            </div>
+            <h3>Glissez votre fichier ici</h3>
+            <p>ou <span>cliquez pour parcourir</span></p>
+          </div>
+        } @else {
+          <div class="file-preview">
+            <div class="file-icon">
+              <lucide-icon name="file-text" size="40"></lucide-icon>
+            </div>
+            <div class="file-info">
+              <span class="name">{{ selectedFile()?.name }}</span>
+              <span class="size">{{ (selectedFile()?.size ?? 0) / 1024 / 1024 | number:'1.1-2' }} MB</span>
+            </div>
+            <button class="remove-btn" (click)="selectedFile.set(null)">
+              <lucide-icon name="trash-2" size="18"></lucide-icon>
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-secondary" (click)="close.emit()">Annuler</button>
+      <button class="btn-primary" [disabled]="!selectedFile()" (click)="onConfirm()">
+        Confirmer l'upload
+      </button>
+    </footer>
+  </div>
+</div>

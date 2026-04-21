@@ -1,0 +1,109 @@
+<div class="leave-type-selection-container">
+  <div class="selection-header">
+    <h3 class="selection-title">Quel type de conge souhaitez-vous demander ?</h3>
+    <p class="selection-subtitle">Selectionnez un type ci-dessous. Seuls les types avec jours disponibles sont selectionnables.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Chargement des types de conges...</p>
+    </div>
+  }
+
+  @if (hasError()) {
+    <div class="error-state">
+      <div class="error-icon">
+        <lucide-icon name="alert-circle" size="24"></lucide-icon>
+      </div>
+      <div class="error-content">
+        <h4>{{ error() }}</h4>
+        <p>Verifiez votre session et rechargez les soldes avant de continuer.</p>
+        <button class="retry-btn" (click)="retry()">
+          <lucide-icon name="refresh-cw" size="16"></lucide-icon>
+          Reessayer
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (!isLoading()) {
+    <div class="leave-types-grid">
+      @for (leaveType of leaveTypes(); track leaveType.type) {
+        <button
+          [ngClass]="getCardClasses(leaveType)"
+          [ngStyle]="getCardStyle(leaveType)"
+          [disabled]="!leaveType.isAvailable"
+          (click)="selectLeaveType(leaveType)"
+          [attr.aria-label]="'Selectionner ' + leaveType.label"
+          [title]="leaveType.description"
+          type="button"
+        >
+          <div class="card-inner">
+            <div class="icon-section">
+              <div class="icon-wrapper" [class]="'icon-' + leaveType.color">
+                <lucide-icon [name]="getIconName(leaveType)" size="28"></lucide-icon>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h4 class="leave-label">{{ leaveType.label }}</h4>
+              <p class="leave-description">{{ leaveType.description }}</p>
+            </div>
+
+            <div class="days-section">
+              @if (leaveType.isUnpaid) {
+                <div class="days-info unpaid">
+                  <span class="days-label">Aucun quota</span>
+                  <span class="days-badge">&infin;</span>
+                </div>
+              } @else if (leaveType.isAvailable) {
+                <div class="days-info available">
+                  <span class="days-value">{{ leaveType.remainingDays }}</span>
+                  <span class="days-label">jour{{ leaveType.remainingDays !== 1 ? 's' : '' }}</span>
+                </div>
+              } @else {
+                <div class="days-info unavailable">
+                  <span class="days-value">0</span>
+                  <span class="days-label">jour</span>
+                </div>
+              }
+            </div>
+
+            <div class="status-badge-section">
+              @if (leaveType.isUnpaid) {
+                <span class="status-badge unpaid-badge">Sans quota</span>
+              } @else if (leaveType.isAvailable) {
+                <span class="status-badge available-badge">Disponible</span>
+              } @else {
+                <span class="status-badge unavailable-badge">Epuise</span>
+              }
+            </div>
+
+            @if (isSelected(leaveType.type)) {
+              <div class="selection-indicator">
+                <lucide-icon name="check-circle-2" size="20"></lucide-icon>
+              </div>
+            }
+          </div>
+
+          <div class="message-section">
+            <p class="availability-message">
+              {{ leaveType.availabilityMessage }}
+            </p>
+          </div>
+        </button>
+      }
+    </div>
+  }
+
+  <div class="info-box">
+    <div class="info-icon">
+      <lucide-icon name="info" size="16"></lucide-icon>
+    </div>
+    <div class="info-text">
+      <strong>Conseil:</strong> Vous pouvez demander un conge <strong>Sans solde</strong> meme si vos autres quotas sont epuises.
+      Consultez votre manager pour les conditions.
+    </div>
+  </div>
+</div>

@@ -1,0 +1,97 @@
+<div class="equipes-wrapper">
+  <div class="section-header">
+    <h2 class="section-title-text">Équipes</h2>
+    <button class="btn-primary" (click)="openCreate()">
+      <lucide-icon name="plus" size="16"></lucide-icon>
+      <span>Nouvelle équipe</span>
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="skeleton-grid">
+      @for (i of [1,2,3]; track i) { <div class="skeleton-card"></div> }
+    </div>
+  } @else if (equipes().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="git-branch" size="48"></lucide-icon>
+      <p>Aucune équipe</p>
+    </div>
+  } @else {
+    @for (group of getEquipesByDept(); track group.dept) {
+      <div class="dept-group">
+        <h3 class="dept-group-title">
+          <lucide-icon name="building" size="16"></lucide-icon>
+          <span>{{ group.dept }}</span>
+        </h3>
+        <div class="equipe-grid">
+          @for (eq of group.equipes; track eq.id) {
+            <div class="equipe-card">
+              <div class="equipe-card-header">
+                <div class="header-main">
+                  <h4 class="equipe-name">{{ eq.nom }}</h4>
+                  <p class="equipe-desc">{{ eq.description || 'Aucune description' }}</p>
+                </div>
+                <div class="equipe-actions">
+                  <button class="icon-btn edit" (click)="openEdit(eq)" title="Modifier">
+                    <lucide-icon name="edit-2" size="14"></lucide-icon>
+                  </button>
+                  <button class="icon-btn delete" (click)="confirmDelete(eq)" title="Supprimer">
+                    <lucide-icon name="trash-2" size="14"></lucide-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="equipe-footer">
+                <div class="manager-section">
+                  <div class="manager-avatar" 
+                       [style.background-color]="getAvatarColor(eq.managerNom || '??')"
+                       [class.empty]="!eq.managerNom">
+                    {{ getInitials(eq.managerNom || '') }}
+                  </div>
+                  <div class="manager-info">
+                    <span class="label">Manager</span>
+                    <span class="name" [class.no-manager]="!eq.managerNom">
+                      {{ eq.managerNom ?? 'Non assigné' }}
+                    </span>
+                  </div>
+                </div>
+                <div class="stats-section">
+                  <div class="member-pill">
+                    <lucide-icon name="users" size="12"></lucide-icon>
+                    <span>{{ eq.nombreEmployes }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  @if (showDrawer()) {
+    <app-equipe-form
+      [equipe]="equipeToEdit()"
+      [departements]="departements()"
+      [managers]="managers()"
+      (close)="showDrawer.set(false)"
+      (saved)="onFormSaved()"
+    />
+  }
+
+  @if (showDeleteConfirm(); as eq) {
+    <div class="modal-overlay" (click)="showDeleteConfirm.set(null)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
+        <h3>Supprimer l'équipe « {{ eq.nom }} » ?</h3>
+        <div class="modal-actions">
+          <button class="btn-ghost" (click)="showDeleteConfirm.set(null)" [disabled]="isDeleting()">Annuler</button>
+          <button class="btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
+            @if (isDeleting()) { <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon> }
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,116 @@
+<div class="modal-overlay">
+  <div class="modal-container animate-fade-in">
+    @if (demande) {
+      <header class="modal-header">
+        <div class="header-info">
+          <lucide-icon name="sparkles" size="24" class="ai-icon"></lucide-icon>
+          <div class="title-group">
+            <h2 class="modal-title">Générateur de documents IA</h2>
+            <p class="modal-subtitle">Assistant Intelligent WeenTime</p>
+          </div>
+        </div>
+        <button class="close-btn" (click)="close.emit()">
+          <lucide-icon name="x" size="20"></lucide-icon>
+        </button>
+      </header>
+
+      <div class="modal-body">
+        <!-- Left: Context / Parameters -->
+        <div class="panel-context">
+          <div class="section-card">
+            <h3 class="section-title">Employé concerné</h3>
+            <div class="employe-mini-card">
+              <div class="avatar">{{ getInitials(demande.employe.nom, demande.employe.prenom) }}</div>
+              <div class="info">
+                <span class="name">{{ demande.employe.prenom }} {{ demande.employe.nom }}</span>
+                <span class="role">{{ demande.employe.poste }}</span>
+              </div>
+            </div>
+            <div class="context-item">
+              <span class="label">Département</span>
+              <span class="value">{{ demande.employe.departement }}</span>
+            </div>
+            <div class="context-item">
+              <span class="label">Date d'entrée</span>
+              <span class="value">{{ demande.employe.dateEntree | date:'longDate':'':'fr' }}</span>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <h3 class="section-title">Objet de la demande</h3>
+            <div class="request-summary">
+              <div class="summary-row">
+                <span class="label">Type de document :</span>
+                <span class="value">{{ demande.label }}</span>
+              </div>
+              @if (demande.moisConcerne) {
+                <div class="summary-row">
+                  <span class="label">Période :</span>
+                  <span class="value">{{ demande.moisConcerne }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="section-card help">
+            <h3 class="section-title">Conseils IA</h3>
+            <p>Le document généré respectera les standards légaux français. Vous pourrez le relire et le modifier manuellement avant l'envoi définitif.</p>
+          </div>
+
+          <div class="panel-footer-left">
+            <button class="btn-generate" (click)="generate()" [disabled]="isGenerating()">
+              @if (isGenerating()) {
+                <lucide-icon name="loader-2" size="20" class="animate-spin"></lucide-icon>
+                <span>Traitement...</span>
+              } @else {
+                <lucide-icon name="zap" size="20"></lucide-icon>
+                <span>{{ generatedContent() ? 'Régénérer' : 'Générer le document' }}</span>
+              }
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Editor / Result -->
+        <div class="panel-editor">
+          @if (!generatedContent() && !isGenerating()) {
+            <div class="empty-editor">
+              <div class="ai-orb-container">
+                <div class="ai-orb pulse-fast"></div>
+                <div class="ai-orb pulse-slow"></div>
+              </div>
+              <h3>Prêt à générer ?</h3>
+              <p>Cliquez sur le bouton pour lancer l'assistant IA.</p>
+            </div>
+          } @else {
+            <div class="editor-header">
+              <div class="status-badge" [class.generating]="isGenerating()">
+                <div class="dot" [class.pulse]="isGenerating()"></div>
+                <span>{{ progressText() }}</span>
+              </div>
+              @if (!isGenerating()) {
+                <span class="edit-hint">Vous pouvez modifier le texte ci-dessous</span>
+              }
+            </div>
+            
+            <div class="editor-container">
+              <textarea 
+                class="editor-textarea" 
+                [(ngModel)]="streamingContent" 
+                [readOnly]="isGenerating()"
+                placeholder="Le contenu apparaîtra ici...">
+              </textarea>
+            </div>
+
+            <div class="editor-footer">
+              <button class="btn-cancel" (click)="close.emit()" [disabled]="isGenerating()">Annuler</button>
+              <button class="btn-primary" (click)="onValidate()" [disabled]="isGenerating() || !streamingContent()">
+                <lucide-icon name="file-check" size="20"></lucide-icon>
+                <span>Valider et envoyer à l'employé</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

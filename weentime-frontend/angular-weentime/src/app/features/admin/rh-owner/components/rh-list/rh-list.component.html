@@ -1,0 +1,94 @@
+<div class="h-full flex flex-col">
+  <!-- Search -->
+  <div class="mb-6 shrink-0 max-w-md w-full">
+    <div class="relative">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+        <lucide-angular [img]="iconSearch" size="18"></lucide-angular>
+      </div>
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchChange($event)"
+        placeholder="Rechercher par nom ou entreprise..."
+        class="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl leading-5 bg-slate-50 dark:bg-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 sm:text-sm font-medium text-slate-900 dark:text-white transition-all shadow-sm"
+      />
+    </div>
+  </div>
+
+  <!-- List Content -->
+  <div class="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-4">
+    @if (loading) {
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="h-32 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+        }
+      </div>
+    } @else {
+      @if (rhOwners.length > 0) {
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative" (click)="showMenuId.set(null)">
+          @for (rh of rhOwners; track rh.id) {
+            <div class="group relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 overflow-visible">
+              
+              <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-md shrink-0" [style.background-color]="getAvatarColor(rh.prenom + rh.nom)">
+                  {{ getInitials(rh.prenom, rh.nom) }}
+                </div>
+
+                <div class="flex-1 min-w-0 pr-6">
+                  <div class="flex flex-col gap-1 mb-3">
+                    <h3 class="font-black text-slate-900 dark:text-white truncate text-lg leading-tight">{{ rh.prenom }} {{ rh.nom }}</h3>
+                    <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                       <lucide-angular [img]="iconMail" size="12"></lucide-angular>
+                       <span class="text-xs font-medium truncate">{{ rh.email }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="flex flex-wrap items-center gap-2 mt-auto">
+                     <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800" [style.color]="getEntrepriseBadgeColor(rh.entrepriseNom)">
+                        <lucide-angular [img]="iconBuilding" size="10"></lucide-angular>
+                        {{ rh.entrepriseNom }}
+                     </span>
+
+                     <span class="status-pill-small" [class.success]="rh.statut === 'ACTIF'" [class.danger]="rh.statut !== 'ACTIF'">
+                        {{ rh.statut === 'ACTIF' ? 'Actif' : 'Désactivé' }}
+                     </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Menu Button & Dropdown -->
+              <div class="absolute top-4 right-3">
+                 <button class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-800 transition-colors" (click)="toggleMenu($event, rh.id)">
+                   <lucide-angular [img]="iconMore" size="18"></lucide-angular>
+                 </button>
+
+                 @if (showMenuId() === rh.id) {
+                   <div class="absolute right-0 top-10 w-44 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 py-2 z-50 animate-fade-in" (click)="$event.stopPropagation()">
+                     <button class="w-full text-left px-4 py-2 text-sm font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                             [class.text-red-600]="rh.statut === 'ACTIF'"
+                             [class.text-emerald-600]="rh.statut !== 'ACTIF'"
+                             (click)="onToggleStatus($event, rh.id)">
+                       <lucide-angular [img]="rh.statut === 'ACTIF' ? iconShieldOff : iconShieldCheck" size="16"></lucide-angular>
+                       {{ rh.statut === 'ACTIF' ? 'Désactiver' : 'Réactiver' }}
+                     </button>
+                   </div>
+                 }
+              </div>
+
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="bento-card flex flex-col items-center justify-center p-12 text-center mt-4 bg-slate-50/50 dark:bg-slate-900/50">
+          <div class="w-20 h-20 bg-sky-50 dark:bg-sky-900/20 text-sky-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+             <lucide-angular [img]="iconUserCog" size="40"></lucide-angular>
+          </div>
+          <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Aucun administrateur RH</h3>
+          <p class="text-slate-500 font-medium max-w-sm">
+             Il semble qu'aucun gestionnaire RH ne corresponde à votre recherche actuellement.
+          </p>
+        </div>
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,119 @@
+server:
+  port: 8222
+
+spring:
+  application:
+    name: gateway
+
+  config:
+    import: "optional:configserver:"
+
+  cloud:
+    config:
+      enabled: false
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials RETAIN_FIRST
+
+
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:4200"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+      discovery:
+        locator:
+          enabled: false
+
+      # 🔗 ROUTES (LOCALHOST MODE)
+      routes:
+
+        - id: auth-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: organisation-service
+          uri: http://localhost:8090
+          predicates:
+            - Path=/api/v1/admin/**, /api/v1/organisations/**, /api/v1/users/**, /api/v1/notifications/**, /api/v1/structure/**
+
+        - id: rh-service
+          uri: http://localhost:8092
+          predicates:
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**
+
+        - id: presence-service
+          uri: http://localhost:8093
+          predicates:
+            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
+
+        - id: organisation-ws
+          uri: http://localhost:8090
+          predicates:
+            - Path=/ws/**, /ws-org/**
+
+        - id: rh-ws
+          uri: http://localhost:8092
+          predicates:
+            - Path=/ws-rh/**
+          filters:
+            - RewritePath=/ws-rh(?<segment>/?.*), /ws$\{segment}
+
+        - id: presence-ws
+          uri: http://localhost:8093
+          predicates:
+            - Path=/ws-presence/**
+
+# 🌐 Eureka (optionnel mais OK en local)
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  server:
+    enable-self-preservation: false
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+# 📊 Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    gateway:
+      enabled: true
+
+# 📘 Swagger aggregation (optionnel)
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Auth Service
+        url: http://localhost:8081/v3/api-docs
+      - name: Organisation Service
+        url: http://localhost:8090/v3/api-docs
+      - name: RH Service
+        url: http://localhost:8092/v3/api-docs
+      - name: Presence Service
+        url: http://localhost:8093/v3/api-docs
+
+# 🧠 Logs (debug utile)
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

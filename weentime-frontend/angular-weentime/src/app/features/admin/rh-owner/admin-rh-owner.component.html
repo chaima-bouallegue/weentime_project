@@ -1,0 +1,57 @@
+<div class="rh-bento-container fade-in">
+  <!-- Bento Hero Header -->
+  <header class="dashboard-hero mb-8">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#0ea5e9'"></div>
+      
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-sky-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-sky-200 dark:shadow-none">
+              Administration Utilisateurs
+            </span>
+          </div>
+          
+          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
+            Gestionnaires RH
+          </h1>
+          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            Gérez les représentants RH pour chaque entreprise cliente. {{ rhOwners().length }} responsables enregistrés.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+           <button class="hero-btn secondary" (click)="refreshList()" [disabled]="isLoading()">
+              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
+              <span>Actualiser</span>
+           </button>
+           <button class="hero-btn primary-sky" (click)="showDrawer.set(true)">
+              <lucide-angular [img]="iconUserPlus" size="20"></lucide-angular>
+              <span>Nouveau RH</span>
+           </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="w-full">
+    <section class="bento-card p-6 min-h-[500px]">
+      <app-rh-list
+        [rhOwners]="rhFiltre()"
+        [loading]="isLoading()"
+        (search)="searchQuery.set($event)"
+        (toggleStatus)="onToggleStatus($event)"
+      ></app-rh-list>
+    </section>
+  </main>
+
+  <!-- Drawer (reused existing styling logic for drawer via external component) -->
+  @if (showDrawer()) {
+    <app-create-rh-form
+      [entreprises]="entreprises()"
+      (close)="showDrawer.set(false)"
+      (saved)="onFormSaved()"
+    ></app-create-rh-form>
+  }
+</div>

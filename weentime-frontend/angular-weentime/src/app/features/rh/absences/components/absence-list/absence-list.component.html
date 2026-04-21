@@ -1,0 +1,204 @@
+<div class="rh-absence-page">
+
+  <!-- Header -->
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Gestion des absences</h2>
+      <p class="section-sub">
+        {{ totalItems() }} absence{{ totalItems() !== 1 ? 's' : '' }} dans l'entreprise
+      </p>
+    </div>
+    <button class="btn-primary" (click)="addNew.emit()" id="btn-add-absence-rh">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Enregistrer une absence
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <select class="filter-select" [(ngModel)]="filterStatut" (change)="onFilterChange()" id="rh-filter-statut">
+      @for (opt of statutOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Skeleton Loader -->
+  @if (loading()) {
+    <div class="skeleton-list">
+      @for (_ of [1,2,3,4]; track $index) {
+        <div class="skeleton-row">
+          <div class="sk sk-avatar"></div>
+          <div class="sk sk-text-wide"></div>
+          <div class="sk sk-badge"></div>
+          <div class="sk sk-text"></div>
+          <div class="sk sk-text-sm"></div>
+          <div class="sk sk-btn-group"></div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!loading()) {
+    <div class="table-card">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th>Type</th>
+              <th>Période</th>
+              <th>Durée</th>
+              <th>Impact salaire</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (absence of absences(); track absence.id) {
+              <tr class="data-row">
+                <td>
+                  <div class="emp-cell">
+                    <div class="emp-avatar">
+                      {{ getInitials(absence.typeAbsenceLibelle) }}
+                    </div>
+                    <div>
+                      <p class="emp-id">#{{ absence.utilisateurId }}</p>
+                      <p class="emp-entreprise">Id entreprise: {{ absence.entrepriseId }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge badge-type">
+                    {{ absence.typeAbsenceLibelle }}
+                  </span>
+                </td>
+                <td>
+                  <span class="period-text">
+                    {{ formatDate(absence.dateDebut) }} → {{ formatDate(absence.dateFin) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="duree-chip">{{ absence.dureeJours }}j</span>
+                </td>
+                <td>
+                  @if (absence.impactSalaire) {
+                    <span class="badge badge-impact">💸 Oui</span>
+                  } @else {
+                    <span class="badge badge-no-impact">✅ Non</span>
+                  }
+                </td>
+                <td>
+                  <span class="statut-badge" [class]="getStatutConfig(absence.statut).cssClass">
+                    {{ getStatutConfig(absence.statut).label }}
+                  </span>
+                </td>
+                <td>
+                  @if (absence.statut === 'EN_ATTENTE') {
+                    <div class="action-group">
+                      <button
+                        class="btn-approve"
+                        [disabled]="processingId() === absence.id"
+                        (click)="valider(absence.id)"
+                        [id]="'btn-approve-' + absence.id"
+                      >
+                        @if (processingId() === absence.id) {
+                          <span class="spinner-sm"></span>
+                        } @else {
+                          <lucide-icon name="check" [size]="14"></lucide-icon>
+                        }
+                        Valider
+                      </button>
+                      <button
+                        class="btn-reject"
+                        [disabled]="processingId() === absence.id"
+                        (click)="openRejetModal(absence.id)"
+                        [id]="'btn-reject-' + absence.id"
+                      >
+                        <lucide-icon name="x" [size]="14"></lucide-icon>
+                        Rejeter
+                      </button>
+                    </div>
+                  } @else {
+                    <span class="no-action">—</span>
+                  }
+                </td>
+              </tr>
+              <!-- Motif refus inline -->
+              @if (absence.statut === 'REFUSE' && absence.motifRefus) {
+                <tr class="tr-motif-refus">
+                  <td colspan="7">
+                    <div class="motif-refus-cell">
+                      <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+                      <strong>Motif du refus :</strong> {{ absence.motifRefus }}
+                    </div>
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr>
+                <td colspan="7" class="empty-row">
+                  <lucide-icon name="calendar-off" [size]="32"></lucide-icon>
+                  <p>Aucune absence trouvée pour ces critères.</p>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <div class="pagination">
+        <button class="page-btn" [disabled]="page() === 0" (click)="goToPage(page() - 1)">
+          <lucide-icon name="chevron-left" [size]="16"></lucide-icon>
+        </button>
+        @for (p of pages(); track p) {
+          <button class="page-btn" [class.active]="p === page()" (click)="goToPage(p)">
+            {{ p + 1 }}
+          </button>
+        }
+        <button class="page-btn" [disabled]="page() === totalPages() - 1" (click)="goToPage(page() + 1)">
+          <lucide-icon name="chevron-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    }
+  }
+</div>
+
+<!-- ═══════ MODAL REJET ═══════ -->
+@if (showRejetModal()) {
+  <div class="modal-overlay" (click)="closeRejetModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>❌ Rejeter l'absence</h3>
+        <button class="modal-close" (click)="closeRejetModal()">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label">Motif du refus <span class="required">*</span></label>
+        <textarea
+          id="input-motif-refus"
+          class="form-textarea"
+          rows="4"
+          [value]="motifRefus()"
+          (input)="motifRefus.set($any($event.target).value)"
+          placeholder="Précisez la raison du refus..."
+        ></textarea>
+        @if (motifRefusError()) {
+          <p class="field-error">{{ motifRefusError() }}</p>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeRejetModal()">Annuler</button>
+        <button class="btn-reject-confirm" (click)="confirmerRejet()">
+          <lucide-icon name="x-circle" [size]="16"></lucide-icon>
+          Confirmer le rejet
+        </button>
+      </div>
+    </div>
+  </div>
+}

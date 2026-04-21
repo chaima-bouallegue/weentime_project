@@ -1,0 +1,79 @@
+<div class="form-page">
+  <button class="back-btn" (click)="close.emit()">
+    <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+    Retour à la liste
+  </button>
+
+  <div class="form-card">
+    <h2 class="form-title">Enregistrer une absence</h2>
+    <p class="form-sub">Saisie d'une absence pour régularisation</p>
+
+    <div class="notice notice-blue">
+      <lucide-icon name="info" [size]="16"></lucide-icon>
+      L'absence sera enregistrée avec le statut EN_ATTENTE par défaut.
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- Type Cards -->
+      <div class="field-group">
+        <label class="field-label">Type d'absence</label>
+        <div class="type-cards">
+          @for (type of absenceTypes; track type.code) {
+            <button
+              type="button"
+              class="type-card"
+              [class.active]="selectedType()?.code === type.code"
+              (click)="selectType(type)"
+            >
+              <span class="tc-emoji">{{ type.emoji }}</span>
+              <span class="tc-label">{{ type.libelle }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Dates -->
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Date début</label>
+          <input type="date" formControlName="dateDebut" class="form-input" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Date fin</label>
+          <input type="date" formControlName="dateFin" class="form-input" />
+        </div>
+      </div>
+
+      <!-- Durée info -->
+      @if (dureeJours() > 0) {
+        <div class="duree-info">
+          <lucide-icon name="clock" [size]="14"></lucide-icon>
+          Durée : <strong>{{ dureeJours() }} jour(s)</strong>
+        </div>
+      }
+
+      <!-- Motif -->
+      <div class="field-group">
+        <label class="field-label">Motif / Commentaire <span class="optional">(optionnel)</span></label>
+        <textarea
+          formControlName="motif"
+          class="form-input form-textarea"
+          placeholder="Raisons de l'absence..."
+          rows="3"
+        ></textarea>
+        @if (form.get('motif')?.errors?.['minlength']) {
+          <p class="field-error">Le motif doit faire au moins 10 caractères si rempli.</p>
+        }
+      </div>
+
+      <button type="submit" class="btn-submit" [disabled]="!canSubmit() || submitting()">
+        @if (submitting()) {
+          <span class="spinner-sm"></span>
+          Enregistrement...
+        } @else {
+          Enregistrer l'absence →
+        }
+      </button>
+    </form>
+  </div>
+</div>

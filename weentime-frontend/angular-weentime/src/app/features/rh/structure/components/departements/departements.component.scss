@@ -1,0 +1,147 @@
+@use '../shared-structure' as *;
+
+.dept-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  padding: 4px;
+}
+
+.dept-card {
+  background: white;
+  border-radius: 28px;
+  padding: 30px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.03);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 6px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px -12px rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.2);
+
+    &::before { opacity: 1; }
+    
+    .dept-name { color: #4f46e5; }
+    .icon-btn { opacity: 1; }
+  }
+}
+
+:host-context(.dark) .dept-card {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+
+  &:hover {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+}
+
+.dept-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.dept-name {
+  font-size: 18px;
+  font-weight: 900;
+  color: #1e293b;
+  letter-spacing: -0.02em;
+  transition: color 0.3s;
+  text-transform: capitalize;
+}
+
+:host-context(.dark) .dept-name { color: #f8fafc; }
+
+.dept-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 34px; height: 34px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.6;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: scale(1.1);
+  }
+
+  &.delete:hover {
+    background: #fee2e2;
+    color: #ef4444;
+  }
+}
+
+:host-context(.dark) .icon-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  &:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+  &.delete:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+}
+
+.dept-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 24px;
+  line-height: 1.6;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+:host-context(.dark) .dept-desc { color: #94a3b8; }
+
+.dept-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f8fafc;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+:host-context(.dark) .stat {
+  background: rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .dept-grid { grid-template-columns: 1fr; }
+}

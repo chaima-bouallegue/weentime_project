@@ -1,0 +1,57 @@
+services:
+
+  postgres:
+    container_name: weentime-postgres
+    image: postgres:17
+    environment:
+      POSTGRES_USER: weentime
+      POSTGRES_PASSWORD: 170502
+      POSTGRES_DB: weentime
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - weentime-network
+    restart: unless-stopped
+
+  redis:
+    container_name: weentime-redis
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - weentime-network
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: ms_pg_admin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    networks:
+      - weentime-network
+    restart: unless-stopped
+
+  mail_dev:
+    container_name: ms_mail_dev
+    image: maildev/maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    networks:
+      - weentime-network
+    restart: unless-stopped
+
+networks:
+  weentime-network:
+
+volumes:
+  postgres_data:
+  pgadmin:

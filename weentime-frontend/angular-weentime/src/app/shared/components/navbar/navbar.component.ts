@@ -1,0 +1,59 @@
+import { Component, HostListener, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
+import { ThemeService } from '../../../core/services/theme.service';
+import { LanguageService } from '../../../core/services/language.service';
+import { LogoComponent } from '../logo/logo.component';
+
+@Component({
+    selector: 'app-navbar',
+    standalone: true,
+    imports: [CommonModule, RouterModule, LucideAngularModule, LogoComponent],
+    templateUrl: './navbar.component.html',
+    styles: [`
+    :host { display: block; }
+    .lang-tab {
+      @apply px-3 py-1 rounded-full text-xs font-bold transition-all;
+    }
+    .lang-tab-active {
+      @apply bg-white dark:bg-white/10 shadow-sm text-indigo-600 dark:text-white;
+    }
+    .nav-link {
+        @apply transition-colors duration-200;
+    }
+  `]
+})
+export class NavbarComponent {
+    themeService = inject(ThemeService);
+    langService = inject(LanguageService);
+
+    scrolled = false;
+
+    langFlags = [
+        { code: 'FR', label: 'FR' },
+        { code: 'EN', label: 'EN' },
+        { code: 'AR', label: 'AR' },
+    ];
+
+    navLinks = [
+        { label: 'Accueil', path: '/' },
+        { label: 'Présentation', path: '/', fragment: 'presentation' },
+        { label: 'Fonctionnalités', path: '/', fragment: 'features' },
+        { label: 'Tarif', path: '/pricing' },
+        { label: 'Blog', path: '/blog' }
+    ];
+
+    @HostListener('window:scroll', [])
+    onWindowScroll() {
+        this.scrolled = window.scrollY > 50;
+    }
+
+    toggleTheme() {
+        this.themeService.toggleTheme();
+    }
+
+    setLang(lang: string) {
+        this.langService.setLanguage(lang as any);
+    }
+}

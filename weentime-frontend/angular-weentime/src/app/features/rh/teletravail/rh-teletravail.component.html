@@ -1,0 +1,59 @@
+<div class="page-container">
+  <header class="page-header">
+    <div class="header-content">
+      <div class="title-group">
+        <h1 class="page-title">Télétravail</h1>
+        <p class="page-subtitle">Gestion globale des demandes de télétravail</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Zone 1: Stats RH -->
+  <section class="section">
+    <app-stats-rh-cards [stats]="stats()" [isLoading]="isLoading()"></app-stats-rh-cards>
+  </section>
+
+  @if (loadWarning()) {
+    <section class="section">
+      <div class="empty-state-sm">
+        <p>{{ loadWarning() }}</p>
+      </div>
+    </section>
+  }
+
+  <!-- Zone 2: Demandes en attente RH -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Demandes en attente de validation RH</h2>
+      <span class="count-badge" [class.pulse]="demandesEnAttente().length > 0">{{ demandesEnAttente().length }}</span>
+    </div>
+    <app-demandes-rh-list
+      [demandes]="demandesEnAttente()"
+      [isLoading]="isLoading()"
+      (approuver)="onApprouver($event)"
+      (refuser)="onRefuser($event)"
+    ></app-demandes-rh-list>
+  </section>
+
+  <!-- Zone 3: Historique Global -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Historique global</h2>
+    </div>
+    <app-historique-global
+      [demandes]="historiqueGlobal()"
+      [isLoading]="isLoading()"
+    ></app-historique-global>
+  </section>
+</div>
+
+<!-- Decision RH Modal -->
+@if (demandeSelectionnee()) {
+  <app-decision-rh-modal
+    [demande]="demandeSelectionnee()"
+    [mode]="modeDecision()"
+    [isSubmitting]="isSubmitting()"
+    (close)="closeModal()"
+    (confirm)="onConfirmDecision($event)"
+  ></app-decision-rh-modal>
+}

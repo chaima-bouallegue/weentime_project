@@ -1,0 +1,238 @@
+.rh-bento-container {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+
+  /* ---------- Animations ---------- */
+  .fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Bento Cards Base ---------- */
+  .bento-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 32px;
+    box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    :host-context(.dark) & {
+      background: rgba(15, 23, 42, 0.6);
+      border-color: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  /* ---------- Hero Section ---------- */
+  .dashboard-hero {
+    .hero-card {
+      @extend .bento-card;
+      background: white;
+      padding: 0;
+
+      :host-context(.dark) & {
+        background: #0f172a;
+      }
+    }
+
+    .card-mesh {
+      position: absolute;
+      inset: 0;
+      opacity: 0.1;
+      background: radial-gradient(circle at 100% 0%, var(--mesh-color) 0%, transparent 50%),
+                  radial-gradient(circle at 0% 100%, var(--mesh-color) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.75rem;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      &.primary-purple {
+        background: #8b5cf6;
+        color: white;
+        box-shadow: 0 8px 24px -6px rgba(139, 92, 246, 0.4);
+
+        &:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px -8px rgba(139, 92, 246, 0.6);
+        }
+      }
+
+      &.secondary {
+        background: rgba(241, 245, 249, 0.8);
+        color: #475569;
+        
+        &:hover:not(:disabled) {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+
+        :host-context(.dark) & {
+          background: rgba(30, 41, 59, 0.8);
+          color: #94a3b8;
+          &:hover:not(:disabled) { background: #334155; color: white; }
+        }
+      }
+    }
+  }
+
+  /* ---------- KPI Grid ---------- */
+  .bento-stat-card {
+    @extend .bento-card;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+
+    .stat-icon-box {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+
+      :host-context(.dark) & { color: #94a3b8; }
+    }
+
+    .stat-value-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .value {
+      font-size: 2.25rem;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1;
+      letter-spacing: -0.03em;
+
+      :host-context(.dark) & { color: white; }
+    }
+
+    .delta {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+    }
+
+    .stat-visual-glow {
+      position: absolute;
+      bottom: -20px;
+      right: -20px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      filter: blur(40px);
+      z-index: 1;
+      opacity: 0.2;
+    }
+
+    /* Card Themes */
+    &.info {
+      .stat-icon-box { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+      .delta { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+      .stat-visual-glow { background: #3b82f6; }
+    }
+    &.success {
+      .stat-icon-box { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      .delta { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      .stat-visual-glow { background: #10b981; }
+    }
+    &.danger {
+      .stat-icon-box { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+      .delta { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+      .stat-visual-glow { background: #ef4444; }
+    }
+    &.warning {
+      .stat-icon-box { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      .delta { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      .stat-visual-glow { background: #f59e0b; }
+    }
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.1);
+      .stat-visual-glow { opacity: 0.4; }
+    }
+  }
+
+  /* ---------- Utils ---------- */
+  .status-pill-small {
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+
+    &.success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    &.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+    &.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    &.info { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+  }
+
+  .inline-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(254, 242, 242, 0.8);
+    border: 1px solid rgba(252, 165, 165, 0.5);
+    border-radius: 16px;
+    color: #991b1b;
+    font-size: 0.875rem;
+    font-weight: 700;
+
+    :host-context(.dark) & {
+      background: rgba(127, 29, 29, 0.2);
+      border-color: rgba(153, 27, 27, 0.5);
+      color: #fca5a5;
+    }
+  }
+}

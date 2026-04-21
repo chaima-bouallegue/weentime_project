@@ -1,0 +1,314 @@
+<div class="dashboard-bento-container fade-in">
+  <!-- Manager Command Center Hero -->
+  <header class="dashboard-hero mb-10">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#2563eb'"></div>
+
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10 p-10">
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-indigo-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-200 dark:shadow-none">
+              Centre de Commande Manager
+            </span>
+            <div class="live-indicator" [class.active]="hasLiveSignals()">
+              <div class="dot"></div>
+              <span>{{ hasLiveSignals() ? 'Flux d\'Équipe Live' : 'Signal Stable' }}</span>
+            </div>
+          </div>
+
+          <h1 class="text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
+            Bonjour, {{ firstName() }} <span class="text-indigo-500">.</span>
+          </h1>
+          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            Aujourd'hui, {{ todayLabel }}. Supervisez les présences et gérez le flux de travail de votre équipe.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+          <a routerLink="/app/manager/approbations" class="hero-btn primary">
+            <lucide-angular [img]="iconClipboardCheck" size="20"></lucide-angular>
+            <span>Approbations</span>
+          </a>
+          <a routerLink="/app/manager/equipe" class="hero-btn secondary">
+            <lucide-angular [img]="iconUsers" size="20"></lucide-angular>
+            <span>Mon Équipe</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="h-40 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+      }
+    </div>
+  } @else {
+    <!-- KPI Grid -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="bento-stat-card success">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconUsers" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Présents</span>
+          <div class="stat-value-line">
+            <span class="value">{{ presentCount() }}</span>
+            <span class="delta success">Sur {{ totalCount() }} actifs</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card warning">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconInbox" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">En Attente</span>
+          <div class="stat-value-line">
+            <span class="value">{{ pendingRequests().length }}</span>
+            <span class="delta warning">Demandes Manager</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card danger">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconUserX" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Absents</span>
+          <div class="stat-value-line">
+            <span class="value">{{ absentCount() }}</span>
+            <span class="delta danger">Signal critique</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <div class="bento-stat-card info">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconTimer" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Retards</span>
+          <div class="stat-value-line">
+            <span class="value">{{ lateCount() }}</span>
+            <span class="delta info">À surveiller</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+    </section>
+
+    <!-- Main Dashboard Grid -->
+    <div class="grid grid-cols-12 gap-8">
+
+      <!-- Team Monitoring (8 cols) -->
+      <section class="col-span-12 lg:col-span-8 space-y-8">
+        <div class="bento-card p-8">
+          <div class="flex items-center justify-between mb-8 px-2">
+            <div>
+              <h3 class="text-3xl font-black text-slate-900 dark:text-white mb-1">Live Team Pulse</h3>
+              <p class="text-sm font-medium text-slate-400">Suivi des présences et des arrivées de votre équipe.</p>
+            </div>
+            <a routerLink="/app/manager/equipe" class="action-link-btn group">
+              <span>Voir tout</span>
+              <lucide-angular [img]="iconChevronRight" size="16" class="group-hover:translate-x-1 transition-transform"></lucide-angular>
+            </a>
+          </div>
+
+          @if (mergedMembers().length === 0) {
+            <div class="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+              <lucide-angular [img]="iconUsers" size="48" class="text-slate-200 mb-4 mx-auto"></lucide-angular>
+              <h4 class="font-black text-slate-400 uppercase tracking-widest text-xs">Aucun membre rattaché</h4>
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              @for (member of mergedMembers(); track member.id) {
+                <div class="team-member-item group">
+                  <div class="flex items-center gap-4">
+                    <div class="member-avatar-box">
+                      <div class="status-ring" [class]="statusTone(member.status)"></div>
+                      <div class="avatar-text" [style.background]="'linear-gradient(135deg, #6366f1, #8b5cf6)'">
+                        {{ initials(member.fullName) }}
+                      </div>
+                    </div>
+                    <div class="flex-1 min-width-0">
+                      <div class="flex items-center gap-2 mb-0.5">
+                        <span class="font-black text-slate-900 dark:text-white truncate">{{ member.fullName }}</span>
+                        @if (member.isLate) {
+                          <lucide-angular [img]="iconTimer" size="14" class="text-amber-500"></lucide-angular>
+                        }
+                      </div>
+                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {{ member.email }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-end gap-1">
+                    <span class="status-pill-small" [class]="statusTone(member.status)">
+                      {{ statusLabel(member.status) }}
+                    </span>
+                    @if (member.arrivalTime) {
+                      <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                        Entrée: {{ member.arrivalTime }}
+                      </span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- Pending Requests -->
+          <div class="bento-card p-8">
+            <div class="flex items-center justify-between mb-8">
+              <h3 class="text-2xl font-black text-slate-900 dark:text-white">Demandes</h3>
+              <a routerLink="/app/manager/approbations" class="text-indigo-500 font-black text-xs uppercase tracking-widest hover:underline">Voir tout</a>
+            </div>
+
+            @if (pendingRequests().length === 0) {
+              <div class="py-10 text-center">
+                <lucide-angular [img]="iconCheck" size="32" class="text-slate-100 mx-auto mb-2"></lucide-angular>
+                <p class="text-slate-400 text-xs italic tracking-wide">Workflow à jour</p>
+              </div>
+            } @else {
+              <div class="space-y-4">
+                @for (request of pendingRequests().slice(0, 4); track request.id) {
+                  <a routerLink="/app/manager/approbations" class="request-item-card group">
+                    <div class="flex-1">
+                      <div class="type-tag mb-2">Congé</div>
+                      <div class="font-black text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">{{ requestOwner(request) }}</div>
+                      <div class="text-[11px] text-slate-400 font-medium">{{ requestWindow(request) }}</div>
+                    </div>
+                    <lucide-angular [img]="iconChevronRight" size="16" class="text-slate-200 group-hover:text-indigo-500 transition-all"></lucide-angular>
+                  </a>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Priority Actions / Alerts -->
+          <div class="bento-card p-8 border-2 border-indigo-50 dark:border-indigo-900/10">
+            <div class="flex items-center justify-between mb-8">
+              <h3 class="text-2xl font-black text-slate-900 dark:text-white">Alertes Pulse</h3>
+              <lucide-angular [img]="iconSparkles" size="18" class="text-indigo-500"></lucide-angular>
+            </div>
+
+            <div class="space-y-4">
+              @for (alert of alerts(); track alert.title) {
+                <div class="alert-bento-card" [class]="alert.tone">
+                  <div class="alert-icon">
+                    <lucide-angular [img]="alert.icon" size="18"></lucide-angular>
+                  </div>
+                  <div>
+                    <div class="font-black text-xs uppercase tracking-wider mb-1">{{ alert.title }}</div>
+                    <p class="text-[11px] font-medium leading-relaxed opacity-80">{{ alert.description }}</p>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sidebar Content (4 cols) -->
+      <aside class="col-span-12 lg:col-span-4 space-y-8">
+        <!-- Live Notifications -->
+        <div class="bento-card p-8">
+          <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-2">
+              <lucide-angular [img]="iconActivity" size="16" class="text-indigo-500"></lucide-angular>
+              <h3 class="text-xl font-black text-slate-900 dark:text-white">Manager Pulse</h3>
+            </div>
+            @if (notificationService.unreadCount() > 0) {
+              <span class="px-2 py-0.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase">
+                New
+              </span>
+            }
+          </div>
+
+          <div class="space-y-4">
+            @for (notif of notificationService.notifications().slice(0, 6); track notif.id) {
+              <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-2 border-transparent hover:border-indigo-100 dark:hover:border-indigo-900 transition-all cursor-pointer overflow-hidden relative"
+                   (click)="notificationService.navigateToNotification(notif)">
+                @if (!notif.lu) {
+                  <div class="absolute top-0 right-0 w-1.5 h-1.5 bg-indigo-500 rounded-bl-lg"></div>
+                }
+                <div class="flex gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
+                    <lucide-angular [img]="iconClock" size="16"></lucide-angular>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-xs font-black text-slate-900 dark:text-white truncate" [title]="notif.titre">{{ notif.titre }}</div>
+                    <p class="text-[11px] text-slate-400 truncate mb-1">{{ notif.message }}</p>
+                    <span class="text-[9px] font-black text-indigo-400">{{ notif.date | date:'shortTime' }}</span>
+                  </div>
+                </div>
+              </div>
+            }
+            @if (notificationService.notifications().length === 0) {
+              <div class="py-10 text-center opacity-30">
+                <p class="text-xs font-black uppercase tracking-widest">Aucune notification</p>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="bento-card p-8 bg-slate-900 text-white border-0 shadow-2xl relative overflow-hidden group">
+          <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-3xl transition-transform group-hover:scale-125"></div>
+
+          <div class="flex items-center justify-between mb-8 relative z-10">
+            <h3 class="text-xl font-black">Performance</h3>
+            <div class="px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-indigo-400">
+              Live
+            </div>
+          </div>
+
+          <div class="space-y-8 relative z-10">
+            <div>
+              <div class="flex justify-between text-[11px] font-black uppercase tracking-widest mb-3 opacity-50">
+                <span>Taux de Présence</span>
+                <span>{{ (presentCount() / (totalCount() || 1) * 100) | number:'1.0-0' }}%</span>
+              </div>
+              <div class="h-2 rounded-full bg-white/5 overflow-hidden">
+                <div class="h-full bg-indigo-500 rounded-full transition-all duration-1000" [style.width.%]="(presentCount() / (totalCount() || 1) * 100)"></div>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-3xl bg-indigo-600 shadow-xl shadow-indigo-500/20">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                  <lucide-angular [img]="iconBadgeCheck" size="16"></lucide-angular>
+                </div>
+                <h4 class="text-xs font-black uppercase tracking-[0.2em]">Focus Travail</h4>
+              </div>
+              <p class="text-sm font-bold opacity-90 mb-6 leading-relaxed">
+                @if (pendingRequests().length > 0) {
+                  Vérifiez les demandes de congés pour maintenir la fluidité opérationnelle.
+                } @else {
+                  Toutes les demandes sont traitées. Excellente gestion opérationnelle !
+                }
+              </p>
+              <a routerLink="/app/manager/approbations" class="flex items-center gap-2 text-xs font-black py-2 rounded-xl bg-white text-indigo-600 justify-center hover:bg-slate-50 transition-colors">
+                <span>Workflow Approbations</span>
+                <lucide-angular [img]="iconChevronRight" size="12"></lucide-angular>
+              </a>
+            </div>
+
+            <button (click)="refreshData()" class="w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border border-white/10 rounded-2xl hover:bg-white/5 transition-all">
+              Actualiser les Signaux
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  }
+</div>

@@ -1,0 +1,213 @@
+.page-header {
+  position: relative;
+  z-index: 10;
+}/* --- Containers --- */
+.bento-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Page Header (FIX: z-index pour que le bouton soit toujours cliquable) --- */
+.page-header {
+  position: relative;
+  z-index: 10;
+}
+
+/* --- Common Bento Card --- */
+.bento-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05),
+              0 4px 6px -4px rgba(0, 0, 0, 0.02);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* All absolute decorative pseudo-elements must never block clicks */
+  &::before,
+  &::after {
+    pointer-events: none;
+  }
+
+  &.main-section {
+    background: rgba(255, 255, 255, 0.95);
+    overflow: visible; /* allow dropdowns/tooltips to overflow */
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.dark .bento-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+
+  &.main-section {
+    background: rgba(15, 23, 42, 0.8);
+  }
+}
+
+/* --- KPI Cards --- */
+.kpi-card {
+  height: 120px;
+  padding: 1.5rem;
+  
+  .card-mesh {
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    background: radial-gradient(circle at top right, var(--card-color), transparent 70%);
+    filter: blur(40px);
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  &:hover .card-mesh {
+    opacity: 0.2;
+  }
+
+  .card-content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+  }
+
+  .kpi-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    color: var(--card-color);
+    transition: all 0.3s;
+  }
+
+  .kpi-value {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+
+  .kpi-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+}
+
+.dark .kpi-card {
+  .kpi-icon-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--card-color);
+    box-shadow: none;
+  }
+
+  .kpi-value {
+    color: white;
+  }
+
+  .kpi-label {
+    color: #94a3b8;
+  }
+}
+
+/* --- Action Button --- */
+.action-button {
+  position: relative;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  cursor: pointer;
+
+  &.primary {
+    background: #4f46e5;
+    color: white;
+    box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);
+    
+    .icon-box {
+      background: rgba(255,255,255,0.2);
+    }
+
+    &:hover {
+      background: #4338ca;
+      transform: translateY(-2px);
+      box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.4);
+    }
+  }
+
+  .button-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  &:hover .button-glow {
+    opacity: 1;
+  }
+
+  .button-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
+  }
+
+  .icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* --- Main Sections --- */
+.section-title {
+  letter-spacing: -0.025em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bento-container {
+    padding: 1rem;
+  }
+  
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}

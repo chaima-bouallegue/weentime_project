@@ -1,0 +1,41 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content bento-modal p-8 text-center animate-in zoom-in-95 duration-300" (click)="$event.stopPropagation()">
+    
+    <!-- Close icon -->
+    <button (click)="close.emit()" class="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+      <lucide-angular [img]="iconX" size="20"></lucide-angular>
+    </button>
+
+    <!-- Modal Icon -->
+    <div class="modal-icon-container mb-6 mx-auto">
+      <div class="icon-ring animate-ping"></div>
+      <div class="icon-box danger">
+        <lucide-angular [img]="iconTrash" size="32"></lucide-angular>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-3">Retirer la demande ?</h2>
+    <p class="text-slate-500 dark:text-slate-400 font-medium mb-8">
+      Êtes-vous sûr de vouloir annuler votre demande de télétravail du <br>
+      <span class="text-slate-900 dark:text-slate-100 font-bold">"{{ demande?.dateDebut }}"</span> ?<br>
+      <small class="text-slate-400 block mt-2 text-xs">Cette action ne peut pas être annulée.</small>
+    </p>
+
+    <!-- Footer Actions -->
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+      <button (click)="close.emit()" class="action-btn secondary flex-1 w-full py-4 rounded-2xl font-bold transition-all border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800">
+        Non, conserver
+      </button>
+      <button (click)="onConfirm()" [disabled]="isAnnulating" class="action-btn danger flex-1 w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 bg-rose-500 text-white shadow-lg shadow-rose-100 dark:shadow-none hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-50">
+        @if (isAnnulating) {
+          <lucide-angular [img]="iconLoader" size="20" class="animate-spin"></lucide-angular>
+          Annulation...
+        } @else {
+          Oui, annuler
+        }
+      </button>
+    </div>
+
+  </div>
+</div>

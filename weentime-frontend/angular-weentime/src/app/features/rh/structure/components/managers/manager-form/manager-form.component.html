@@ -1,0 +1,37 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <h3>Assigner une équipe</h3>
+      <p class="modal-subtitle">Manager : <strong>{{ manager.prenom }} {{ manager.nom }}</strong></p>
+    </header>
+
+    <div class="modal-body">
+      @if (equipesSansManager.length === 0) {
+        <div class="no-equipes">
+          <lucide-icon name="info" size="16"></lucide-icon>
+          <span>Aucune équipe disponible sans manager</span>
+        </div>
+      } @else {
+        <div class="equipe-select-wrapper">
+          <lucide-icon name="git-branch" size="18" class="select-icon"></lucide-icon>
+          <select (change)="selectedEquipeId.set(+$any($event.target).value)">
+            <option value="0" disabled selected>Choisir une équipe</option>
+            @for (eq of equipesSansManager; track eq.id) {
+              <option [value]="eq.id">{{ eq.nom }} — {{ eq.departementNom }}</option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" (click)="close.emit()">Annuler</button>
+      <button class="btn-primary" (click)="onAssign()" [disabled]="!selectedEquipeId() || isSubmitting()">
+        @if (isSubmitting()) {
+          <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>
+        }
+        Assigner
+      </button>
+    </div>
+  </div>
+</div>

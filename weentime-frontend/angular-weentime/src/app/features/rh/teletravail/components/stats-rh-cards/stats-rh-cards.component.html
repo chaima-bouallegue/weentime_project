@@ -1,0 +1,59 @@
+<div class="stats-grid">
+  @if (isLoading) {
+    @for (i of [1,2,3,4,5,6]; track i) {
+      <div class="stat-card skeleton"><div class="skel-content"></div></div>
+    }
+  } @else if (stats) {
+    <div class="stat-card">
+      <div class="stat-icon bg-amber"><lucide-icon name="clock" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.enAttente }}</span>
+        <span class="stat-label">En attente RH</span>
+      </div>
+      @if (stats.enAttente > 0) { <span class="stat-badge">{{ stats.enAttente }}</span> }
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon bg-green"><lucide-icon name="check-circle" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.approuveCeMois }}</span>
+        <span class="stat-label">Approuvées ce mois</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon bg-red"><lucide-icon name="x-circle" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.refuseCeMois }}</span>
+        <span class="stat-label">Refusées ce mois</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon bg-indigo"><lucide-icon name="trending-up" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.tauxApprobation }}%</span>
+        <span class="stat-label">Taux d'approbation</span>
+      </div>
+      <div class="progress-mini">
+        <div class="progress-fill" [style.width.%]="stats.tauxApprobation"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon bg-cyan"><lucide-icon name="bar-chart" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.moyenneJoursParDemande }}</span>
+        <span class="stat-label">Moy. jours/demande</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon bg-violet"><lucide-icon name="award" size="22"></lucide-icon></div>
+      <div class="stat-body">
+        <span class="stat-value">{{ stats.topDepartement }}</span>
+        <span class="stat-label">Top département</span>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,74 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Horaires de l'Équipe</h1>
+      <p class="page-subtitle">Vue d'ensemble des plannings de vos collaborateurs.</p>
+    </div>
+    <div class="header-actions">
+      <div class="search-box">
+        <lucide-icon name="search" size="16" class="search-icon"></lucide-icon>
+        <input type="text" placeholder="Rechercher un membre..." class="search-input">
+      </div>
+      <button class="btn-outline">
+        <lucide-icon name="filter" size="16"></lucide-icon>
+        Filtres
+      </button>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    @if (isLoading()) {
+      <div class="table-skeleton"></div>
+    } @else if (loadWarning()) {
+      <div class="p-6 text-center text-slate-500">
+        {{ loadWarning() }}
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th class="col-employee">Collaborateur</th>
+              @for (jour of joursSemaine; track jour) {
+                <th class="col-day" [class.is-today]="isToday(jour)">
+                  {{ jour.substring(0, 3) }}.
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (emp of teamSchedules(); track emp.userId) {
+              <tr class="schedule-row">
+                <td class="col-employee">
+                  <div class="employee-cell">
+                    <div class="avatar" [style.background]="emp.color">{{ emp.initials }}</div>
+                    <div class="employee-info">
+                      <span class="emp-name">{{ emp.firstName }} {{ emp.lastName }}</span>
+                      <span class="emp-role">{{ emp.horaire.nom }}</span>
+                    </div>
+                  </div>
+                </td>
+                
+                @for (jour of joursSemaine; track jour) {
+                  @if (getJourForEmployee(emp, jour); as j) {
+                    <td class="col-day" [class.is-today]="isToday(jour)">
+                      @if (j.estTravaille) {
+                        <div class="shift-badge">
+                          {{ getHeureDebut(j) }} - {{ getHeureFin(j) }}
+                        </div>
+                      } @else {
+                        <div class="repos-dot-wrapper">
+                          <div class="repos-dot"></div>
+                        </div>
+                      }
+                    </td>
+                  }
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

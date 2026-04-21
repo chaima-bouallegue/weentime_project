@@ -1,0 +1,54 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: rh-service
+  datasource:
+    url: jdbc:postgresql://localhost:5433/rh_db
+    username: weentime
+    password: 170502
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  config:
+    import:
+      optional:configserver: configserver:http://localhost:8888
+  flyway:
+    enabled: false
+
+minio:
+  endpoint: ${MINIO_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET:weentime-justificatifs}
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expirationMs: 86400000
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  server:
+    enable-self-preservation: false

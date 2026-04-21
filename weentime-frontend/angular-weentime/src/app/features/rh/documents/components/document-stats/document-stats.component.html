@@ -1,0 +1,67 @@
+@if (stats) {
+  <!-- Urgent Alerts -->
+  @if (stats.urgentes > 0) {
+    <div class="urgent-banner">
+      <div class="banner-content">
+        <lucide-icon name="alert-triangle" size="20"></lucide-icon>
+        <span>{{ stats.urgentes }} demande(s) en attente depuis plus de 48h</span>
+      </div>
+    </div>
+  }
+
+  <div class="stats-grid">
+    <!-- En attente -->
+    <div class="stat-card yellow">
+      <div class="card-icon">
+        <lucide-icon name="clock" size="24"></lucide-icon>
+      </div>
+      <div class="card-info">
+        <span class="label">En attente</span>
+        <div class="value-row">
+          <span class="value">{{ stats.enAttente }}</span>
+          @if (stats.urgentes > 0) {
+            <span class="urgent-badge">{{ stats.urgentes }} urgentes</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- En cours -->
+    <div class="stat-card blue">
+      <div class="card-icon">
+        <lucide-icon name="clock-3" size="24"></lucide-icon>
+      </div>
+      <div class="card-info">
+        <span class="label">En cours</span>
+        <span class="value">{{ stats.enCours }}</span>
+      </div>
+    </div>
+
+    <!-- Prêts -->
+    <div class="stat-card green">
+      <div class="card-icon">
+        <lucide-icon name="check-circle" size="24"></lucide-icon>
+      </div>
+      <div class="card-info">
+        <span class="label">Prêts</span>
+        <span class="value">{{ stats.prets }}</span>
+      </div>
+    </div>
+
+    <!-- Taux de traitement -->
+    <div class="stat-card indigo">
+      <div class="card-icon">
+        <lucide-icon name="activity" size="24"></lucide-icon>
+      </div>
+      <div class="card-info">
+        <span class="label">Taux de traitement</span>
+        <div class="progress-row">
+          <span class="value">{{ stats.tauxTraitement }}%</span>
+          <div class="mini-progress">
+            <div class="progress-fill" [style.width.%]="stats.tauxTraitement"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

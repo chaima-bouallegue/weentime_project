@@ -1,0 +1,93 @@
+<div class="check-in-card">
+  <!-- Background Gradient -->
+  <div class="card-gradient"></div>
+
+  <!-- Card Content -->
+  <div class="card-content">
+    <!-- Header: Status Badge -->
+    <div class="card-header">
+      <div class="status-badge" [class.checked-in]="isCheckedIn" [class.loading]="isLoading">
+        <lucide-icon [name]="getStatusIcon()" 
+          *ngIf="!isLoading" 
+          [size]="20"
+          [class.animate-spin]="isLoading"
+        ></lucide-icon>
+        <span class="spinner" *ngIf="isLoading"></span>
+        <span class="status-text">{{ getStatusLabel() }}</span>
+      </div>
+    </div>
+
+    <!-- Main: Large Time Display -->
+    <div class="time-section">
+      <div class="current-time-display">
+        {{ currentTime }}
+      </div>
+      <p class="time-hint">Heure actuelle</p>
+    </div>
+
+    <!-- Arrival/Departure Times Grid -->
+    <div class="times-grid">
+      <div class="time-item">
+        <div class="time-icon arrival">
+          <lucide-icon name="log-in" size="20"></lucide-icon>
+        </div>
+        <div class="time-content">
+          <span class="time-label">Heure d'arrivée</span>
+          <span class="time-value">{{ formattedTime.arrival }}</span>
+        </div>
+      </div>
+
+      <div class="time-item">
+        <div class="time-icon departure">
+          <lucide-icon name="log-out" size="20"></lucide-icon>
+        </div>
+        <div class="time-content">
+          <span class="time-label">Heure de départ</span>
+          <span class="time-value">{{ formattedTime.departure }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Working Time -->
+    <div class="total-time">
+      <div class="total-time-icon">
+        <lucide-icon name="clock" size="20"></lucide-icon>
+      </div>
+      <div class="total-time-content">
+        <span class="total-label">Temps total aujourd'hui</span>
+        <span class="total-value">{{ totalTime }}</span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="button-group">
+      <!-- Check-in Button -->
+      <button 
+        *ngIf="!isCheckedIn && !isLoading"
+        class="btn btn-checkin"
+        (click)="checkIn.emit()"
+        [disabled]="isCheckingIn"
+      >
+        <lucide-icon name="log-in" size="20"></lucide-icon>
+        <span>{{ isCheckingIn ? 'Enregistrement...' : 'Pointer l\'Arrivée' }}</span>
+      </button>
+
+      <!-- Check-out Button -->
+      <button 
+        *ngIf="isCheckedIn && !isLoading"
+        class="btn btn-checkout"
+        (click)="checkOut.emit()"
+        [disabled]="isCheckingOut"
+      >
+        <lucide-icon name="log-out" size="20"></lucide-icon>
+        <span>{{ isCheckingOut ? 'Enregistrement...' : 'Pointer le Départ' }}</span>
+      </button>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="btn btn-loading">
+        <span class="spinner-small"></span>
+        <span>Chargement des données...</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,271 @@
+.rh-bento-container {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+
+  /* ---------- Animations ---------- */
+  .fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Bento Cards Base ---------- */
+  .bento-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 32px;
+    box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    :host-context(.dark) & {
+      background: rgba(15, 23, 42, 0.6);
+      border-color: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  /* ---------- Hero Section ---------- */
+  .dashboard-hero {
+    .hero-card {
+      @extend .bento-card;
+      background: white;
+      padding: 0;
+
+      :host-context(.dark) & {
+        background: #0f172a;
+      }
+    }
+
+    .card-mesh {
+      position: absolute;
+      inset: 0;
+      opacity: 0.1;
+      background: radial-gradient(circle at 100% 0%, var(--mesh-color) 0%, transparent 50%),
+                  radial-gradient(circle at 0% 100%, var(--mesh-color) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.75rem;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      &.secondary {
+        background: rgba(241, 245, 249, 0.8);
+        color: #475569;
+        
+        &:hover:not(:disabled) {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+
+        :host-context(.dark) & {
+          background: rgba(30, 41, 59, 0.8);
+          color: #94a3b8;
+          &:hover:not(:disabled) { background: #334155; color: white; }
+        }
+      }
+    }
+  }
+
+  /* ---------- KPI Grid ---------- */
+  .bento-stat-card {
+    @extend .bento-card;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+
+    .stat-icon-box {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+
+      :host-context(.dark) & { color: #94a3b8; }
+    }
+
+    .stat-value-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .value {
+      font-size: 2.25rem;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1;
+      letter-spacing: -0.03em;
+
+      :host-context(.dark) & { color: white; }
+    }
+
+    .delta {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+    }
+
+    .stat-visual-glow {
+      position: absolute;
+      bottom: -20px;
+      right: -20px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      filter: blur(40px);
+      z-index: 1;
+      opacity: 0.2;
+    }
+
+    /* Card Themes */
+    &.info {
+      .stat-icon-box { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+      .delta { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+      .stat-visual-glow { background: #3b82f6; }
+    }
+    &.success {
+      .stat-icon-box { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      .delta { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+      .stat-visual-glow { background: #10b981; }
+    }
+    &.danger {
+      .stat-icon-box { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+      .delta { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+      .stat-visual-glow { background: #ef4444; }
+    }
+    &.warning {
+      .stat-icon-box { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      .delta { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      .stat-visual-glow { background: #f59e0b; }
+    }
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.1);
+      .stat-visual-glow { opacity: 0.4; }
+    }
+  }
+
+  /* ---------- Bar Charts ---------- */
+  .analytics-bar-fill {
+    min-height: 4px;
+    background: linear-gradient(to top, #ec4899, #fb7185) !important;
+    box-shadow: 0 4px 12px -2px rgba(236, 72, 153, 0.3);
+    
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+    }
+  }
+
+  /* ---------- SVG Analytics Graphics ---------- */
+  .trend-area {
+    fill: url(#areaGradient);
+    animation: drawArea 1.5s ease-out forwards;
+  }
+
+  .trend-stroke {
+    fill: none;
+    stroke: #3b82f6;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 2000;
+    stroke-dashoffset: 2000;
+    animation: drawStroke 2.5s ease-out forwards;
+
+    &.glow-effect {
+      filter: url(#glow);
+    }
+  }
+
+  .trend-dot {
+    fill: white;
+    stroke: #3b82f6;
+    stroke-width: 3;
+    opacity: 0;
+    transform: scale(0.5);
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    
+    /* Stagger dot animations */
+    &:nth-child(even) { animation-delay: 1.5s; }
+    &:nth-child(odd) { animation-delay: 1.8s; }
+    
+    :host-context(.dark) & {
+      fill: #0f172a;
+    }
+  }
+
+  /* SVG Specific Animations */
+  @keyframes drawStroke {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes drawArea {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes popIn {
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* ---------- Utils ---------- */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+
+    &::-webkit-scrollbar { height: 6px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.4); border-radius: 20px; }
+  }
+}

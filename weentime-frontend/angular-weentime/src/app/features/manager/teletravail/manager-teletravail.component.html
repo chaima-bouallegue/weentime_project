@@ -1,0 +1,99 @@
+<div class="page-container">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="title-group">
+        <h1 class="page-title">Télétravail équipe</h1>
+        <p class="page-subtitle">Gérez les demandes de télétravail de votre équipe</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Zone 1: Stats -->
+  <section class="section">
+    <app-stats-cards [stats]="stats()" [isLoading]="isLoading()"></app-stats-cards>
+  </section>
+
+  @if (loadWarning()) {
+    <section class="section">
+      <div class="empty-state-sm">
+        <p>{{ loadWarning() }}</p>
+      </div>
+    </section>
+  }
+
+  <!-- Zone 2: Demandes en attente -->
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Demandes en attente</h2>
+      <span class="count-badge" [class.pulse]="demandesEnAttente().length > 0">{{ demandesEnAttente().length }}</span>
+    </div>
+    <app-demandes-list
+      [demandes]="demandesEnAttente()"
+      [isLoading]="isLoading()"
+      (valider)="onValider($event)"
+      (refuser)="onRefuser($event)"
+    ></app-demandes-list>
+  </section>
+
+  <!-- Zone 3: Historique -->
+  <section class="section">
+    <div class="section-header clickable" (click)="showHistorique.set(!showHistorique())">
+      <div class="header-left">
+        <h2 class="section-title">Historique de mes décisions</h2>
+        <lucide-icon [name]="showHistorique() ? 'chevron-down' : 'chevron-right'" size="20" class="chevron-icon"></lucide-icon>
+      </div>
+    </div>
+
+    @if (showHistorique()) {
+      <div class="historique-section">
+        <div class="filter-chips">
+          @for (f of [{v: 'TOUS', l: 'Tous'}, {v: 'APPROUVE', l: 'Validées'}, {v: 'REFUSE', l: 'Refusées'}]; track f.v) {
+            <button class="chip" [class.active]="filtreHistorique() === f.v" (click)="filtreHistorique.set($any(f.v))">
+              {{ f.l }}
+            </button>
+          }
+        </div>
+
+        @if (historiqueFiltre().length === 0) {
+          <div class="empty-state-sm">
+            <p>Aucune décision pour ce filtre.</p>
+          </div>
+        } @else {
+          <div class="historique-list">
+            @for (d of historiqueFiltre(); track d.id) {
+              <div class="historique-item">
+                <div class="hi-avatar" [style.background]="'#6366f1'">{{ d.employe.avatarInitiales }}</div>
+                <div class="hi-body">
+                  <div class="hi-top">
+                    <span class="hi-name">{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                    <span class="hi-label">{{ d.label }} · {{ d.nombreJours }}j</span>
+                  </div>
+                  @if (d.commentaireManager) {
+                    <p class="hi-comment">« {{ d.commentaireManager }} »</p>
+                  }
+                </div>
+                @let config = getStatusConfig(d.statut);
+                <div class="status-badge" [ngClass]="config.color">
+                  <lucide-icon [name]="config.icon" size="14"></lucide-icon>
+                  {{ config.label }}
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>
+
+<!-- Decision Modal -->
+@if (demandeSelectionnee()) {
+  <app-decision-modal
+    [demande]="demandeSelectionnee()"
+    [mode]="modeDecision()"
+    [isSubmitting]="isSubmitting()"
+    (close)="closeModal()"
+    (confirm)="onConfirmDecision($event)"
+  ></app-decision-modal>
+}

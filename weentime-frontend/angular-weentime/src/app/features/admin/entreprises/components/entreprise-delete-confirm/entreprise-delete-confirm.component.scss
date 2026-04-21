@@ -1,0 +1,76 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 400px;
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+}
+:host-context(.dark) .modal-content { background: #0f172a; border: 1px solid #1e293b; }
+
+.modal-body {
+  padding: 40px 32px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.icon-warning {
+  width: 64px;
+  height: 64px;
+  background: #fef2f2;
+  color: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+:host-context(.dark) .icon-warning { background: rgba(239, 68, 68, 0.1); }
+
+.modal-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px; }
+:host-context(.dark) .modal-title { color: white; }
+
+.modal-desc { font-size: 14px; color: #64748b; line-height: 1.6; margin: 0; }
+
+.badge-inactif {
+  font-weight: 800; color: #ef4444; 
+  background: #fef2f2; padding: 2px 6px; border-radius: 4px; font-size: 12px;
+}
+
+.modal-footer {
+  padding: 24px 32px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  button { width: 100%; }
+}
+:host-context(.dark) .modal-footer { background: #0f172a; border-top: 1px solid #1e293b; }
+
+.btn-ghost {
+  padding: 12px; border: none; background: transparent; font-weight: 700; color: #64748b; cursor: pointer;
+  border-radius: 12px; &:hover { background: #f1f5f9; }
+}
+
+.btn-danger {
+  padding: 12px; border: none; background: #ef4444; color: white; font-weight: 700; cursor: pointer;
+  border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+  &:hover:not(:disabled) { background: #dc2626; transform: translateY(-1px); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}

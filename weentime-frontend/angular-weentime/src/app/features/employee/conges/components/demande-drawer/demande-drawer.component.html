@@ -1,0 +1,214 @@
+<div class="drawer-overlay" (click)="!isSubmitting && close.emit()">
+  <div class="drawer-content animate-slide-in" (click)="$event.stopPropagation()">
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">Nouvelle demande</h2>
+        <div class="stepper-indicators">
+          <div class="step-dot" [class.active]="step() >= 1" [class.completed]="step() > 1">1</div>
+          <div class="step-line" [class.active]="step() > 1"></div>
+          <div class="step-dot" [class.active]="step() >= 2" [class.completed]="step() > 2">2</div>
+          <div class="step-line" [class.active]="step() > 2"></div>
+          <div class="step-dot" [class.active]="step() >= 3">3</div>
+        </div>
+      </div>
+      <button class="close-btn" (click)="close.emit()" [disabled]="isSubmitting">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="drawer-body-container">
+      @if (validationError()) {
+        <div class="error-alert">
+          <lucide-icon name="alert-triangle" size="14"></lucide-icon>
+          {{ validationError() }}
+        </div>
+      }
+
+      @if (step() === 1) {
+        <div class="step-content animate-fade-in">
+          <h3 class="step-title">Quel type de congé ?</h3>
+          <div class="type-grid">
+            @for (type of leaveTypes; track type) {
+              <button
+                class="type-card"
+                [class.selected]="selectedType() === type"
+                [class.disabled]="getSoldeForType(type) === 0 && type !== 'SANS_SOLDE'"
+                (click)="selectType(type)"
+              >
+                <div class="type-icon-wrapper" [class]="type.toLowerCase()">
+                  <lucide-icon [name]="type === 'ANNUEL' ? 'umbrella' : type === 'MALADIE' ? 'heart' : type === 'SANS_SOLDE' ? 'minus-circle' : type === 'MATERNITE_PATERNITE' ? 'baby' : type === 'EXCEPTIONNEL' ? 'star' : 'clock'" size="24"></lucide-icon>
+                </div>
+                <div class="type-info">
+                  <span class="type-label">{{ getTypeLabel(type) }}</span>
+                  <span class="type-quota" *ngIf="type !== 'SANS_SOLDE'">{{ getSoldeForType(type) }} jours dispos.</span>
+                  <span class="type-quota" *ngIf="type === 'SANS_SOLDE'">Aucun quota</span>
+                </div>
+                @if (getSoldeForType(type) === 0 && type !== 'SANS_SOLDE') {
+                  <span class="sold-out-badge">Solde épuise</span>
+                }
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      @if (step() === 2) {
+        <div class="step-content animate-fade-in">
+          <div class="step-header-row">
+            <h3 class="step-title">Selectionnez vos dates</h3>
+            <div class="type-badge" [class]="selectedType()?.toLowerCase()">
+              {{ getTypeLabel(selectedType()!) }}
+            </div>
+          </div>
+
+          <div class="calendar-container">
+            <div class="cal-nav">
+              <button class="nav-btn" (click)="prevMonth()">
+                <lucide-icon name="chevron-left" size="18"></lucide-icon>
+              </button>
+              <span class="current-month">{{ viewDate() | date:'MMMM yyyy':'':'fr' }}</span>
+              <button class="nav-btn" (click)="nextMonth()">
+                <lucide-icon name="chevron-right" size="18"></lucide-icon>
+              </button>
+            </div>
+
+            <div class="cal-grid">
+              @for (wd of weekDays; track wd) {
+                <div class="wd-label">{{ wd }}</div>
+              }
+              @for (day of calendarDays(); track day.date.getTime()) {
+                <div
+                  class="cal-day"
+                  [class.outside]="!day.isCurrentMonth"
+                  [class.unselectable]="!day.isSelectable"
+                  [class.weekend]="day.isWeekend"
+                  [class.holiday]="!!day.holiday"
+                  [class.in-range]="isInRange(day.date)"
+                  [class.range-start]="isSelectionStart(day.date)"
+                  [class.range-end]="isSelectionEnd(day.date)"
+                  (click)="onDayClick(day)"
+                  (mouseover)="onDayHover(day)"
+                  [title]="day.holiday?.label || ''"
+                >
+                  <span class="day-num">{{ day.date | date:'d' }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="selection-summary" *ngIf="startDate()">
+            <div class="dates-info">
+              <div class="date-box">
+                <span class="lbl">Début</span>
+                <span class="val">{{ startDate() | date:'dd MMM yyyy':'':'fr' }}</span>
+              </div>
+              <lucide-icon name="arrow-right" size="16" class="arrow" *ngIf="endDate()"></lucide-icon>
+              <div class="date-box" *ngIf="endDate()">
+                <span class="lbl">Fin</span>
+                <span class="val">{{ endDate() | date:'dd MMM yyyy':'':'fr' }}</span>
+              </div>
+            </div>
+
+            @if (endDate()) {
+              <div class="days-count animate-fade-in">
+                <strong>{{ selectedBusinessDays }}</strong> jours ouvres selectionnes
+                @if (selectedType() !== 'SANS_SOLDE' && selectedBusinessDays > getSoldeForType(selectedType()!)) {
+                  <div class="error-alert">
+                    <lucide-icon name="alert-triangle" size="14"></lucide-icon>
+                    Solde insuffisant ({{ getSoldeForType(selectedType()!) }} jours)
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      @if (step() === 3) {
+        <div class="step-content animate-fade-in">
+          <h3 class="step-title">Resume et motif</h3>
+
+          <div class="final-summary">
+            <div class="summary-card">
+              <div class="row">
+                <span class="label">Type de conge</span>
+                <span class="value badge" [class]="selectedType()?.toLowerCase()">{{ getTypeLabel(selectedType()!) }}</span>
+              </div>
+              <div class="row">
+                <span class="label">Periode</span>
+                <span class="value">{{ startDate() | date:'dd/MM/yyyy' }} au {{ endDate() | date:'dd/MM/yyyy' }}</span>
+              </div>
+              <div class="row">
+                <span class="label">Total jours ouvres</span>
+                <span class="value highlight">{{ selectedBusinessDays }} jours</span>
+              </div>
+              <div class="row footer">
+                <span class="label">Solde apres deduction</span>
+                @if (selectedType() === 'SANS_SOLDE') {
+                  <span class="value">Non applicable</span>
+                } @else {
+                  <span class="value" [class.text-danger]="(getSoldeForType(selectedType()!) - selectedBusinessDays) < 3">
+                    {{ getSoldeForType(selectedType()!) - selectedBusinessDays }} jours
+                  </span>
+                }
+              </div>
+            </div>
+
+            <form [formGroup]="motifForm" class="motif-section">
+              <label for="motif">Motif de la demande *</label>
+              <textarea
+                id="motif"
+                formControlName="motif"
+                placeholder="Precisez la raison de votre demande (min. 10 caracteres)"
+                rows="4"
+              ></textarea>
+              <div class="motif-footer">
+                <span class="char-count" [class.error]="motifForm.get('motif')?.invalid && motifForm.get('motif')?.dirty">
+                  {{ motifForm.value.motif?.length || 0 }} / 10 min.
+                </span>
+                @if (motifForm.get('motif')?.invalid && motifForm.get('motif')?.touched) {
+                  <span class="error-text">Le motif est trop court.</span>
+                }
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+    </div>
+
+    <footer class="drawer-footer">
+      @if (step() > 1) {
+        <button class="btn-secondary" (click)="prevStep()" [disabled]="isSubmitting">
+          Precedent
+        </button>
+      } @else {
+        <button class="btn-secondary" (click)="close.emit()" [disabled]="isSubmitting">
+          Annuler
+        </button>
+      }
+
+      @if (step() < 3) {
+        <button
+          class="btn-primary"
+          (click)="nextStep()"
+          [disabled]="step() === 2 && !canProceedToSummary()"
+        >
+          Suivant
+        </button>
+      } @else {
+        <button
+          class="btn-primary submit"
+          (click)="onSubmit()"
+          [disabled]="motifForm.invalid || isSubmitting"
+        >
+          @if (isSubmitting) {
+            <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
+            Traitement...
+          } @else {
+            Soumettre la demande
+          }
+        </button>
+      }
+    </footer>
+  </div>
+</div>

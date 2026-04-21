@@ -1,0 +1,141 @@
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.doc-card {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #f1f5f9;
+  padding: 1.5rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(79, 70, 229, 0.1);
+
+    .action-circle {
+      background: #4f46e5;
+      color: white;
+      transform: translateX(4px);
+    }
+    
+    .doc-card-overlay {
+      opacity: 0.05;
+    }
+  }
+
+  .doc-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--icon-color, #4f46e5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none; /* ← fix: ne bloque plus les clics */
+  }
+
+  .doc-card-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .doc-icon-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--icon-color, 79, 70, 229), 0.1);
+    color: var(--icon-color, #4f46e5);
+    transition: all 0.3s ease;
+    
+    // Fallback if --icon-color is not hex (handling opacity manually)
+    background-color: color-mix(in srgb, var(--icon-color) 10%, transparent);
+  }
+
+  .doc-info {
+    flex: 1;
+  }
+
+  .doc-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.025em;
+  }
+
+  .doc-desc {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .doc-action {
+    display: flex;
+    align-items: center;
+  }
+
+  .action-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #64748b;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+.dark .doc-card {
+  background: rgba(30, 41, 59, 0.4);
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+
+  .doc-title {
+    color: white;
+  }
+
+  .doc-desc {
+    color: #94a3b8;
+  }
+
+  .action-circle {
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+  }
+
+  &:hover {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.doc-card-skeleton {
+  height: 108px;
+  border-radius: 20px;
+  background: #f1f5f9;
+}
+
+.dark .doc-card-skeleton {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 640px) {
+  .documents-grid {
+    grid-template-columns: 1fr;
+  }
+}

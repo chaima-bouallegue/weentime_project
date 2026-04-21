@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    inetutils:
+      ignored-interfaces:
+        - docker0
+        - vEthernet
+  profiles:
+    active: local
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+logging:
+  level:
+    com.netflix: WARN
+    org.springframework.cloud: WARN
+

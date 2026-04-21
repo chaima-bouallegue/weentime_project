@@ -1,0 +1,121 @@
+.calendar-wrapper {
+  /* --- Navigation --- */
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      transform: translateY(-1px);
+    }
+  }
+
+  .dark .nav-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    &:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+  }
+
+  /* --- Days Grid --- */
+  .calendar-day-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    cursor: default;
+    transition: all 0.2s ease;
+
+    .day-number {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: #64748b;
+      z-index: 1;
+    }
+
+    /* States */
+    &.other-month {
+      .day-number { opacity: 0.2; }
+    }
+
+    &.weekend {
+      background: #f8fafc;
+      .day-number { color: #94a3b8; }
+    }
+
+    &.is-today {
+      .day-number {
+        color: #4f46e5;
+        font-weight: 900;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+    }
+
+    &.is-holiday {
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      .day-number { color: #ef4444; }
+    }
+
+    &.is-remote {
+      background: #4f46e5;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      
+      .day-number { color: white; }
+    }
+
+    /* Hover effect for interactive feel */
+    &:hover:not(.other-month):not(.is-remote) {
+      background: #f1f5f9;
+    }
+  }
+
+  .dark .calendar-day-cell {
+    &.weekend { background: rgba(255, 255, 255, 0.03); }
+    &.is-holiday { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.2); }
+    &:hover:not(.other-month):not(.is-remote) { background: rgba(255, 255, 255, 0.05); }
+  }
+
+  /* --- Indicators --- */
+  .remote-indicator {
+    position: absolute;
+    bottom: 4px;
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    lucide-angular { display: none; } /* Standard micro-dot */
+
+    &.half-day {
+      width: 4px;
+      height: 4px;
+      opacity: 0.8;
+    }
+  }
+
+  .holiday-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 4px;
+    height: 4px;
+    background: #f87171;
+    border-radius: 50%;
+  }
+}

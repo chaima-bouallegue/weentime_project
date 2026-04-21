@@ -1,0 +1,49 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-container animate-fade-in" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="title-group">
+        <h2 class="modal-title">Refuser la demande</h2>
+        <p class="modal-subtitle">Veuillez indiquer le motif du refus</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      @if (demande) {
+        <div class="demande-summary">
+          <span class="label">Document concerné :</span>
+          <span class="value">{{ demande.label }} ({{ demande.employe.prenom }} {{ demande.employe.nom }})</span>
+        </div>
+      }
+
+      <div class="field-group">
+        <label class="field-label">Motif du refus <span class="required">*</span></label>
+        <textarea 
+          class="field-textarea" 
+          placeholder="Détaillez les raisons du refus (ex: justificatif manquant, demande non conforme...)"
+          [(ngModel)]="reason"
+          [disabled]="isRejecting()"
+        ></textarea>
+        <div class="field-footer">
+          <span class="char-count" [class.valid]="isValid()">
+            {{ reason().length }} / 20 caractères min.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-secondary" (click)="close.emit()" [disabled]="isRejecting()">Annuler</button>
+      <button class="btn-danger" [disabled]="!isValid() || isRejecting()" (click)="onConfirm()">
+        @if (isRejecting()) {
+          <lucide-icon name="loader-2" size="20" class="animate-spin"></lucide-icon>
+          <span>Traitement...</span>
+        } @else {
+          Confirmer le refus
+        }
+      </button>
+    </footer>
+  </div>
+</div>

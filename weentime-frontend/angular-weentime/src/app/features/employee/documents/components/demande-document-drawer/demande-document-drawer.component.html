@@ -1,0 +1,165 @@
+<div class="drawer-overlay" (click)="!isSubmitting && close.emit()">
+  <div class="drawer-content animate-slide-in" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">Nouvelle demande</h2>
+        <div class="stepper-indicators">
+          <div class="step-dot" [class.active]="step() >= 1" [class.completed]="step() > 1">1</div>
+          <div class="step-line" [class.active]="step() > 1"></div>
+          <div class="step-dot" [class.active]="step() >= 2">2</div>
+        </div>
+      </div>
+      <button class="close-btn" (click)="close.emit()" [disabled]="isSubmitting">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="drawer-body-container">
+
+      <!-- Step 1: Type selection + Parameters -->
+      @if (step() === 1) {
+        <div class="step-content animate-fade-in">
+
+          <!-- If type pre-selected -->
+          @if (selectedType()) {
+            <div class="preselected-type">
+              <div class="preselected-card">
+                <div class="presel-icon" [style.background]="selectedConfig()?.couleur + '14'" [style.color]="selectedConfig()?.couleur">
+                  <lucide-icon [name]="selectedConfig()?.icone ?? 'file-text'" size="24"></lucide-icon>
+                </div>
+                <div class="presel-info">
+                  <h4>{{ selectedConfig()?.label }}</h4>
+                  <p>{{ selectedConfig()?.description }}</p>
+                </div>
+                <button class="btn-change" (click)="changeType()">Modifier</button>
+              </div>
+            </div>
+          } @else {
+            <!-- Type selection grid -->
+            <h3 class="step-title">Quel document souhaitez-vous ?</h3>
+            <div class="type-select-grid">
+              @for (t of types; track t.type) {
+                <button class="type-option" (click)="selectType(t.type)">
+                  <div class="opt-icon" [style.background]="t.couleur + '14'" [style.color]="t.couleur">
+                    <lucide-icon [name]="t.icone" size="22"></lucide-icon>
+                  </div>
+                  <span class="opt-label">{{ t.label }}</span>
+                </button>
+              }
+            </div>
+          }
+
+          <!-- Month selector for BULLETIN_PAIE -->
+          @if (selectedType() && selectedConfig()?.requiresMois) {
+            <div class="field-group animate-fade-in">
+              <label class="field-label">
+                Mois concerné <span class="required">*</span>
+              </label>
+              <select
+                class="field-select"
+                [ngModel]="moisConcerne()"
+                (ngModelChange)="onMoisChange($event)"
+              >
+                <option value="">Sélectionnez un mois</option>
+                @for (m of moisDisponibles; track m) {
+                  <option [value]="m">{{ m }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <!-- Motif (optional) -->
+          @if (selectedType()) {
+            <div class="field-group animate-fade-in">
+              <label class="field-label">Motif <span class="optional">(optionnel)</span></label>
+              <textarea
+                class="field-textarea"
+                rows="3"
+                placeholder="Précisez la raison de votre demande..."
+                [ngModel]="motif()"
+                (ngModelChange)="onMotifInput($event)"
+                maxlength="250"
+              ></textarea>
+              <div class="char-counter" [class.near-limit]="motif().length > 220">
+                {{ motif().length }} / 250
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Step 2: Summary & Confirmation -->
+      @if (step() === 2) {
+        <div class="step-content animate-fade-in">
+          <h3 class="step-title">Résumé de votre demande</h3>
+
+          <div class="summary-card">
+            <div class="summary-header">
+              <div class="summary-icon" [style.background]="selectedConfig()?.couleur + '14'" [style.color]="selectedConfig()?.couleur">
+                <lucide-icon [name]="selectedConfig()?.icone ?? 'file-text'" size="28"></lucide-icon>
+              </div>
+              <div class="summary-type">
+                <h4>{{ selectedConfig()?.label }}</h4>
+                <div class="delay-highlight">
+                  <lucide-icon name="clock" size="14"></lucide-icon>
+                  <span>Délai estimé : {{ selectedConfig()?.delaiEstime }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary-details">
+              @if (moisConcerne()) {
+                <div class="detail-row">
+                  <span class="detail-label">Mois concerné</span>
+                  <span class="detail-value">{{ moisConcerne() }}</span>
+                </div>
+              }
+              @if (motif()) {
+                <div class="detail-row">
+                  <span class="detail-label">Motif</span>
+                  <span class="detail-value">{{ motif() }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="info-message">
+            <lucide-icon name="alert-circle" size="18"></lucide-icon>
+            <p>Votre demande sera traitée par le service RH dans un délai de <strong>{{ selectedConfig()?.delaiEstime }}</strong>. Vous serez notifié par email.</p>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Footer -->
+    <footer class="drawer-footer">
+      @if (step() > 1) {
+        <button class="btn-secondary" (click)="prevStep()" [disabled]="isSubmitting">
+          Précédent
+        </button>
+      } @else {
+        <button class="btn-secondary" (click)="close.emit()" [disabled]="isSubmitting">
+          Annuler
+        </button>
+      }
+
+      @if (step() === 1) {
+        <button class="btn-primary" (click)="nextStep()" [disabled]="!canProceed()">
+          Suivant
+        </button>
+      } @else {
+        <button class="btn-primary submit" (click)="onSubmit()" [disabled]="isSubmitting">
+          @if (isSubmitting) {
+            <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
+            Traitement...
+          } @else {
+            Soumettre la demande
+          }
+        </button>
+      }
+    </footer>
+
+  </div>
+</div>

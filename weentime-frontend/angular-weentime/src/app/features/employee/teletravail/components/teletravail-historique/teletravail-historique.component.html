@@ -1,0 +1,86 @@
+<div class="teletravail-historique">
+  <!-- Status Filters -->
+  <div class="flex flex-wrap items-center gap-3 mb-8">
+    @for (filter of filters; track filter.value) {
+      <button 
+        (click)="filterChange.emit(filter.value)"
+        [class.active]="currentFilter === filter.value"
+        class="filter-chip group"
+      >
+        <span class="label">{{ filter.label }}</span>
+        <span class="count">{{ getCountForFilter(filter.value) }}</span>
+      </button>
+    }
+  </div>
+
+  @if (demandes.length === 0 && !isLoading) {
+    <div class="empty-state p-12 text-center rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-800">
+      <div class="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center mx-auto mb-4 text-slate-300">
+        <lucide-angular [img]="iconSearch" size="32"></lucide-angular>
+      </div>
+      <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Aucune demande trouvée</h3>
+      <p class="text-slate-500 dark:text-slate-400 font-medium">Modifiez vos filtres ou effectuez une nouvelle demande.</p>
+    </div>
+  }
+
+  <!-- Card Grid -->
+  <div class="grid grid-cols-1 gap-4">
+    @for (demande of demandes; track demande.id) {
+      <div class="teletravail-item-card group">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          
+          <!-- Left: Info -->
+          <div class="flex items-center gap-5">
+            <div class="type-icon-wrapper" [style.background-color]="getTypeColor(demande.type) + '15'">
+              <lucide-angular [img]="getTypeIconRef(demande.type)" [style.color]="getTypeColor(demande.type)" size="24"></lucide-angular>
+            </div>
+            
+            <div>
+              <div class="flex items-center gap-3 mb-1">
+                <h4 class="font-black text-slate-900 dark:text-white leading-none">{{ demande.dateDebut | dateFr }}</h4>
+                @if (demande.periode) {
+                  <span class="text-[10px] font-black uppercase px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-md">
+                    {{ demande.periode === 'MATIN' ? 'Matin' : 'Après-midi' }}
+                  </span>
+                }
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1 max-w-sm">
+                {{ demande.motif }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Middle/Right: Status & Actions -->
+          <div class="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
+            <!-- Status Badge -->
+            <div class="status-pill" [class]="getStatusConfig(demande.statut).color">
+              <lucide-angular [img]="getStatusIconRef(demande.statut)" size="14"></lucide-angular>
+              <span>{{ getStatusConfig(demande.statut).label }}</span>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2">
+              <button class="icon-btn" title="Voir détails">
+                <lucide-angular [img]="iconInfo" size="18"></lucide-angular>
+              </button>
+              
+              @if (demande.statut === 'EN_ATTENTE_MANAGER' || demande.statut === 'EN_ATTENTE_RH') {
+                <button (click)="cancelRequest.emit(demande)" class="icon-btn danger" title="Annuler">
+                  <lucide-angular [img]="iconTrash" size="18"></lucide-angular>
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (isLoading) {
+    <div class="flex flex-col gap-4">
+      @for (i of [1,2,3]; track i) {
+        <div class="h-24 bg-slate-50 dark:bg-slate-800/50 rounded-3xl animate-pulse"></div>
+      }
+    </div>
+  }
+</div>

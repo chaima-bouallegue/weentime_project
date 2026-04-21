@@ -1,0 +1,86 @@
+<div class="historique-container">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-box">
+      <lucide-icon name="search" size="18"></lucide-icon>
+      <input type="text" placeholder="Rechercher par nom ou département..." (input)="onSearchInput($any($event.target).value)">
+    </div>
+    <div class="toolbar-right">
+      <div class="filter-chips">
+        @for (f of [{v: 'TOUS', l: 'Tous'}, {v: 'APPROUVE', l: 'Approuvés'}, {v: 'REFUSE', l: 'Refusés'}, {v: 'ANNULE', l: 'Annulés'}]; track f.v) {
+          <button class="chip" [class.active]="filtreStatut() === f.v" (click)="filtreStatut.set($any(f.v)); currentPage.set(1)">{{ f.l }}</button>
+        }
+      </div>
+      <button class="btn-export" (click)="exportCSV()">
+        <lucide-icon name="download" size="16"></lucide-icon>
+        Exporter CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  @if (isLoading) {
+    <div class="loading-table">
+      @for (i of [1,2,3,4,5]; track i) { <div class="row-skeleton"></div> }
+    </div>
+  } @else if (paginatedDemandes().length === 0) {
+    <div class="empty-state"><p>Aucun résultat trouvé.</p></div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th (click)="onSort('employe')" class="sortable">Employé @if (sortColumn() === 'employe') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th (click)="onSort('type')" class="sortable">Type @if (sortColumn() === 'type') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th (click)="onSort('dateDebut')" class="sortable">Dates @if (sortColumn() === 'dateDebut') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th (click)="onSort('nombreJours')" class="sortable">Jours @if (sortColumn() === 'nombreJours') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th (click)="onSort('departement')" class="sortable">Dépt. @if (sortColumn() === 'departement') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th (click)="onSort('statut')" class="sortable">Statut @if (sortColumn() === 'statut') { <lucide-icon [name]="sortDirection() === 'asc' ? 'chevron-up' : 'chevron-down'" size="14"></lucide-icon> }</th>
+            <th>Manager</th>
+            <th>RH</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of paginatedDemandes(); track d.id) {
+            <tr>
+              <td>
+                <div class="cell-employe">
+                  <div class="mini-avatar" [style.background]="getAvatarColor(d.employe.avatarInitiales)">{{ d.employe.avatarInitiales }}</div>
+                  <span>{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                </div>
+              </td>
+              <td>{{ d.label }}</td>
+              <td class="date-cell">{{ d.dateDebut | dateFr }}</td>
+              <td class="center">{{ d.nombreJours }}</td>
+              <td>{{ d.employe.departement }}</td>
+              <td>
+                @let config = getStatusConfig(d.statut);
+                <span class="status-badge" [ngClass]="config.color">{{ config.label }}</span>
+              </td>
+              <td class="comment-cell">{{ d.commentaireManager || '—' }}</td>
+              <td class="comment-cell">{{ d.commentaireRH || '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <div class="pagination">
+        <span class="page-info">{{ filteredDemandes().length }} résultat{{ filteredDemandes().length > 1 ? 's' : '' }}</span>
+        <div class="page-btns">
+          <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)">
+            <lucide-icon name="chevron-left" size="16"></lucide-icon>
+          </button>
+          @for (p of [].constructor(totalPages()); track $index) {
+            <button class="page-num" [class.active]="currentPage() === $index + 1" (click)="currentPage.set($index + 1)">{{ $index + 1 }}</button>
+          }
+          <button [disabled]="currentPage() === totalPages()" (click)="currentPage.set(currentPage() + 1)">
+            <lucide-icon name="chevron-right" size="16"></lucide-icon>
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>

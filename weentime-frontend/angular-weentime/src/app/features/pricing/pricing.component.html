@@ -1,0 +1,64 @@
+<section class="py-32 px-6 lg:px-20 relative z-10 min-h-screen bg-white dark:bg-[#020817] pt-48">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center max-w-3xl mx-auto mb-20 space-y-4">
+            <h1 class="text-4xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight">
+                Des tarifs <span class="text-indigo-600">transparents.</span>
+            </h1>
+            <p class="text-lg text-slate-500 dark:text-slate-400 font-medium">
+                Choisissez le plan qui correspond à la taille de votre entreprise. Simplifiez votre RH dès aujourd'hui.
+            </p>
+
+            <!-- Toggle -->
+            <div class="flex items-center justify-center gap-4 mt-8">
+                <span [class.text-indigo-600]="!isAnnual()" [class.font-bold]="!isAnnual()"
+                    class="text-slate-500 font-bold transition-colors">Mensuel</span>
+                <button (click)="togglePricing()"
+                    class="w-14 h-8 rounded-full bg-slate-200 dark:bg-white/10 relative p-1 transition-colors">
+                    <div [class.translate-x-6]="isAnnual()"
+                        class="w-6 h-6 rounded-full bg-indigo-600 shadow-md transition-transform"></div>
+                </button>
+                <span [class.text-indigo-600]="isAnnual()" [class.font-bold]="isAnnual()"
+                    class="text-slate-500 font-bold transition-colors">Annuel</span>
+                <span
+                    class="bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase px-2 py-1 rounded-md border border-emerald-500/20">-20%</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+            <div *ngFor="let plan of pricingPlans" [class.scale-105]="plan.popular"
+                [class.border-indigo-600]="plan.popular" [class.shadow-2xl]="plan.popular"
+                class="relative p-10 rounded-[2.5rem] bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 flex flex-col hover:shadow-2xl transition-all duration-500 group h-full">
+
+                <div *ngIf="plan.popular"
+                    class="absolute -top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full shadow-lg">
+                    Plus Populaire
+                </div>
+
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white mb-2">{{ plan.n }}</h3>
+                <div class="flex items-baseline gap-1 mb-8">
+                    <span class="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{{ isAnnual() ?
+                        plan.py : plan.p }}€</span>
+                    <span class="text-slate-500 dark:text-slate-400 font-bold">/{{ isAnnual() ? 'an' : 'mois' }}</span>
+                </div>
+
+                <ul class="space-y-5 mb-12 flex-grow">
+                    <li *ngFor="let f of plan.f"
+                        class="flex items-center gap-3 text-slate-600 dark:text-slate-400 font-semibold">
+                        <div
+                            class="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                            <lucide-icon name="check" size="14"></lucide-icon>
+                        </div>
+                        {{ f }}
+                    </li>
+                </ul>
+
+                <button [class.bg-indigo-600]="plan.popular" [class.text-white]="plan.popular"
+                    [class.bg-white]="!plan.popular" [class.dark:bg-white/5]="!plan.popular"
+                    [class.text-slate-900]="!plan.popular" [class.dark:text-white]="!plan.popular"
+                    class="w-full py-5 rounded-2xl font-black shadow-lg hover:scale-[1.03] active:scale-[0.98] transition-all border border-slate-200 dark:border-white/10">
+                    Démarrer l'essai
+                </button>
+            </div>
+        </div>
+    </div>
+</section>

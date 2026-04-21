@@ -1,0 +1,90 @@
+<div class="form-page">
+  <button class="back-btn" (click)="close.emit()">
+    <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+    Retour à l'équipe
+  </button>
+
+  <div class="form-card">
+    <h2 class="form-title">Signaler une absence</h2>
+    <p class="form-sub">Déclarer l'absence d'un membre de votre équipe</p>
+
+    <div class="notice notice-orange">
+      <lucide-icon name="alert-circle" [size]="16"></lucide-icon>
+      Cette absence sera transmise au RH pour validation
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- Employee Selector -->
+      <div class="field-group">
+        <label class="field-label">Collaborateur</label>
+        <div class="emp-selector">
+          @for (member of teamMembers; track member.id) {
+            <button type="button" class="emp-option"
+              [class.active]="selectedEmployee()?.id === member.id"
+              (click)="selectEmployee(member)">
+              <div class="eo-avatar" [style.background]="member.color">{{ member.initials }}</div>
+              <div class="eo-info">
+                <p class="eo-name">{{ member.prenom }} {{ member.nom }}</p>
+                <p class="eo-dept">{{ member.departement }}</p>
+              </div>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Type Cards -->
+      <div class="field-group">
+        <label class="field-label">Type d'absence</label>
+        <div class="type-cards">
+          @for (type of absenceTypes; track type.code) {
+            <button
+              type="button"
+              class="type-card"
+              [class.active]="selectedType()?.code === type.code"
+              (click)="selectType(type)"
+            >
+              <span class="tc-emoji">{{ type.emoji }}</span>
+              <span class="tc-label">{{ type.libelle }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Dates -->
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Date début</label>
+          <input type="date" formControlName="dateDebut" class="form-input" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Date fin</label>
+          <input type="date" formControlName="dateFin" class="form-input" />
+        </div>
+      </div>
+
+      <!-- Durée info -->
+      @if (dureeJours() > 0) {
+        <div class="duree-info">
+          <lucide-icon name="clock" [size]="14"></lucide-icon>
+          Durée prévue : <strong>{{ dureeJours() }} jour(s)</strong>
+        </div>
+      }
+
+      <!-- Note -->
+      <div class="field-group">
+        <label class="field-label">Note pour le RH <span class="optional">(optionnel)</span></label>
+        <textarea formControlName="motif" class="form-input form-textarea"
+          placeholder="Informations complémentaires pour le RH..." rows="3"></textarea>
+      </div>
+
+      <button type="submit" class="btn-submit" [disabled]="!canSubmit() || submitting()">
+        @if (submitting()) {
+          <span class="spinner-sm"></span>
+          Envoi en cours...
+        } @else {
+          Signaler l'absence →
+        }
+      </button>
+    </form>
+  </div>
+</div>

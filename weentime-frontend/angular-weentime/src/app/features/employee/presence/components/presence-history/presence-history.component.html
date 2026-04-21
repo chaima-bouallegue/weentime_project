@@ -1,0 +1,75 @@
+<div class="history-container">
+  @if (isLoading) {
+    <!-- Loading Skeleton -->
+    <div class="table-skeleton">
+      @for (i of [1, 2, 3, 4, 5]; track i) {
+        <div class="skeleton-row">
+          <div class="skeleton-cell"></div>
+          <div class="skeleton-cell"></div>
+          <div class="skeleton-cell"></div>
+          <div class="skeleton-cell"></div>
+        </div>
+      }
+    </div>
+  } @else if (!history || history.length === 0) {
+    <!-- Empty State -->
+    <div class="empty-state">
+      <div class="empty-icon">
+        <lucide-icon name="inbox" size="48"></lucide-icon>
+      </div>
+      <h3 class="empty-title">Aucun historique de présence</h3>
+      <p class="empty-text">Commencez par pointer votre présence aujourd'hui</p>
+    </div>
+  } @else {
+    <!-- Table -->
+    <div class="table-wrapper">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Arrivée</th>
+            <th>Départ</th>
+            <th>Durée</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of history | slice:0:10; track record.date + record.id) {
+            <tr class="table-row animate-in">
+              <td class="date-cell">
+                <span class="date-value">{{ formatDate(record.date) }}</span>
+              </td>
+              <td class="time-cell">
+                <div class="time-item">
+                  <lucide-icon name="log-in" size="16" class="icon"></lucide-icon>
+                  <span>{{ formatTime(record.heureArrivee) }}</span>
+                </div>
+              </td>
+              <td class="time-cell">
+                <div class="time-item">
+                  <lucide-icon name="log-out" size="16" class="icon"></lucide-icon>
+                  <span>{{ formatTime(record.heureDepart) }}</span>
+                </div>
+              </td>
+              <td class="duration-cell">
+                <span class="duration-badge">{{ formatDuration(record.dureeActuelle) }}</span>
+              </td>
+              <td class="status-cell">
+                <span [class]="'status-badge ' + getStatusBadgeClass(record.status)">
+                  <lucide-icon [name]="getStatusIcon(record.status)" size="14"></lucide-icon>
+                  <span>{{ getStatusLabel(record.status) }}</span>
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if ((history | slice:0:10).length < history.length) {
+      <div class="load-more">
+        <span>{{ history.length - 10 }} pointages supplémentaires</span>
+      </div>
+    }
+  }
+</div>

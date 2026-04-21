@@ -1,0 +1,59 @@
+@if (isLoading) {
+  <div class="loading-list">
+    @for (i of [1,2,3]; track i) { <div class="item-skeleton"></div> }
+  </div>
+} @else if (demandes.length === 0) {
+  <div class="empty-state">
+    <lucide-icon name="check-circle" size="48" class="empty-icon"></lucide-icon>
+    <p>Aucune demande en attente de validation RH.</p>
+  </div>
+} @else {
+  <div class="demandes-list">
+    @for (d of demandes; track d.id) {
+      <div class="demande-card">
+        <div class="avatar" [style.background]="getAvatarColor(d.employe.avatarInitiales)">{{ d.employe.avatarInitiales }}</div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="employe-info">
+              <h4 class="employe-name">{{ d.employe.prenom }} {{ d.employe.nom }}</h4>
+              <span class="employe-meta">{{ d.employe.poste }} · {{ d.employe.departement }}</span>
+            </div>
+            <span class="creation-date">{{ d.dateCreation | dateFr }}</span>
+          </div>
+
+          <!-- Manager approval badge -->
+          <div class="manager-badge">
+            <lucide-icon name="check-circle" size="14"></lucide-icon>
+            <span>Manager approuvé</span>
+            @if (d.commentaireManager) {
+              <span class="manager-comment">— « {{ d.commentaireManager }} »</span>
+            }
+          </div>
+
+          <div class="type-row">
+            <div class="type-badge" [style.background]="getTypeColor(d.type) + '15'" [style.color]="getTypeColor(d.type)">
+              <lucide-icon [name]="getTypeIcon(d.type)" size="14"></lucide-icon>
+              <span>{{ d.label }}</span>
+            </div>
+            <span class="date-range">
+              <lucide-icon name="calendar" size="14"></lucide-icon>
+              {{ d.dateDebut === d.dateFin ? (d.dateDebut | dateFr) : (d.dateDebut | dateFr) + ' → ' + (d.dateFin | dateFr) }}
+            </span>
+            <span class="days-count">{{ d.nombreJours }} jour{{ d.nombreJours > 1 ? 's' : '' }}</span>
+          </div>
+
+          <p class="motif" [title]="d.motif">{{ truncateMotif(d.motif) }}</p>
+        </div>
+
+        <div class="card-actions">
+          <button class="btn-approve" (click)="approuver.emit(d)">
+            <lucide-icon name="check" size="16"></lucide-icon>Approuver
+          </button>
+          <button class="btn-refuse" (click)="refuser.emit(d)">
+            <lucide-icon name="x" size="16"></lucide-icon>Refuser
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+}

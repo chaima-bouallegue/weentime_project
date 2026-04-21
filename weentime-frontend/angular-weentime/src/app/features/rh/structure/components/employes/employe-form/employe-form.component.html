@@ -1,0 +1,186 @@
+<div class="drawer-overlay" (click)="close.emit()">
+  <div class="drawer-content" (click)="$event.stopPropagation()">
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">{{ title }}</h2>
+        <p class="drawer-subtitle">Etape {{ step() }}/2 - {{ step() === 1 ? 'Informations personnelles' : 'Affectation' }}</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <div class="step-indicator-bar">
+      <div class="step-dot" [class.active]="step() >= 1" [class.done]="step() > 1"></div>
+      <div class="step-dot" [class.active]="step() >= 2"></div>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+      <div class="form-scroll">
+        @if (step() === 1) {
+          <section class="form-section">
+            <h3 class="section-title">Informations personnelles</h3>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="emp-prenom">Prenom *</label>
+                <div class="input-wrapper" [class.error]="form.get('prenom')?.invalid && form.get('prenom')?.touched">
+                  <lucide-icon name="user" size="18" class="field-icon"></lucide-icon>
+                  <input id="emp-prenom" type="text" formControlName="prenom" placeholder="Prenom">
+                </div>
+                @if (form.get('prenom')?.invalid && form.get('prenom')?.touched) {
+                  <span class="error-msg">Prenom requis</span>
+                }
+              </div>
+
+              <div class="form-field">
+                <label for="emp-nom">Nom *</label>
+                <div class="input-wrapper" [class.error]="form.get('nom')?.invalid && form.get('nom')?.touched">
+                  <lucide-icon name="user" size="18" class="field-icon"></lucide-icon>
+                  <input id="emp-nom" type="text" formControlName="nom" placeholder="Nom">
+                </div>
+                @if (form.get('nom')?.invalid && form.get('nom')?.touched) {
+                  <span class="error-msg">Nom requis</span>
+                }
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="emp-email">Email *</label>
+              <div class="input-wrapper" [class.error]="form.get('email')?.invalid && form.get('email')?.touched">
+                <lucide-icon name="mail" size="18" class="field-icon"></lucide-icon>
+                <input id="emp-email" type="email" formControlName="email" placeholder="email@entreprise.fr">
+              </div>
+              @if (form.get('email')?.invalid && form.get('email')?.touched) {
+                <span class="error-msg">Email valide requis</span>
+              }
+            </div>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="emp-tel">Telephone</label>
+                <div class="input-wrapper">
+                  <lucide-icon name="phone" size="18" class="field-icon"></lucide-icon>
+                  <input id="emp-tel" type="tel" formControlName="telephone" placeholder="+33 6 ...">
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="emp-poste">Poste *</label>
+                <div class="input-wrapper" [class.error]="form.get('poste')?.invalid && form.get('poste')?.touched">
+                  <lucide-icon name="briefcase" size="18" class="field-icon"></lucide-icon>
+                  <input id="emp-poste" type="text" formControlName="poste" placeholder="Backend Engineer">
+                </div>
+                @if (form.get('poste')?.invalid && form.get('poste')?.touched) {
+                  <span class="error-msg">Poste requis</span>
+                }
+              </div>
+            </div>
+          </section>
+
+          <div class="step-nav">
+            <button type="button" class="btn-outline" (click)="close.emit()">Annuler</button>
+            <button type="button" class="btn-primary" (click)="goToStep2()" [disabled]="!isStep1Valid()">
+              Suivant
+              <lucide-icon name="arrow-right" size="16"></lucide-icon>
+            </button>
+          </div>
+        }
+
+        @if (step() === 2) {
+          <section class="form-section">
+            <h3 class="section-title">Affectation</h3>
+
+            <div class="form-field">
+              <label for="emp-dept">Departement *</label>
+              <div class="input-wrapper" [class.error]="form.get('departementId')?.invalid && form.get('departementId')?.touched">
+                <lucide-icon name="building" size="18" class="field-icon"></lucide-icon>
+                <select id="emp-dept" formControlName="departementId" (change)="onDeptChange()">
+                  <option [ngValue]="null" disabled>Selectionner un departement</option>
+                  @for (d of departements; track d.id) {
+                    <option [ngValue]="d.id">{{ d.nom }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="emp-equipe">Equipe</label>
+              <div class="input-wrapper">
+                <lucide-icon name="git-branch" size="18" class="field-icon"></lucide-icon>
+                <select id="emp-equipe" formControlName="equipeId" (change)="onTeamChange()">
+                  <option [ngValue]="null">Aucune equipe</option>
+                  @for (eq of filteredEquipes(); track eq.id) {
+                    <option [ngValue]="eq.id">{{ eq.nom }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            @if (!isManagerRole()) {
+              <div class="form-field">
+                <label for="emp-manager">Manager</label>
+                <div class="input-wrapper">
+                  <lucide-icon name="user-cog" size="18" class="field-icon"></lucide-icon>
+                  <select id="emp-manager" formControlName="managerId">
+                    <option [ngValue]="null">Aucun manager</option>
+                    @for (manager of filteredManagers(); track manager.id) {
+                      <option [ngValue]="manager.id">{{ manager.prenom }} {{ manager.nom }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
+
+            @if (allowRoleChange) {
+              <div class="form-field">
+                <label for="emp-role">Role *</label>
+                <div class="input-wrapper">
+                  <lucide-icon name="shield" size="18" class="field-icon"></lucide-icon>
+                  <select id="emp-role" formControlName="role" (change)="onRoleChange($any($event.target).value)">
+                    <option value="ROLE_EMPLOYEE">Employe</option>
+                    <option value="ROLE_MANAGER">Manager</option>
+                  </select>
+                </div>
+              </div>
+            } @else {
+              <div class="form-field">
+                <label>Role</label>
+                <div class="input-wrapper readonly-role">
+                  <lucide-icon name="shield" size="18" class="field-icon"></lucide-icon>
+                  <span>{{ defaultRole === 'ROLE_MANAGER' ? 'Manager' : 'Employe' }}</span>
+                </div>
+              </div>
+            }
+          </section>
+
+          <section class="form-section">
+            <h3 class="section-title">Mot de passe temporaire</h3>
+            <div class="readonly-password">
+              <lucide-icon name="key-round" size="16" class="pwd-key-icon"></lucide-icon>
+              <code>{{ generatedPassword() }}</code>
+              <button type="button" class="pwd-icon-btn" (click)="copyPassword()" title="Copier">
+                <lucide-icon name="copy" size="16"></lucide-icon>
+              </button>
+              <button type="button" class="pwd-icon-btn" (click)="generatePassword()" title="Regenerer">
+                <lucide-icon name="zap" size="16"></lucide-icon>
+              </button>
+            </div>
+            <p class="pwd-hint">Conservez ce mot de passe pour la premiere connexion.</p>
+          </section>
+
+          <div class="step-nav">
+            <button type="button" class="btn-outline" (click)="step.set(1)">
+              <lucide-icon name="arrow-left" size="16"></lucide-icon>
+              Retour
+            </button>
+            <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
+              <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20" [class.animate-spin]="isSubmitting()"></lucide-icon>
+              <span>{{ submitLabel }}</span>
+            </button>
+          </div>
+        }
+      </div>
+    </form>
+  </div>
+</div>

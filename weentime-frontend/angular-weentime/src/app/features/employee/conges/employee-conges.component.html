@@ -1,0 +1,103 @@
+<div class="dash-wrapper fade-in" style="padding-top: 24px; max-width: 1400px; margin: 0 auto; padding-inline: 24px;">
+  
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Mes Congés</h1>
+      <p class="text-slate-500 dark:text-slate-400 font-medium">Gérez vos absences et consultez vos soldes</p>
+    </div>
+    <button class="btn-primary-bento" (click)="showDrawer.set(true)">
+      <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
+      <span>Nouvelle demande</span>
+    </button>
+  </div>
+
+  <!-- Bento Grid -->
+  <div class="conge-bento-layout">
+    <!-- Left Column: Soldes & Historique -->
+    <div class="left-col space-y-8">
+      
+      <!-- Mes Soldes Section -->
+      <section>
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+          <h2 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Mes Soldes</h2>
+        </div>
+        <app-solde-cards 
+          [soldes]="soldes()" 
+          [isLoading]="isLoading()"
+          (filterByType)="onFilterChange('TOUS')"
+        ></app-solde-cards>
+      </section>
+
+      <!-- Historique Section -->
+      <section>
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-6 bg-purple-500 rounded-full"></div>
+            <h2 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Historique des demandes</h2>
+          </div>
+          <div class="h-px flex-1 bg-slate-200 dark:bg-slate-800 ml-6 hidden md:block opacity-30"></div>
+        </div>
+
+        <app-historique-list
+          [demandes]="historiqueFiltre()"
+          [isLoading]="isLoading()"
+          [currentFilter]="filtreStatut()"
+          (filterChange)="onFilterChange($event)"
+          (cancelRequest)="onCancelRequest($event)"
+        ></app-historique-list>
+      </section>
+    </div>
+
+    <!-- Right Column: Sidebar (Calendar & Info) -->
+    <aside class="right-col space-y-8">
+      <!-- Calendar Card -->
+      <div class="bento-card calendar-bento p-6">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+          <lucide-angular [img]="iconCalendar" size="20" class="text-indigo-500"></lucide-angular>
+          Calendrier des absences
+        </h3>
+        <app-conge-calendar
+          [demandes]="historique()"
+          [joursFeries]="joursFeries()"
+        ></app-conge-calendar>
+      </div>
+
+      <!-- Policy Card -->
+      <div class="bento-card p-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
+        <div class="flex gap-4">
+          <div class="w-12 h-12 flex-shrink-0 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
+            <lucide-angular [img]="iconInfo" size="24"></lucide-angular>
+          </div>
+          <div class="space-y-1">
+            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Politique de congés</h4>
+            <p class="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+              Les demandes doivent être soumises au moins <strong>48h à l'avance</strong> pour permettre leur validation.
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Drawer & Modals -->
+@if (showDrawer()) {
+  <app-demande-drawer
+    [soldes]="soldes()"
+    [joursFeries]="joursFeries()"
+    [historique]="historique()"
+    [isSubmitting]="isSubmittingRequest()"
+    (close)="showDrawer.set(false)"
+    (submitted)="soumettreDemande($event)"
+  ></app-demande-drawer>
+}
+
+@if (demandeAnnuler()) {
+  <app-annulation-modal
+    [demande]="demandeAnnuler()"
+    [isAnnulating]="isAnnulating()"
+    (close)="demandeAnnuler.set(null)"
+    (confirm)="confirmAnnulation($event)"
+  ></app-annulation-modal>
+}

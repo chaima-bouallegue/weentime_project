@@ -1,0 +1,23 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-body">
+      <div class="icon-warning">
+        <lucide-icon name="alert-triangle" size="32"></lucide-icon>
+      </div>
+      
+      <h2 class="modal-title">Confirmer la suppression</h2>
+      <p class="modal-desc">
+        Êtes-vous sûr de vouloir supprimer l'entreprise <strong>{{ entreprise?.nom }}</strong> ? 
+        Cette action est irréversible et passera le statut en <span class="badge-inactif">INACTIF</span>.
+      </p>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-ghost" (click)="close.emit()" [disabled]="isDeleting()">Annuler</button>
+      <button class="btn-danger" (click)="confirmDelete()" [disabled]="isDeleting()">
+        <lucide-icon [name]="isDeleting() ? 'loader-2' : 'trash-2'" size="18" [class.animate-spin]="isDeleting()"></lucide-icon>
+        <span>{{ isDeleting() ? 'Suppression...' : 'Confirmer la suppression' }}</span>
+      </button>
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,87 @@
+<div class="departements-wrapper">
+  <div class="section-header">
+    <h2 class="section-title-text">Départements</h2>
+    <button class="btn-primary" (click)="openCreate()">
+      <lucide-icon name="plus" size="16"></lucide-icon>
+      <span>Nouveau département</span>
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="skeleton-grid">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="skeleton-card"></div>
+      }
+    </div>
+  } @else if (departements().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="building" size="48"></lucide-icon>
+      <p>Aucun département</p>
+    </div>
+  } @else {
+    <div class="dept-grid">
+      @for (dept of departements(); track dept.id) {
+        <div class="dept-card">
+          <div class="dept-card-header">
+            <h3 class="dept-name">{{ dept.nom }}</h3>
+            <div class="dept-actions">
+              <button class="icon-btn" (click)="openEdit(dept)" title="Modifier">
+                <lucide-icon name="edit-2" size="14"></lucide-icon>
+              </button>
+              <button class="icon-btn delete" (click)="confirmDelete(dept)" title="Supprimer">
+                <lucide-icon name="trash-2" size="14"></lucide-icon>
+              </button>
+            </div>
+          </div>
+          @if (dept.description) {
+            <p class="dept-desc">{{ dept.description }}</p>
+          }
+          <div class="dept-stats">
+            <div class="stat">
+              <lucide-icon name="git-branch" size="14"></lucide-icon>
+              <span>{{ dept.nombreEquipes }} équipes</span>
+            </div>
+            <div class="stat">
+              <lucide-icon name="users" size="14"></lucide-icon>
+              <span>{{ dept.nombreEmployes }} employés</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Drawer -->
+  @if (showDrawer()) {
+    <app-departement-form
+      [departement]="departementToEdit()"
+      (close)="showDrawer.set(false)"
+      (saved)="onFormSaved()"
+    />
+  }
+
+  <!-- Delete Confirm Modal -->
+  @if (showDeleteConfirm(); as dept) {
+    <div class="modal-overlay" (click)="showDeleteConfirm.set(null)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
+        <h3>Supprimer « {{ dept.nom }} » ?</h3>
+        @if (dept.nombreEquipes > 0) {
+          <p class="warning-text">
+            <lucide-icon name="alert-circle" size="14"></lucide-icon>
+            Ce département contient {{ dept.nombreEquipes }} équipes et {{ dept.nombreEmployes }} employés.
+          </p>
+        }
+        <div class="modal-actions">
+          <button class="btn-ghost" (click)="showDeleteConfirm.set(null)" [disabled]="isDeleting()">Annuler</button>
+          <button class="btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
+            @if (isDeleting()) {
+              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>
+            }
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

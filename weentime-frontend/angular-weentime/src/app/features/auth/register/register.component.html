@@ -1,0 +1,351 @@
+<div class="h-screen w-full flex overflow-hidden bg-white dark:bg-[#0f172a]">
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LEFT PANEL (50%) - Gradient + Stepper                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="left-panel w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-950 px-12 xl:px-16 shrink-0 flex flex-col justify-between py-12">
+
+    <!-- 3D Spheres -->
+    <div class="sphere s1"></div>
+    <div class="sphere s2"></div>
+    <div class="sphere s3"></div>
+
+    <!-- Subtle glass rings -->
+    <div class="glass-ring" style="width:300px;height:300px;top:-50px;left:-60px"></div>
+    <div class="glass-ring" style="width:200px;height:200px;bottom:100px;right:-40px"></div>
+
+    <!-- Curved edge connector -->
+    <div class="curve-edge bg-white dark:bg-[#0f172a]"></div>
+
+    <!-- Top: Logo -->
+    <div class="relative z-10">
+      <app-logo [variant]="'white'" [size]="12" />
+    </div>
+
+    <!-- Center: Stepper -->
+    <div class="relative z-10 flex-1 flex flex-col justify-center py-10 max-w-sm">
+      <div class="space-y-0">
+        <div *ngFor="let step of stepperSteps; let i = index; let last = last" class="group">
+          <div class="flex items-center gap-4">
+            <!-- Step Circle -->
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0 transition-all duration-500 z-10"
+              [ngClass]="{
+                'bg-white text-indigo-600 shadow-xl shadow-white/20 scale-110': currentStep() === i + 1,
+                'bg-emerald-400 text-white shadow-lg shadow-emerald-500/20': currentStep() > i + 1,
+                'bg-white/10 border border-white/20 text-white/40': currentStep() < i + 1
+              }">
+              <lucide-icon *ngIf="currentStep() > i + 1" name="check" size="18"></lucide-icon>
+              <span *ngIf="currentStep() <= i + 1">{{ i + 1 }}</span>
+            </div>
+            <!-- Step Label -->
+            <div class="transition-all duration-300">
+              <p class="text-[14px] font-bold" [ngClass]="currentStep() >= i + 1 ? 'text-white' : 'text-white/40'">
+                {{ step.label }}
+              </p>
+              <p class="text-[11px] font-semibold mt-0.5" [ngClass]="currentStep() >= i + 1 ? 'text-indigo-200/70' : 'text-white/10'">
+                {{ step.desc }}
+              </p>
+            </div>
+          </div>
+          <!-- Connecting Line -->
+          <div *ngIf="!last" class="ml-5 w-[2px] h-10 my-1 transition-all duration-500 rounded-full"
+            [ngClass]="currentStep() > i + 1 ? 'bg-emerald-400/50' : 'bg-white/10'">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Voice Module -->
+    <div class="relative z-10">
+      <div class="activity-card flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/[0.12] backdrop-blur-xl border border-white/[0.2] shadow-xl max-w-xs overflow-hidden group">
+        <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="voice-wave-container flex items-center justify-center w-9 h-9 rounded-full bg-indigo-500/20 border border-indigo-400/25 shrink-0">
+          <div class="voice-bar b1"></div>
+          <div class="voice-bar b2"></div>
+          <div class="voice-bar b3"></div>
+          <lucide-icon name="mic" [size]="14" class="text-white absolute"></lucide-icon>
+        </div>
+        <div>
+          <p class="text-white text-[13px] font-bold leading-tight">Interaction Vocale IA</p>
+          <p class="text-indigo-200/60 text-[11px] font-semibold mt-0.5">Dites "Je veux pointer"</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- RIGHT PANEL (50%) - Form                                    -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="right-panel w-1/2 bg-white dark:bg-[#0f172a] px-6">
+
+    <!-- Mobile Logo -->
+    <div class="lg:hidden p-8 flex justify-center sticky top-0 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur z-20">
+      <app-logo [variant]="themeService.isDark() ? 'white' : 'full'" [size]="10" />
+    </div>
+
+    <!-- Form Container -->
+    <div class="w-full max-w-[500px] py-12">
+
+      <!-- Back Link -->
+      <a routerLink="/login" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-8 transition-colors group">
+        <lucide-icon name="arrow-left" [size]="14" class="group-hover:-translate-x-1 transition-transform"></lucide-icon>
+        Retour à la connexion
+      </a>
+
+      <!-- Progress bar for mobile -->
+      <div class="lg:hidden flex items-center justify-center gap-2 mb-8">
+        <div *ngFor="let s of [1,2,3,4,5]" class="h-1.5 flex-1 rounded-full transition-all duration-500"
+          [ngClass]="currentStep() >= s ? 'bg-indigo-600' : 'bg-slate-100 dark:bg-slate-800'"></div>
+      </div>
+
+      <!-- Card wrapper -->
+      <div class="bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-2xl p-8 xl:p-10 shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-none min-h-[520px] flex flex-col overflow-hidden relative">
+
+        <!-- SUCCESS STATE -->
+        <div *ngIf="isSuccess()" class="flex-1 flex flex-col items-center justify-center text-center step-container">
+          <div class="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 mb-6 shadow-xl shadow-emerald-500/10">
+            <lucide-icon name="check" size="40" strokeWidth="3"></lucide-icon>
+          </div>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-2">Bienvenue à bord ! 🎉</h2>
+          <p class="text-slate-500 dark:text-slate-400 font-medium mb-8">Votre compte a été créé avec succès.</p>
+          <button routerLink="/login" class="btn-primary">
+            Aller vers la connexion →
+          </button>
+        </div>
+
+        <!-- FORM CONTENT -->
+        <div *ngIf="!isSuccess()" class="flex-1 flex flex-col">
+          <div class="mb-8">
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {{ currentStep() === 1 ? 'Code entreprise' : 
+                 currentStep() === 2 ? 'Informations personnelles' : 
+                 currentStep() === 3 ? 'Photo de profil' : 
+                 currentStep() === 4 ? 'Vérification' : 'Finalisation' }}
+            </h2>
+            <p class="text-[14px] text-slate-400 font-medium mt-1">Étape {{ currentStep() }} sur 5</p>
+          </div>
+
+          <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="flex-1 flex flex-col">
+
+            <!-- STEP 1: COMPANY CODE -->
+            <div *ngIf="currentStep() === 1" formGroupName="step1" class="step-container space-y-6">
+              <div class="space-y-4">
+                <label class="block text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Code d'invitation</label>
+                <div class="relative group">
+                  <lucide-icon name="hash" size="18" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></lucide-icon>
+                  <input formControlName="companyCode" type="text" placeholder="WEEN-XXXX" autofocus
+                    class="register-input code-input !pl-11" [ngClass]="{'input-error': isCodeInvalid(), 'input-valid': foundCompany()}">
+                </div>
+              </div>
+
+              <!-- Checking indicator -->
+              <div *ngIf="isCheckingCode()" class="flex items-center justify-center gap-2 py-2">
+                <lucide-icon name="loader-2" size="18" class="animate-spin text-indigo-500"></lucide-icon>
+                <span class="text-sm font-semibold text-indigo-500">Vérification...</span>
+              </div>
+
+              <!-- Found Company Card -->
+              <div *ngIf="foundCompany()" class="p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-500/20 flex items-center gap-4 step-enter shadow-sm">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500 flex items-center justify-center text-white shrink-0">
+                  <lucide-icon name="building" size="24"></lucide-icon>
+                </div>
+                <div>
+                  <p class="text-base font-black text-slate-900 dark:text-white leading-tight">{{ foundCompany()?.name }}</p>
+                  <p class="text-xs font-bold text-emerald-600/80 mt-1 uppercase">{{ foundCompany()?.industry }}</p>
+                </div>
+              </div>
+
+              <!-- Error Message -->
+              <div *ngIf="isCodeInvalid()" class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-start gap-2.5 shake-animation">
+                <lucide-icon name="alert-circle" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
+                <p class="text-[13px] font-semibold text-red-600 dark:text-red-400">Ce code n'est pas reconnu. Contactez votre RH.</p>
+              </div>
+
+              <div class="pt-4">
+                <button type="button" (click)="nextStep()" [disabled]="!step1Valid" class="btn-primary">
+                  Valider le code →
+                </button>
+              </div>
+            </div>
+
+            <!-- STEP 2: PERSONAL IDENTITY -->
+            <div *ngIf="currentStep() === 2" formGroupName="step2" class="step-container space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Prénom</label>
+                  <div class="relative">
+                    <lucide-icon name="user" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                    <input formControlName="firstName" type="text" placeholder="Ex: Jean" class="register-input" [ngClass]="getInputClass(2, 'firstName')">
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Nom</label>
+                  <div class="relative">
+                    <lucide-icon name="user" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                    <input formControlName="lastName" type="text" placeholder="Ex: Dupont" class="register-input" [ngClass]="getInputClass(2, 'lastName')">
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Email professionnel</label>
+                <div class="relative">
+                  <lucide-icon name="mail" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                  <input formControlName="email" type="email" placeholder="nom@entreprise.com" class="register-input" [ngClass]="getInputClass(2, 'email')">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Poste</label>
+                  <div class="relative">
+                    <lucide-icon name="briefcase" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                    <input formControlName="jobTitle" type="text" placeholder="Développeur" class="register-input" [ngClass]="getInputClass(2, 'jobTitle')">
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Département</label>
+                  <div class="relative">
+                    <lucide-icon name="layers" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                    <select formControlName="department" class="register-input !py-2.5 appearance-none cursor-pointer" [ngClass]="getInputClass(2, 'department')">
+                      <ng-container *ngIf="departments().length > 0; else noDepts">
+                        <option value="" disabled selected>Choisir...</option>
+                        <option *ngFor="let d of departments()" [value]="d">{{d}}</option>
+                      </ng-container>
+                      <ng-template #noDepts>
+                        <option value="" selected>Sera assigné par votre RH</option>
+                      </ng-template>
+                    </select>
+                    <lucide-icon name="chevron-down" size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Mot de passe</label>
+                <div class="relative">
+                  <lucide-icon name="lock" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                  <input [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="••••••••" class="register-input" [ngClass]="getInputClass(2, 'password')">
+                  <button type="button" (click)="showPassword.set(!showPassword())" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors">
+                    <lucide-icon [name]="showPassword() ? 'eye-off' : 'eye'" size="16"></lucide-icon>
+                  </button>
+                </div>
+                <!-- Strength bar -->
+                <div class="flex gap-1.5 mt-2 ml-0.5">
+                  <div *ngFor="let i of [1,2,3,4]" class="h-1 flex-1 rounded-full transition-all duration-300"
+                    [ngClass]="getPasswordStrength().score >= i ? getPasswordStrength().colorClass : 'bg-slate-100 dark:bg-slate-800'"></div>
+                </div>
+              </div>
+
+              <div class="flex gap-3 pt-6">
+                <button type="button" (click)="prevStep()" class="btn-secondary">Retour</button>
+                <button type="button" (click)="nextStep()" [disabled]="!step2Valid" class="btn-primary flex-[2]">Continuer →</button>
+              </div>
+            </div>
+
+            <!-- STEP 3: PHOTO -->
+            <div *ngIf="currentStep() === 3" class="step-container space-y-8 py-4 flex flex-col items-center">
+              <div class="relative group">
+                <div class="h-40 w-40 rounded-full border-4 border-indigo-50 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-900 flex items-center justify-center group-hover:border-indigo-400 transition-all shadow-xl shadow-indigo-500/5">
+                  <img *ngIf="photoPreview()" [src]="photoPreview()" class="h-full w-full object-cover">
+                  <lucide-icon *ngIf="!photoPreview()" name="user" size="64" class="text-slate-300 dark:text-slate-700"></lucide-icon>
+                </div>
+                <label for="photo-upload" class="absolute bottom-2 right-2 h-11 w-11 rounded-full bg-indigo-600 text-white flex items-center justify-center cursor-pointer shadow-lg hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95">
+                  <lucide-icon name="camera" size="20"></lucide-icon>
+                  <input id="photo-upload" type="file" class="hidden" (change)="onFileChange($event)" accept="image/*">
+                </label>
+              </div>
+
+              <div class="text-center max-w-[280px]">
+                <p class="text-[13px] font-semibold text-slate-400">Une photo de profil permet à vos collègues de vous reconnaître plus facilement.</p>
+              </div>
+
+              <div class="flex gap-3 w-full pt-4">
+                <button type="button" (click)="prevStep()" class="btn-secondary">Retour</button>
+                <button type="button" (click)="nextStep()" class="btn-primary flex-[2]">
+                  {{ base64Photo() ? 'Continuer →' : 'Plus tard, continuer →' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- STEP 4: REVIEW -->
+            <div *ngIf="currentStep() === 4" class="step-container space-y-6">
+              <div class="bg-slate-50 dark:bg-slate-900/40 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 space-y-5 shadow-sm">
+                <div class="flex justify-between items-center border-b border-slate-200/50 dark:border-slate-700 pb-4">
+                  <h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Récapitulatif</h3>
+                  <button type="button" (click)="currentStep.set(2)" class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase hover:underline">Modifier</button>
+                </div>
+                <div class="grid grid-cols-2 gap-y-4 text-sm">
+                  <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Collaborateur</p>
+                    <p class="font-bold text-slate-700 dark:text-slate-300">{{ f2['firstName'].value }} {{ f2['lastName'].value }}</p>
+                  </div>
+                  <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</p>
+                    <p class="font-bold text-slate-700 dark:text-slate-300 truncate pr-2">{{ f2['email'].value }}</p>
+                  </div>
+                  <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entreprise</p>
+                    <p class="font-bold text-slate-700 dark:text-slate-300">{{ foundCompany()?.name }}</p>
+                  </div>
+                  <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Poste</p>
+                    <p class="font-bold text-slate-700 dark:text-slate-300">{{ f2['jobTitle'].value }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div formGroupName="step4" class="py-2">
+                <label class="flex items-start gap-3.5 cursor-pointer group">
+                  <div class="relative mt-0.5">
+                    <input formControlName="acceptTerms" type="checkbox" class="sr-only peer">
+                    <div class="w-5 h-5 rounded-md border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-all peer-checked:bg-indigo-600 peer-checked:border-indigo-600 flex items-center justify-center">
+                      <lucide-icon name="check" size="12" class="text-white opacity-0 peer-checked:opacity-100 transition-opacity"></lucide-icon>
+                    </div>
+                  </div>
+                  <span class="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 font-medium select-none">
+                    J'accepte les <a class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Conditions d'utilisation</a> et la <a class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Politique de confidentialité</a>
+                  </span>
+                </label>
+              </div>
+
+              <!-- Error Massage -->
+              <div *ngIf="apiError()" class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-start gap-2.5 shake-animation">
+                <lucide-icon name="alert-circle" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
+                <p class="text-[13px] font-semibold text-red-600 dark:text-red-400 leading-snug">{{ apiError() }}</p>
+              </div>
+
+              <div class="flex gap-3 pt-4">
+                <button type="button" (click)="prevStep()" class="btn-secondary">Retour</button>
+                <button type="submit" [disabled]="registerForm.invalid || isLoading()" class="btn-primary flex-[3]">
+                  <span *ngIf="!isLoading()" class="flex items-center gap-2">Créer mon compte →</span>
+                  <lucide-icon *ngIf="isLoading()" name="loader-2" size="20" class="animate-spin"></lucide-icon>
+                  <span *ngIf="isLoading()">Traitement...</span>
+                </button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+      </div>
+
+      <!-- Footer Signup -->
+      <div class="text-center mt-10">
+        <p class="text-[14px] font-semibold text-slate-400">
+          Déjà un compte ?
+          <a routerLink="/login" class="text-indigo-600 dark:text-indigo-400 font-black ml-1 hover:underline transition-all">Se connecter</a>
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Theme Toggle FAB -->
+  <button type="button" (click)="themeService.toggleTheme()" class="theme-fab">
+    <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" [size]="20"
+      [class]="themeService.isDark() ? 'text-amber-400' : 'text-indigo-600'"></lucide-icon>
+  </button>
+
+</div>

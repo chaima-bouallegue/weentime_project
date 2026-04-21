@@ -1,0 +1,95 @@
+<div class="login-shell">
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <button type="button" class="theme-toggle" (click)="themeService.toggleTheme()" aria-label="Changer de theme">
+    <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" size="18"></lucide-icon>
+  </button>
+
+  <section class="login-card">
+    <div class="brand-row">
+      <app-logo [variant]="themeService.isDark() ? 'white' : 'full'" [size]="10" />
+      <span class="secure-badge">
+        <lucide-icon name="shield-check" size="14"></lucide-icon>
+        Connexion securisee
+      </span>
+    </div>
+
+    <header class="card-header">
+      <p class="eyebrow">Bienvenue</p>
+      <h1>Connectez-vous a WeenTime</h1>
+      <p class="subtitle">Accedez a votre espace RH, manager ou collaborateur avec une experience simple et fiable.</p>
+    </header>
+
+    @if (apiError()) {
+      <div class="alert-banner" role="alert" aria-live="polite">
+        <lucide-icon name="alert-circle" size="16"></lucide-icon>
+        <span>{{ apiError() }}</span>
+      </div>
+    }
+
+    <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
+      <label class="field">
+        <span class="field-label">Adresse email</span>
+        <div class="input-shell" [class.invalid]="fieldState('email') === 'invalid'" [class.valid]="fieldState('email') === 'valid'">
+          <lucide-icon name="mail" size="18"></lucide-icon>
+          <input
+            #emailInput
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            placeholder="nom@entreprise.com"
+          />
+        </div>
+        @if (getFieldError('email')) {
+          <span class="field-error">{{ getFieldError('email') }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field-label">Mot de passe</span>
+        <div class="input-shell" [class.invalid]="fieldState('password') === 'invalid'" [class.valid]="fieldState('password') === 'valid'">
+          <lucide-icon name="lock" size="18"></lucide-icon>
+          <input
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+            placeholder="Votre mot de passe"
+          />
+          <button type="button" class="password-toggle" (click)="togglePasswordVisibility()" [attr.aria-label]="showPassword() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'">
+            <lucide-icon [name]="showPassword() ? 'eye-off' : 'eye'" size="18"></lucide-icon>
+          </button>
+        </div>
+        @if (getFieldError('password')) {
+          <span class="field-error">{{ getFieldError('password') }}</span>
+        }
+      </label>
+
+      <div class="form-meta">
+        <label class="remember-row">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span>Rester connecte</span>
+        </label>
+        <span class="meta-copy"></span>
+      </div>
+
+      <button type="submit" class="submit-button" [disabled]="isLoading()">
+        @if (isLoading()) {
+          <span class="button-content">
+            <lucide-icon name="loader-2" size="18" class="spinner"></lucide-icon>
+            Connexion...
+          </span>
+        } @else {
+          <span class="button-content">
+            Se connecter
+            <lucide-icon name="arrow-right" size="18"></lucide-icon>
+          </span>
+        }
+      </button>
+    </form>
+
+    <footer class="card-footer">
+      <p>Pas encore de compte ? <a routerLink="/register">Creer un compte</a></p>
+    </footer>
+  </section>
+</div>

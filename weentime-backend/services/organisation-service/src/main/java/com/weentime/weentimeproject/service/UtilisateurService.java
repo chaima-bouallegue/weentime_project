@@ -1,0 +1,54 @@
+package com.weentime.weentimeproject.service;
+
+import com.weentime.weentimeproject.dto.request.ChangePasswordRequest;
+import com.weentime.weentimeproject.dto.request.RegisterRequest;
+import com.weentime.weentimeproject.dto.request.UserProfileUpdateRequest;
+import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
+import com.weentime.weentimeproject.dto.response.ActivityItemResponse;
+import com.weentime.weentimeproject.dto.response.UserProfileResponse;
+import com.weentime.weentimeproject.dto.response.UserSummaryResponse;
+import com.weentime.weentimeproject.dto.response.UtilisateurAuthResponse;
+import com.weentime.weentimeproject.dto.response.CreateRhResponse;
+import com.weentime.weentimeproject.dto.response.RhOwnerResponse;
+import com.weentime.weentimeproject.dto.response.UtilisateurResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
+
+public interface UtilisateurService {
+    UtilisateurResponse createUtilisateur(UtilisateurRequest request);
+    CreateRhResponse createRhUser(com.weentime.weentimeproject.dto.request.CreateRhRequest request);
+    java.util.List<RhOwnerResponse> getAllRh();
+    java.util.List<RhOwnerResponse> getRhByEntreprise(Long entrepriseId);
+    RhOwnerResponse toggleRhStatut(Long id);
+    UtilisateurResponse registerUtilisateur(RegisterRequest request);
+    UtilisateurResponse getUtilisateurById(Long id);
+    java.util.List<UtilisateurResponse> getUtilisateursByEntreprise(Long entrepriseId);
+    java.util.List<Long> getUtilisateurIdsByEntreprise(Long entrepriseId);
+    java.util.List<Long> getUtilisateurIdsByEntrepriseAndRole(Long entrepriseId, String role);
+    UserSummaryResponse getUserSummaryById(Long id);
+    java.util.List<UserSummaryResponse> getUserSummaries(java.util.Collection<Long> ids);
+    UserSummaryResponse getManagerSummary(Long userId);
+    java.util.List<String> getRolesByUserId(Long userId);
+    java.util.List<UserSummaryResponse> getTeamMembers(Long managerId);
+    java.util.List<UserSummaryResponse> getActiveUsers();
+    UtilisateurResponse getUtilisateurByEmail(String email);
+    String getEmailById(Long id);
+    UtilisateurAuthResponse getUtilisateurForAuth(String email);
+    UserProfileResponse getCurrentUserProfile();
+    UserProfileResponse updateCurrentUserProfile(UserProfileUpdateRequest request);
+    String updateCurrentUserAvatar(MultipartFile file);
+    java.util.List<ActivityItemResponse> getActivityHistory();
+    Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable);
+    Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable, Long entrepriseId);
+    UtilisateurResponse updateUtilisateur(Long id, UtilisateurRequest request);
+    void deleteUtilisateur(Long id);
+    UtilisateurResponse toggleUtilisateurStatut(Long id);
+    UtilisateurResponse assignManager(Long id, Long managerId);
+    void update2faSettings(String email, boolean enabled, String type, String secret);
+    void updateBackupCodes(String email, java.util.List<String> codes);
+    java.util.Map<String, Object> register2faFailure(String email);
+    void reset2faAttempts(String email);
+    void consumeBackupCode(String email, String code);
+    void changePassword(ChangePasswordRequest request);
+}

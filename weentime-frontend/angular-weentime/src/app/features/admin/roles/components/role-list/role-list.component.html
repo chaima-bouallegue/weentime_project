@@ -1,0 +1,57 @@
+<div class="h-full">
+  @if (loading) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="h-48 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+      }
+    </div>
+  } @else {
+    @if (roles.length > 0) {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        @for (role of roles; track role.id) {
+          <div class="group bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 transition-all hover:shadow-xl hover:-translate-y-1 relative overflow-hidden flex flex-col min-h-[220px]">
+            
+            <!-- Subtle Background glow -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none transition-opacity group-hover:opacity-40" [style.background-color]="getRoleColor(role.nom)"></div>
+            
+            <!-- Header -->
+            <div class="flex items-start justify-between mb-4 relative z-10 shrink-0">
+               <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md bg-white dark:bg-slate-800 border-2" [style.border-color]="getRoleColor(role.nom)">
+                  <lucide-angular [img]="getRoleIcon(role.nom)" size="24" [style.color]="getRoleColor(role.nom)"></lucide-angular>
+               </div>
+               
+               <div class="flex gap-2">
+                 <button class="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-500 transition-colors" (click)="edit.emit(role)" title="Editer">
+                    <lucide-angular name="edit-3" size="14"></lucide-angular>
+                 </button>
+                 <button class="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors" (click)="delete.emit(role.id)" title="Supprimer">
+                    <lucide-angular name="trash-2" size="14"></lucide-angular>
+                 </button>
+               </div>
+            </div>
+
+            <!-- Content -->
+            <div class="relative z-10 flex-1 flex flex-col text-center">
+               <h3 class="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest mb-1">{{ getRoleLabel(role.nom) }}</h3>
+               <span class="text-[10px] font-bold text-slate-400 font-mono mb-4">{{ role.nom }}</span>
+               
+               <p class="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed mt-auto">
+                 {{ role.description || "Aucune description fournie pour ce rôle système." }}
+               </p>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="bento-card flex flex-col items-center justify-center p-12 text-center mt-4 bg-slate-50/50 dark:bg-slate-900/50">
+        <div class="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+           <lucide-angular [img]="iconShield" size="40"></lucide-angular>
+        </div>
+        <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Aucun Rôle Défini</h3>
+        <p class="text-slate-500 font-medium max-w-sm">
+           La base de rôles est vide. Créez un profil pour assigner des permissions.
+        </p>
+      </div>
+    }
+  }
+</div>

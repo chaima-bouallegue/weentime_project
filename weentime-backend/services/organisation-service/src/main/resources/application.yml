@@ -1,0 +1,114 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: organisation-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/organisation_db
+    username: weentime
+    password: 170502
+    driver-class-name: org.postgresql.Driver
+
+  cloud:
+    config:
+      enabled: false
+  config:
+    import:
+      optional:configserver: configserver:http://localhost:8888
+      datasource:
+       url: jdbc:postgresql://localhost:5433/organisation_db
+      username: weentime
+      password: 170502
+      driver-class-name: org.postgresql.Driver
+      connection-timeout: 5000
+      initialization-fail-timeout: 1
+      maximum-pool-size: 10
+      idle-timeout: 10000
+      max-lifetime: 30000
+  flyway:
+    # Run all migrations from V1; do not baseline an empty schema, otherwise V1__init.sql is skipped
+    baseline-on-migrate: false
+    validate-on-migrate: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  server:
+    enable-self-preservation: false
+
+management:
+  endpoint:
+    gateway:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: "gateway,health,info,metrics,prometheus"
+    health:
+      show-details: always
+
+application:
+  config:
+    rh-service: ${RH_SERVICE_URL:http://rh-service/api/v1/rh}
+
+spring.cloud.openfeign.client.config:
+  default:
+    connect-timeout: 5000
+    read-timeout: 5000
+    logger-level: full
+
+logging:
+  level:
+    root: INFO
+    com.weentime.weentimeproject: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.netflix.discovery: WARN
+    com.netflix.eureka: WARN
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      rhService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: TIME_BASED
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+      organisationService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+  timelimiter:
+    instances:
+      rhService:
+        timeoutDuration: 2s
+      organisationService:
+        timeoutDuration: 2s
+

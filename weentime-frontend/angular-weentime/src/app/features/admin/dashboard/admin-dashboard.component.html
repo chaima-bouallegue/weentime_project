@@ -1,0 +1,207 @@
+<div class="rh-bento-container fade-in">
+  <!-- Bento Hero Header -->
+  <header class="dashboard-hero mb-8">
+    <div class="hero-card overflow-hidden">
+      <div class="card-mesh" [style.--mesh-color]="'#6366f1'"></div>
+
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
+        <div class="flex-1 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
+            <span class="px-4 py-1.5 bg-indigo-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-200 dark:shadow-none">
+              Panneau d'Administration
+            </span>
+          </div>
+
+          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
+            Bonjour, {{ firstName() }} 👋
+          </h1>
+          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            {{ todayFormatted }} · Supervisez l'ensemble de la plateforme WeenTime depuis ce centre de contrôle.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+          <button class="hero-btn secondary" (click)="loadData()" [disabled]="isLoading()">
+            <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
+            <span>Actualiser</span>
+          </button>
+          <a class="hero-btn primary-indigo" routerLink="/app/admin/parametres">
+            <lucide-angular [img]="iconSettings" size="20"></lucide-angular>
+            <span>Paramètres</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI Grid -->
+  @if (isLoading()) {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="h-36 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+      }
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Entreprises -->
+      <div class="bento-stat-card info">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconBuilding" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Entreprises</span>
+          <div class="stat-value-line">
+            <span class="value">{{ totalEntreprises() }}</span>
+            <span class="delta">{{ activeEntreprises() }} actives</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <!-- Gestionnaires RH -->
+      <div class="bento-stat-card success">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconUserCog" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Gestionnaires</span>
+          <div class="stat-value-line">
+            <span class="value">{{ rhCount() }}</span>
+            <span class="delta">Responsables RH</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <!-- Rôles -->
+      <div class="bento-stat-card warning">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconShieldRole" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Rôles</span>
+          <div class="stat-value-line">
+            <span class="value">{{ totalRoles() }}</span>
+            <span class="delta">Niveaux d'accès</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+
+      <!-- Activité -->
+      <div class="bento-stat-card danger">
+        <div class="stat-icon-box">
+          <lucide-angular [img]="iconActivity" size="24"></lucide-angular>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Inactives</span>
+          <div class="stat-value-line">
+            <span class="value">{{ inactiveEntreprises() }}</span>
+            <span class="delta">À vérifier</span>
+          </div>
+        </div>
+        <div class="stat-visual-glow"></div>
+      </div>
+    </div>
+  }
+
+  <!-- Bottom Grid: Recent + Quick Actions -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+    <!-- Recent Entreprises -->
+    <section class="lg:col-span-7">
+      <div class="bento-card p-6 h-full">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Entreprises récentes</h2>
+          <a routerLink="/app/admin/entreprises" class="flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:gap-2 transition-all">
+            Voir tout
+            <lucide-angular [img]="iconArrow" size="14"></lucide-angular>
+          </a>
+        </div>
+
+        @if (isLoading()) {
+          <div class="space-y-3">
+            @for (i of [1,2,3]; track i) {
+              <div class="h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+            }
+          </div>
+        } @else if (recentEntreprises().length > 0) {
+          <div class="space-y-3">
+            @for (ent of recentEntreprises(); track ent.id) {
+              <div class="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0" [style.background-color]="getAvatarColor(ent.nom)">
+                  {{ getInitials(ent.nom) }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-black text-sm text-slate-900 dark:text-white truncate">{{ ent.nom }}</h4>
+                  <p class="text-xs font-medium text-slate-400 truncate">{{ ent.secteur || 'Secteur non défini' }} · {{ formatDate(ent.createdAt) }}</p>
+                </div>
+                <span class="status-pill-small shrink-0" [class.success]="ent.statut === 'ACTIF'" [class.danger]="ent.statut !== 'ACTIF'">
+                  {{ ent.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
+                </span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="text-center py-12 text-slate-400">
+            <lucide-angular [img]="iconBuilding" size="40" class="mb-4 opacity-40"></lucide-angular>
+            <p class="font-medium">Aucune entreprise enregistrée.</p>
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="lg:col-span-5">
+      <div class="bento-card p-6 h-full">
+        <h2 class="text-xl font-black text-slate-900 dark:text-white mb-6">Accès rapides</h2>
+
+        <div class="space-y-4">
+          <a routerLink="/app/admin/entreprises" class="group flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <lucide-angular [img]="iconBuilding" size="22"></lucide-angular>
+            </div>
+            <div class="flex-1">
+              <h4 class="font-black text-slate-900 dark:text-white text-sm">Gérer les Entreprises</h4>
+              <p class="text-xs font-medium text-slate-400">{{ totalEntreprises() }} sociétés référencées</p>
+            </div>
+            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"></lucide-angular>
+          </a>
+
+          <a routerLink="/app/admin/rh-owners" class="group flex items-center gap-4 p-4 bg-sky-50 dark:bg-sky-500/5 rounded-2xl border border-sky-100 dark:border-sky-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div class="w-12 h-12 bg-sky-100 dark:bg-sky-500/10 text-sky-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <lucide-angular [img]="iconUserCog" size="22"></lucide-angular>
+            </div>
+            <div class="flex-1">
+              <h4 class="font-black text-slate-900 dark:text-white text-sm">Gestionnaires RH</h4>
+              <p class="text-xs font-medium text-slate-400">{{ rhCount() }} responsables actifs</p>
+            </div>
+            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all"></lucide-angular>
+          </a>
+
+          <a routerLink="/app/admin/roles" class="group flex items-center gap-4 p-4 bg-purple-50 dark:bg-purple-500/5 rounded-2xl border border-purple-100 dark:border-purple-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-500/10 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <lucide-angular [img]="iconShieldRole" size="22"></lucide-angular>
+            </div>
+            <div class="flex-1">
+              <h4 class="font-black text-slate-900 dark:text-white text-sm">Rôles & Permissions</h4>
+              <p class="text-xs font-medium text-slate-400">{{ totalRoles() }} profils sécurisés</p>
+            </div>
+            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 transition-all"></lucide-angular>
+          </a>
+
+          <a routerLink="/app/admin/parametres" class="group flex items-center gap-4 p-4 bg-amber-50 dark:bg-amber-500/5 rounded-2xl border border-amber-100 dark:border-amber-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div class="w-12 h-12 bg-amber-100 dark:bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <lucide-angular [img]="iconSettings" size="22"></lucide-angular>
+            </div>
+            <div class="flex-1">
+              <h4 class="font-black text-slate-900 dark:text-white text-sm">Paramètres Système</h4>
+              <p class="text-xs font-medium text-slate-400">Configuration globale</p>
+            </div>
+            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-amber-600 group-hover:translate-x-1 transition-all"></lucide-angular>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

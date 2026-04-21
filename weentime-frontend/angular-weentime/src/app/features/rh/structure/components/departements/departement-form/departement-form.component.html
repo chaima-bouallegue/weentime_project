@@ -1,0 +1,47 @@
+<div class="drawer-overlay" (click)="close.emit()">
+  <div class="drawer-content" (click)="$event.stopPropagation()">
+    <header class="drawer-header">
+      <div class="header-info">
+        <h2 class="drawer-title">{{ departement ? 'Modifier' : 'Nouveau' }} département</h2>
+        <p class="drawer-subtitle">{{ departement ? 'Modifiez les informations du département.' : 'Créez un nouveau
+          département dans votre entreprise.' }}</p>
+      </div>
+      <button class="close-btn" (click)="close.emit()">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="drawer-form">
+      <div class="form-scroll">
+        <div class="form-field">
+          <label for="dept-nom">Nom du département *</label>
+          <div class="input-wrapper" [class.error]="form.get('nom')?.invalid && form.get('nom')?.touched">
+            <lucide-icon name="building" size="18" class="field-icon"></lucide-icon>
+            <input id="dept-nom" type="text" formControlName="nom" placeholder="ex: Ingénierie">
+          </div>
+          @if (form.get('nom')?.invalid && form.get('nom')?.touched) {
+          <span class="error-msg">Nom requis (min. 2 caractères)</span>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="dept-desc">Description</label>
+          <div class="input-wrapper align-top">
+            <lucide-icon name="file-text" size="18" class="field-icon"></lucide-icon>
+            <textarea id="dept-desc" formControlName="description" rows="3"
+              placeholder="Description du département (optionnel)"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <footer class="drawer-footer">
+        <button type="button" class="btn-ghost" (click)="close.emit()" [disabled]="isSubmitting()">Annuler</button>
+        <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
+          <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20"
+            [class.animate-spin]="isSubmitting()"></lucide-icon>
+          <span>{{ departement ? 'Enregistrer' : 'Créer' }}</span>
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

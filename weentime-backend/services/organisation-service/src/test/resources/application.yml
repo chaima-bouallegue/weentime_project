@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: "jdbc:h2:mem:testdb;MODE=PostgreSQL;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON;DB_CLOSE_DELAY=-1"
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    loadbalancer:
+      enabled: false
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970

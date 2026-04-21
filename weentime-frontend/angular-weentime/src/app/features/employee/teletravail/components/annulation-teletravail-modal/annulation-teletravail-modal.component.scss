@@ -1,0 +1,81 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.bento-modal {
+  background: white;
+  border-radius: 32px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .bento-modal {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.modal-icon-container {
+  width: 80px;
+  height: 80px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .icon-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(244, 63, 94, 0.1);
+  }
+
+  .icon-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    z-index: 1;
+    box-shadow: 0 8px 16px -4px rgba(244, 63, 94, 0.2);
+
+    &.danger { color: #f43f5e; }
+  }
+}
+
+.dark .modal-icon-container {
+  .icon-box { background: rgba(244, 63, 94, 0.15); box-shadow: none; }
+}
+
+.action-btn {
+  &.secondary {
+    color: #64748b;
+    &:hover { background: #f8fafc; color: #0f172a; }
+  }
+  
+  &.danger {
+    &:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(244, 63, 94, 0.4); }
+    &:active { transform: scale(0.98); }
+  }
+}
+
+.dark .action-btn.secondary {
+  color: #94a3b8;
+  &:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+}

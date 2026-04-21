@@ -1,0 +1,114 @@
+.premium-card {
+  @apply bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300;
+
+  &:hover {
+    @apply shadow-xl shadow-indigo-500/5 dark:shadow-indigo-500/10 border-indigo-500/20;
+  }
+}
+
+.badge-modern {
+  @apply px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest border transition-all duration-300;
+
+  &.badge-emerald {
+    @apply bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20;
+  }
+
+  &.badge-amber {
+    @apply bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20;
+  }
+
+  &.badge-rose {
+    @apply bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20;
+  }
+
+  &.badge-slate {
+    @apply bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50;
+  }
+}
+
+// Support for indigo badge if needed
+.badge-indigo {
+  @apply bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20;
+}
+
+// Custom Scrollbar for the table if needed
+.overflow-x-auto {
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 dark:bg-slate-800 rounded-full;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700;
+  }
+}
+
+// Background gradient for page header
+.page-header {
+  background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.03) 0px, transparent 50%);
+}
+
+// Dark mode overrides for animations and shadows
+:host-context(.dark) {
+  .premium-card {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    &:hover {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.kanban-card {
+  @apply bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-transparent shadow-sm hover:translate-y-[-4px] hover:shadow-xl transition-all duration-500 cursor-default select-none relative overflow-hidden;
+
+  &::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent opacity-0 transition-opacity duration-500;
+  }
+
+  &:hover {
+    @apply border-indigo-500/20;
+
+    &::before {
+      @apply opacity-100;
+    }
+  }
+}
+
+.shadow-glow {
+  text-shadow: 0 0 20px currentColor;
+}
+
+// Ensure columns are scrollable on small screens
+.grid {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

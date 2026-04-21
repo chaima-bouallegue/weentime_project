@@ -1,0 +1,252 @@
+<div class="dash-wrapper fade-in" style="padding-top: 24px; max-width: 1400px; margin: 0 auto; padding-inline: 24px;">
+  
+  <div class="flex items-center justify-between mb-2">
+    <div>
+      <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Mon Pointage</h1>
+      <p class="text-slate-500 dark:text-slate-400 font-medium">{{ currentDateTimeFormatted() }}</p>
+    </div>
+    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+      <lucide-angular [img]="iconClock" size="16"></lucide-angular>
+      Temps Réel
+    </div>
+  </div>
+
+  <!-- ─── Hero Card ──────────────────────────────────────────────────────────── -->
+  <div class="hero-card pointage-hero">
+    <div class="hero-bg-shapes"></div>
+    <div class="hero-content flex-col md:flex-row gap-8">
+
+      <!-- Anneau timer -->
+      <div class="relative w-56 h-56 flex-shrink-0 flex items-center justify-center group pointer-events-none">
+        <svg class="w-full h-full transform -rotate-90 drop-shadow-lg">
+          <circle cx="112" cy="112" r="100" fill="none" stroke="currentColor"
+                  stroke-width="8" class="text-white/10"></circle>
+          <circle cx="112" cy="112" r="100" fill="none" stroke="currentColor"
+                  stroke-width="8" class="text-white"
+                  [style.stroke-dasharray]="628"
+                  [style.stroke-dashoffset]="628 - (628 * circleProgress() / 100)"
+                  style="transition: stroke-dashoffset 1s ease-in-out; stroke-linecap: round;">
+          </circle>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span class="text-4xl font-black text-white tabular-nums tracking-tighter">{{ sessionDuration() }}</span>
+          <span class="text-[10px] uppercase tracking-[0.2em] font-extrabold text-white/60 mt-1">Session</span>
+        </div>
+        <div *ngIf="isCheckedIn()"
+             class="absolute inset-0 rounded-full border border-white/20 animate-[ping_3s_ease-in-out_infinite]"></div>
+      </div>
+
+      <!-- Contrôles -->
+      <div class="hero-left flex-1 text-center md:text-left z-10 w-full flex flex-col justify-center">
+
+        <div class="hero-badge w-fit mx-auto md:mx-0 mb-4"
+             [class.active-badge]="isCheckedIn()">
+          <lucide-angular [img]="iconClock" size="14" class="mr-1 inline-block"></lucide-angular>
+          {{ isCheckedIn() ? 'Session Active' : 'Hors Poste' }}
+        </div>
+
+        <h2 class="text-3xl lg:text-4xl font-light text-white mb-3">
+          {{ isCheckedIn() ? 'Bon travail !' : 'Prêt à démarrer ?' }}<br>
+          <span class="font-black">
+            {{ isCheckedIn() ? 'Vous êtes en poste.' : 'N\'oubliez pas de pointer.' }}
+          </span>
+        </h2>
+
+        <p class="text-white/70 font-medium mb-8 max-w-lg mx-auto md:mx-0 text-sm leading-relaxed">
+          {{
+            isDayOff()
+              ? 'Vous avez un jour de repos ou un congé approuvé aujourd\'hui.'
+              : isCheckedIn()
+                ? 'Votre temps est calculé en toute sécurité de manière autonome. Concentrez-vous sur vos objectifs.'
+                : 'Ouvrez votre session pour commencer à comptabiliser vos heures quotidiennes.'
+          }}
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
+          <!--
+            ✅ FIX : disabled géré aussi dans le handler (double protection)
+                     Ajout de opacity-50 + cursor-not-allowed quand désactivé
+          -->
+          <button
+            (click)="onTogglePointage()"
+            [disabled]="isLoading() || isDayOff()"
+            [class.opacity-50]="isDayOff()"
+            [class.cursor-not-allowed]="isDayOff()"
+            class="pointage-btn bg-white text-slate-900 shadow-xl hover:shadow-2xl hover:-translate-y-1
+                   transition-all duration-300 w-full sm:w-auto min-w-[220px]"
+            [ngClass]="isCheckedIn() ? 'bg-white/10 text-white !border !border-white/30 hover:bg-white/20 backdrop-blur-md shadow-none' : ''">
+
+            <div *ngIf="isLoading()"
+                 class="w-5 h-5 mx-auto border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+
+            <ng-container *ngIf="!isLoading()">
+              <lucide-angular [img]="isDayOff() ? iconCalendar : (isCheckedIn() ? iconSquare : iconPlay)"
+                              size="20" class="mr-2"></lucide-angular>
+              <span>
+                {{
+                  isDayOff()
+                    ? 'Jour de repos'
+                    : isCheckedIn()
+                      ? 'Arrêter la Session'
+                      : 'Pointer mon Entrée'
+                }}
+              </span>
+            </ng-container>
+          </button>
+        </div>
+
+        @if (statusMessage()) {
+          <p class="mt-4 text-sm font-semibold text-white/80 max-w-xl">
+            {{ statusMessage() }}
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Grille principale ──────────────────────────────────────────────────── -->
+  <div class="main-grid mt-2">
+
+    <!-- Colonne gauche : KPIs -->
+    <div class="kpi-column">
+      <h2 class="section-title">Aperçu Hebdomadaire</h2>
+      <div class="kpi-grid grid grid-cols-2 gap-4">
+
+        <div class="bento-card kpi-bento"
+             style="background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(99,102,241,0) 100%)">
+          <div class="kpi-top">
+            <div class="kpi-icon-soft" style="color:#6366f1;background:rgba(99,102,241,0.15)">
+              <lucide-angular [img]="iconClock" size="20"></lucide-angular>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <!-- ✅ FIX : affichage heuresAujourdhui corrigé (était toujours 00:00) -->
+            <p class="kpi-v">{{ stats()?.heuresAujourdhui || '0h00' }}</p>
+            <p class="kpi-l">Aujourd'hui</p>
+          </div>
+        </div>
+
+        <div class="bento-card kpi-bento"
+             style="background: linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0) 100%)">
+          <div class="kpi-top">
+            <div class="kpi-icon-soft" style="color:#10b981;background:rgba(16,185,129,0.15)">
+              <lucide-angular [img]="iconCalendar" size="20"></lucide-angular>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <p class="kpi-v">{{ stats()?.heuresSemaine || '0h00' }}</p>
+            <p class="kpi-l">Cette Semaine</p>
+          </div>
+        </div>
+
+        <div class="bento-card kpi-bento"
+             style="background: linear-gradient(135deg, rgba(236,72,153,0.1) 0%, rgba(236,72,153,0) 100%)">
+          <div class="kpi-top">
+            <div class="kpi-icon-soft" style="color:#ec4899;background:rgba(236,72,153,0.15)">
+              <lucide-angular [img]="iconCheck" size="20"></lucide-angular>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <p class="kpi-v">{{ (stats()?.ponctualitePct | number:'1.0-0') ?? 100 }}%</p>
+            <p class="kpi-l">Ponctualité</p>
+          </div>
+        </div>
+
+        <div class="bento-card kpi-bento"
+             style="background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0) 100%)">
+          <div class="kpi-top">
+            <div class="kpi-icon-soft" style="color:#f59e0b;background:rgba(245,158,11,0.15)">
+              <lucide-angular [img]="iconCalendar" size="20"></lucide-angular>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <p class="kpi-v">{{ stats()?.soldeConges ?? 0 }}j</p>
+            <p class="kpi-l">Solde Congés</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colonne droite : Timeline -->
+    <div class="timeline-column">
+      <div class="bento-card timeline-card">
+        <div class="timeline-header relative z-10 flex items-center justify-between mb-6">
+          <h2 class="section-title mb-0 flex items-center gap-2">
+            Activité du Jour
+            <span class="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded text-[10px] uppercase font-bold tracking-widest">
+              {{ history().length }} Logs
+            </span>
+          </h2>
+        </div>
+
+        <div class="timeline-container relative z-10 mt-2 overflow-y-auto pr-2 max-h-[300px]">
+
+          <!-- État vide -->
+          <div *ngIf="history().length === 0"
+               class="flex flex-col items-center justify-center py-12 opacity-60">
+            <lucide-angular [img]="iconClock" size="48"
+                            class="mb-4 text-slate-300 dark:text-slate-600"></lucide-angular>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">Aucun pointage.</h3>
+            <p class="text-sm text-slate-500 font-medium">Votre historique apparaîtra ici.</p>
+          </div>
+
+          <!-- Ligne de temps -->
+          <div *ngFor="let log of history(); let last = last"
+               class="timeline-row group fade-in">
+
+            <div class="timeline-line-wrap">
+              <div class="timeline-dot shadow-none ring-4 ring-white dark:ring-[#141821]"
+                   [ngClass]="log.type === 'ENTREE' ? 'bg-emerald-500' : 'bg-indigo-500'">
+                <lucide-angular [img]="log.type === 'ENTREE' ? iconPlay : iconSquare"
+                                size="10" strokeWidth="3" class="text-white"></lucide-angular>
+              </div>
+              <div *ngIf="!last"
+                   class="timeline-line bg-slate-200 dark:bg-slate-800 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/50 transition-colors duration-300">
+              </div>
+            </div>
+
+            <div class="timeline-content-box ml-2 bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800
+                        hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-700">
+              <div class="flex justify-between items-start mb-1">
+                <p class="timeline-title uppercase tracking-wide text-xs">
+                  {{ log.type === 'ENTREE' ? 'Pointage Entrée' : 'Pointage Sortie' }}
+                </p>
+                <span class="timeline-time px-2 py-1 bg-white dark:bg-slate-950 rounded shadow-sm
+                             border border-slate-100 dark:border-slate-800 tabular-nums">
+                  {{ log.timestamp | date:'HH:mm' }}
+                </span>
+              </div>
+
+              <div class="flex flex-wrap gap-2 mt-3">
+                <span *ngIf="log.isAutoClosed"
+                      class="px-2 py-1 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-600
+                             border border-amber-200 dark:border-amber-500/20 flex items-center gap-1">
+                  <lucide-angular [img]="iconClock" size="10"></lucide-angular> Fermeture Auto
+                </span>
+                <span *ngIf="log.estEnRetard"
+                      class="px-2 py-1 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600
+                             border border-rose-200 dark:border-rose-500/20 flex items-center gap-1">
+                  <lucide-angular [img]="iconAlert" size="10"></lucide-angular>
+                  Retard{{ log.minutesRetard ? ': ' + log.minutesRetard + 'min' : '' }}
+                </span>
+                <span *ngIf="log.overtimeMinutes && log.overtimeMinutes > 0"
+                      class="px-2 py-1 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600
+                             border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1">
+                  <lucide-angular [img]="iconTrend" size="10"></lucide-angular>
+                  +{{ log.overtimeMinutes }}min supp.
+                </span>
+                <!-- ✅ Ponctuel uniquement si aucun flag négatif et c'est une ENTREE -->
+                <span *ngIf="!log.estEnRetard && !log.overtimeMinutes && !log.isAutoClosed && log.type === 'ENTREE'"
+                      class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600
+                             border border-emerald-200 dark:border-emerald-500/20">
+                  Ponctuel
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

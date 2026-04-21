@@ -1,0 +1,100 @@
+<div class="absence-page">
+  <!-- Team Cards -->
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Mon équipe</h2>
+      <p class="section-sub">Statut de présence et absences de vos collaborateurs</p>
+    </div>
+    <button class="btn-primary" (click)="addNew.emit()">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Signaler une absence
+    </button>
+  </div>
+
+  <div class="team-grid">
+    @for (member of teamMembers; track member.id) {
+      <div class="team-card">
+        <div class="tc-top">
+          <div class="tc-avatar" [style.background]="member.color">{{ member.initials }}</div>
+          <div class="tc-info">
+            <p class="tc-name">{{ member.prenom }} {{ member.nom }}</p>
+            <p class="tc-poste">{{ member.poste }}</p>
+          </div>
+          @if (isAbsent(member.id)) {
+            <span class="status-dot absent"></span>
+          } @else {
+            <span class="status-dot present"></span>
+          }
+        </div>
+        <div class="tc-bottom">
+          <span class="tc-abs-count">{{ getEmployeeAbsenceCount(member.id) }} absence(s) enregistrée(s)</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Team Absences Table -->
+  <div class="subsection">
+    <h3 class="sub-title">Récapitulatif des absences</h3>
+    @if (loading()) {
+      <div class="skeleton-list">
+        @for (_ of [1,2,3]; track $index) {
+          <div class="sk-row"></div>
+        }
+      </div>
+    } @else {
+      <div class="table-card">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Utilisateur ID</th>
+                <th>Type</th>
+                <th>Période</th>
+                <th>Durée</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (absence of absences(); track absence.id) {
+                <tr>
+                  <td>
+                    <div class="emp-cell">
+                      <div class="emp-avatar" [style.background]="'#6366f1'">
+                        {{ absence.utilisateurId }}
+                      </div>
+                      <span class="emp-name">#{{ absence.utilisateurId }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge">
+                      {{ getTypeEmoji(absence.typeAbsenceCode) }} {{ absence.typeAbsenceLibelle }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="period-text">{{ formatDate(absence.dateDebut) }} → {{ formatDate(absence.dateFin) }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ absence.dureeJours }}j</strong>
+                  </td>
+                  <td>
+                    <span class="statut-badge" [class]="getStatutConfig(absence.statut).cssClass">
+                      {{ getStatutConfig(absence.statut).label }}
+                    </span>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="empty-row">
+                    <lucide-icon name="users" [size]="32"></lucide-icon>
+                    <p>Aucune absence dans l'entreprise</p>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </div>
+</div>
