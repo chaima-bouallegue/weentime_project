@@ -2,6 +2,8 @@ package com.weentime.weentimeproject.service.impl;
 
 import com.weentime.weentimeproject.dto.request.ChangePasswordRequest;
 import com.weentime.weentimeproject.dto.request.CreateRhRequest;
+import com.weentime.weentimeproject.dto.request.RhOwnerCreateRequest;
+import com.weentime.weentimeproject.dto.request.RhOwnerUpdateRequest;
 import com.weentime.weentimeproject.dto.request.RegisterRequest;
 import com.weentime.weentimeproject.dto.request.UserProfileUpdateRequest;
 import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
@@ -49,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service("utilisateurService")
@@ -58,6 +62,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
 
     private static final String USER_NOT_FOUND_ID = "Utilisateur non trouve avec l'id : ";
     private static final String USER_NOT_FOUND_EMAIL = "Utilisateur non trouve avec l'email : ";
+    private static final Pattern IPV4_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
 
     private final UtilisateurRepository utilisateurRepository;
     private final DepartementRepository departementRepository;
@@ -140,6 +145,37 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
+    public RhOwnerResponse createRhOwner(RhOwnerCreateRequest request) {
+        if (utilisateurRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email deja utilise : " + request.getEmail());
+        }
+
+        Entreprise entreprise = findEntrepriseById(request.getEntrepriseId());
+        assertEntrepriseCapacity(entreprise);
+
+        Role roleRh = roleRepository.findByNom(RoleNom.ROLE_RH)
+                .orElseThrow(() -> new EntityNotFoundException("Role non trouve : ROLE_RH"));
+
+        String[] names = splitDisplayName(request.getName());
+        Utilisateur utilisateur = Utilisateur.builder()
+                .nom(names[1])
+                .prenom(names[0])
+                .email(request.getEmail().trim())
+                .motDePasse(passwordEncoder.encode(request.getPassword()))
+                .statut(StatutUtilisateurEnum.ACTIF)
+                .roles(Set.of(roleRh))
+                .entrepriseId(entreprise.getId())
+                .entreprise(entreprise)
+                .build();
+
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        incrementEntrepriseUsers(entreprise);
+        logAudit("CREATE_RH", saved.getEmail(), "Compte RH cree pour l'entreprise : " + entreprise.getNom());
+        notifyUser(saved.getId(), "Compte RH cree", "Votre espace RH est pret a etre utilise.", "/app/rh/dashboard");
+        return utilisateurMapper.toRhOwnerResponse(saved);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<RhOwnerResponse> getAllRh() {
         return utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(RoleNom.ROLE_RH)
@@ -158,9 +194,71 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
+    public RhOwnerResponse updateRhOwner(Long id, RhOwnerUpdateRequest request) {
+        Utilisateur utilisateur = resolveRhUser(id);
+        String normalizedEmail = request.getEmail().trim();
+
+        if (!utilisateur.getEmail().equalsIgnoreCase(normalizedEmail)
+                && utilisateurRepository.existsByEmail(normalizedEmail)) {
+            throw new IllegalArgumentException("Email deja utilise : " + normalizedEmail);
+        }
+
+        Entreprise entreprise = findEntrepriseById(request.getEntrepriseId());
+        Long previousEntrepriseId = utilisateur.getEntrepriseId();
+        if (!Objects.equals(previousEntrepriseId, entreprise.getId())) {
+            assertEntrepriseCapacity(entreprise);
+        }
+
+        String[] names = splitDisplayName(request.getName());
+        utilisateur.setPrenom(names[0]);
+        utilisateur.setNom(names[1]);
+        utilisateur.setEmail(normalizedEmail);
+        utilisateur.setEntrepriseId(entreprise.getId());
+        utilisateur.setEntreprise(entreprise);
+
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            utilisateur.setMotDePasse(passwordEncoder.encode(request.getPassword()));
+        }
+
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        syncEntrepriseUserCounters(previousEntrepriseId, saved.getEntrepriseId());
+        logAudit("UPDATE_RH", saved.getEmail(), "Compte RH mis a jour.");
+        return utilisateurMapper.toRhOwnerResponse(saved);
+    }
+
+    @Override
+    public void deleteRhOwner(Long id) {
+        Utilisateur utilisateur = resolveRhUser(id);
+        if (utilisateur.getStatut() != StatutUtilisateurEnum.INACTIF) {
+            utilisateur.setStatut(StatutUtilisateurEnum.INACTIF);
+            utilisateurRepository.save(utilisateur);
+            decrementEntrepriseUsers(utilisateur.getEntrepriseId());
+        }
+
+        logAudit("DELETE_RH", utilisateur.getEmail(), "Compte RH desactive.");
+    }
+
+    @Override
+    public RhOwnerResponse assignRhOwnerEntreprise(Long id, Long entrepriseId) {
+        Utilisateur utilisateur = resolveRhUser(id);
+        Entreprise entreprise = findEntrepriseById(entrepriseId);
+        Long previousEntrepriseId = utilisateur.getEntrepriseId();
+
+        if (!Objects.equals(previousEntrepriseId, entrepriseId)) {
+            assertEntrepriseCapacity(entreprise);
+        }
+
+        utilisateur.setEntrepriseId(entreprise.getId());
+        utilisateur.setEntreprise(entreprise);
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        syncEntrepriseUserCounters(previousEntrepriseId, saved.getEntrepriseId());
+        logAudit("ASSIGN_RH_ENTREPRISE", saved.getEmail(), "RH assigne a l'entreprise : " + entreprise.getNom());
+        return utilisateurMapper.toRhOwnerResponse(saved);
+    }
+
+    @Override
     public RhOwnerResponse toggleRhStatut(Long id) {
-        Utilisateur utilisateur = utilisateurRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
+        Utilisateur utilisateur = resolveRhUser(id);
 
         StatutUtilisateurEnum nouveauStatut = utilisateur.getStatut() == StatutUtilisateurEnum.ACTIF
                 ? StatutUtilisateurEnum.INACTIF
@@ -339,11 +437,13 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     public UserProfileResponse getCurrentUserProfile() {
         String email = getCurrentUser();
         if ("SYSTEM".equals(email)) {
-            throw new IllegalStateException("Aucun utilisateur authentifie trouve dans le contexte de securite.");
+            return defaultProfile(null);
         }
+
         return utilisateurRepository.findByEmail(email)
                 .map(utilisateurMapper::toProfileResponse)
-                .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_EMAIL + email));
+                .map(this::ensureProfileContextDefaults)
+                .orElseGet(() -> defaultProfile(email));
     }
 
     @Override
@@ -394,19 +494,35 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     public List<ActivityItemResponse> getActivityHistory() {
         String email = getCurrentUser();
         if ("SYSTEM".equals(email)) {
-            throw new IllegalStateException("Aucun utilisateur authentifie trouve.");
+            return List.of();
         }
 
-        return auditLogRepository.findByPerformedByOrderByCreatedAtDesc(email)
+        return auditLogRepository.findByIdentityOrderByCreatedAtDesc(email)
                 .stream()
                 .map(log -> ActivityItemResponse.builder()
                         .id(log.getId())
+                        .action(log.getAction())
                         .type(log.getAction())
                         .description(log.getDetails())
+                        .timestamp(log.getCreatedAt())
                         .date(log.getCreatedAt())
+                        .ipAddress(extractIpAddress(log.getDetails()))
                         .icon(mapActionToIcon(log.getAction()))
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private String extractIpAddress(String details) {
+        if (details == null || details.isBlank()) {
+            return null;
+        }
+
+        Matcher matcher = IPV4_PATTERN.matcher(details);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+
+        return null;
     }
 
     private String mapActionToIcon(String action) {
@@ -777,6 +893,35 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         }
     }
 
+    private Utilisateur resolveRhUser(Long id) {
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
+
+        boolean isRh = utilisateur.getRoles() != null
+                && utilisateur.getRoles().stream().anyMatch(role -> role.getNom() == RoleNom.ROLE_RH);
+        if (!isRh) {
+            throw new IllegalStateException("Cet utilisateur n'a pas le role RH.");
+        }
+
+        return utilisateur;
+    }
+
+    private String[] splitDisplayName(String fullName) {
+        String normalized = fullName == null ? "" : fullName.trim();
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("Le nom est obligatoire.");
+        }
+
+        String[] parts = normalized.split("\\s+");
+        if (parts.length == 1) {
+            return new String[]{parts[0], parts[0]};
+        }
+
+        String prenom = parts[0];
+        String nom = String.join(" ", java.util.Arrays.copyOfRange(parts, 1, parts.length));
+        return new String[]{prenom, nom};
+    }
+
     private RoleNom normalizeRole(String role) {
         if (role == null || role.isBlank()) {
             throw new IllegalArgumentException("Le role est obligatoire.");
@@ -804,5 +949,38 @@ public class UtilisateurServiceImpl implements UtilisateurService {
             return "manager";
         }
         return "employee";
+    }
+
+    private UserProfileResponse ensureProfileContextDefaults(UserProfileResponse profile) {
+        if (profile == null) {
+            return defaultProfile(null);
+        }
+
+        if (profile.getRoles() == null) {
+            profile.setRoles(Set.of());
+        }
+        if (profile.getDepartement() == null) {
+            profile.setDepartement(UserProfileResponse.DepartementDto.builder().build());
+        }
+        if (profile.getEquipe() == null) {
+            profile.setEquipe(UserProfileResponse.EquipeDto.builder().build());
+        }
+        if (profile.getEntreprise() == null) {
+            profile.setEntreprise(UserProfileResponse.EntrepriseDto.builder().build());
+        }
+        return profile;
+    }
+
+    private UserProfileResponse defaultProfile(String email) {
+        return UserProfileResponse.builder()
+                .email(email)
+                .statut(StatutUtilisateurEnum.INACTIF.name())
+                .twoFactorEnabled(false)
+                .twoFactorType(TwoFactorTypeEnum.NONE.name())
+                .roles(Set.of())
+                .departement(UserProfileResponse.DepartementDto.builder().build())
+                .equipe(UserProfileResponse.EquipeDto.builder().build())
+                .entreprise(UserProfileResponse.EntrepriseDto.builder().build())
+                .build();
     }
 }

@@ -73,7 +73,7 @@ export interface RegisterResponse {
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
-  private readonly API_URL = `${environment.apiUrl}/api/v1/auth`;
+  private readonly API_URL = `${environment.apiUrl}/auth`;
 
   /** Single source of truth for authentication state */
   currentUser = signal<User | null>(null);
@@ -114,7 +114,7 @@ export class AuthService {
   }
 
   validateCompanyCode(code: string): Observable<any> {
-    return this.http.get<any>(`${environment.apiUrl}/api/v1/organisations/entreprises/validate-code/${code}`);
+    return this.http.get<any>(`${environment.apiUrl}/organisations/entreprises/validate-code/${code}`);
   }
 
   register(userData: any): Observable<RegisterResponse> {
@@ -173,9 +173,17 @@ export class AuthService {
     this.reset();
   }
 
+  hasRole(role: 'ADMIN' | 'RH' | 'MANAGER' | 'EMPLOYEE' | string): boolean {
+    const target = this.toBusinessRole(role);
+    if (!target) {
+      return false;
+    }
+    return this.currentUser()?.roles?.some(item => this.toBusinessRole(item) === target) ?? false;
+  }
+
   private fetchProfileAndHandleSuccess(res: any, rememberMe: boolean): Observable<any> {
     this.storeValue('token', res.token, rememberMe);
-    return this.http.get<User>(`${environment.apiUrl}/api/v1/users/me`).pipe(
+    return this.http.get<User>(`${environment.apiUrl}/users/me`).pipe(
       map(profile => {
         res.user = profile;
         this.handleAuthSuccess(res, rememberMe);
@@ -192,13 +200,14 @@ export class AuthService {
     this.storeValue('token', res.token, rememberMe);
     const profile = this.sanitizeProfile(res.user);
     const roles = this.normalizeRoles(profile.roles || res.roles || profile.role);
+    const primaryRole = this.resolvePrimaryRole(roles);
     const entrepriseId = profile.entrepriseId || profile.entreprise?.id || res.entrepriseId;
     const user: User = {
       ...profile,
       id: profile.id || res.id || res.userId,
       email: profile.email || res.email,
       roles,
-      role: profile.role || roles[0],
+      role: profile.role || primaryRole || roles[0],
       entrepriseId,
       entreprise: profile.entreprise || (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
     };
@@ -260,15 +269,50 @@ export class AuthService {
   }
 
   private normalizeRoles(input: unknown): string[] {
-    if (Array.isArray(input)) {
-      return input
-        .map(role => typeof role === 'string' ? role : (role?.nom || role?.name || role?.authority))
-        .filter((role): role is string => typeof role === 'string' && role.length > 0);
+    const source = Array.isArray(input)
+      ? input.map(role => typeof role === 'string' ? role : (role?.nom || role?.name || role?.authority))
+      : typeof input === 'string' && input.length > 0
+        ? [input]
+        : [];
+
+    const businessRoles = source
+      .map(value => this.toBusinessRole(value))
+      .filter((value): value is string => !!value);
+
+    const uniqueBusinessRoles = Array.from(new Set(businessRoles));
+    const authorityRoles = uniqueBusinessRoles.map(role => `ROLE_${role}`);
+
+    // Keep ROLE_* first for backward compatibility, plus plain roles for normalized frontend checks.
+    return [...authorityRoles, ...uniqueBusinessRoles];
+  }
+
+  private resolvePrimaryRole(roles: string[]): string | undefined {
+    for (const role of roles) {
+      const normalized = this.toBusinessRole(role);
+      if (normalized) {
+        return normalized;
+      }
     }
-    if (typeof input === 'string' && input.length > 0) {
-      return [input];
+    return undefined;
+  }
+
+  private toBusinessRole(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
     }
-    return [];
+
+    const normalized = value.trim().toUpperCase();
+    if (!normalized) {
+      return null;
+    }
+
+    const withoutPrefix = normalized.startsWith('ROLE_')
+      ? normalized.substring('ROLE_'.length)
+      : normalized;
+
+    return ['ADMIN', 'RH', 'MANAGER', 'EMPLOYEE'].includes(withoutPrefix)
+      ? withoutPrefix
+      : null;
   }
 
   private sanitizeProfile(source: unknown): Partial<User> {

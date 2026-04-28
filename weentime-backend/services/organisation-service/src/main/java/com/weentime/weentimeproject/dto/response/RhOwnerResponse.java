@@ -19,6 +19,7 @@ public class RhOwnerResponse {
     private String telephone;
     private Long entrepriseId;
     private String entrepriseNom;
+    private String role;
     private String statut;
     private LocalDateTime dateCreation;
 }

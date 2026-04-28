@@ -17,11 +17,36 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class ApiConfigService {
-  private readonly API_BASE = `${environment.apiUrl}/api/v1`;
+  private readonly API_BASE = this.normalizeApiBase(environment.apiUrl);
 
   // Public getter for API base URL (used by services that need dynamic URL construction)
   getApiBase(): string {
     return this.API_BASE;
+  }
+
+  buildUrl(endpoint: string): string {
+    return `${this.API_BASE}${this.normalizeEndpoint(endpoint)}`;
+  }
+
+  private normalizeApiBase(baseUrl: string): string {
+    const trimmedBase = (baseUrl ?? '').trim().replace(/\/+$/, '');
+    const dedupedBase = trimmedBase.replace(/(\/api\/v1)+$/i, '/api/v1');
+
+    if (/\/api\/v1$/i.test(dedupedBase)) {
+      return dedupedBase;
+    }
+
+    return `${dedupedBase}/api/v1`;
+  }
+
+  private normalizeEndpoint(endpoint: string): string {
+    const rawEndpoint = (endpoint ?? '').trim();
+    if (!rawEndpoint) {
+      return '';
+    }
+
+    const withLeadingSlash = `/${rawEndpoint.replace(/^\/+/, '')}`;
+    return withLeadingSlash.replace(/^\/api\/v1(?=\/|$)/i, '');
   }
 
   // ─────────────────────────────────────────────
@@ -68,7 +93,7 @@ export class ApiConfigService {
     // Users (Employees)
     GET_USERS: `${this.API_BASE}/organisations/users`,
     GET_USER_BY_ID: (id: number) => `${this.API_BASE}/organisations/users/${id}`,
-    GET_USER_BY_EMAIL: (email: string) => `${this.API_BASE}/organisations/users/email/${email}`,
+    GET_USER_BY_EMAIL: (email: string) => `${this.API_BASE}/organisations/users/by-email?email=${encodeURIComponent(email)}`,
     CREATE_USER: `${this.API_BASE}/organisations/users`,
     UPDATE_USER: (id: number) => `${this.API_BASE}/organisations/users/${id}`,
     DELETE_USER: (id: number) => `${this.API_BASE}/organisations/users/${id}`,
@@ -84,7 +109,7 @@ export class ApiConfigService {
     // RH Users
     GET_RH_USERS: `${this.API_BASE}/organisations/rh`,
     GET_RH_BY_COMPANY: (id: number) => `${this.API_BASE}/organisations/rh/entreprise/${id}`,
-    TOGGLE_RH_STATUS: (id: number) => `${this.API_BASE}/organisations/rh/${id}/toggle-status`,
+    TOGGLE_RH_STATUS: (id: number) => `${this.API_BASE}/organisations/rh/${id}/toggle-statut`,
 
     // Roles
     GET_ROLES: `${this.API_BASE}/organisations/roles`,

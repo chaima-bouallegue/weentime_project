@@ -28,7 +28,7 @@ import { PageResponse } from '../models/horaire.model';
 })
 export class OrganisationService {
   private http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/api/v1/organisations`;
+  private readonly baseUrl = `${environment.apiUrl}/organisations`;
 
   getTeams(page = 0, size = 100): Observable<PageResponse<EquipeResponse>> {
     const safeSize = Math.min(Math.max(size, 1), 100);

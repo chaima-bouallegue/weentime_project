@@ -53,9 +53,9 @@ class Settings:
 
         self.stt_model = os.getenv("STT_MODEL", "base")
         self.stt_language = os.getenv("STT_LANGUAGE", "fr")
-        self.stt_device = os.getenv("STT_DEVICE", "cuda").strip().lower()
+        self.stt_device = os.getenv("STT_DEVICE", "cpu").strip().lower()
         self.ffmpeg_binary = os.getenv("FFMPEG_BINARY", "ffmpeg")
-        self.voice_min_chunk_bytes = int(os.getenv("VOICE_MIN_CHUNK_BYTES", "800"))
+        self.voice_min_chunk_bytes = int(os.getenv("VOICE_MIN_CHUNK_BYTES", "100"))
         self.voice_min_input_bytes = int(os.getenv("VOICE_MIN_INPUT_BYTES", "5000"))
         self.voice_min_buffer_seconds = float(os.getenv("VOICE_MIN_BUFFER_SECONDS", "1.0"))
         self.voice_min_words = max(1, int(os.getenv("VOICE_MIN_WORDS", "2")))
@@ -67,7 +67,7 @@ class Settings:
         self.voice_min_voiced_ms = int(os.getenv("VOICE_MIN_VOICED_MS", "500"))
         self.voice_frame_ms = int(os.getenv("VOICE_FRAME_MS", "30"))
         self.voice_noise_phrases = _split_csv(
-            os.getenv("VOICE_NOISE_PHRASES", "bien bien,bla bla,hum hum,uh uh")
+            os.getenv("VOICE_NOISE_PHRASES", "bla bla,hum hum,uh uh")
         )
         self.executor_retry_attempts = max(1, int(os.getenv("EXECUTOR_RETRY_ATTEMPTS", "2")))
         self.executor_cache_ttl_seconds = max(1, int(os.getenv("EXECUTOR_CACHE_TTL_SECONDS", "30")))

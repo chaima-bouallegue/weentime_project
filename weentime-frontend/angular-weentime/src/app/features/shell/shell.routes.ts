@@ -548,15 +548,10 @@ export const shellRoutes: Routes = [
     loadComponent: () => import('../admin/roles/admin-roles.component').then(m => m.AdminRolesComponent)
   },
   {
-    path: 'admin/roles',
-    title: 'WeenTime — Rôles',
-    data: { title: 'Rôles' },
-    loadComponent: () => import('../admin/roles/admin-roles.component').then(m => m.AdminRolesComponent)
-  },
-  {
     path: 'admin/parametres',
-    title: 'WeenTime — Paramètres',
-    data: { title: 'Paramètres' },
+    title: 'WeenTime - Parametres',
+    data: { title: 'Parametres' },
+    canActivate: [adminGuard],
     loadComponent: () => import('../admin/parametres/admin-parametres.component').then(m => m.AdminParametresComponent)
   },
   {
@@ -594,8 +589,13 @@ export const shellRoutes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('../employee/presence/presence.component').then(m => m.PresenceComponent)
   },
-  { path: 'admin/rh-owners', redirectTo: 'admin/users', pathMatch: 'full' },
-  { path: 'admin/parametres', redirectTo: 'admin/settings', pathMatch: 'full' },
+  {
+    path: 'admin/rh-owners',
+    title: 'WeenTime - Gestionnaires RH',
+    data: { title: 'Gestionnaires RH' },
+    canActivate: [adminGuard],
+    loadComponent: () => import('../admin/rh-owner/admin-rh-owner.component').then(m => m.AdminRhOwnerComponent)
+  },
   {
     path: 'admin/profil',
     title: 'WeenTime - Mon profil',
@@ -604,3 +604,4 @@ export const shellRoutes: Routes = [
     loadComponent: () => import('../shared-profile/profile.component').then(m => m.ProfileComponent)
   }
 ];
+

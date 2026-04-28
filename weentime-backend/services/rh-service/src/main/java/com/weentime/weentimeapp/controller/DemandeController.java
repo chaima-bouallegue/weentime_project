@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @RestController
@@ -43,10 +44,10 @@ public class DemandeController {
         LocalDate from = parseDate(dateFrom);
         LocalDate to = parseDate(dateTo);
         TypeDemandeEnum typeFilter = parseType(type);
+        Set<StatutDemandeEnum> statutFilter = StatutDemandeEnum.resolveFilterValues(statut);
 
         List<DemandeDTO> demandes = service.getAllForEntreprise(SecurityUtils.getCurrentEntrepriseId()).stream()
-                .filter(demande -> statut == null || statut.isBlank()
-                        || demande.getStatut() == StatutDemandeEnum.fromValue(statut))
+                .filter(demande -> statutFilter == null || statutFilter.contains(demande.getStatut()))
                 .filter(demande -> typeFilter == null || demande.getTypeDemande() == typeFilter)
                 .filter(demande -> employeeFilter == null || employeeFilter.isBlank() || matchesEmployee(demande, employeeFilter))
                 .filter(demande -> from == null || !resolveDate(demande).toLocalDate().isBefore(from))

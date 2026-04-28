@@ -86,8 +86,19 @@ public class PresenceServiceImpl implements PresenceService {
         Optional<AttendanceSession> openSession = attendanceSessionRepository
                 .findFirstByUtilisateurIdAndStatusOrderByCheckInTimeDesc(utilisateurId, AttendanceSessionStatus.OPEN);
         if (openSession.isPresent()) {
-            log.warn("Check-in rejected for user {} because session {} is still open", utilisateurId, openSession.get().getId());
-            throw new IllegalStateException("An attendance session is already open for this user.");
+            AttendanceSession existingSession = openSession.get();
+            LocalDate sessionDate = existingSession.getDate() != null ? existingSession.getDate() : currentDate();
+            log.info(
+                    "Idempotent check-in for user {}: returning existing open session {} from {}",
+                    utilisateurId,
+                    existingSession.getId(),
+                    sessionDate
+            );
+            return buildTodaySummary(
+                    utilisateurId,
+                    sessionDate,
+                    attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, sessionDate)
+            );
         }
 
         LocalDate today = currentDate();

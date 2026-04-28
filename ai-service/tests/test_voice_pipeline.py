@@ -53,6 +53,10 @@ class VoicePipelineTests(unittest.IsolatedAsyncioTestCase):
                 main,
                 "convert_stream_to_wav",
                 return_value=session_dir / "recording.wav",
+            ), patch.object(
+                main,
+                "_validate_stream_audio",
+                return_value=(True, None),
             ):
                 payload = await main._finalize_audio_stream("voice-session")
 
@@ -64,7 +68,7 @@ class VoicePipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("voice-session", main.app.state.audio_stream_sessions)
         self.assertIn("voice-session", main.app.state.completed_audio_streams)
 
-    async def test_finalize_audio_stream_returns_retry_status_for_unclean_transcript(self) -> None:
+    async def test_finalize_audio_stream_returns_unclear_audio_for_unclean_transcript(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_dir = Path(temp_dir)
             stream_path = session_dir / "recording.webm"
@@ -96,12 +100,16 @@ class VoicePipelineTests(unittest.IsolatedAsyncioTestCase):
                 main,
                 "convert_stream_to_wav",
                 return_value=session_dir / "recording.wav",
+            ), patch.object(
+                main,
+                "_validate_stream_audio",
+                return_value=(True, None),
             ):
                 payload = await main._finalize_audio_stream("voice-retry")
 
-        self.assertEqual(payload["status"], "retry")
-        self.assertEqual(payload["message"], main.VOICE_RETRY_MESSAGE)
-        self.assertEqual(payload["transcription"], "il est bien il est bien")
+        self.assertEqual(payload["status"], "unclear_audio")
+        self.assertEqual(payload["message"], main.UNCLEAR_AUDIO_MESSAGE)
+        self.assertNotIn("transcription", payload)
         self.assertIsNone(payload["audio"])
         self.assertNotIn("voice-retry", main.app.state.audio_stream_sessions)
         self.assertIn("voice-retry", main.app.state.completed_audio_streams)
@@ -129,7 +137,7 @@ class VoicePipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(merged)
         self.assertEqual(merged_bytes, b"AAAABBBBCCCC")
 
-    async def test_append_stream_chunk_recomputes_volume_per_chunk(self) -> None:
+    async def test_append_stream_chunk_appends_payload_without_volume_gating(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_dir = Path(temp_dir)
             session = main.AudioStreamSession(
@@ -152,11 +160,10 @@ class VoicePipelineTests(unittest.IsolatedAsyncioTestCase):
             second_chunk = (2000).to_bytes(2, byteorder="little", signed=True) * 1200
 
             await main._append_stream_chunk(session, FakeUpload(first_chunk), chunk_index=1)
-            first_volume = session.last_chunk_volume
             await main._append_stream_chunk(session, FakeUpload(second_chunk), chunk_index=2)
 
-        self.assertGreater(session.last_chunk_volume, first_volume)
         self.assertEqual(session.chunk_count, 2)
+        self.assertEqual(session.total_bytes, len(first_chunk) + len(second_chunk))
 
 
 if __name__ == "__main__":

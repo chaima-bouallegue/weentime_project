@@ -137,7 +137,7 @@ export class PresenceService {
    * Load presence history (30 days)
    */
   loadPresenceHistory(): void {
-    this.http.get<any>(this.api.PRESENCE.GET_PRESENCE_HISTORY || 'http://localhost:8222/api/v1/presence/history')
+    this.http.get<any>(this.api.PRESENCE.GET_PRESENCE_HISTORY)
       .pipe(
         tap(res => {
           const payload = res?.data || res || {};
@@ -159,7 +159,7 @@ export class PresenceService {
    */
   getPresenceStats(): Observable<PresenceStatsDTO | null> {
     return this.http
-      .get<any>(this.api.PRESENCE.GET_MY_STATS || this.api.PRESENCE.GET_PRESENCE_STATS || 'http://localhost:8222/api/v1/presence/me/stats')
+      .get<any>(this.api.PRESENCE.GET_MY_STATS)
       .pipe(
         map(res => (res?.data || res) as PresenceStatsDTO),
         catchError(err => {

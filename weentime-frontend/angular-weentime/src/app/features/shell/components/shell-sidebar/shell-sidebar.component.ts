@@ -13,10 +13,10 @@ interface NavItem {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  ROLE_ADMIN: 'Administrateur',
-  ROLE_RH: 'Ressources Humaines',
-  ROLE_MANAGER: 'Manager',
-  ROLE_EMPLOYEE: 'Collaborateur'
+  ADMIN: 'Administrateur',
+  RH: 'Ressources Humaines',
+  MANAGER: 'Manager',
+  EMPLOYEE: 'Collaborateur'
 };
 
 @Component({
@@ -63,13 +63,13 @@ export class ShellSidebarComponent {
   collapsed = signal(false);
   mobileOpen = signal(false);
 
-  private readonly userRole = computed(() => this.authService.currentUser()?.roles?.[0] ?? '');
+  private readonly userRole = computed(() => this.normalizeRole(this.authService.currentUser()?.roles?.[0]));
   private readonly roleBase = computed(() => {
     const role = this.userRole();
-    if (role === 'ROLE_EMPLOYEE') return 'employee';
-    if (role === 'ROLE_MANAGER') return 'manager';
-    if (role === 'ROLE_RH') return 'rh';
-    if (role === 'ROLE_ADMIN') return 'admin';
+    if (role === 'EMPLOYEE') return 'employee';
+    if (role === 'MANAGER') return 'manager';
+    if (role === 'RH') return 'rh';
+    if (role === 'ADMIN') return 'admin';
     return 'employee';
   });
 
@@ -80,7 +80,7 @@ export class ShellSidebarComponent {
       { label: 'Tableau de bord', icon: 'layout-dashboard', route: `${base}/dashboard` },
     ];
 
-    if (role === 'ROLE_EMPLOYEE') {
+    if (role === 'EMPLOYEE') {
       items.push(
         { label: 'Planning', icon: 'clock', route: `${base}/horaires` },
         { label: 'Congés', icon: 'calendar', route: `${base}/conges` },
@@ -91,7 +91,7 @@ export class ShellSidebarComponent {
       );
     }
 
-    if (role === 'ROLE_MANAGER') {
+    if (role === 'MANAGER') {
       items.push(
         { label: 'Équipe', icon: 'users', route: `${base}/equipe` },
         { label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
@@ -103,7 +103,7 @@ export class ShellSidebarComponent {
       );
     }
 
-    if (role === 'ROLE_RH') {
+    if (role === 'RH') {
       items.push(
         { label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
         { label: 'Structure', icon: 'network', route: `${base}/structure` },
@@ -117,7 +117,7 @@ export class ShellSidebarComponent {
       );
     }
 
-    if (role === 'ROLE_ADMIN') {
+    if (role === 'ADMIN') {
       items.push(
         { label: 'Pointage', icon: 'clock-3', route: `${base}/presence` },
         { label: 'Utilisateurs', icon: 'users', route: `${base}/users` },
@@ -158,6 +158,11 @@ export class ShellSidebarComponent {
   });
 
   readonly roleLabel = computed(() => ROLE_LABELS[this.userRole()] ?? 'Utilisateur');
+
+  private normalizeRole(role: string | null | undefined): string {
+    const normalized = String(role ?? '').trim().toUpperCase();
+    return normalized.startsWith('ROLE_') ? normalized.substring('ROLE_'.length) : normalized;
+  }
 
   getNavItemIcon(iconName: string): any {
     switch (iconName) {

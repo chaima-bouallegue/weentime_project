@@ -115,7 +115,13 @@ export class CreateRhFormComponent implements OnInit {
     if (this.form.invalid || !this.emailUnique()) return;
 
     this.isSubmitting.set(true);
-    const data: CreateRhOwnerRequest = this.form.getRawValue();
+    const raw = this.form.getRawValue();
+    const data: CreateRhOwnerRequest = {
+      name: `${raw.prenom ?? ''} ${raw.nom ?? ''}`.trim(),
+      email: raw.email ?? '',
+      password: raw.motDePasse ?? '',
+      entrepriseId: Number(raw.entrepriseId),
+    };
 
     this.rhOwnerService.createRhOwner(data).subscribe({
       next: () => {

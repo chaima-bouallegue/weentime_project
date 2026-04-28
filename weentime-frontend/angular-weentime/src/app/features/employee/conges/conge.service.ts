@@ -8,7 +8,7 @@ import { SoldeConge, DemandeConge, NouvelleDemandeRequest, JourFerie, TypeConge 
   providedIn: 'root'
 })
 export class CongeService {
-  private readonly apiUrl = `${environment.apiUrl}/api/v1/rh`;
+  private readonly apiUrl = `${environment.apiUrl}/rh`;
 
   constructor(private readonly http: HttpClient) {}
 

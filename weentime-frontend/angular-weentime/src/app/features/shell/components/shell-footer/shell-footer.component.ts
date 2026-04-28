@@ -157,11 +157,14 @@ export class ShellFooterComponent {
   entrepriseNom = computed(() => this.authService.currentUser()?.entreprise?.nom ?? 'Weentime App');
   
   roleLabel = computed(() => {
-    const role = this.authService.currentUser()?.roles?.[0] ?? '';
-    if (role === 'ROLE_ADMIN') return 'Administrateur';
-    if (role === 'ROLE_RH') return 'Ressources Humaines';
-    if (role === 'ROLE_MANAGER') return 'Manager';
-    if (role === 'ROLE_EMPLOYEE') return 'Collaborateur';
+    const rawRole = this.authService.currentUser()?.roles?.[0] ?? '';
+    const role = String(rawRole).toUpperCase().startsWith('ROLE_')
+      ? String(rawRole).toUpperCase().substring('ROLE_'.length)
+      : String(rawRole).toUpperCase();
+    if (role === 'ADMIN') return 'Administrateur';
+    if (role === 'RH') return 'Ressources Humaines';
+    if (role === 'MANAGER') return 'Manager';
+    if (role === 'EMPLOYEE') return 'Collaborateur';
     return 'Utilisateur';
   });
 }

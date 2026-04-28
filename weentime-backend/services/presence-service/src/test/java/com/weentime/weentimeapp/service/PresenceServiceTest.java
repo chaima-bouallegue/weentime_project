@@ -67,6 +67,8 @@ class PresenceServiceTest {
     private LeaveServiceClient leaveServiceClient;
     @Mock
     private TeletravailServiceClient teletravailServiceClient;
+    @Mock
+    private HoraireManagementService horaireManagementService;
 
     private PresenceServiceImpl presenceService;
     private CheckInRequest checkInRequest;
@@ -99,7 +101,8 @@ class PresenceServiceTest {
                 teletravailServiceClient,
                 userServiceClient,
                 notificationService,
-                properties
+                properties,
+                horaireManagementService
         );
 
         checkInRequest = CheckInRequest.builder()
@@ -200,7 +203,7 @@ class PresenceServiceTest {
     }
 
     @Test
-    void checkIn_rejectsSecondOpenSession() {
+    void checkIn_returnsExistingOpenSessionWithoutCreatingNewOne() {
         storedSessions.add(AttendanceSession.builder()
                 .id(1L)
                 .utilisateurId(1L)
@@ -211,12 +214,14 @@ class PresenceServiceTest {
                 .lateArrival(false)
                 .build());
 
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> presenceService.checkIn(1L, checkInRequest)
-        );
+        AttendanceSummaryDTO summary = presenceService.checkIn(1L, checkInRequest);
 
-        assertEquals("An attendance session is already open for this user.", exception.getMessage());
+        assertNotNull(summary);
+        assertTrue(Boolean.TRUE.equals(summary.getHasOpenSession()));
+        assertNotNull(summary.getActiveSession());
+        assertEquals(1L, summary.getActiveSession().getId());
+        assertEquals(AttendanceSessionStatus.OPEN, summary.getActiveSession().getStatus());
+        assertEquals(1, summary.getSessions().size());
         verify(attendanceSessionRepository, never()).saveAndFlush(any(AttendanceSession.class));
     }
 

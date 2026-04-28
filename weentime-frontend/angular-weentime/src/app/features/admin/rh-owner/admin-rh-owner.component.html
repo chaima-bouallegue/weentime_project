@@ -1,57 +1,162 @@
-<div class="rh-bento-container fade-in">
-  <!-- Bento Hero Header -->
-  <header class="dashboard-hero mb-8">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#0ea5e9'"></div>
-      
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-sky-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-sky-200 dark:shadow-none">
-              Administration Utilisateurs
-            </span>
-          </div>
-          
-          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Gestionnaires RH
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Gérez les représentants RH pour chaque entreprise cliente. {{ rhOwners().length }} responsables enregistrés.
-          </p>
-        </div>
-
-        <div class="flex flex-col sm:flex-row gap-4">
-           <button class="hero-btn secondary" (click)="refreshList()" [disabled]="isLoading()">
-              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
-              <span>Actualiser</span>
-           </button>
-           <button class="hero-btn primary-sky" (click)="showDrawer.set(true)">
-              <lucide-angular [img]="iconUserPlus" size="20"></lucide-angular>
-              <span>Nouveau RH</span>
-           </button>
-        </div>
-      </div>
+<section class="admin-page">
+  <header class="hero-card">
+    <div>
+      <h1>RH Managers</h1>
+      <p>Creation, mise a jour, suppression et assignation entreprise.</p>
+    </div>
+    <div class="hero-actions">
+      <button type="button" class="btn ghost" (click)="refresh()" [disabled]="isLoading()">
+        <lucide-angular [img]="iconRefresh" size="16"></lucide-angular>
+        Actualiser
+      </button>
+      <button type="button" class="btn primary" (click)="openCreateModal()">
+        <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
+        Creer RH
+      </button>
     </div>
   </header>
 
-  <!-- Main Content Grid -->
-  <main class="w-full">
-    <section class="bento-card p-6 min-h-[500px]">
-      <app-rh-list
-        [rhOwners]="rhFiltre()"
-        [loading]="isLoading()"
-        (search)="searchQuery.set($event)"
-        (toggleStatus)="onToggleStatus($event)"
-      ></app-rh-list>
-    </section>
-  </main>
+  <div class="toolbar">
+    <input
+      type="text"
+      placeholder="Rechercher par nom, email, entreprise ou role"
+      [value]="searchQuery()"
+      (input)="searchQuery.set($any($event.target).value)"
+    />
+  </div>
 
-  <!-- Drawer (reused existing styling logic for drawer via external component) -->
-  @if (showDrawer()) {
-    <app-create-rh-form
-      [entreprises]="entreprises()"
-      (close)="showDrawer.set(false)"
-      (saved)="onFormSaved()"
-    ></app-create-rh-form>
+  <div class="table-wrap">
+    @if (isLoading()) {
+      <div class="loading">Chargement des gestionnaires RH...</div>
+    } @else if (filteredOwners().length === 0) {
+      <div class="empty">Aucun gestionnaire RH trouve.</div>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Entreprise</th>
+            <th>Role</th>
+            <th>Statut</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (owner of filteredOwners(); track owner.id) {
+            <tr>
+              <td>{{ getDisplayName(owner) }}</td>
+              <td>{{ owner.email }}</td>
+              <td>{{ owner.entrepriseNom || entrepriseNameById(owner.entrepriseId) }}</td>
+              <td>{{ owner.role || 'RH' }}</td>
+              <td>{{ owner.statut }}</td>
+              <td class="actions">
+                <button type="button" class="icon-btn" title="Modifier" (click)="openUpdateModal(owner)">
+                  <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
+                </button>
+                <button type="button" class="icon-btn" title="Assigner entreprise" (click)="openAssignModal(owner)">
+                  <lucide-angular [img]="iconAssign" size="14"></lucide-angular>
+                </button>
+                <button type="button" class="icon-btn danger" title="Supprimer" (click)="deleteRhOwner(owner)">
+                  <lucide-angular [img]="iconDelete" size="14"></lucide-angular>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  @if (modalMode() === 'create' || modalMode() === 'update') {
+    <div class="modal-backdrop" (click)="closeModal()"></div>
+    <section class="modal" (click)="$event.stopPropagation()">
+      <h2>{{ modalMode() === 'create' ? 'Creer un RH' : 'Mettre a jour le RH' }}</h2>
+
+      <form [formGroup]="rhForm" (ngSubmit)="submitRhForm()">
+        <label>
+          Nom
+          <input type="text" formControlName="name" placeholder="Ex: Marie Dupont" />
+          @if (rhForm.controls.name.touched && rhForm.controls.name.invalid) {
+            <small>Le nom est obligatoire.</small>
+          }
+        </label>
+
+        <label>
+          Email
+          <div class="field-row">
+            <input type="email" formControlName="email" (blur)="onEmailBlur()" placeholder="rh@entreprise.com" />
+            @if (emailChecking()) {
+              <span class="meta">Verification...</span>
+            }
+          </div>
+          @if (rhForm.controls.email.touched && rhForm.controls.email.invalid) {
+            <small>Format email invalide.</small>
+          }
+          @if (!emailUnique()) {
+            <small>Cet email est deja utilise.</small>
+          }
+        </label>
+
+        <label>
+          {{ modalMode() === 'create' ? 'Mot de passe' : 'Mot de passe (optionnel)' }}
+          <input type="password" formControlName="password" placeholder="Minimum 8 caracteres" />
+          @if (rhForm.controls.password.touched && rhForm.controls.password.invalid) {
+            <small>Le mot de passe doit contenir au moins 8 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          Entreprise
+          <select formControlName="entrepriseId">
+            <option [ngValue]="null">Selectionner</option>
+            @for (entreprise of entreprises(); track entreprise.id) {
+              <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
+            }
+          </select>
+          @if (rhForm.controls.entrepriseId.touched && rhForm.controls.entrepriseId.invalid) {
+            <small>L'entreprise est obligatoire.</small>
+          }
+        </label>
+
+        <footer class="modal-actions">
+          <button type="button" class="btn ghost" (click)="closeModal()" [disabled]="isSubmitting()">Annuler</button>
+          <button type="submit" class="btn primary" [disabled]="isSubmitting() || !emailUnique()">
+            {{ modalMode() === 'create' ? 'Creer' : 'Mettre a jour' }}
+          </button>
+        </footer>
+      </form>
+    </section>
   }
-</div>
+
+  @if (modalMode() === 'assign') {
+    <div class="modal-backdrop" (click)="closeModal()"></div>
+    <section class="modal" (click)="$event.stopPropagation()">
+      <h2>Assigner entreprise</h2>
+      <p class="subtitle">{{ selectedRhName() }}</p>
+
+      <form [formGroup]="assignForm" (ngSubmit)="submitAssignForm()">
+        <label>
+          Entreprise
+          <select formControlName="entrepriseId">
+            <option [ngValue]="null">Selectionner</option>
+            @for (entreprise of entreprises(); track entreprise.id) {
+              <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
+            }
+          </select>
+          @if (assignForm.controls.entrepriseId.touched && assignForm.controls.entrepriseId.invalid) {
+            <small>L'entreprise est obligatoire.</small>
+          }
+        </label>
+
+        <footer class="modal-actions">
+          <button type="button" class="btn ghost" (click)="closeModal()" [disabled]="isSubmitting()">Annuler</button>
+          <button type="submit" class="btn primary" [disabled]="isSubmitting()">
+            <lucide-angular [img]="iconLink" size="14"></lucide-angular>
+            Assigner
+          </button>
+        </footer>
+      </form>
+    </section>
+  }
+</section>

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 import shutil
-import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -32,15 +32,15 @@ from tools.hr_tools import HRTools
 from voice.audio_conversion import convert_to_wav
 from voice.stt import AudioConversionError, SpeechToTextService, VoiceProcessingResult, is_valid_audio
 from voice.tts import TextToSpeechService
-from voice.whisper_service import transcribe_partial
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-NO_SPEECH_MESSAGE = "Je n'ai rien entendu. Pouvez-vous reessayer ?"
+NO_SPEECH_MESSAGE = "Je n'ai rien entendu."
 VOICE_RETRY_MESSAGE = "Je n'ai pas bien compris. Pouvez-vous repeter ?"
 AUDIO_ERROR_MESSAGE = "Erreur audio, veuillez reessayer."
-
-MAX_BUFFER_BYTES = 16000 * 2 * 3  # 3 secondes audio
+UNCLEAR_AUDIO_MESSAGE = "Je n'ai entendu que du bruit ou une phrase repetee. Reessayez en parlant clairement."
+INVALID_AUDIO_MESSAGE = "Audio invalide, veuillez reessayer."
+SERVER_ERROR_MESSAGE = "Erreur serveur temporaire."
 
 class SourceItem(BaseModel):
     source: str
@@ -145,6 +145,7 @@ class AudioStreamProgress(BaseModel):
     audio_duration: float | None = None
     detected_volume: float | None = None
     total_bytes: int | None = None
+    retryable: bool | None = None
 
 
 class HistoryMessage(BaseModel):
@@ -210,16 +211,13 @@ class AudioStreamSession:
     stream_state: str = "listening"
     chunk_count: int = 0
     total_bytes: int = 0
-    detected_volume: float = 0.0
-    last_chunk_volume: float = 0.0
-    partial_buffer: bytes = b""
-    last_partial_time: float = 0.0
-    silence_counter: float = 0.0
-    last_voice_time: float = 0.0
-    last_chunk_payload: bytes = b""
     chunk_paths: list[Path] = field(default_factory=list)
     merged_path: Path | None = None
     wav_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        self.detected_volume = 0.0
+        self.last_chunk_payload = None
 
 
 @asynccontextmanager
@@ -671,7 +669,13 @@ async def _transcribe_uploaded_audio(upload: UploadFile, *, request_id: str, ste
     return text.strip() if text else None, work_dir
 
 
-def _audio_error(error_code: str, message: str = AUDIO_ERROR_MESSAGE) -> dict[str, Any]:
+def _audio_error(
+    error_code: str = "server_error",
+    message: str = SERVER_ERROR_MESSAGE,
+    *,
+    status: str = "server_error",
+    retryable: bool = False,
+) -> dict[str, Any]:
     payload = AudioStreamProgress(
         success=False,
         final=True,
@@ -681,7 +685,8 @@ def _audio_error(error_code: str, message: str = AUDIO_ERROR_MESSAGE) -> dict[st
         response=message,
         error=error_code,
         stream_state="error",
-        status="error",
+        status=status,
+        retryable=retryable,
     ).model_dump(mode="json")
     payload["audio"] = None
     return payload
@@ -704,40 +709,62 @@ def _no_speech_payload(
         response=NO_SPEECH_MESSAGE,
         error=None,
         stream_state="done",
-        status="no_input",
+        status="no_speech",
         audio_duration=audio_duration,
         detected_volume=detected_volume,
         total_bytes=total_bytes,
+        retryable=True,
     ).model_dump(mode="json")
     payload["audio"] = None
     return payload
 
 
-def _retry_payload(
+def _unclear_audio_payload(
     *,
     session_id: str | None = None,
     audio_duration: float | None = None,
     detected_volume: float | None = None,
     total_bytes: int | None = None,
-    partial: str = "",
 ) -> dict[str, Any]:
     payload = AudioStreamProgress(
         success=True,
         session_id=session_id,
         final=True,
         text="",
-        partial=partial,
-        message=VOICE_RETRY_MESSAGE,
-        response=VOICE_RETRY_MESSAGE,
+        partial="",
+        message=UNCLEAR_AUDIO_MESSAGE,
+        response=UNCLEAR_AUDIO_MESSAGE,
         error=None,
         stream_state="done",
-        status="retry",
+        status="unclear_audio",
         audio_duration=audio_duration,
         detected_volume=detected_volume,
         total_bytes=total_bytes,
+        retryable=True,
     ).model_dump(mode="json")
-    if partial:
-        payload["transcription"] = partial
+    payload["audio"] = None
+    return payload
+
+
+def _invalid_audio_payload(
+    *,
+    session_id: str | None = None,
+    total_bytes: int | None = None,
+) -> dict[str, Any]:
+    payload = AudioStreamProgress(
+        success=False,
+        session_id=session_id,
+        final=True,
+        text="",
+        partial="",
+        message=INVALID_AUDIO_MESSAGE,
+        response=INVALID_AUDIO_MESSAGE,
+        error="invalid_audio",
+        stream_state="done",
+        status="invalid_audio",
+        total_bytes=total_bytes,
+        retryable=True,
+    ).model_dump(mode="json")
     payload["audio"] = None
     return payload
 
@@ -821,70 +848,76 @@ def _get_completed_streams() -> dict[str, dict[str, Any]]:
     return completed
 
 
-def compute_volume(audio_bytes: bytes) -> float:
-    import numpy as np
-
-    if len(audio_bytes) < 2:
-        return 0
-
-    data = np.frombuffer(audio_bytes, dtype=np.int16)
-    if data.size == 0:
-        return 0
-
-    rms = np.sqrt(np.mean(data.astype(float) ** 2))
-    return float(rms) / 32768.0
-
-
-def _update_stream_silence_state(session: AudioStreamSession, *, volume: float, now_ts: float) -> None:
-    SILENCE_THRESHOLD = 0.05  # 5% RMS - accounts for room noise but catches speech
-
-    if volume < SILENCE_THRESHOLD:
-        session.silence_counter += 0.15  # slower accumulation
-    else:
-        session.silence_counter = max(0, session.silence_counter - 0.1)  # decay on voice
-        session.last_voice_time = now_ts
-
-
-async def _transcribe_stream_partial(session: AudioStreamSession) -> str:
-    if not session.partial_buffer:
-        return ""
-
-    snapshot = bytes(session.partial_buffer)
-    suffix = uuid.uuid4().hex
-    partial_input_path = session.directory / f"partial_{suffix}.webm"
-
-    def _run_partial() -> str:
-        try:
-            partial_input_path.write_bytes(snapshot)
-            return transcribe_partial(partial_input_path)
-        except Exception:
-            return ""
-        finally:
-            partial_input_path.unlink(missing_ok=True)
-
-    try:
-        text = await asyncio.wait_for(
-            asyncio.to_thread(_run_partial),
-            timeout=5.0,
-        )
-        return (text or "").strip()
-    except asyncio.CancelledError:
-        logger.info("audio_stream_partial_cancelled session_id=%s", session.session_id)
-        return ""
-    except asyncio.TimeoutError:
-        logger.debug("audio_stream_partial_timeout session_id=%s", session.session_id)
-        return ""
-    except Exception as exc:
-        logger.debug("audio_stream_partial_failed session_id=%s error=%s", session.session_id, exc)
-        return ""
-
-
 def _chunk_sort_key(path: Path) -> int:
     stem = path.stem
     if "_" not in stem:
         return 0
     raw_index = stem.split("_")[-1]
     return int(raw_index) if raw_index.isdigit() else 0
+
+
+def _looks_like_invalid_audio_error(details: str | None) -> bool:
+    if not details:
+        return False
+    lowered = details.lower()
+    invalid_markers = (
+        "ebml header parsing failed",
+        "invalid data found when processing input",
+        "detected only with low score",
+        "matroska,webm",
+        "could not find codec parameters",
+        "moov atom not found",
+        "invalid argument",
+    )
+    return any(marker in lowered for marker in invalid_markers)
+
+
+def _resolve_ffprobe_binary(ffmpeg_binary: str) -> str | None:
+    ffprobe_binary = shutil.which("ffprobe")
+    if ffprobe_binary:
+        return ffprobe_binary
+
+    ffmpeg_path = shutil.which(ffmpeg_binary)
+    if not ffmpeg_path:
+        return None
+
+    ffmpeg_resolved = Path(ffmpeg_path)
+    probe_name = "ffprobe.exe" if ffmpeg_resolved.suffix.lower() == ".exe" else "ffprobe"
+    probe_candidate = ffmpeg_resolved.with_name(probe_name)
+    return str(probe_candidate) if probe_candidate.exists() else None
+
+
+def _validate_stream_audio(stream_path: Path) -> tuple[bool, str | None]:
+    ffprobe_binary = _resolve_ffprobe_binary(settings.ffmpeg_binary)
+    if not ffprobe_binary:
+        return True, None
+
+    result = subprocess.run(
+        [
+            ffprobe_binary,
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(stream_path),
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()[-500:]
+        return False, detail or "ffprobe_failed"
+
+    codec_name = (result.stdout or "").strip().lower()
+    if not codec_name:
+        return False, "ffprobe_missing_audio_codec"
+    return True, None
 
 
 def merge_chunks(session_id: str) -> Path | None:
@@ -921,6 +954,22 @@ def convert_stream_to_wav(session_id: str, merged_path: Path) -> Path:
             ffmpeg_binary=settings.ffmpeg_binary,
         )
     except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        if _looks_like_invalid_audio_error(detail):
+            logger.warning(
+                "audio_stream_invalid_audio session_id=%s merged_path=%s detail=%s",
+                session_id,
+                merged_path,
+                detail,
+            )
+            raise AudioConversionError("invalid_audio") from exc
+        logger.exception(
+            "audio_stream_conversion_failed session_id=%s merged_path=%s wav_path=%s error=%s",
+            session_id,
+            merged_path,
+            wav_path,
+            exc,
+        )
         raise AudioConversionError("conversion_failed") from exc
 
     session.wav_path = wav_path
@@ -947,6 +996,10 @@ def _get_or_create_audio_stream_session(
     if session_id and session_id in sessions:
         return sessions[session_id]
     resolved_session_id = uuid.uuid4().hex
+    if session_id and session_id.strip():
+        cleaned = "".join(char for char in session_id.strip() if char.isalnum() or char in {"-", "_"})
+        if cleaned:
+            resolved_session_id = cleaned[:80]
     directory = settings.temp_audio_dir / "streams" / resolved_session_id
     directory.mkdir(parents=True, exist_ok=True)
     session = AudioStreamSession(
@@ -968,58 +1021,32 @@ async def _append_stream_chunk(
     detected_volume: float | None = None,
     chunk_index: int | None = None,
 ) -> str | None:
+    """Append one uploaded chunk to the session.
+
+    Returns None; partial transcription is removed (see Task 4). The
+    per-chunk volume gate that previously interpreted WebM bytes as
+    int16 PCM has been deleted — the frontend decides when to finalize.
+    """
     payload = await upload.read()
     if not payload:
         return None
 
-    now_ts = time.monotonic()
-
-    computed_volume = compute_volume(payload)
-    session.last_chunk_volume = computed_volume
-    session.detected_volume = max(session.detected_volume, computed_volume)
-
-    # IMPROVED: Duplicate detection now checks if chunk is byte-for-byte identical
-    # to avoid false negatives with chunked/re-encoded audio
     if session.last_chunk_payload and payload == session.last_chunk_payload:
-        _update_stream_silence_state(session, volume=computed_volume, now_ts=now_ts)
         logger.info(
-            "audio_chunk_skipped session_id=%s chunk_size=%s chunk_volume=%.3f frontend_volume=%s max_detected_volume=%.3f reason=identical_chunk",
+            "audio_chunk_skipped session_id=%s reason=duplicate_chunk size=%s",
             session.session_id,
             len(payload),
-            computed_volume,
-            f"{detected_volume:.3f}" if detected_volume is not None else "n/a",
-            session.detected_volume,
-        )
-        return None
-    
-    # FIX: Removed overly-aggressive pattern detection that was causing false positives
-    
-    if len(payload) < settings.voice_min_chunk_bytes:
-        session.last_chunk_payload = payload
-        _update_stream_silence_state(session, volume=computed_volume, now_ts=now_ts)
-        logger.info(
-            "audio_chunk_skipped session_id=%s chunk_size=%s chunk_volume=%.3f frontend_volume=%s max_detected_volume=%.3f reason=chunk_too_small",
-            session.session_id,
-            len(payload),
-            computed_volume,
-            f"{detected_volume:.3f}" if detected_volume is not None else "n/a",
-            session.detected_volume,
         )
         return None
 
-    if computed_volume < settings.voice_min_detected_volume:
-        session.last_chunk_payload = payload
-        _update_stream_silence_state(session, volume=computed_volume, now_ts=now_ts)
+    if len(payload) < settings.voice_min_chunk_bytes:
         logger.info(
-            "audio_chunk_skipped session_id=%s chunk_size=%s chunk_volume=%.3f frontend_volume=%s max_detected_volume=%.3f reason=silent_chunk threshold=%.3f silence_counter=%.2f",
+            "audio_chunk_skipped session_id=%s reason=chunk_too_small size=%s threshold=%s",
             session.session_id,
             len(payload),
-            computed_volume,
-            f"{detected_volume:.3f}" if detected_volume is not None else "n/a",
-            session.detected_volume,
-            settings.voice_min_detected_volume,
-            session.silence_counter,
+            settings.voice_min_chunk_bytes,
         )
+        session.last_chunk_payload = payload
         return None
 
     resolved_chunk_index = chunk_index if chunk_index is not None else session.chunk_count + 1
@@ -1028,39 +1055,15 @@ async def _append_stream_chunk(
     session.chunk_paths.append(chunk_path)
     session.chunk_count = max(session.chunk_count, resolved_chunk_index)
     session.total_bytes += len(payload)
-    session.partial_buffer += payload
-    
-    # FIX: Improved sliding window - keep last 3 seconds only
-    if len(session.partial_buffer) > MAX_BUFFER_BYTES:
-        session.partial_buffer = session.partial_buffer[-MAX_BUFFER_BYTES:]
-    
     session.last_chunk_payload = payload
-    _update_stream_silence_state(session, volume=computed_volume, now_ts=now_ts)
     logger.info(
-        "audio_chunk_received session_id=%s chunk_index=%s chunk_size=%s chunk_volume=%.3f frontend_volume=%s total_bytes=%s max_detected_volume=%.3f silence_counter=%.2f",
+        "audio_chunk_received session_id=%s chunk_index=%s size=%s total_bytes=%s frontend_volume=%s",
         session.session_id,
         resolved_chunk_index,
         len(payload),
-        computed_volume,
-        f"{detected_volume:.3f}" if detected_volume is not None else "n/a",
         session.total_bytes,
-        session.detected_volume,
-        session.silence_counter,
+        f"{detected_volume:.3f}" if detected_volume is not None else "n/a",
     )
-
-    # FIX: Throttle partial transcription to every 800ms to avoid overwhelming the system
-    if now_ts - session.last_partial_time > 0.8:
-        session.last_partial_time = now_ts
-        partial_text = await _transcribe_stream_partial(session)
-        if partial_text:
-            logger.info(
-                "audio_stream_partial session_id=%s chunk_count=%s partial=%r",
-                session.session_id,
-                session.chunk_count,
-                partial_text,
-            )
-            return partial_text
-
     return None
 
 
@@ -1099,6 +1102,20 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             )
             return _complete_stream_session(session, payload)
 
+        is_valid_stream, probe_detail = _validate_stream_audio(merged_path)
+        if not is_valid_stream:
+            logger.warning(
+                "audio_stream_invalid_probe session_id=%s merged_path=%s detail=%s",
+                session.session_id,
+                merged_path,
+                probe_detail,
+            )
+            payload = _invalid_audio_payload(
+                session_id=session.session_id,
+                total_bytes=session.total_bytes,
+            )
+            return _complete_stream_session(session, payload)
+
         try:
             wav_path = convert_stream_to_wav(session.session_id, merged_path)
             logger.info(
@@ -1109,9 +1126,20 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
                 session.chunk_count,
                 session.total_bytes,
             )
-        except AudioConversionError:
-            payload = _audio_error("conversion_failed")
-            payload["session_id"] = session.session_id
+        except AudioConversionError as exc:
+            error_code = str(exc)
+            if error_code == "invalid_audio":
+                payload = _invalid_audio_payload(
+                    session_id=session.session_id,
+                    total_bytes=session.total_bytes,
+                )
+            else:
+                payload = _audio_error(
+                    "server_error",
+                    SERVER_ERROR_MESSAGE,
+                    status="server_error",
+                )
+                payload["session_id"] = session.session_id
             return _complete_stream_session(session, payload)
 
         if not is_valid_audio(merged_path, settings.voice_min_input_bytes):
@@ -1130,22 +1158,6 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
 
         stt_result = await stt_service.aprocess(merged_path)
         session.detected_volume = max(session.detected_volume, stt_result.detected_volume)
-
-        if stt_result.duration_seconds < 1.0:
-            logger.info(
-                "audio_stream_short_duration session_id=%s duration_seconds=%.3f total_bytes=%s",
-                session.session_id,
-                stt_result.duration_seconds,
-                session.total_bytes,
-            )
-            payload = _retry_payload(
-                session_id=session.session_id,
-                audio_duration=stt_result.duration_seconds,
-                detected_volume=session.detected_volume,
-                total_bytes=session.total_bytes,
-                partial=(stt_result.raw_text or "").strip(),
-            )
-            return _complete_stream_session(session, payload)
 
         if stt_result.status == "no_input":
             logger.info(
@@ -1171,12 +1183,11 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
                 session.detected_volume,
                 stt_result.raw_text,
             )
-            payload = _retry_payload(
+            payload = _unclear_audio_payload(
                 session_id=session.session_id,
                 audio_duration=stt_result.duration_seconds,
                 detected_volume=session.detected_volume,
                 total_bytes=session.total_bytes,
-                partial=(stt_result.raw_text or "").strip(),
             )
             return _complete_stream_session(session, payload)
         if stt_result.status != "success" or _is_blank_text(stt_result.cleaned_text):
@@ -1188,7 +1199,11 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
                 stt_result.status,
                 stt_result.error,
             )
-            payload = _audio_error(stt_result.error or "audio_processing_failed")
+            payload = _audio_error(
+                "server_error",
+                SERVER_ERROR_MESSAGE,
+                status="server_error",
+            )
             payload["session_id"] = session.session_id
             return _complete_stream_session(session, payload)
 
@@ -1345,13 +1360,25 @@ async def voice(
         return response
     except ValueError:
         return _voice_soft_chat_response(status="no_input", message=NO_SPEECH_MESSAGE)
-    except AudioConversionError:
+    except AudioConversionError as exc:
+        if str(exc) == "invalid_audio":
+            return ChatResponse(
+                success=False,
+                status="invalid_audio",
+                type="error",
+                text=INVALID_AUDIO_MESSAGE,
+                message=INVALID_AUDIO_MESSAGE,
+                response=INVALID_AUDIO_MESSAGE,
+                error="invalid_audio",
+            )
         return ChatResponse(
             success=False,
-            status="error",
+            status="server_error",
             type="error",
-            text=AUDIO_ERROR_MESSAGE,
-            error="conversion_failed",
+            text=SERVER_ERROR_MESSAGE,
+            message=SERVER_ERROR_MESSAGE,
+            response=SERVER_ERROR_MESSAGE,
+            error="server_error",
         )
     finally:
         if work_dir is not None:
@@ -1399,14 +1426,13 @@ async def audio_stream(
 
     try:
         should_finalize = bool(is_final or finalize or end)
-        partial_text = ""
         if file is not None:
-            partial_text = (await _append_stream_chunk(
+            await _append_stream_chunk(
                 session,
                 file,
                 detected_volume=detected_volume,
                 chunk_index=chunk_index,
-            )) or ""
+            )
 
         if (chunk_index is not None and chunk_index > 100) or session.chunk_count > 100:
             logger.info(
@@ -1417,34 +1443,8 @@ async def audio_stream(
             )
             should_finalize = True
 
-        # FIX: More lenient silence timeout - now requires 1.2s of sustained silence
-        if session.silence_counter > 1.2:
-            logger.info(
-                "audio_stream_auto_finalize session_id=%s silence_counter=%.2f chunk_count=%s total_bytes=%s",
-                session.session_id,
-                session.silence_counter,
-                session.chunk_count,
-                session.total_bytes,
-            )
-            should_finalize = True
-
         if should_finalize:
             return await _finalize_audio_stream(session.session_id)
-
-        if partial_text:
-            return AudioStreamProgress(
-                success=True,
-                session_id=session.session_id,
-                final=False,
-                partial=partial_text,
-                text=partial_text,
-                message=partial_text,
-                response=partial_text,
-                stream_state=session.stream_state,
-                status="partial",
-                detected_volume=session.detected_volume,
-                total_bytes=session.total_bytes,
-            ).model_dump(mode="json")
 
         return AudioStreamProgress(
             success=True,
@@ -1456,6 +1456,7 @@ async def audio_stream(
             response="listening",
             stream_state=session.stream_state,
             status="listening",
+            total_bytes=session.total_bytes,
         ).model_dump(mode="json")
     except ValueError:
         payload = _no_speech_payload(
@@ -1465,8 +1466,17 @@ async def audio_stream(
         )
         payload["session_id"] = session.session_id
         return payload
-    except AudioConversionError:
-        payload = _audio_error("conversion_failed")
+    except AudioConversionError as exc:
+        if str(exc) == "invalid_audio":
+            return _invalid_audio_payload(
+                session_id=session.session_id,
+                total_bytes=session.total_bytes,
+            )
+        payload = _audio_error(
+            "server_error",
+            SERVER_ERROR_MESSAGE,
+            status="server_error",
+        )
         payload["session_id"] = session.session_id
         return payload
 
@@ -1515,6 +1525,3 @@ async def tts(payload: TTSRequest) -> TTSResponse:
     if not audio_url:
         raise HTTPException(status_code=503, detail="tts_unavailable")
     return TTSResponse(success=True, audio_url=audio_url, filename=Path(audio_url).name)
-
-
-

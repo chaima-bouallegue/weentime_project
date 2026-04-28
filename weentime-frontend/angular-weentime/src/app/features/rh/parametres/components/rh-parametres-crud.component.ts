@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { environment } from '../../../../../environments/environment';
+import { ApiConfigService } from '@app/core/services/api-config.service';
 
 export interface CrudColumn {
   key: string;
@@ -252,6 +252,7 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
 
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
+  private apiConfig = inject(ApiConfigService);
 
   data = signal<any[]>([]);
   loading = signal(true);
@@ -275,8 +276,14 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['columns'] && !changes['columns'].firstChange) {
+    const columnsChanged = !!changes['columns'] && !changes['columns'].firstChange;
+    const endpointChanged = !!changes['endpoint'] && !changes['endpoint'].firstChange;
+
+    if (columnsChanged) {
       this.buildForm();
+    }
+
+    if (columnsChanged || endpointChanged) {
       this.loadData();
     }
   }
@@ -291,7 +298,7 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
 
   loadData() {
     this.loading.set(true);
-    this.http.get<any[]>(`${environment.apiUrl}/${this.endpoint}`).subscribe({
+    this.http.get<any[]>(this.buildEndpointUrl()).subscribe({
       next: (res) => {
         this.data.set(res);
         this.loading.set(false);
@@ -332,8 +339,8 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
 
     const payload = this.form.value;
     const req = this.isEditMode()
-      ? this.http.put(`${environment.apiUrl}/${this.endpoint}/${this.currentId()}`, payload)
-      : this.http.post(`${environment.apiUrl}/${this.endpoint}`, payload);
+      ? this.http.put(this.buildEndpointUrl(String(this.currentId())), payload)
+      : this.http.post(this.buildEndpointUrl(), payload);
 
     req.subscribe({
       next: () => {
@@ -363,7 +370,7 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
     const id = this.currentId();
     if (!id) return;
 
-    this.http.delete(`${environment.apiUrl}/${this.endpoint}/${id}`).subscribe({
+    this.http.delete(this.buildEndpointUrl(String(id))).subscribe({
       next: () => {
         this.status.set({type: 'success', message: 'L’élément a été supprimé definitivement.'});
         this.closeDeleteModal();
@@ -375,5 +382,10 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
         this.closeDeleteModal();
       }
     });
+  }
+
+  private buildEndpointUrl(suffix?: string): string {
+    const baseUrl = this.apiConfig.buildUrl(this.endpoint);
+    return suffix ? `${baseUrl}/${suffix}` : baseUrl;
   }
 }

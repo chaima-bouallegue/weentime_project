@@ -23,18 +23,18 @@
         Toutes
       </button>
       <button
-        (click)="setFilter(StatutEnum.ACTIF)"
+        (click)="setFilter(StatutEnum.ACTIVE)"
         class="flex-1 py-1.5 px-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all"
-        [class]="activeFilter === StatutEnum.ACTIF ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
+        [class]="activeFilter === StatutEnum.ACTIVE ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
       >
         Actives
       </button>
       <button
-        (click)="setFilter(StatutEnum.INACTIF)"
+        (click)="setFilter(StatutEnum.CLOSED)"
         class="flex-1 py-1.5 px-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all"
-        [class]="activeFilter === StatutEnum.INACTIF ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
+        [class]="activeFilter === StatutEnum.CLOSED ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
       >
-        Fermées
+        Fermees
       </button>
     </div>
   </div>
@@ -68,14 +68,14 @@
                 <div class="flex-1 min-w-0">
                   <div class="flex justify-between items-start mb-1">
                     <h3 class="font-black text-slate-900 dark:text-white truncate pr-2 text-base">{{ e.nom }}</h3>
-                    <span class="status-pill-small shrink-0" [class.success]="e.statut === 'ACTIF'" [class.danger]="e.statut !== 'ACTIF'">
-                      {{ e.statut === 'ACTIF' ? 'Ouvrée' : 'Fermée' }}
+                    <span class="status-pill-small shrink-0" [class.success]="e.status === StatutEnum.ACTIVE" [class.danger]="e.status !== StatutEnum.ACTIVE">
+                      {{ e.statusLabel }}
                     </span>
                   </div>
-                  
+
                   <div class="flex items-center gap-3 mt-2">
-                     <span class="text-xs font-bold text-slate-500 truncate max-w-[120px]">{{ e.secteur || 'Secteur non défini' }}</span>
-                     
+                     <span class="text-xs font-bold text-slate-500 truncate max-w-[120px]">{{ e.secteur || 'Secteur non defini' }}</span>
+
                      <div class="h-3 w-px bg-slate-200 dark:bg-slate-700"></div>
 
                      <div class="flex items-center gap-1 group/code" (click)="copyCode($event, e.codeInvitation || '')" title="Copier le code">
@@ -93,7 +93,7 @@
       } @else {
         <div class="bento-card flex flex-col items-center justify-center p-8 text-center mt-4 bg-slate-50/50 dark:bg-slate-900/50">
           <lucide-angular [img]="iconBuilding" size="48" class="text-slate-300 mb-4"></lucide-angular>
-          <p class="text-slate-500 font-medium">Aucune entreprise trouvée avec ces critères.</p>
+          <p class="text-slate-500 font-medium">Aucune entreprise trouvee avec ces criteres.</p>
         </div>
       }
     }

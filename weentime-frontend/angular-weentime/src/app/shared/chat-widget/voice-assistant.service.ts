@@ -31,17 +31,18 @@ export type VoiceAssistantEvent =
 
 @Injectable({ providedIn: 'root' })
 export class VoiceAssistantService {
-  private static readonly SOFT_NO_INPUT_MESSAGE = "Je n'ai rien entendu. Pouvez-vous reessayer ?";
-  private static readonly SOFT_RETRY_MESSAGE = "Je n'ai pas bien compris. Pouvez-vous repeter ?";
+  private static readonly SOFT_NO_INPUT_MESSAGE = "Je n'ai rien entendu.";
+  private static readonly SOFT_RETRY_MESSAGE = "Je n'ai pas bien compris. Pouvez-vous repeter plus clairement ?";
+  private static readonly INVALID_AUDIO_MESSAGE = 'Audio invalide. Reessayez avec un nouvel enregistrement.';
   private static readonly MICROPHONE_BLOCKED_MESSAGE = 'Microphone indisponible ou bloque.';
   private static readonly AUDIO_ERROR_MESSAGE = 'Erreur audio, veuillez reessayer.';
+  private static readonly SERVER_ERROR_MESSAGE = 'Erreur serveur temporaire.';
   private static readonly ASSISTANT_UNAVAILABLE_MESSAGE = 'Assistant temporairement indisponible';
-  private static readonly MIN_CHUNK_BYTES = 500;
-  private static readonly MIN_VOLUME_THRESHOLD = 8;
+  private static readonly SOFT_UNCLEAR_MESSAGE =
+    "Je n'ai pas bien compris. Pouvez-vous repeter plus clairement ?";
   private static readonly INITIAL_SILENCE_MS = 1500;
-  private static readonly RECORDER_TIMESLICE_MS = 500;
   private static readonly SILENCE_TIMEOUT_MS = 2000;
-  private static readonly MAX_CHUNKS = 100;
+  private static readonly RECORDER_TIMESLICE_MS = 500;
 
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
@@ -52,25 +53,20 @@ export class VoiceAssistantService {
 
   private recorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
-  private audioContext: AudioContext | null = null;
-  private audioSource: MediaStreamAudioSourceNode | null = null;
-  private analyser: AnalyserNode | null = null;
-  private frequencyData: Uint8Array<ArrayBuffer> | null = null;
-  private levelFrame: number | null = null;
-  private sessionId: string | null = null;
   private recorderMimeType = 'audio/webm';
-  private pendingUploads = Promise.resolve();
-  private pendingChunk: Blob | null = null;
   private finalized = false;
   private lastPartial = '';
   private context: { user: User; token: string | null } | null = null;
+  private silenceTimer: number | null = null;
   private hasHeardVoice = false;
   private recordingStartedAt = 0;
   private lastVoiceAt = 0;
   private currentVolume = 0;
   private maxDetectedVolume = 0;
-  private chunkIndex = 0;
-  private silenceTimer: number | null = null;
+  private recordedChunks: Blob[] = [];
+  private recordingSessionId: string | null = null;
+  private finalUploadSent = false;
+  private finalizationPromise: Promise<void> | null = null;
 
   async start(): Promise<void> {
     if (this.recorder?.state === 'recording') {
@@ -98,24 +94,21 @@ export class VoiceAssistantService {
 
       this.stream = stream;
       this.bindStreamLifecycle(stream);
-      await this.setupAudioMonitoring(stream);
 
       const mimeType = this.resolveMimeType();
-      this.recorderMimeType = mimeType || 'audio/webm';
-      this.recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      if (!mimeType) {
+        throw new Error('unsupported_mime_type');
+      }
+      this.recorderMimeType = mimeType;
+      this.recorder = new MediaRecorder(stream, { mimeType });
+      console.info('voice_recorder_started', { mimeType: this.recorderMimeType });
 
       this.recorder.ondataavailable = event => {
         if (!event.data || event.data.size <= 0 || this.finalized) {
           return;
         }
 
-        this.pendingUploads = this.pendingUploads
-          .then(() => this.queueChunk(event.data))
-          .catch(error => {
-            this.emitError(this.resolveErrorMessage(error, VoiceAssistantService.AUDIO_ERROR_MESSAGE));
-          });
+        this.pushChunk(event.data);
       };
 
       this.recorder.onerror = () => {
@@ -152,18 +145,36 @@ export class VoiceAssistantService {
   }
 
   private resetCaptureState(): void {
-    this.sessionId = null;
     this.finalized = false;
     this.lastPartial = '';
-    this.pendingUploads = Promise.resolve();
-    this.pendingChunk = null;
+    this.recordedChunks = [];
+    this.recordingSessionId = this.generateSessionId();
+    this.finalUploadSent = false;
+    this.finalizationPromise = null;
     this.hasHeardVoice = false;
     this.recordingStartedAt = Date.now();
     this.lastVoiceAt = this.recordingStartedAt;
     this.currentVolume = 0;
     this.maxDetectedVolume = 0;
-    this.chunkIndex = 0;
     this.clearSilenceTimer();
+  }
+
+  private pushChunk(blob: Blob): void {
+    if (blob.size <= 0) {
+      return;
+    }
+    this.recordedChunks.push(blob);
+    this.hasHeardVoice = true;
+    this.lastVoiceAt = Date.now();
+    this.currentVolume = Math.min(100, blob.size / 100);
+    this.maxDetectedVolume = Math.max(this.maxDetectedVolume, this.currentVolume);
+  }
+
+  private clearSilenceTimer(): void {
+    if (this.silenceTimer !== null) {
+      window.clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
   }
 
   private bindStreamLifecycle(stream: MediaStream): void {
@@ -178,250 +189,122 @@ export class VoiceAssistantService {
     });
   }
 
-  private async setupAudioMonitoring(stream: MediaStream): Promise<void> {
-    const AudioContextCtor = this.getAudioContextConstructor();
-    if (!AudioContextCtor) {
-      return;
-    }
-
-    this.audioContext = new AudioContextCtor();
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
-
-    this.audioSource = this.audioContext.createMediaStreamSource(stream);
-    this.analyser = this.audioContext.createAnalyser();
-    this.analyser.fftSize = 2048;
-    this.analyser.smoothingTimeConstant = 0.85;
-    this.audioSource.connect(this.analyser);
-    this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
-    this.monitorAudioLevel();
-  }
-
-  private monitorAudioLevel(): void {
-    const tick = () => {
-      if (!this.analyser || !this.frequencyData || !this.isRecording()) {
-        return;
-      }
-      if (!this.isStreamActive(this.stream)) {
-        this.emitError(VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE);
-        void this.stop();
-        return;
-      }
-
-      const volume = this.detectAudioLevel();
-      const now = Date.now();
-      this.currentVolume = volume;
-      this.maxDetectedVolume = Math.max(this.maxDetectedVolume, volume);
-
-      if (volume >= VoiceAssistantService.MIN_VOLUME_THRESHOLD) {
-        this.hasHeardVoice = true;
-        this.lastVoiceAt = now;
-        this.resetSilenceTimer();
-      }
-
-      if (!this.hasHeardVoice && now - this.recordingStartedAt >= VoiceAssistantService.INITIAL_SILENCE_MS) {
-        void this.stop();
-        return;
-      }
-
-      this.levelFrame = window.requestAnimationFrame(tick);
-    };
-
-    this.levelFrame = window.requestAnimationFrame(tick);
-  }
-
-  private detectAudioLevel(): number {
-    if (!this.analyser || !this.frequencyData) {
-      return 0;
-    }
-
-    this.analyser.getByteFrequencyData(this.frequencyData);
-    
-    // FIX: Better audio level detection using weighted frequency bins
-    // Speech is primarily in 300Hz-3kHz range, so weight those frequencies more heavily
-    let weightedTotal = 0;
-    let count = 0;
-    
-    // Weight mid-frequency bins more (where speech energy is concentrated)
-    for (let i = 2; i < this.frequencyData.length * 0.7; i += 1) {
-      const weight = i < this.frequencyData.length * 0.3 ? 0.5 : 1.0;
-      weightedTotal += this.frequencyData[i] * weight;
-      count += weight;
-    }
-    
-    return count > 0 ? weightedTotal / count : 0;
-  }
-
-  private async queueChunk(blob: Blob): Promise<void> {
-    if (!this.context || this.finalized) {
-      return;
-    }
-
-    const combinedChunk = this.pendingChunk
-      ? new Blob([this.pendingChunk, blob], { type: this.recorderMimeType })
-      : blob;
-
-    if (combinedChunk.size < VoiceAssistantService.MIN_CHUNK_BYTES) {
-      this.pendingChunk = combinedChunk;
-      return;
-    }
-
-    this.pendingChunk = null;
-    await this.onAudioData(combinedChunk);
-  }
-
-  private async flushPendingChunk(forceSend: boolean): Promise<void> {
-    if (!this.pendingChunk) {
-      return;
-    }
-
-    const pendingChunk = this.pendingChunk;
-    if (pendingChunk.size < VoiceAssistantService.MIN_CHUNK_BYTES) {
-      this.pendingChunk = null;
-      return;
-    }
-
-    if (!forceSend) {
-      return;
-    }
-
-    this.pendingChunk = null;
-    await this.onAudioData(pendingChunk);
-  }
-
-  private async onAudioData(chunk: Blob): Promise<void> {
-    if (this.finalized || chunk.size < VoiceAssistantService.MIN_CHUNK_BYTES) {
-      return;
-    }
-    await this.sendChunk(chunk, false);
-    if (this.finalized) {
-      return;
-    }
-
-    if (this.chunkIndex > VoiceAssistantService.MAX_CHUNKS) {
-      this.clearSilenceTimer();
-      await this.stop();
-    }
-  }
-
-  private async sendChunk(chunk: Blob | null, isFinal: boolean): Promise<AudioStreamResponse | null> {
-    if (!this.context || this.finalized) {
-      return null;
-    }
-
-    const formData = new FormData();
-    formData.append('is_final', String(isFinal));
-
-    const role = this.resolveRole(this.context.user);
-    if (!isFinal) {
-      formData.append('user_id', String(this.context.user.id));
-    }
-    if (!isFinal && role) {
-      formData.append('role', role);
-    }
-    if (this.sessionId) {
-      formData.append('session_id', this.sessionId);
-    }
-    if (!isFinal && this.context.token) {
-      formData.append('access_token', this.context.token);
-    }
-    if (!isFinal && chunk) {
-      const nextChunkIndex = this.chunkIndex + 1;
-      formData.append('file', chunk, `chunk.${this.resolveFileExtension()}`);
-      formData.append('chunk_index', String(nextChunkIndex));
-      this.chunkIndex = nextChunkIndex;
-      this.maxDetectedVolume = Math.max(this.maxDetectedVolume, this.currentVolume);
-    }
-
-    const response = await firstValueFrom(
-      this.http.post<AudioStreamResponse>(`${this.endpoint}/audio-stream`, formData)
-    );
-    this.ingestStreamResponse(response);
-    return response;
-  }
-
   private async finalizeStream(): Promise<void> {
-    if (!this.context || this.finalized) {
+    if (!this.context || this.finalized || this.finalUploadSent) {
       return;
     }
+    if (this.finalizationPromise) {
+      await this.finalizationPromise;
+      return;
+    }
+    this.finalizationPromise = this.doFinalizeStream();
+    try {
+      await this.finalizationPromise;
+    } finally {
+      this.finalizationPromise = null;
+    }
+  }
 
-    await this.pendingUploads;
-    await this.flushPendingChunk(this.hasHeardVoice);
-    if (this.finalized) {
-      return;
-    }
+  private async doFinalizeStream(): Promise<void> {
     this.clearSilenceTimer();
 
-    if (!this.sessionId) {
+    if (!this.hasHeardVoice || this.recordedChunks.length === 0) {
       this.emitNoSpeech();
       return;
     }
 
     this.emitState('processing');
+    this.finalUploadSent = true;
 
     try {
-      const response = await this.sendChunk(null, true);
-      if (this.finalized) {
-        return;
-      }
+      const response = await this.uploadAssembled(
+        this.recordedChunks,
+        this.recorderMimeType
+      );
+
       if (!response) {
         this.emitError(VoiceAssistantService.AUDIO_ERROR_MESSAGE);
         return;
       }
-      if (response.final) {
-        this.finish(response);
-        return;
-      }
-      await this.pollForFinalResult(this.sessionId);
-    } catch (error) {
-      this.emitError(this.resolveErrorMessage(error, VoiceAssistantService.AUDIO_ERROR_MESSAGE));
-    }
-  }
 
-  private async pollForFinalResult(sessionId: string): Promise<void> {
-    for (let attempt = 0; attempt < 240 && !this.finalized; attempt += 1) {
-      await this.sleep(250);
-
-      const response = await firstValueFrom(
-        this.http.get<AudioStreamResponse>(`${this.endpoint}/audio-stream/result/${sessionId}`)
-      );
-      if (response.final) {
-        this.finish(response);
-        return;
-      }
-
-      const partial = this.readPartial(response);
-      if (partial && partial !== this.lastPartial) {
-        this.lastPartial = partial;
-        this.eventsSubject.next({ type: 'partial', text: partial });
-      }
-
-      this.emitState(this.normalizeStreamState(response.stream_state));
-    }
-
-    if (!this.finalized) {
-      this.emitError('Le traitement vocal a expire.');
-    }
-  }
-
-  private ingestStreamResponse(response: AudioStreamResponse): void {
-    if (response.session_id) {
-      this.sessionId = response.session_id;
-    }
-
-    if (response.final) {
       this.finish(response);
-      return;
+    } catch (error) {
+      this.emitError(
+        this.resolveErrorMessage(
+          error,
+          VoiceAssistantService.AUDIO_ERROR_MESSAGE
+        )
+      );
+    }
+  }
+
+  private async uploadAssembled(
+    chunks: Blob[],
+    mimeType: string
+  ): Promise<AudioStreamResponse | null> {
+    const context = this.context ?? this.getUserContext();
+    if (!context || chunks.length === 0) {
+      return null;
+    }
+    this.context = context;
+
+    const blob = new Blob(chunks, {
+      type: mimeType
+    });
+
+    const formData = new FormData();
+    const sessionId = this.recordingSessionId ?? this.generateSessionId();
+    this.recordingSessionId = sessionId;
+    const extension = this.resolveFileExtension(mimeType);
+
+    formData.append(
+      'is_final',
+      'true'
+    );
+    formData.append('session_id', sessionId);
+    formData.append('chunk_index', '1');
+
+    formData.append(
+      'user_id',
+      String(context.user.id)
+    );
+
+    const role = this.resolveRole(context.user);
+
+    if (role) {
+      formData.append(
+        'role',
+        role
+      );
     }
 
-    const partial = this.readPartial(response);
-    if (partial && partial !== this.lastPartial) {
-      this.lastPartial = partial;
-      this.eventsSubject.next({ type: 'partial', text: partial });
+    if (context.token) {
+      formData.append(
+        'access_token',
+        context.token
+      );
     }
 
-    this.emitState(this.normalizeStreamState(response.stream_state));
+    formData.append(
+      'file',
+      blob,
+      `audio.${extension}`
+    );
+
+    console.info('voice_upload_finalize', {
+      mimeType,
+      chunksCount: chunks.length,
+      finalBlobSize: blob.size,
+      isFinal: true,
+      sessionId,
+    });
+
+    return firstValueFrom(
+      this.http.post<AudioStreamResponse>(
+        `${this.endpoint}/audio-stream`,
+        formData
+      )
+    );
   }
 
   private finish(response: AudioStreamResponse): void {
@@ -462,11 +345,12 @@ export class VoiceAssistantService {
   }
 
   private completeSession(): void {
-    this.clearSilenceTimer();
     this.emitState('idle');
-    this.sessionId = null;
     this.lastPartial = '';
-    this.pendingChunk = null;
+    this.recordedChunks = [];
+    this.recordingSessionId = null;
+    this.finalUploadSent = false;
+    this.finalizationPromise = null;
   }
 
   private emitNoSpeech(): void {
@@ -476,7 +360,7 @@ export class VoiceAssistantService {
       response: {
         success: true,
         final: true,
-        status: 'no_input',
+        status: 'no_speech',
         text: '',
         message: VoiceAssistantService.SOFT_NO_INPUT_MESSAGE,
         response: VoiceAssistantService.SOFT_NO_INPUT_MESSAGE,
@@ -487,47 +371,33 @@ export class VoiceAssistantService {
   }
 
   private cleanupMedia(): void {
-    this.clearSilenceTimer();
-    if (this.levelFrame !== null) {
-      window.cancelAnimationFrame(this.levelFrame);
-      this.levelFrame = null;
-    }
-
-    if (this.audioSource) {
-      this.audioSource.disconnect();
-      this.audioSource = null;
-    }
-
     this.stream?.getTracks().forEach(track => track.stop());
     this.stream = null;
     this.recorder = null;
-    this.analyser = null;
-    this.frequencyData = null;
-
-    if (this.audioContext) {
-      void this.audioContext.close();
-      this.audioContext = null;
-    }
   }
 
   private resolveMimeType(): string {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      return 'audio/webm;codecs=opus';
+    if (typeof MediaRecorder === 'undefined') {
+      return '';
     }
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')) {
-      return 'audio/webm';
+
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+    ];
+
+    for (const candidate of candidates) {
+      if (MediaRecorder.isTypeSupported(candidate)) {
+        return candidate;
+      }
     }
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-      return 'audio/ogg;codecs=opus';
-    }
+
     return '';
   }
 
-  private resolveFileExtension(): string {
-    if (this.recorderMimeType.includes('wav')) {
-      return 'wav';
-    }
-    if (this.recorderMimeType.includes('ogg')) {
+  private resolveFileExtension(mimeType: string = this.recorderMimeType): string {
+    if (mimeType.includes('ogg')) {
       return 'ogg';
     }
     return 'webm';
@@ -567,13 +437,6 @@ export class VoiceAssistantService {
     }
   }
 
-  private readPartial(response: AudioStreamResponse): string {
-    if (typeof response.partial === 'string' && response.partial.trim().length > 0) {
-      return response.partial.trim();
-    }
-    return typeof response.text === 'string' ? response.text.trim() : '';
-  }
-
   private extractAssistantText(response: AudioStreamResponse | null | undefined): string | null {
     if (!response) {
       return null;
@@ -593,11 +456,18 @@ export class VoiceAssistantService {
       }
       if (body && typeof body === 'object') {
         const status = typeof body['status'] === 'string' ? body['status'].trim() : '';
-        if (status.toLowerCase() === 'retry') {
+        const loweredStatus = status.toLowerCase();
+        if (loweredStatus === 'unclear_audio' || loweredStatus === 'retry') {
           return VoiceAssistantService.SOFT_RETRY_MESSAGE;
         }
-        if (status.toLowerCase() === 'no_speech' || status.toLowerCase() === 'no_input') {
+        if (loweredStatus === 'no_speech' || loweredStatus === 'no_input') {
           return VoiceAssistantService.SOFT_NO_INPUT_MESSAGE;
+        }
+        if (loweredStatus === 'invalid_audio') {
+          return VoiceAssistantService.INVALID_AUDIO_MESSAGE;
+        }
+        if (loweredStatus === 'server_error' || loweredStatus === 'error') {
+          return VoiceAssistantService.SERVER_ERROR_MESSAGE;
         }
 
         const message = typeof body['message'] === 'string' ? body['message'].trim() : '';
@@ -624,6 +494,7 @@ export class VoiceAssistantService {
       lowered === 'empty_audio'
       || lowered === 'no_speech_detected'
       || lowered === 'no_input'
+      || lowered === 'no_speech'
       || lowered.includes("je n'ai rien entendu")
       || lowered.includes("je n'ai pas entendu")
       || lowered.includes('aucun son')
@@ -632,17 +503,23 @@ export class VoiceAssistantService {
     }
     if (
       lowered === 'retry'
+      || lowered === 'unclear_audio'
+      || lowered === 'unclean_transcription'
       || lowered.includes("je n'ai pas bien compris")
     ) {
-      return VoiceAssistantService.SOFT_RETRY_MESSAGE;
+      return VoiceAssistantService.SOFT_UNCLEAR_MESSAGE;
+    }
+    if (lowered === 'invalid_audio') {
+      return VoiceAssistantService.INVALID_AUDIO_MESSAGE;
     }
     if (
       lowered === 'audio_transcription_failed'
       || lowered === 'audio_processing_failed'
       || lowered === 'conversion_failed'
       || lowered === 'whisper_failed'
+      || lowered === 'server_error'
     ) {
-      return VoiceAssistantService.AUDIO_ERROR_MESSAGE;
+      return VoiceAssistantService.SERVER_ERROR_MESSAGE;
     }
     if (
       lowered.includes('assistant temporairement indisponible')
@@ -661,28 +538,41 @@ export class VoiceAssistantService {
 
     return status === 'no_speech'
       || status === 'no_input'
+      || status === 'unclear_audio'
+      || status === 'invalid_audio'
       || status === 'retry'
       || error === 'no_speech_detected'
       || error === 'no_input'
       || error === 'empty_audio'
       || error === 'retry'
+      || error === 'unclear_audio'
+      || error === 'invalid_audio'
       || message.includes("je n'ai rien entendu")
       || message.includes("je n'ai pas bien compris")
-      || message.includes("je n'ai pas entendu");
+      || message.includes("je n'ai pas entendu")
+      || message.includes('phrase repetee');
   }
 
   private normalizeSoftVoiceStatus(response: AudioStreamResponse | null | undefined): string {
     const status = String(response?.status ?? '').trim().toLowerCase();
-    if (status === 'retry') {
-      return 'retry';
+    if (status === 'invalid_audio') {
+      return 'invalid_audio';
     }
-    return status === 'no_speech' ? 'no_input' : (status || 'no_input');
+    if (status === 'retry' || status === 'unclear_audio') {
+      return 'unclear_audio';
+    }
+    return status === 'no_input' ? 'no_speech' : (status || 'no_speech');
   }
 
   private resolveSoftVoiceMessage(response: AudioStreamResponse | null | undefined): string {
-    return this.normalizeSoftVoiceStatus(response) === 'retry'
-      ? VoiceAssistantService.SOFT_RETRY_MESSAGE
-      : VoiceAssistantService.SOFT_NO_INPUT_MESSAGE;
+    const status = this.normalizeSoftVoiceStatus(response);
+    if (status === 'invalid_audio') {
+      return String(response?.message || response?.response || VoiceAssistantService.INVALID_AUDIO_MESSAGE).trim();
+    }
+    if (status === 'unclear_audio') {
+      return String(response?.message || response?.response || VoiceAssistantService.SOFT_UNCLEAR_MESSAGE).trim();
+    }
+    return String(response?.message || response?.response || VoiceAssistantService.SOFT_NO_INPUT_MESSAGE).trim();
   }
 
   private isAudioFailure(value: string | null | undefined): boolean {
@@ -693,26 +583,9 @@ export class VoiceAssistantService {
     return (
       lowered === 'audio_transcription_failed'
       || lowered === 'audio_processing_failed'
-      || lowered === 'conversion_failed'
       || lowered === 'whisper_failed'
+      || lowered === 'server_error'
     );
-  }
-
-  private normalizeStreamState(value: string | null | undefined): VoiceAssistantState {
-    switch ((value || '').toLowerCase()) {
-      case 'listening':
-        return 'listening';
-      case 'processing':
-      case 'transcribing':
-        return 'processing';
-      case 'responding':
-      case 'thinking':
-        return 'responding';
-      case 'error':
-        return 'error';
-      default:
-        return 'listening';
-    }
   }
 
   private emitState(state: VoiceAssistantState): void {
@@ -721,29 +594,10 @@ export class VoiceAssistantService {
 
   private emitError(message: string): void {
     this.finalized = true;
-    this.clearSilenceTimer();
     this.eventsSubject.next({ type: 'error', message });
     this.emitState('error');
-    this.sessionId = null;
     this.lastPartial = '';
-    this.pendingChunk = null;
-  }
-
-  private resetSilenceTimer(): void {
-    this.clearSilenceTimer();
-    this.silenceTimer = window.setTimeout(() => {
-      if (this.finalized) {
-        return;
-      }
-      void this.stop();
-    }, VoiceAssistantService.SILENCE_TIMEOUT_MS);
-  }
-
-  private clearSilenceTimer(): void {
-    if (this.silenceTimer !== null) {
-      window.clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
+    this.recordedChunks = [];
   }
 
   private resolveMicrophoneError(error: unknown): string {
@@ -763,6 +617,9 @@ export class VoiceAssistantService {
       if (error.message === 'media_recorder_unavailable') {
         return 'Capture audio indisponible sur ce navigateur.';
       }
+      if (error.message === 'unsupported_mime_type') {
+        return 'Format audio non supporte par ce navigateur.';
+      }
     }
 
     return VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE;
@@ -776,14 +633,10 @@ export class VoiceAssistantService {
     return tracks.length > 0 && tracks.some(track => track.readyState === 'live' && track.enabled);
   }
 
-  private getAudioContextConstructor(): typeof AudioContext | null {
-    const browserWindow = window as Window & typeof globalThis & {
-      webkitAudioContext?: typeof AudioContext;
-    };
-    return browserWindow.AudioContext ?? browserWindow.webkitAudioContext ?? null;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => window.setTimeout(resolve, ms));
+  private generateSessionId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `voice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 }

@@ -49,8 +49,8 @@ export class AdminDashboardComponent {
   todayFormatted = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
 
   totalEntreprises = computed(() => this.entreprises().length);
-  activeEntreprises = computed(() => this.entreprises().filter(e => e.statut === 'ACTIF').length);
-  inactiveEntreprises = computed(() => this.entreprises().filter(e => e.statut !== 'ACTIF').length);
+  activeEntreprises = computed(() => this.entreprises().filter(e => e.status === 'ACTIVE').length);
+  inactiveEntreprises = computed(() => this.entreprises().filter(e => e.status !== 'ACTIVE').length);
   totalRoles = computed(() => this.roles().length);
 
   // Recent entreprises (last 5)

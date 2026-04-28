@@ -16,8 +16,8 @@
             <lucide-angular [img]="iconArrowLeft" size="18"></lucide-angular>
           </button>
           <h2 class="text-3xl font-black text-slate-900 dark:text-white mb-1">{{ entreprise.nom }}</h2>
-          <span class="status-pill-small" [class.success]="entreprise.statut === 'ACTIF'" [class.danger]="entreprise.statut !== 'ACTIF'">
-            {{ entreprise.statut === 'ACTIF' ? 'Ouvrée' : 'Fermée' }}
+          <span class="status-pill-small" [class.success]="entreprise.status === 'ACTIVE'" [class.danger]="entreprise.status !== 'ACTIVE'">
+            {{ entreprise.statusLabel }}
           </span>
         </div>
       </div>
@@ -26,7 +26,7 @@
         <button class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" (click)="edit.emit(entreprise)" title="Modifier les informations">
           <lucide-angular [img]="iconEdit" size="18"></lucide-angular>
         </button>
-        <button class="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 transition-colors" (click)="delete.emit(entreprise)" title="Supprimer la société">
+        <button class="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 transition-colors" (click)="delete.emit(entreprise)" title="Supprimer la societe">
           <lucide-angular [img]="iconTrash" size="18"></lucide-angular>
         </button>
         <button class="hidden lg:flex w-10 h-10 rounded-full items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors" (click)="close.emit()" title="Fermer le panneau">
@@ -37,24 +37,24 @@
 
     <!-- Content internal Bento Grid -->
     <div class="p-8 overflow-y-auto custom-scrollbar flex-1 relative z-10 space-y-6">
-      
+
       <!-- Identity block -->
       <section class="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800">
         <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-700/50">
            <lucide-angular [img]="iconBriefcase" size="20" class="text-blue-500"></lucide-angular>
-           <h4 class="text-lg font-black text-slate-900 dark:text-white">Identité Légale</h4>
+           <h4 class="text-lg font-black text-slate-900 dark:text-white">Identite legale</h4>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="space-y-1">
-            <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">N° SIRET</span>
+            <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">N deg SIRET</span>
             <p class="text-base font-bold text-slate-900 dark:text-white">{{ entreprise.siret }}</p>
           </div>
           <div class="space-y-1">
             <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">Secteur</span>
-            <p class="text-base font-bold text-slate-900 dark:text-white">{{ entreprise.secteur || 'Non défini' }}</p>
+            <p class="text-base font-bold text-slate-900 dark:text-white">{{ entreprise.secteur || 'Non defini' }}</p>
           </div>
-          
+
           <div class="sm:col-span-2 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-4 flex items-center justify-between border border-indigo-100 dark:border-indigo-500/20">
              <div>
                 <span class="text-[10px] uppercase tracking-widest font-black text-indigo-500">Code d'invitation Collaborateur</span>
@@ -70,7 +70,7 @@
       <!-- Contact block -->
       <section class="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 border border-slate-100 dark:border-slate-800">
         <h4 class="text-lg font-black text-slate-900 dark:text-white mb-6">Canaux de communication</h4>
-        
+
         <div class="space-y-4">
            <div class="flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800">
               <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
@@ -87,7 +87,7 @@
                  <lucide-angular [img]="iconPhone" size="18"></lucide-angular>
               </div>
               <div class="flex-1 min-w-0">
-                 <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ entreprise.telephone || 'Aucun numéro' }}</p>
+                 <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ entreprise.telephone || 'Aucun numero' }}</p>
                  <span class="text-[11px] font-medium text-slate-400">Standard</span>
               </div>
            </div>
@@ -117,12 +117,12 @@
               <lucide-angular [img]="iconMap" size="16"></lucide-angular>
            </div>
            <div>
-              <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">Siège Social</span>
-              <p class="text-base font-medium leading-relaxed text-slate-900 dark:text-white mt-1.5">{{ entreprise.adresse || 'Aucune adresse renseignée.' }}</p>
+              <span class="text-[10px] uppercase tracking-widest font-black text-slate-400">Siege social</span>
+              <p class="text-base font-medium leading-relaxed text-slate-900 dark:text-white mt-1.5">{{ entreprise.adresse || 'Aucune adresse renseignee.' }}</p>
            </div>
         </div>
       </section>
-      
+
     </div>
   </div>
 }

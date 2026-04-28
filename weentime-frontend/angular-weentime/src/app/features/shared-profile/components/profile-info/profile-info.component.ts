@@ -198,10 +198,7 @@ export class ProfileInfoComponent implements OnInit {
   ngOnInit(): void {
     this.structureService.getDepartements().subscribe({
       next: depts => this.departements.set(depts),
-      error: () => {
-        this.departements.set([]);
-        this.toastService.error('Impossible de charger les departements.');
-      }
+      error: () => this.departements.set([])
     });
   }
 
@@ -217,8 +214,8 @@ export class ProfileInfoComponent implements OnInit {
       { label: 'Email', value: p.email, icon: 'mail' },
       { label: 'Telephone', value: p.telephone, icon: 'phone' },
       { label: 'Poste', value: p.poste, icon: 'briefcase' },
-      { label: 'Departement', value: p.departement?.nom, icon: 'building-2' },
-      { label: 'Entreprise', value: p.entreprise?.nom, icon: 'building' }
+      { label: 'Departement', value: p.departement?.nom ?? 'Non assigné', icon: 'building-2' },
+      { label: 'Entreprise', value: p.entreprise?.nom ?? 'Non assigné', icon: 'building' }
     ];
   });
 

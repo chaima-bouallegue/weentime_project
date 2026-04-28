@@ -31,17 +31,9 @@ dist/
 ############################
 
 # Models
-models/
-checkpoints/
 
-# Audio files
-*.wav
-*.mp3
-*.ogg
 
-# Temp files
-tmp/
-temp/
+
 
 ############################
 # Node.js / Angular

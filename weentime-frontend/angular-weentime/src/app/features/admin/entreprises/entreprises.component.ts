@@ -58,7 +58,7 @@ export class EntreprisesComponent {
     }
 
     if (filter !== 'ALL') {
-      list = list.filter(e => e.statut === filter);
+      list = list.filter(e => e.status === filter);
     }
 
     return list;

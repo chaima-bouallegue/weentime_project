@@ -151,6 +151,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private animationHandles = new Set<number>();
   private activeAudio?: HTMLAudioElement;
   private autoListenHandle: number | null = null;
+  private lastVoiceToast: { message: string; at: number } | null = null;
 
   constructor() {
     this.voiceSubscription = this.voiceAssistant.events$.subscribe(event => this.handleVoiceEvent(event));
@@ -258,6 +259,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       await this.voiceAssistant.stop();
       return;
     }
+    this.lastVoiceToast = null;
     this.liveTranscript.set('');
     await this.voiceAssistant.start();
   }
@@ -457,7 +459,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     this.voiceState.set('error');
-    this.toast.error(event.message);
+    if (this.shouldShowVoiceToast(event.message)) {
+      this.toast.error(event.message);
+    }
     this.pushSystemError(event.message);
   }
 
@@ -647,7 +651,11 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private isSoftVoiceResponse(response: ChatApiResponse | null | undefined): boolean {
     const status = (response?.status || '').trim().toLowerCase();
-    return status === 'retry' || status === 'no_input' || status === 'no_speech';
+    return status === 'retry'
+      || status === 'no_input'
+      || status === 'no_speech'
+      || status === 'unclear_audio'
+      || status === 'invalid_audio';
   }
 
   private toDisplayText(value: unknown): string | null {
@@ -852,5 +860,22 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         ? String(user.roles[0]).trim()
         : '';
     return primaryRole.length > 0 ? primaryRole.replace(/^ROLE_/i, '').toUpperCase() : null;
+  }
+
+  private shouldShowVoiceToast(message: string): boolean {
+    const normalized = (message || '').trim();
+    if (!normalized) {
+      return false;
+    }
+    const now = Date.now();
+    if (
+      this.lastVoiceToast
+      && this.lastVoiceToast.message === normalized
+      && now - this.lastVoiceToast.at < 2500
+    ) {
+      return false;
+    }
+    this.lastVoiceToast = { message: normalized, at: now };
+    return true;
   }
 }

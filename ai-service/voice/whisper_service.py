@@ -14,7 +14,7 @@ _MODEL_LOCK = RLock()
 def _load_model(
     *,
     model_name: str = "base",
-    device: str = "cuda",
+    device: str = "cpu",
     compute_type: str = "int8",
 ):
     global _MODEL, _MODEL_INITIALIZED
@@ -27,7 +27,7 @@ def _load_model(
         try:
             from faster_whisper import WhisperModel
 
-            preferred_device = "cuda" if str(device).strip().lower() == "cuda" else "cpu"
+            preferred_device = "cpu" if str(device).strip().lower() == "cpu" else "cpu"
             try:
                 _MODEL = WhisperModel(
                     model_name,
@@ -35,8 +35,8 @@ def _load_model(
                     compute_type=compute_type,
                 )
             except Exception as exc:  # noqa: BLE001
-                if preferred_device == "cuda":
-                    logger.warning("whisper cuda unavailable, fallback cpu: %s", exc)
+                if preferred_device == "cpu":
+                    logger.warning("whisper cpu unavailable, fallback cpu: %s", exc)
                     _MODEL = WhisperModel(
                         model_name,
                         device="cpu",
@@ -56,7 +56,7 @@ def transcribe_audio(
     *,
     model_name: str = "base",
     language: str = "fr",
-    device: str = "cuda",
+    device: str = "cpu",
     compute_type: str = "int8",
 ) -> str:
     model = _load_model(

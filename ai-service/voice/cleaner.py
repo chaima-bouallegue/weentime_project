@@ -33,9 +33,6 @@ def clean_transcription(text: str | None):
     if len(set(words)) <= 2 and len(words) >= 4:
         return None
 
-    if normalized.count("bien") > 3:
-        return None
-
     if _is_repeated_sequence(words):
         return None
 

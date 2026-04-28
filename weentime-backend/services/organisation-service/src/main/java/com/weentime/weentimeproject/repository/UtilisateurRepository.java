@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -29,9 +31,27 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
 
     boolean existsByEmail(@NotBlank(message = "L'email est obligatoire") @Email(message = "L'email doit etre valide") String email);
 
-    List<Utilisateur> findByRoles_NomOrderByDateCreationDesc(RoleNom roleName);
+    @Query("""
+            select distinct u
+            from Utilisateur u
+            join u.roles r
+            where r.nom = :roleName
+            order by u.dateCreation desc
+            """)
+    List<Utilisateur> findByRoles_NomOrderByDateCreationDesc(@Param("roleName") RoleNom roleName);
 
-    List<Utilisateur> findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(Long entrepriseId, RoleNom roleName);
+    @Query("""
+            select distinct u
+            from Utilisateur u
+            join u.roles r
+            where u.entreprise.id = :entrepriseId
+              and r.nom = :roleName
+            order by u.dateCreation desc
+            """)
+    List<Utilisateur> findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(
+            @Param("entrepriseId") Long entrepriseId,
+            @Param("roleName") RoleNom roleName
+    );
 
     @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
     List<Utilisateur> findByEntrepriseIdOrderByPrenomAscNomAsc(Long entrepriseId);
@@ -40,7 +60,14 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     List<Utilisateur> findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(Long entrepriseId, RoleNom roleName);
 
     @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
-    org.springframework.data.domain.Page<Utilisateur> findByEntrepriseId(Long entrepriseId, org.springframework.data.domain.Pageable pageable);
+    @Query(
+            value = "select distinct u from Utilisateur u where u.entrepriseId = :entrepriseId",
+            countQuery = "select count(distinct u.id) from Utilisateur u where u.entrepriseId = :entrepriseId"
+    )
+    org.springframework.data.domain.Page<Utilisateur> findByEntrepriseId(
+            @Param("entrepriseId") Long entrepriseId,
+            org.springframework.data.domain.Pageable pageable
+    );
 
     org.springframework.data.domain.Page<Utilisateur> findByEquipeId(Long equipeId, org.springframework.data.domain.Pageable pageable);
 

@@ -39,7 +39,7 @@ public class PresenceController {
     private final PresenceService presenceService;
     private final SecurityUtils securityUtils;
 
-    @PostMapping("/check-in")
+    @PostMapping({"/check-in", "/attendance/start"})
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<AttendanceSummaryDTO>> checkIn(@Valid @RequestBody CheckInRequest request) {
         if (request.getSource() == null) {

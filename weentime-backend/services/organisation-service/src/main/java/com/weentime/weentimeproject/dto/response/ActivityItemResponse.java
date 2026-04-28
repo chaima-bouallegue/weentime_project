@@ -13,8 +13,11 @@ import java.time.LocalDateTime;
 @Builder
 public class ActivityItemResponse {
     private Long id;
+    private String action;
     private String type;
     private String description;
+    private LocalDateTime timestamp;
     private LocalDateTime date;
+    private String ipAddress;
     private String icon;
 }

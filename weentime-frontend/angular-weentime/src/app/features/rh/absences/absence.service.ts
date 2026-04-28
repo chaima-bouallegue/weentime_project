@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { ApiConfigService } from '../../../core/services/api-config.service';
 import {
   AbsenceRequest,
   AbsenceResponse,
@@ -8,17 +9,17 @@ import {
   RejectionRequest
 } from './absence.models';
 
-const BASE = '/api/v1/rh/absences';
-
 @Injectable({ providedIn: 'root' })
 export class AbsenceService {
   private http = inject(HttpClient);
+  private api = inject(ApiConfigService);
+  private readonly baseUrl = this.api.RH.GET_ABSENCES;
 
   // ── EMPLOYEE ──────────────────────────────────────────────────────────────
 
   /** Déclare une absence */
   declarer(request: AbsenceRequest): Observable<AbsenceResponse> {
-    return this.http.post<AbsenceResponse>(BASE, request);
+    return this.http.post<AbsenceResponse>(this.baseUrl, request);
   }
 
   /** Liste paginée des absences de l'employé connecté */
@@ -33,12 +34,12 @@ export class AbsenceService {
       .set('size', params.size ?? 10);
     if (params.statut) httpParams = httpParams.set('statut', params.statut);
     if (params.type)   httpParams = httpParams.set('type',   params.type);
-    return this.http.get<AbsencePage>(`${BASE}/mes-absences`, { params: httpParams });
+    return this.http.get<AbsencePage>(`${this.baseUrl}/mes-absences`, { params: httpParams });
   }
 
   /** Annuler une absence EN_ATTENTE */
   annuler(id: number): Observable<void> {
-    return this.http.delete<void>(`${BASE}/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
 
   // ── RH ────────────────────────────────────────────────────────────────────
@@ -53,17 +54,17 @@ export class AbsenceService {
       .set('page', params.page ?? 0)
       .set('size', params.size ?? 20);
     if (params.statut) httpParams = httpParams.set('statut', params.statut);
-    return this.http.get<AbsencePage>(`${BASE}/entreprise`, { params: httpParams });
+    return this.http.get<AbsencePage>(`${this.baseUrl}/entreprise`, { params: httpParams });
   }
 
   /** Valider une absence */
   valider(id: number): Observable<AbsenceResponse> {
-    return this.http.patch<AbsenceResponse>(`${BASE}/${id}/valider`, {});
+    return this.http.patch<AbsenceResponse>(`${this.baseUrl}/${id}/valider`, {});
   }
 
   /** Rejeter une absence avec motif */
   rejeter(id: number, motifRefus: string): Observable<AbsenceResponse> {
     const body: RejectionRequest = { motifRefus };
-    return this.http.patch<AbsenceResponse>(`${BASE}/${id}/rejeter`, body);
+    return this.http.patch<AbsenceResponse>(`${this.baseUrl}/${id}/rejeter`, body);
   }
 }

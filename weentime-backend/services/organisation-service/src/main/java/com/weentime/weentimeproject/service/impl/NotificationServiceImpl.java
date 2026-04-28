@@ -1,7 +1,5 @@
 package com.weentime.weentimeproject.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.weentimeproject.dto.request.NotificationDispatchRequest;
 import com.weentime.weentimeproject.dto.response.NotificationResponse;
 import com.weentime.weentimeproject.entity.Notification;
@@ -32,12 +30,9 @@ import java.util.Objects;
 @Transactional
 public class NotificationServiceImpl implements NotificationService {
 
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
-
     private final NotificationRepository notificationRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ObjectMapper objectMapper;
 
     @Override
     public NotificationResponse createNotification(Long userId, String title, String message, NotificationType type) {
@@ -63,7 +58,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .type(type)
                 .isRead(Boolean.FALSE)
                 .actionUrl(actionUrl)
-                .metadata(toJson(metadata))
+                .metadata(metadata == null || metadata.isEmpty() ? null : metadata)
                 .build());
 
         NotificationResponse response = toResponse(saved);
@@ -184,30 +179,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .createdAt(notification.getCreatedAt())
                 .readAt(notification.getReadAt())
                 .actionUrl(notification.getActionUrl())
-                .metadata(fromJson(notification.getMetadata()))
+                .metadata(notification.getMetadata() == null ? Map.of() : notification.getMetadata())
                 .build();
-    }
-
-    private String toJson(Map<String, Object> metadata) {
-        if (metadata == null || metadata.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(metadata);
-        } catch (Exception exception) {
-            throw new IllegalArgumentException("Impossible de serialiser les metadonnees de notification", exception);
-        }
-    }
-
-    private Map<String, Object> fromJson(String metadata) {
-        if (metadata == null || metadata.isBlank()) {
-            return Map.of();
-        }
-        try {
-            return objectMapper.readValue(metadata, MAP_TYPE);
-        } catch (Exception exception) {
-            log.warn("Unable to parse notification metadata: {}", exception.getMessage());
-            return Map.of();
-        }
     }
 }

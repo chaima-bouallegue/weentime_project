@@ -40,6 +40,7 @@ public interface UtilisateurMapper {
 
     @Mapping(source = "entreprise.id", target = "entrepriseId")
     @Mapping(source = "entreprise.nom", target = "entrepriseNom")
+    @Mapping(source = "roles", target = "role", qualifiedByName = "rolesToPrimaryName")
     RhOwnerResponse toRhOwnerResponse(Utilisateur utilisateur);
 
     @Mapping(source = "departement.id", target = "departementId")
@@ -54,7 +55,7 @@ public interface UtilisateurMapper {
     UtilisateurResponse toResponse(Utilisateur utilisateur);
 
     @Mapping(source = "statut", target = "statut")
-    @Mapping(source = "entreprise.id", target = "entrepriseId")
+    @Mapping(source = "entrepriseId", target = "entrepriseId")
     @Mapping(source = "roles", target = "roles", qualifiedByName = "rolesToAuthDTOs")
     UtilisateurAuthResponse toAuthResponse(Utilisateur utilisateur);
 
@@ -82,6 +83,25 @@ public interface UtilisateurMapper {
                         .nom(role.getNom().name())
                         .build())
                 .collect(Collectors.toSet());
+    }
+
+    @Named("rolesToPrimaryName")
+    default String rolesToPrimaryName(Set<Role> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return "RH";
+        }
+
+        String roleName = roles.stream()
+                .map(role -> role.getNom().name())
+                .filter(name -> "ROLE_RH".equals(name))
+                .findFirst()
+                .orElseGet(() -> roles.stream()
+                        .map(role -> role.getNom().name())
+                        .sorted()
+                        .findFirst()
+                        .orElse("ROLE_RH"));
+
+        return roleName.startsWith("ROLE_") ? roleName.substring("ROLE_".length()) : roleName;
     }
 
     @Mapping(target = "id", ignore = true)

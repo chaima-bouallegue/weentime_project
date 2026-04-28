@@ -1,6 +1,8 @@
 package com.weentime.weentimeproject.service;
 
 import com.weentime.weentimeproject.dto.request.ChangePasswordRequest;
+import com.weentime.weentimeproject.dto.request.RhOwnerCreateRequest;
+import com.weentime.weentimeproject.dto.request.RhOwnerUpdateRequest;
 import com.weentime.weentimeproject.dto.request.RegisterRequest;
 import com.weentime.weentimeproject.dto.request.UserProfileUpdateRequest;
 import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
@@ -18,8 +20,12 @@ import org.springframework.web.multipart.MultipartFile;
 public interface UtilisateurService {
     UtilisateurResponse createUtilisateur(UtilisateurRequest request);
     CreateRhResponse createRhUser(com.weentime.weentimeproject.dto.request.CreateRhRequest request);
+    RhOwnerResponse createRhOwner(RhOwnerCreateRequest request);
     java.util.List<RhOwnerResponse> getAllRh();
     java.util.List<RhOwnerResponse> getRhByEntreprise(Long entrepriseId);
+    RhOwnerResponse updateRhOwner(Long id, RhOwnerUpdateRequest request);
+    void deleteRhOwner(Long id);
+    RhOwnerResponse assignRhOwnerEntreprise(Long id, Long entrepriseId);
     RhOwnerResponse toggleRhStatut(Long id);
     UtilisateurResponse registerUtilisateur(RegisterRequest request);
     UtilisateurResponse getUtilisateurById(Long id);

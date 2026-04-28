@@ -27,7 +27,7 @@ interface ApiEnvelope<T> {
 })
 export class HoraireService {
   private http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/api/v1/horaires`;
+  private readonly baseUrl = `${environment.apiUrl}/horaires`;
 
   /**
    * --- GESTION DES MODÈLES (RH) ---

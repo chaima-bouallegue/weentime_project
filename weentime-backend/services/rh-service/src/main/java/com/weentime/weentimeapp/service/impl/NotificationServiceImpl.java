@@ -24,6 +24,10 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public List<NotificationDTO> getMesNotifications(Long userId, Long entrepriseId, List<String> roles) {
+        if (isContextIncomplete(userId, entrepriseId)) {
+            return List.of();
+        }
+
         List<Notification> allNotifs = new ArrayList<>();
 
         // 1. Notifications spécifiques à l'utilisateur
@@ -47,11 +51,19 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public long countNonLues(Long userId, Long entrepriseId) {
+        if (isContextIncomplete(userId, entrepriseId)) {
+            return 0L;
+        }
+
         return notificationRepository.countByDestinataireIdAndLuFalseAndEntrepriseId(userId, entrepriseId);
     }
 
     @Override
     public void marquerCommeLue(Long notificationId, Long userId, Long entrepriseId) {
+        if (isContextIncomplete(userId, entrepriseId)) {
+            return;
+        }
+
         notificationRepository.findById(notificationId).ifPresent(notif -> {
             // Un utilisateur peut mark-as-read ses notifs directes (destinataireId == userId)
             // ou les notifs de rôle qu'il a reçues. Pour simplifier, si destinataireId est présent 
@@ -59,7 +71,7 @@ public class NotificationServiceImpl implements NotificationService {
             if (notif.getDestinataireId() != null && !notif.getDestinataireId().equals(userId)) {
                 return;
             }
-            if (notif.getEntrepriseId().equals(entrepriseId)) {
+            if (notif.getEntrepriseId() != null && notif.getEntrepriseId().equals(entrepriseId)) {
                 notif.setLu(true);
                 notificationRepository.save(notif);
             }
@@ -68,6 +80,10 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void toutMarquerCommeLu(Long userId, Long entrepriseId) {
+        if (isContextIncomplete(userId, entrepriseId)) {
+            return;
+        }
+
         // En theorie on devrait aussi lier lu=true pour les notifs de role, 
         // mais c'est complexe car on partage 1 seule ligne de DB pour tout le role ?
         // ATTENTION : dans AsyncNotificationService.sendToRole, on itère sur les users => on sauvegarde 
@@ -79,6 +95,14 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void toutEffacer(Long userId, Long entrepriseId) {
+        if (isContextIncomplete(userId, entrepriseId)) {
+            return;
+        }
+
         notificationRepository.deleteByDestinataireIdAndEntrepriseId(userId, entrepriseId);
+    }
+
+    private boolean isContextIncomplete(Long userId, Long entrepriseId) {
+        return userId == null || entrepriseId == null;
     }
 }

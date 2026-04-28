@@ -11,7 +11,6 @@ import com.weentime.weentimeproject.repository.DepartementRepository;
 import com.weentime.weentimeproject.repository.EquipeRepository;
 import com.weentime.weentimeproject.repository.UtilisateurRepository;
 import com.weentime.weentimeproject.service.StructureService;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,47 +30,62 @@ public class StructureServiceImpl implements StructureService {
 
     @Override
     public List<StructureDepartmentResponse> getDepartments() {
-        return departementRepository.findByEntreprise_IdOrderByNomAsc(resolveEntrepriseId()).stream()
+        Long entrepriseId = resolveEntrepriseIdOrNull();
+        if (entrepriseId == null) {
+            return List.of();
+        }
+
+        return departementRepository.findByEntreprise_IdOrderByNomAsc(entrepriseId).stream()
                 .map(this::toDepartmentResponse)
                 .toList();
     }
 
     @Override
     public List<StructureTeamResponse> getTeams() {
-        return equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(resolveEntrepriseId()).stream()
+        Long entrepriseId = resolveEntrepriseIdOrNull();
+        if (entrepriseId == null) {
+            return List.of();
+        }
+
+        return equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(entrepriseId).stream()
                 .map(this::toTeamResponse)
                 .toList();
     }
 
     @Override
     public List<StructureEmployeeResponse> getManagers() {
-        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(resolveEntrepriseId(), RoleNom.ROLE_MANAGER).stream()
+        Long entrepriseId = resolveEntrepriseIdOrNull();
+        if (entrepriseId == null) {
+            return List.of();
+        }
+
+        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, RoleNom.ROLE_MANAGER).stream()
                 .map(this::toEmployeeResponse)
                 .toList();
     }
 
     @Override
     public List<StructureEmployeeResponse> getEmployees() {
-        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(resolveEntrepriseId(), RoleNom.ROLE_EMPLOYEE).stream()
+        Long entrepriseId = resolveEntrepriseIdOrNull();
+        if (entrepriseId == null) {
+            return List.of();
+        }
+
+        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, RoleNom.ROLE_EMPLOYEE).stream()
                 .map(this::toEmployeeResponse)
                 .toList();
     }
 
-    private Long resolveEntrepriseId() {
+    private Long resolveEntrepriseIdOrNull() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("Aucun utilisateur authentifie.");
+            return null;
         }
 
         String email = authentication.getName();
-        Utilisateur currentUser = utilisateurRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur authentifie non trouve : " + email));
-
-        if (currentUser.getEntrepriseId() == null) {
-            throw new IllegalStateException("L'utilisateur courant n'est rattache a aucune entreprise.");
-        }
-
-        return currentUser.getEntrepriseId();
+        return utilisateurRepository.findByEmail(email)
+                .map(Utilisateur::getEntrepriseId)
+                .orElse(null);
     }
 
     private StructureDepartmentResponse toDepartmentResponse(Departement departement) {

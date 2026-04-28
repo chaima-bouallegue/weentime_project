@@ -78,8 +78,8 @@ export class NotificationService {
   private readonly webSocket = inject(WebSocketService);
   private readonly authService = inject(AuthService);
 
-  private readonly rhUrl = `${environment.apiUrl}/api/v1/rh/notifications`;
-  private readonly orgUrl = `${environment.apiUrl}/api/v1/notifications`;
+  private readonly rhUrl = `${environment.apiUrl}/rh/notifications`;
+  private readonly orgUrl = `${environment.apiUrl}/notifications`;
   private readonly _notifications = signal<Notification[]>([]);
   private readonly _loading = signal(false);
   private subscriptions = new Subscription();

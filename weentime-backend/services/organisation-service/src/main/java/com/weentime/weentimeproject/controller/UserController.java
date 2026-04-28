@@ -68,7 +68,7 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/me/activity")
+    @GetMapping({"/me/activity", "/me/activity-log", "/me/user-activity", "/activity-log", "/user-activity"})
     public ResponseEntity<java.util.List<ActivityItemResponse>> getActivityHistory() {
         return ResponseEntity.ok(utilisateurService.getActivityHistory());
     }

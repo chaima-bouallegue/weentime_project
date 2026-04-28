@@ -10,10 +10,10 @@ import { ProfileTwoFactorComponent } from './components/profile-two-factor/profi
 import { ProfileActivityComponent } from './components/profile-activity/profile-activity.component';
 
 const ROLE_LABELS: Record<string, string> = {
-  ROLE_ADMIN: 'Administrateur',
-  ROLE_RH: 'Ressources Humaines',
-  ROLE_MANAGER: 'Manager',
-  ROLE_EMPLOYEE: 'Collaborateur'
+  ADMIN: 'Administrateur',
+  RH: 'Ressources Humaines',
+  MANAGER: 'Manager',
+  EMPLOYEE: 'Collaborateur'
 };
 
 @Component({
@@ -72,7 +72,10 @@ export class ProfileComponent {
   });
 
   roleLabel = computed(() => {
-    const role = this.authService.currentUser()?.roles?.[0] ?? '';
+    const rawRole = this.authService.currentUser()?.roles?.[0] ?? '';
+    const role = String(rawRole).toUpperCase().startsWith('ROLE_')
+      ? String(rawRole).toUpperCase().substring('ROLE_'.length)
+      : String(rawRole).toUpperCase();
     return ROLE_LABELS[role] ?? 'Utilisateur';
   });
 

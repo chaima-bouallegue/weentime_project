@@ -643,15 +643,15 @@ export class ShellHeaderComponent {
   );
 
   userRole = computed(() => {
-    const role = this.authService.currentUser()?.roles?.[0] ?? '';
-    if (role === 'ROLE_EMPLOYEE') return 'employee';
-    if (role === 'ROLE_MANAGER') return 'manager';
-    if (role === 'ROLE_RH') return 'rh';
-    if (role === 'ROLE_ADMIN') return 'admin';
+    const role = this.normalizeRole(this.authService.currentUser()?.roles?.[0]);
+    if (role === 'EMPLOYEE') return 'employee';
+    if (role === 'MANAGER') return 'manager';
+    if (role === 'RH') return 'rh';
+    if (role === 'ADMIN') return 'admin';
     return 'employee';
   });
 
-  readonly isAdmin = computed(() => this.authService.currentUser()?.roles?.includes('ROLE_ADMIN') ?? false);
+  readonly isAdmin = computed(() => this.authService.hasRole('ADMIN'));
 
   constructor() {
     // Effet pour déclencher le shake quand le nombre de notifs augmente
@@ -688,6 +688,11 @@ export class ShellHeaderComponent {
 
   onLogout(): void {
     this.authService.logout();
+  }
+
+  private normalizeRole(role: string | null | undefined): string {
+    const normalized = String(role ?? '').trim().toUpperCase();
+    return normalized.startsWith('ROLE_') ? normalized.substring('ROLE_'.length) : normalized;
   }
 
   @HostListener('document:click', ['$event'])

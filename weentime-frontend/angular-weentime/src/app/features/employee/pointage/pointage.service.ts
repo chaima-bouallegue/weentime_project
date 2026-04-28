@@ -2,7 +2,7 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import {
   Observable, tap, map, catchError, of, interval,
-  Subscription, startWith, switchMap, throwError
+  Subscription, startWith, switchMap
 } from 'rxjs';
 import { PointageEntry, PointageStats } from './pointage.models';
 import { AuthService } from '../../../core/services/auth.service';
@@ -73,10 +73,7 @@ export class PointageService {
         // Un objet vide {} retourné par l'API était truthy et bloquait le check-in
         if (activeSession?.checkInTime) {
           this.applyActiveSessionState(activeSession);
-          return throwError(() => this.buildConflictError(
-            'ATTENDANCE_SESSION_ALREADY_OPEN',
-            'Session déjà ouverte'
-          ));
+          return of(this.mapSessionToEntry(activeSession, 'ENTREE'));
         }
 
         return this.http.post<any>(this.apiConfig.PRESENCE.CHECK_IN, { source: 'WEB' }).pipe(
@@ -158,10 +155,6 @@ export class PointageService {
 
   private unwrap(response: any): any {
     return response?.data ?? response;
-  }
-
-  private buildConflictError(code: string, message: string) {
-    return { status: 409, error: { code, error: message, message, details: message } };
   }
 
   private mapTodayToPointages(summary: any): PointageEntry[] {

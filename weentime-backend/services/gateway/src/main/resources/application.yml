@@ -6,7 +6,7 @@ spring:
     name: gateway
 
   config:
-    import: "optional:configserver:"
+    import: optional:configserver:http://localhost:8888
 
   cloud:
     config:
@@ -17,10 +17,14 @@ spring:
 
 
       globalcors:
+        add-to-simple-url-handler-mapping: true
         corsConfigurations:
           '[/**]':
             allowedOrigins:
               - "http://localhost:4200"
+              - "http://localhost:4201"
+              - "http://localhost:4202"
+              - "http://127.0.0.1:4200"
             allowedMethods:
               - GET
               - POST
@@ -29,7 +33,9 @@ spring:
               - DELETE
               - OPTIONS
             allowedHeaders:
-              - "*"
+              - "Authorization"
+              - "Content-Type"
+              - "Accept"
             allowCredentials: true
 
       discovery:

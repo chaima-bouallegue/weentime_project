@@ -163,7 +163,15 @@ export interface AdminRequest {
   manager?: AdminRequestProfile | null;
   motif?: string | null;
   commentaire?: string | null;
-  statut: 'EN_ATTENTE' | 'VALIDEE' | 'REJETEE' | string;
+  statut:
+    | 'EN_ATTENTE'
+    | 'EN_ATTENTE_MANAGER'
+    | 'EN_ATTENTE_RH'
+    | 'APPROUVEE'
+    | 'REFUSEE'
+    | 'VALIDEE'
+    | 'REJETEE'
+    | string;
   typeDemande: string;
   createdAt?: string;
   updatedAt?: string;

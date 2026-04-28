@@ -9,7 +9,7 @@ import { Role, RoleRequest } from './role.model';
 })
 export class RoleService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api/v1/organisations/roles`;
+  private apiUrl = `${environment.apiUrl}/organisations/roles`;
 
   getAllRoles(): Observable<Role[]> {
     return this.http.get<Role[]>(this.apiUrl);

@@ -24,7 +24,7 @@ export interface EmployeeSolde {
 })
 export class RhSoldeService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api/v1/rh/soldes`;
+  private apiUrl = `${environment.apiUrl}/rh/soldes`;
 
   getGlobalSoldes(params: { page: number, size: number, annee: number, query?: string }): Observable<any> {
     let httpParams = new HttpParams()
@@ -56,6 +56,6 @@ export class RhSoldeService {
   }
 
   getLeaveTypes(): Observable<any[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/v1/rh/type-conges`);
+    return this.http.get<any[]>(`${environment.apiUrl}/rh/type-conges`);
   }
 }

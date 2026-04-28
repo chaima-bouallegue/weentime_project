@@ -13,7 +13,7 @@ import { environment } from '../../../../environments/environment';
 })
 export class RhDocumentService {
   private http = inject(HttpClient);
-  private readonly API = `${environment.apiUrl}/api/v1/documents`;
+  private readonly API = `${environment.apiUrl}/documents`;
 
   getDemandesEntreprise(): Observable<DemandeDocumentRH[]> {
     return this.http.get<unknown>(`${this.API}/rh/demandes`).pipe(

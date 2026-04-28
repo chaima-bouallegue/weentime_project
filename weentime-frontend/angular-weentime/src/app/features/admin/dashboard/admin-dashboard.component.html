@@ -136,8 +136,8 @@
                   <h4 class="font-black text-sm text-slate-900 dark:text-white truncate">{{ ent.nom }}</h4>
                   <p class="text-xs font-medium text-slate-400 truncate">{{ ent.secteur || 'Secteur non défini' }} · {{ formatDate(ent.createdAt) }}</p>
                 </div>
-                <span class="status-pill-small shrink-0" [class.success]="ent.statut === 'ACTIF'" [class.danger]="ent.statut !== 'ACTIF'">
-                  {{ ent.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
+                <span class="status-pill-small shrink-0" [class.success]="ent.status === 'ACTIVE'" [class.danger]="ent.status !== 'ACTIVE'">
+                  {{ ent.statusLabel }}
                 </span>
               </div>
             }

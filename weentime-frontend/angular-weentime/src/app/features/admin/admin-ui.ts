@@ -53,13 +53,17 @@ export const ADMIN_PERMISSION_GROUPS: AdminPermissionGroup[] = [
 
 export const REQUEST_STATUS_TABS = [
   { label: 'Pending', value: 'EN_ATTENTE' },
-  { label: 'Approved', value: 'VALIDEE' },
-  { label: 'Rejected', value: 'REJETEE' }
+  { label: 'Approved', value: 'APPROUVEE' },
+  { label: 'Rejected', value: 'REFUSEE' }
 ] as const;
 
 export const REQUEST_STATUS_META: Record<string, { label: string; tone: string }> = {
   EN_ATTENTE: { label: 'Pending', tone: 'warning' },
+  EN_ATTENTE_MANAGER: { label: 'Pending manager', tone: 'warning' },
+  EN_ATTENTE_RH: { label: 'Pending RH', tone: 'warning' },
+  APPROUVEE: { label: 'Approved', tone: 'success' },
   VALIDEE: { label: 'Approved', tone: 'success' },
+  REFUSEE: { label: 'Rejected', tone: 'danger' },
   REJETEE: { label: 'Rejected', tone: 'danger' }
 };
 

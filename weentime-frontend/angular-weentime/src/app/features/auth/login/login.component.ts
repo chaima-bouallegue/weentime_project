@@ -137,14 +137,15 @@ export class LoginComponent implements AfterViewInit {
   }
 
   private resolveRouteForRole(role: string): string {
-    switch (role) {
-      case 'ROLE_ADMIN':
+    const normalizedRole = role.startsWith('ROLE_') ? role.substring('ROLE_'.length) : role;
+    switch (normalizedRole.toUpperCase()) {
+      case 'ADMIN':
         return '/app/admin/dashboard';
-      case 'ROLE_RH':
+      case 'RH':
         return '/app/rh/dashboard';
-      case 'ROLE_MANAGER':
+      case 'MANAGER':
         return '/app/manager/dashboard';
-      case 'ROLE_EMPLOYEE':
+      case 'EMPLOYEE':
         return '/app/employee/dashboard';
       default:
         return '/';

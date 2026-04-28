@@ -106,7 +106,7 @@ import { RhSoldesManagerComponent } from './components/rh-soldes-manager.compone
                 @case ('conges') {
                   <app-rh-parametres-crud 
                     title="Types de Congés" 
-                    endpoint="api/v1/rh/type-conges" 
+                    endpoint="rh/type-conges" 
                     [columns]="congeColumns">
                   </app-rh-parametres-crud>
                 }
@@ -116,21 +116,21 @@ import { RhSoldesManagerComponent } from './components/rh-soldes-manager.compone
                 @case ('absences') {
                   <app-rh-parametres-crud 
                     title="Types d'Absences" 
-                    endpoint="api/v1/rh/type-absences" 
+                    endpoint="rh/type-absences" 
                     [columns]="absenceColumns">
                   </app-rh-parametres-crud>
                 }
                 @case ('autorisations') {
                   <app-rh-parametres-crud 
                     title="Types d'Autorisations" 
-                    endpoint="api/v1/rh/parametres/types-autorisations" 
+                    endpoint="rh/parametres/types-autorisations" 
                     [columns]="autorisationColumns">
                   </app-rh-parametres-crud>
                 }
                 @case ('documents') {
                   <app-rh-parametres-crud 
                     title="Modèles de Documents" 
-                    endpoint="api/v1/rh/parametres/types-documents" 
+                    endpoint="rh/parametres/types-documents" 
                     [columns]="documentColumns">
                   </app-rh-parametres-crud>
                 }

@@ -36,9 +36,12 @@ export interface ChangePasswordRequest {
 
 export interface ActivityItem {
   id: number;
+  action?: string;
   type: string;
   description: string;
+  timestamp?: string;
   date: string;
+  ipAddress?: string | null;
   icon: string;
 }
 
@@ -120,7 +123,20 @@ export class ProfileService {
 
   getActivityHistory(): Observable<ActivityItem[]> {
     return this.http.get<any>(this.apiConfig.USER.GET_ACTIVITY).pipe(
-      map(response => this.unwrap<ActivityItem[]>(response))
+      map(response => {
+        const rawItems = this.unwrap<any>(response);
+        const items = Array.isArray(rawItems) ? rawItems : [];
+        return items.map(item => ({
+          id: Number(item?.id ?? 0),
+          action: item?.action ?? item?.type ?? 'ACTIVITY',
+          type: item?.type ?? item?.action ?? 'ACTIVITY',
+          description: item?.description ?? '',
+          timestamp: item?.timestamp ?? item?.date ?? null,
+          date: item?.date ?? item?.timestamp ?? new Date().toISOString(),
+          ipAddress: item?.ipAddress ?? null,
+          icon: item?.icon ?? 'activity'
+        } as ActivityItem));
+      })
     );
   }
 

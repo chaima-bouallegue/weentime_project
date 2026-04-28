@@ -653,7 +653,7 @@ export class AdminUsersComponent {
           this.entreprises.set(entreprises.content);
           this.departements.set(departements.content);
           this.equipes.set(equipes.content);
-          this.allUsers.set(users.content);
+          this.allUsers.set(this.dedupeUsers(users.content));
         },
         error: () => this.toast.error('Erreur lors du chargement des référentiels admin')
       });
@@ -668,11 +668,21 @@ export class AdminUsersComponent {
       )
       .subscribe({
         next: page => {
-          this.users.set(page.content);
+          const safeUsers = this.dedupeUsers(page.content).filter(user => !this.isRhUser(user));
+          this.users.set(safeUsers);
           this.totalElements.set(page.totalElements);
         },
         error: () => this.toast.error('Erreur lors du chargement des utilisateurs')
       });
+  }
+
+  private dedupeUsers(users: AdminUser[]): AdminUser[] {
+    const list = Array.isArray(users) ? users : [];
+    return list.filter((user, index, arr) => arr.findIndex(candidate => candidate.id === user.id) === index);
+  }
+
+  private isRhUser(user: AdminUser): boolean {
+    return Array.isArray(user.roles) && user.roles.some(role => role.nom === 'ROLE_RH');
   }
 
   changePage(offset: number): void {
