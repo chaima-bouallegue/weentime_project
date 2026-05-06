@@ -44,6 +44,9 @@ interface ChatMessage {
   actionLabel?: string | null;
   actionTarget?: string | null;
   actionKind?: MessageActionKind | null;
+  confirmationId?: string | null;
+  confirmationPending?: boolean;
+  confirmationResolved?: boolean;
   workflow?: AssistantWorkflowState | null;
 }
 
@@ -57,6 +60,7 @@ interface ChatMessage {
 })
 export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   @ViewChild('messageContainer') private messageContainer?: ElementRef<HTMLDivElement>;
+  @ViewChild('chatPanel') private chatPanel?: ElementRef<HTMLElement>;
 
   private readonly chatService = inject(ChatService);
   private readonly voiceAssistant = inject(VoiceAssistantService);
@@ -152,6 +156,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private activeAudio?: HTMLAudioElement;
   private autoListenHandle: number | null = null;
   private lastVoiceToast: { message: string; at: number } | null = null;
+  private readonly inFlightConfirmations = new Set<string>();
+  private readonly resolvedConfirmations = new Set<string>();
 
   constructor() {
     this.voiceSubscription = this.voiceAssistant.events$.subscribe(event => this.handleVoiceEvent(event));
@@ -199,6 +205,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   toggleChat(): void {
     const next = !this.isOpen();
+    if (!next) {
+      this.blurActiveElementInPanel();
+    }
     this.isOpen.set(next);
     if (!next) {
       this.clearAutoListen();
@@ -209,6 +218,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   closeChat(): void {
+    this.blurActiveElementInPanel();
     this.isOpen.set(false);
     this.clearAutoListen();
     this.stopAudioPlayback();
@@ -321,6 +331,53 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.openExternalLink(message.actionTarget);
   }
 
+  confirmAssistantAction(message: ChatMessage, approved: boolean): void {
+    const confirmationId = message.confirmationId;
+    if (!confirmationId || message.confirmationPending || message.confirmationResolved || this.loading()) {
+      return;
+    }
+    if (this.inFlightConfirmations.has(confirmationId)) {
+      return;
+    }
+    if (this.resolvedConfirmations.has(confirmationId)) {
+      this.updateMessageState(message.id, { confirmationPending: false, confirmationResolved: true });
+      this.pushStableConfirmationMessage();
+      return;
+    }
+
+    this.inFlightConfirmations.add(confirmationId);
+    this.updateMessageState(message.id, { confirmationPending: true });
+    this.loading.set(true);
+    this.chatService.confirmAction(confirmationId, approved)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: response => {
+          this.inFlightConfirmations.delete(confirmationId);
+          this.resolvedConfirmations.add(confirmationId);
+          this.updateMessageState(message.id, {
+            confirmationPending: false,
+            confirmationResolved: true,
+          });
+          this.pushAssistantReply(response, 'text');
+        },
+        error: error => {
+          this.inFlightConfirmations.delete(confirmationId);
+          const errorMessage = this.resolveErrorMessage(error);
+          if (this.isAlreadyConsumedConfirmation(errorMessage)) {
+            this.resolvedConfirmations.add(confirmationId);
+            this.updateMessageState(message.id, {
+              confirmationPending: false,
+              confirmationResolved: true,
+            });
+            this.pushStableConfirmationMessage();
+            return;
+          }
+          this.updateMessageState(message.id, { confirmationPending: false });
+          this.handleRequestFailure(errorMessage, 'text');
+        },
+      });
+  }
+
   trackByMessageId(_: number, message: ChatMessage): string {
     return message.id;
   }
@@ -354,6 +411,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     const audioUrl = this.extractAudioUrl(response);
     const workflow = this.extractWorkflow(response, meta);
     const messageAction = this.buildMessageAction(response, meta);
+    const confirmationId = this.extractConfirmationId(response);
+    const requiresConfirmation = !!confirmationId || response.requiresConfirmation === true || response.requires_confirmation === true;
     const isWorkflowFailure = response.type === 'workflow' && response.status === 'failed';
     const isHardError = response.type === 'error';
     const isError = isHardError || isWorkflowFailure;
@@ -376,6 +435,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       actionLabel: isHardError || isWorkflowFailure ? null : messageAction?.label ?? null,
       actionTarget: isHardError || isWorkflowFailure ? null : messageAction?.target ?? null,
       actionKind: isHardError || isWorkflowFailure ? null : messageAction?.kind ?? null,
+      confirmationId: isHardError || isWorkflowFailure || !requiresConfirmation ? null : confirmationId,
+      confirmationPending: false,
+      confirmationResolved: false,
       workflow,
     };
     this.pushMessage(message);
@@ -489,6 +551,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private updateMessageText(messageId: string, text: string): void {
     this.messages.update(messages =>
       messages.map(message => message.id === messageId ? { ...message, text } : message)
+    );
+    this.shouldScrollToBottom = true;
+  }
+
+  private updateMessageState(messageId: string, patch: Partial<ChatMessage>): void {
+    this.messages.update(messages =>
+      messages.map(message => message.id === messageId ? { ...message, ...patch } : message)
     );
     this.shouldScrollToBottom = true;
   }
@@ -651,11 +720,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private isSoftVoiceResponse(response: ChatApiResponse | null | undefined): boolean {
     const status = (response?.status || '').trim().toLowerCase();
+    const retryable = (response as { retryable?: boolean } | null | undefined)?.retryable === true;
     return status === 'retry'
       || status === 'no_input'
       || status === 'no_speech'
       || status === 'unclear_audio'
-      || status === 'invalid_audio';
+      || status === 'invalid_audio'
+      || retryable;
   }
 
   private toDisplayText(value: unknown): string | null {
@@ -680,6 +751,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     response: ChatApiResponse,
     meta: AssistantResponseMeta,
   ): { label: string; target: string; kind: MessageActionKind } | null {
+    if (response.type === 'confirm_action' || response.confirmationId) {
+      return null;
+    }
+
     if (response.status === 'confirm') {
       return { label: 'Confirmer', target: 'oui confirme', kind: 'confirm' };
     }
@@ -729,6 +804,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     }
     const payloadUrl = data?.['download_url'];
     return typeof payloadUrl === 'string' && payloadUrl.trim().length > 0 ? payloadUrl.trim() : null;
+  }
+
+  private extractConfirmationId(response: ChatApiResponse): string | null {
+    if (typeof response.confirmationId === 'string' && response.confirmationId.trim()) {
+      return response.confirmationId.trim();
+    }
+    if (response.data && typeof response.data === 'object') {
+      const data = response.data as Record<string, unknown>;
+      const value = data['confirmationId'] ?? data['confirmation_id'];
+      return typeof value === 'string' && value.trim() ? value.trim() : null;
+    }
+    return null;
   }
 
   private extractWorkflow(response: ChatApiResponse, meta: AssistantResponseMeta): AssistantWorkflowState | null {
@@ -860,6 +947,32 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         ? String(user.roles[0]).trim()
         : '';
     return primaryRole.length > 0 ? primaryRole.replace(/^ROLE_/i, '').toUpperCase() : null;
+  }
+
+  private blurActiveElementInPanel(): void {
+    const panel = this.chatPanel?.nativeElement;
+    const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!panel || !(activeElement instanceof HTMLElement) || !panel.contains(activeElement)) {
+      return;
+    }
+    activeElement.blur();
+  }
+
+  private isAlreadyConsumedConfirmation(message: string): boolean {
+    const normalized = (message || '').trim().toLowerCase();
+    return normalized.includes('deja ete traitee')
+      || normalized.includes('déjà été traitée')
+      || normalized.includes('action deja faite')
+      || normalized.includes('already');
+  }
+
+  private pushStableConfirmationMessage(): void {
+    this.pushMessage({
+      id: this.createMessageId(),
+      sender: 'assistant',
+      text: 'Cette action a deja ete traitee.',
+      timestamp: new Date(),
+    });
   }
 
   private shouldShowVoiceToast(message: string): boolean {

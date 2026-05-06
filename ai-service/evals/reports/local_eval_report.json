@@ -1,0 +1,286 @@
+{
+  "generated_at": "2026-05-06T08:07:04.628587+00:00",
+  "summary": {
+    "total": 8,
+    "metrics": {
+      "agent_match": 1.0,
+      "confirmation_match": 1.0,
+      "forbidden_match": 1.0,
+      "intent_match": 1.0,
+      "language_match": 1.0,
+      "no_unsafe_write": 1.0,
+      "tool_match": 1.0
+    },
+    "thresholds": {
+      "intent_match": 0.9,
+      "confirmation_match": 1.0,
+      "no_unsafe_write": 1.0,
+      "forbidden_match": 1.0
+    },
+    "passed_thresholds": {
+      "intent_match": true,
+      "confirmation_match": true,
+      "no_unsafe_write": true,
+      "forbidden_match": true
+    },
+    "failures": []
+  },
+  "results": [
+    {
+      "id": "vc-001",
+      "dataset": "voice_confirmation",
+      "input": "oui",
+      "language": "fr",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action"
+      },
+      "actual": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action",
+        "language": "fr",
+        "confirmed": true
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-002",
+      "dataset": "voice_confirmation",
+      "input": "yes",
+      "language": "en",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action"
+      },
+      "actual": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action",
+        "language": "en",
+        "confirmed": true
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-003",
+      "dataset": "voice_confirmation",
+      "input": "نعم",
+      "language": "ar",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action"
+      },
+      "actual": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action",
+        "language": "ar",
+        "confirmed": true
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-004",
+      "dataset": "voice_confirmation",
+      "input": "ey",
+      "language": "ar_tn",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action"
+      },
+      "actual": {
+        "intent": "confirmation.approved",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "execute_action",
+        "language": "ar",
+        "confirmed": true
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-005",
+      "dataset": "voice_confirmation",
+      "input": "non",
+      "language": "fr",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer"
+      },
+      "actual": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer",
+        "language": "fr",
+        "confirmed": false
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-006",
+      "dataset": "voice_confirmation",
+      "input": "no",
+      "language": "en",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer"
+      },
+      "actual": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer",
+        "language": "en",
+        "confirmed": false
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-007",
+      "dataset": "voice_confirmation",
+      "input": "لا",
+      "language": "ar",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer"
+      },
+      "actual": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer",
+        "language": "ar",
+        "confirmed": false
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    },
+    {
+      "id": "vc-008",
+      "dataset": "voice_confirmation",
+      "input": "le",
+      "language": "ar_tn",
+      "role": "EMPLOYEE",
+      "expected": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer"
+      },
+      "actual": {
+        "intent": "confirmation.rejected",
+        "agent": "confirmation",
+        "requiresConfirmation": false,
+        "tool": "legacy.create_leave_request",
+        "behavior": "answer",
+        "language": "ar",
+        "confirmed": false
+      },
+      "scores": {
+        "intent_match": true,
+        "agent_match": true,
+        "confirmation_match": true,
+        "no_unsafe_write": true,
+        "language_match": true,
+        "tool_match": true,
+        "forbidden_match": true
+      }
+    }
+  ]
+}

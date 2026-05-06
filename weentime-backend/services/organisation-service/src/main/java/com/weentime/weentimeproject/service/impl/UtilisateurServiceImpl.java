@@ -46,7 +46,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -95,6 +94,9 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         if (utilisateurRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email deja utilise : " + request.getEmail());
         }
+        if (request.getMotDePasse() == null || request.getMotDePasse().isBlank()) {
+            throw new IllegalArgumentException("Le mot de passe est obligatoire.");
+        }
 
         Entreprise entreprise = resolveEntrepriseForWrite(request.getEntrepriseId());
         assertEntrepriseCapacity(entreprise);
@@ -132,7 +134,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .motDePasse(passwordEncoder.encode(request.getMotDePasse()))
                 .telephone(request.getTelephone())
                 .statut(StatutUtilisateurEnum.ACTIF)
-                .roles(Set.of(roleRh))
+                .roles(new HashSet<>(Set.of(roleRh)))
                 .entrepriseId(entreprise.getId())
                 .entreprise(entreprise)
                 .build();
@@ -163,7 +165,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .email(request.getEmail().trim())
                 .motDePasse(passwordEncoder.encode(request.getPassword()))
                 .statut(StatutUtilisateurEnum.ACTIF)
-                .roles(Set.of(roleRh))
+                .roles(new HashSet<>(Set.of(roleRh)))
                 .entrepriseId(entreprise.getId())
                 .entreprise(entreprise)
                 .build();
@@ -176,19 +178,21 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<RhOwnerResponse> getAllRh() {
         return utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(RoleNom.ROLE_RH)
                 .stream()
+                .map(this::enforceSingleBusinessRole)
+                .filter(this::hasCanonicalRhRole)
                 .map(utilisateurMapper::toRhOwnerResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<RhOwnerResponse> getRhByEntreprise(Long entrepriseId) {
         return utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(entrepriseId, RoleNom.ROLE_RH)
                 .stream()
+                .map(this::enforceSingleBusinessRole)
+                .filter(this::hasCanonicalRhRole)
                 .map(utilisateurMapper::toRhOwnerResponse)
                 .collect(Collectors.toList());
     }
@@ -284,7 +288,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .motDePasse(passwordEncoder.encode(request.getMotDePasse()))
                 .statut(StatutUtilisateurEnum.ACTIF)
                 .build();
-        utilisateur.setRoles(resolveRoles(null));
+        utilisateur.setRoles(resolveRoles(null, null));
 
         String domain = request.getEmail().substring(request.getEmail().indexOf("@") + 1);
         String namePart = domain.contains(".") ? domain.substring(0, domain.indexOf(".")) : domain;
@@ -309,17 +313,17 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UtilisateurResponse getUtilisateurById(Long id) {
         return utilisateurRepository.findById(id)
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toResponse)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<UtilisateurResponse> getUtilisateursByEntreprise(Long entrepriseId) {
         return utilisateurRepository.findByEntrepriseIdOrderByPrenomAscNomAsc(entrepriseId).stream()
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toResponse)
                 .toList();
     }
@@ -377,9 +381,9 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<String> getRolesByUserId(Long userId) {
         Utilisateur utilisateur = utilisateurRepository.findWithDetailsById(userId)
+                .map(this::enforceSingleBusinessRole)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + userId));
 
         if (utilisateur.getRoles() == null) {
@@ -409,9 +413,9 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UtilisateurResponse getUtilisateurByEmail(String email) {
         return utilisateurRepository.findByEmail(email)
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toResponse)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_EMAIL + email));
     }
@@ -425,15 +429,14 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UtilisateurAuthResponse getUtilisateurForAuth(String email) {
         return utilisateurRepository.findByEmail(email)
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toAuthResponse)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_EMAIL + email));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
         String email = getCurrentUser();
         if ("SYSTEM".equals(email)) {
@@ -441,6 +444,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         }
 
         return utilisateurRepository.findByEmail(email)
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toProfileResponse)
                 .map(this::ensureProfileContextDefaults)
                 .orElseGet(() -> defaultProfile(email));
@@ -541,13 +545,11 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable) {
         return getAllUtilisateurs(pageable, null);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable, Long entrepriseId) {
         Long entrepriseScope = resolveScopedEntrepriseId();
         Long effectiveEntrepriseId = entrepriseId != null ? entrepriseId : entrepriseScope;
@@ -555,6 +557,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 ? utilisateurRepository.findAll(pageable)
                 : utilisateurRepository.findByEntrepriseId(effectiveEntrepriseId, pageable);
         return page
+                .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toResponse);
     }
 
@@ -640,7 +643,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
             utilisateur.setEquipe(null);
         }
 
-        utilisateur.setRoles(resolveRoles(request.getRoleIds()));
+        utilisateur.setRoles(resolveRoles(request.getRole(), request.getRoleIds()));
     }
 
     private Entreprise resolveEntrepriseForWrite(Long requestedEntrepriseId) {
@@ -729,18 +732,69 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         }
     }
 
-    private Set<Role> resolveRoles(Set<Long> roleIds) {
-        if (roleIds == null || roleIds.isEmpty()) {
-            Role defaultRole = roleRepository.findByNom(RoleNom.ROLE_EMPLOYEE)
-                    .orElseThrow(() -> new EntityNotFoundException("Role par defaut non trouve : ROLE_EMPLOYEE"));
-            return Set.of(defaultRole);
+    private Set<Role> resolveRoles(String role, Set<Long> roleIds) {
+        RoleNom canonicalRole = null;
+        if (role != null && !role.isBlank()) {
+            canonicalRole = normalizeRole(role);
+        } else if (roleIds != null && !roleIds.isEmpty()) {
+            Set<RoleNom> requestedRoles = roleIds.stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .map(id -> roleRepository.findById(id)
+                            .orElseThrow(() -> new EntityNotFoundException("Role non trouve avec l'id : " + id)))
+                    .map(Role::getNom)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            canonicalRole = resolveCanonicalRole(requestedRoles);
         }
-        return roleIds.stream()
+
+        RoleNom resolvedRole = canonicalRole == null ? RoleNom.ROLE_EMPLOYEE : canonicalRole;
+        Role businessRole = roleRepository.findByNom(resolvedRole)
+                .orElseThrow(() -> new EntityNotFoundException("Role non trouve : " + resolvedRole));
+        return new HashSet<>(Set.of(businessRole));
+    }
+
+    private Utilisateur enforceSingleBusinessRole(Utilisateur utilisateur) {
+        if (utilisateur == null) {
+            return null;
+        }
+
+        Set<Role> currentRoles = utilisateur.getRoles();
+        Set<RoleNom> roleNames = currentRoles == null
+                ? Set.of()
+                : currentRoles.stream()
+                .map(Role::getNom)
                 .filter(Objects::nonNull)
-                .distinct()
-                .map(id -> roleRepository.findById(id)
-                        .orElseThrow(() -> new EntityNotFoundException("Role non trouve avec l'id : " + id)))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toSet());
+        RoleNom canonicalRole = resolveCanonicalRole(roleNames);
+
+        boolean alreadyCanonical = currentRoles != null
+                && currentRoles.size() == 1
+                && currentRoles.stream().allMatch(role -> role != null && role.getNom() == canonicalRole);
+        if (alreadyCanonical) {
+            return utilisateur;
+        }
+
+        Role businessRole = roleRepository.findByNom(canonicalRole)
+                .orElseThrow(() -> new EntityNotFoundException("Role non trouve : " + canonicalRole));
+        utilisateur.setRoles(new HashSet<>(Set.of(businessRole)));
+        return utilisateurRepository.save(utilisateur);
+    }
+
+    private RoleNom resolveCanonicalRole(Set<RoleNom> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return RoleNom.ROLE_EMPLOYEE;
+        }
+        if (roles.contains(RoleNom.ROLE_ADMIN)) {
+            return RoleNom.ROLE_ADMIN;
+        }
+        if (roles.contains(RoleNom.ROLE_RH)) {
+            return RoleNom.ROLE_RH;
+        }
+        if (roles.contains(RoleNom.ROLE_MANAGER)) {
+            return RoleNom.ROLE_MANAGER;
+        }
+        return RoleNom.ROLE_EMPLOYEE;
     }
 
     @Override
@@ -819,6 +873,18 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         if (managerId != null) {
             manager = utilisateurRepository.findById(managerId)
                     .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + managerId));
+
+            boolean managerEligible = manager.getRoles() != null && manager.getRoles().stream()
+                    .map(Role::getNom)
+                    .anyMatch(role -> role == RoleNom.ROLE_MANAGER || role == RoleNom.ROLE_RH);
+            if (!managerEligible) {
+                throw new IllegalArgumentException("Le manager doit avoir le role MANAGER ou RH.");
+            }
+
+            if (utilisateur.getEntrepriseId() != null && manager.getEntrepriseId() != null
+                    && !utilisateur.getEntrepriseId().equals(manager.getEntrepriseId())) {
+                throw new IllegalArgumentException("Le manager doit appartenir a la meme entreprise.");
+            }
         }
 
         utilisateur.setManager(manager);
@@ -872,10 +938,12 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .equipe(utilisateur.getEquipe() != null ? utilisateur.getEquipe().getNom() : null)
                 .entrepriseId(utilisateur.getEntreprise() != null ? utilisateur.getEntreprise().getId() : null)
                 .entreprise(utilisateur.getEntreprise() != null ? utilisateur.getEntreprise().getNom() : null)
-                .roles(utilisateur.getRoles() == null ? List.of() : utilisateur.getRoles().stream()
-                        .map(role -> role.getNom().name())
-                        .sorted()
-                        .toList())
+                .roles(utilisateur.getRoles() == null ? List.of() : List.of(resolveCanonicalRole(
+                        utilisateur.getRoles().stream()
+                                .map(Role::getNom)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toSet())
+                ).name()))
                 .active(utilisateur.getStatut() == StatutUtilisateurEnum.ACTIF)
                 .build();
     }
@@ -895,15 +963,19 @@ public class UtilisateurServiceImpl implements UtilisateurService {
 
     private Utilisateur resolveRhUser(Long id) {
         Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .map(this::enforceSingleBusinessRole)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
 
-        boolean isRh = utilisateur.getRoles() != null
-                && utilisateur.getRoles().stream().anyMatch(role -> role.getNom() == RoleNom.ROLE_RH);
-        if (!isRh) {
+        if (!hasCanonicalRhRole(utilisateur)) {
             throw new IllegalStateException("Cet utilisateur n'a pas le role RH.");
         }
 
         return utilisateur;
+    }
+
+    private boolean hasCanonicalRhRole(Utilisateur utilisateur) {
+        return utilisateur.getRoles() != null
+                && utilisateur.getRoles().stream().anyMatch(role -> role.getNom() == RoleNom.ROLE_RH);
     }
 
     private String[] splitDisplayName(String fullName) {

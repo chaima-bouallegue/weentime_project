@@ -49,8 +49,6 @@ spring:
           uri: ${RH_SERVICE_URI:lb://rh-service}
           predicates:
             - Path=/ws-rh/**
-          filters:
-            - RewritePath=/ws-rh(?<segment>/?.*), /ws$\{segment}
         - id: presence-ws
           uri: ${PRESENCE_SERVICE_URI:lb://presence-service}
           predicates:

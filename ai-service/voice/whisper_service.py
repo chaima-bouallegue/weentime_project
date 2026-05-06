@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
 
@@ -9,6 +10,13 @@ logger = logging.getLogger(__name__)
 _MODEL = None
 _MODEL_INITIALIZED = False
 _MODEL_LOCK = RLock()
+
+
+@dataclass(frozen=True, slots=True)
+class WhisperTranscriptionResult:
+    text: str
+    language: str = "unknown"
+    language_probability: float = 0.0
 
 
 def _load_model(
@@ -51,23 +59,23 @@ def _load_model(
         return _MODEL
 
 
-def transcribe_audio(
+def transcribe_audio_result(
     file_path: str | Path,
     *,
     model_name: str = "base",
-    language: str = "fr",
+    language: str | None = None,
     device: str = "cpu",
     compute_type: str = "int8",
-) -> str:
+) -> WhisperTranscriptionResult:
     model = _load_model(
         model_name=model_name,
         device=device,
         compute_type=compute_type,
     )
     if not model:
-        return ""
+        return WhisperTranscriptionResult(text="")
 
-    segments, _ = model.transcribe(
+    segments, info = model.transcribe(
         str(file_path),
         language=language or None,
         vad_filter=True,
@@ -84,7 +92,36 @@ def transcribe_audio(
         for segment in segments
         if getattr(segment, "text", "").strip()
     )
-    return text.strip()
+    detected_language = str(getattr(info, "language", "") or "unknown")
+    language_probability = float(getattr(info, "language_probability", 0.0) or 0.0)
+    logger.info(
+        "whisper_transcription language=%s confidence=%.4f length=%s",
+        detected_language,
+        language_probability,
+        len(text.strip()),
+    )
+    return WhisperTranscriptionResult(
+        text=text.strip(),
+        language=detected_language,
+        language_probability=language_probability,
+    )
+
+
+def transcribe_audio(
+    file_path: str | Path,
+    *,
+    model_name: str = "base",
+    language: str | None = None,
+    device: str = "cpu",
+    compute_type: str = "int8",
+) -> str:
+    return transcribe_audio_result(
+        file_path,
+        model_name=model_name,
+        language=language,
+        device=device,
+        compute_type=compute_type,
+    ).text
 
 
 def transcribe_partial(

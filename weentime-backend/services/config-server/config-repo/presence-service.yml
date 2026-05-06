@@ -43,6 +43,7 @@ presence:
       - THURSDAY
       - FRIDAY
   half-day-threshold-hours: ${PRESENCE_HALF_DAY_THRESHOLD_HOURS:4.0}
+  timezone: ${PRESENCE_TIMEZONE:Africa/Tunis}
   absence-detection:
     cron: ${PRESENCE_ABSENCE_CRON:0 55 23 * * *}
 

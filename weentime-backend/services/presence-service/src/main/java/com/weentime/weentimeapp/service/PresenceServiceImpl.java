@@ -9,6 +9,7 @@ import com.weentime.weentimeapp.dto.AttendanceSessionViewDTO;
 import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
 import com.weentime.weentimeapp.dto.CheckInRequest;
 import com.weentime.weentimeapp.dto.CheckOutRequest;
+import com.weentime.weentimeapp.dto.DailyAttendanceStatusDTO;
 import com.weentime.weentimeapp.dto.GlobalPresenceAnalyticsDTO;
 import com.weentime.weentimeapp.dto.PresenceNotificationDTO;
 import com.weentime.weentimeapp.dto.PresenceStatsDTO;
@@ -81,27 +82,31 @@ public class PresenceServiceImpl implements PresenceService {
             safeRequest.setSource(PresenceSource.WEB);
         }
 
-        log.info("Starting check-in for user {} on {}", utilisateurId, currentDate());
+        LocalDate today = currentDate();
+        log.info("Starting check-in for user {} on {}", utilisateurId, today);
 
-        Optional<AttendanceSession> openSession = attendanceSessionRepository
-                .findFirstByUtilisateurIdAndStatusOrderByCheckInTimeDesc(utilisateurId, AttendanceSessionStatus.OPEN);
-        if (openSession.isPresent()) {
-            AttendanceSession existingSession = openSession.get();
-            LocalDate sessionDate = existingSession.getDate() != null ? existingSession.getDate() : currentDate();
+        List<AttendanceSession> openSessions = attendanceSessionRepository
+                .findByUtilisateurIdAndStatusOrderByCheckInTimeDesc(utilisateurId, AttendanceSessionStatus.OPEN);
+
+        Optional<AttendanceSession> todayOpenSession = openSessions.stream()
+                .filter(session -> Objects.equals(resolveSessionDate(session, today), today))
+                .findFirst();
+        if (todayOpenSession.isPresent()) {
+            AttendanceSession existingSession = todayOpenSession.get();
             log.info(
-                    "Idempotent check-in for user {}: returning existing open session {} from {}",
+                    "Idempotent check-in for user {}: returning existing today's open session {}",
                     utilisateurId,
-                    existingSession.getId(),
-                    sessionDate
+                    existingSession.getId()
             );
             return buildTodaySummary(
                     utilisateurId,
-                    sessionDate,
-                    attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, sessionDate)
+                    today,
+                    attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, today)
             );
         }
 
-        LocalDate today = currentDate();
+        closeStaleOpenSessions(utilisateurId, today, openSessions);
+
         if (hasApprovedLeave(utilisateurId, today)) {
             log.warn("Check-in rejected for user {} because an approved leave exists on {}", utilisateurId, today);
             throw new IllegalStateException("Cannot check in while an approved leave is active.");
@@ -378,15 +383,24 @@ public class PresenceServiceImpl implements PresenceService {
         long onTimeCount = 0;
         long arrivalSecondsTotal = 0;
         int arrivalDays = 0;
+        List<DailyAttendanceStatusDTO> dailyStatuses = new ArrayList<>();
 
         for (LocalDate date = weekStart; !date.isAfter(weekEnd); date = date.plusDays(1)) {
             WorkSchedule schedule = resolveSchedule(utilisateurId, date);
-            if (!isWorkingDay(schedule, date)) {
+            boolean workingDay = isWorkingDay(schedule, date);
+            if (!workingDay) {
+                dailyStatuses.add(DailyAttendanceStatusDTO.builder()
+                        .date(date)
+                        .status(AttendanceDayStatus.IDLE)
+                        .workedSeconds(0L)
+                        .workingDay(Boolean.FALSE)
+                        .build());
                 continue;
             }
 
             List<AttendanceSession> sessions = sessionsByDate.getOrDefault(date, List.of());
             if (!sessions.isEmpty()) {
+                AttendanceSummaryDTO daySummary = buildTodaySummary(utilisateurId, date, sessions);
                 totalPresent++;
                 AttendanceSession firstSession = sessions.stream()
                         .min(Comparator.comparing(AttendanceSession::getCheckInTime))
@@ -400,21 +414,46 @@ public class PresenceServiceImpl implements PresenceService {
                         onTimeCount++;
                     }
                 }
-                workedSeconds += sumSessionDurations(sessions);
+                long workedForDay = daySummary.getTotalDuration() != null ? daySummary.getTotalDuration() : 0L;
+                workedSeconds += workedForDay;
+                dailyStatuses.add(DailyAttendanceStatusDTO.builder()
+                        .date(date)
+                        .status(daySummary.getStatus())
+                        .workedSeconds(workedForDay)
+                        .workingDay(Boolean.TRUE)
+                        .build());
                 continue;
             }
 
             if (hasApprovedLeave(utilisateurId, date)) {
+                dailyStatuses.add(DailyAttendanceStatusDTO.builder()
+                        .date(date)
+                        .status(AttendanceDayStatus.ON_LEAVE)
+                        .workedSeconds(0L)
+                        .workingDay(Boolean.TRUE)
+                        .build());
                 continue;
             }
 
             if (hasApprovedTelework(utilisateurId, date)) {
                 totalPresent++;
                 onTimeCount++;
+                dailyStatuses.add(DailyAttendanceStatusDTO.builder()
+                        .date(date)
+                        .status(AttendanceDayStatus.REMOTE)
+                        .workedSeconds(0L)
+                        .workingDay(Boolean.TRUE)
+                        .build());
                 continue;
             }
 
             totalAbsent++;
+            dailyStatuses.add(DailyAttendanceStatusDTO.builder()
+                    .date(date)
+                    .status(AttendanceDayStatus.ABSENT)
+                    .workedSeconds(0L)
+                    .workingDay(Boolean.TRUE)
+                    .build());
         }
 
         BigDecimal totalHours = toHours(workedSeconds);
@@ -432,6 +471,7 @@ public class PresenceServiceImpl implements PresenceService {
                         .orElse(BigDecimal.ZERO))
                 .onTimeArrivals(onTimeCount)
                 .lateArrivals(lateCount)
+                .dailyStatuses(dailyStatuses)
                 .build();
     }
 
@@ -508,6 +548,74 @@ public class PresenceServiceImpl implements PresenceService {
                                     .build()
                     ));
         }
+    }
+
+    private void closeStaleOpenSessions(Long utilisateurId, LocalDate today, List<AttendanceSession> openSessions) {
+        List<AttendanceSession> staleSessions = (openSessions == null ? List.<AttendanceSession>of() : openSessions).stream()
+                .filter(Objects::nonNull)
+                .filter(session -> !Objects.equals(resolveSessionDate(session, today), today))
+                .toList();
+
+        if (staleSessions.isEmpty()) {
+            return;
+        }
+
+        for (AttendanceSession staleSession : staleSessions) {
+            LocalDate sessionDate = resolveSessionDate(staleSession, today);
+            if (sessionDate.isAfter(today)) {
+                log.warn(
+                        "Skipping stale-session auto-close for user {} and session {} because session date {} is in the future",
+                        utilisateurId,
+                        staleSession.getId(),
+                        sessionDate
+                );
+                continue;
+            }
+
+            LocalDateTime closeAt = computeStaleSessionCloseTime(utilisateurId, staleSession, sessionDate);
+            LocalDateTime checkInTime = staleSession.getCheckInTime();
+            long duration = (checkInTime == null || closeAt == null)
+                    ? 0L
+                    : Math.max(Duration.between(checkInTime, closeAt).getSeconds(), 0L);
+
+            staleSession.setCheckOutTime(closeAt);
+            staleSession.setDuration(duration);
+            staleSession.setStatus(AttendanceSessionStatus.CLOSED);
+            staleSession.setDailyStatus(Boolean.TRUE.equals(staleSession.getLateArrival()) ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE);
+            attendanceSessionRepository.save(staleSession);
+            refreshOvertime(utilisateurId, sessionDate);
+
+            log.warn(
+                    "Auto-closed stale open session {} for user {} on {} at {} before creating a new check-in",
+                    staleSession.getId(),
+                    utilisateurId,
+                    sessionDate,
+                    closeAt
+            );
+        }
+    }
+
+    private LocalDate resolveSessionDate(AttendanceSession session, LocalDate fallbackDate) {
+        if (session == null) {
+            return fallbackDate;
+        }
+        return session.getDate() != null ? session.getDate() : fallbackDate;
+    }
+
+    private LocalDateTime computeStaleSessionCloseTime(Long utilisateurId, AttendanceSession session, LocalDate sessionDate) {
+        LocalDateTime checkInTime = session != null ? session.getCheckInTime() : null;
+        WorkSchedule schedule = resolveSchedule(utilisateurId, sessionDate);
+        LocalTime fallbackEnd = presenceProperties.getDefaults().getEndTime();
+        LocalTime targetEnd = schedule != null && schedule.getHeureFin() != null ? schedule.getHeureFin() : fallbackEnd;
+        LocalDateTime closeAt = LocalDateTime.of(sessionDate, targetEnd);
+
+        if (checkInTime == null) {
+            return closeAt;
+        }
+        if (closeAt.isBefore(checkInTime)) {
+            return checkInTime;
+        }
+        return closeAt;
     }
 
     private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions) {
@@ -716,6 +824,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .overtimeHours(Optional.ofNullable(overtimeRepository.sumHeuresSupplementairesBetween(dateFrom, dateTo)).orElse(BigDecimal.ZERO))
                 .onTimeArrivals(Math.max(totalPresent - lateCount, 0))
                 .lateArrivals(lateCount)
+                .dailyStatuses(List.of())
                 .build();
     }
 
@@ -818,6 +927,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .overtimeHours(BigDecimal.ZERO)
                 .onTimeArrivals(0)
                 .lateArrivals(0)
+                .dailyStatuses(List.of())
                 .build();
     }
 

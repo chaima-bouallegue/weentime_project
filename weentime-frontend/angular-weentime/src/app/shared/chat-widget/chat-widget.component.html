@@ -1,15 +1,18 @@
 <div class="chat-widget" [attr.data-role]="assistantRole().toLowerCase()">
   <div
     class="chat-panel-shell"
+    [class.chat-panel-shell--open]="isOpen()"
     cdkDrag
     [cdkDragDisabled]="!isOpen()"
     [cdkDragFreeDragPosition]="panelPosition()"
     (cdkDragEnded)="onDragEnd($event)"
   >
     <section
+      #chatPanel
       class="chat-panel"
       [class.chat-panel--open]="isOpen()"
       [attr.aria-hidden]="!isOpen()"
+      [attr.inert]="!isOpen() ? '' : null"
     >
       <header class="chat-panel__header" cdkDragHandle>
         <div class="chat-panel__identity">
@@ -126,6 +129,37 @@
             <div class="message-bubble__footer">
               <span *ngIf="message.intent" class="message-bubble__tag">{{ message.intent }}</span>
               <div class="message-bubble__actions">
+                <div
+                  *ngIf="message.confirmationId && !message.confirmationResolved"
+                  class="message-bubble__confirm-actions"
+                >
+                  <button
+                    type="button"
+                    class="message-bubble__cta message-bubble__cta--success"
+                    (click)="confirmAssistantAction(message, true)"
+                    [disabled]="message.confirmationPending || message.confirmationResolved || loading()"
+                  >
+                    <lucide-icon name="check" [size]="14"></lucide-icon>
+                    <span>{{ message.confirmationPending ? 'Confirmation...' : 'Confirmer' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="message-bubble__cta message-bubble__cta--ghost"
+                    (click)="confirmAssistantAction(message, false)"
+                    [disabled]="message.confirmationPending || message.confirmationResolved || loading()"
+                  >
+                    <lucide-icon name="x" [size]="14"></lucide-icon>
+                    <span>Annuler</span>
+                  </button>
+                </div>
+
+                <span
+                  *ngIf="message.confirmationResolved"
+                  class="message-bubble__resolved"
+                >
+                  Action traitee
+                </span>
+
                 <button
                   *ngIf="message.actionLabel && message.actionTarget"
                   type="button"

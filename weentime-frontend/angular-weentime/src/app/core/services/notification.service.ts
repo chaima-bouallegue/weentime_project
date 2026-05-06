@@ -5,6 +5,7 @@ import { EMPTY, Observable, Subscription, catchError, map, of, tap } from 'rxjs'
 import { environment } from '../../../environments/environment';
 import { WebSocketService } from './websocket.service';
 import { AuthService } from './auth.service';
+import { ApiConfigService } from './api-config.service';
 
 export type NotificationType =
   | 'CONGE_SOUMIS'
@@ -77,9 +78,10 @@ export class NotificationService {
   private readonly router = inject(Router);
   private readonly webSocket = inject(WebSocketService);
   private readonly authService = inject(AuthService);
+  private readonly apiConfig = inject(ApiConfigService);
 
-  private readonly rhUrl = `${environment.apiUrl}/rh/notifications`;
-  private readonly orgUrl = `${environment.apiUrl}/notifications`;
+  private readonly rhUrl = this.apiConfig.buildUrl('/rh/notifications');
+  private readonly orgUrl = this.apiConfig.NOTIFICATIONS.GET_ALL;
   private readonly _notifications = signal<Notification[]>([]);
   private readonly _loading = signal(false);
   private subscriptions = new Subscription();
@@ -155,6 +157,10 @@ export class NotificationService {
 
     const orgEndpoint = environment.websocket?.notifications ?? `${environment.wsUrl}/ws/notifications`;
     const rhEndpoint = environment.websocket?.rh ?? `${environment.wsUrl}/ws-rh`;
+    const canUseRhChannel =
+      this.authService.hasRole('RH')
+      || this.authService.hasRole('ADMIN')
+      || this.authService.hasRole('MANAGER');
 
     this.subscriptions.add(
       this.webSocket.watch<unknown>(`/topic/notifications/${userId}`, orgEndpoint)
@@ -166,11 +172,14 @@ export class NotificationService {
         .pipe(catchError(() => EMPTY))
         .subscribe(payload => this.upsert(this.normalize(payload)))
     );
-    this.subscriptions.add(
-      this.webSocket.watch<unknown>('/user/queue/notifications', rhEndpoint)
-        .pipe(catchError(() => EMPTY))
-        .subscribe(payload => this.upsert(this.normalize(payload)))
-    );
+
+    if (canUseRhChannel) {
+      this.subscriptions.add(
+        this.webSocket.watch<unknown>('/user/queue/notifications', rhEndpoint)
+          .pipe(catchError(() => EMPTY))
+          .subscribe(payload => this.upsert(this.normalize(payload)))
+      );
+    }
   }
 
   private resetRealtime(): void {

@@ -1,4 +1,5 @@
 export type PointageType = 'ENTREE' | 'SORTIE';
+export type AttendanceUiState = 'NOT_STARTED' | 'ACTIVE' | 'CLOSED' | 'ERROR';
 
 export interface PointageEntry {
   id?:              number;

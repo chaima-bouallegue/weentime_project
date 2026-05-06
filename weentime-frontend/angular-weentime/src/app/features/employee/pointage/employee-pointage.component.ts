@@ -1,60 +1,35 @@
-import {
-  Component,
-  inject,
-  signal,
-  computed,
-  OnDestroy,
-  OnInit,
-  DestroyRef,
-  ViewEncapsulation,
-} from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DestroyRef, OnDestroy, OnInit, ViewEncapsulation, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterModule } from '@angular/router';
 import {
-  LucideAngularModule,
-  Clock,
+  Activity,
+  AlertCircle,
   Calendar,
   CheckCircle,
-  AlertCircle,
+  Clock,
+  LucideAngularModule,
   Play,
   Square,
-  ChevronRight,
   TrendingUp,
+  Users,
 } from 'lucide-angular';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { interval, startWith, Subscription, switchMap } from 'rxjs';
-import { animate, keyframes, style, transition, trigger } from '@angular/animations';
-import { PointageEntry, PointageStats } from './pointage.models';
-import { PointageService } from './pointage.service';
+import { catchError, forkJoin, interval, of, startWith, Subscription, switchMap } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { AuthService } from '../../../core/services/auth.service';
+import { AttendanceCardComponent } from '../../../shared/attendance/attendance-card.component';
+import { formatLocalTime } from '../../../core/utils/date-time.util';
+import { PointageEntry, PointageStats } from './pointage.models';
+import { PointageService } from './pointage.service';
 
 @Component({
   selector: 'app-employee-pointage',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, RouterModule, LucideAngularModule, AttendanceCardComponent],
   templateUrl: './employee-pointage.component.html',
   styleUrls: ['./employee-pointage.component.scss'],
   encapsulation: ViewEncapsulation.None,
-  animations: [
-    trigger('fadeInUp', [
-      transition(':enter', [
-        style({ opacity: 0, transform: 'translateY(20px)' }),
-        animate('0.5s cubic-bezier(0.19, 1, 0.22, 1)', style({ opacity: 1, transform: 'translateY(0)' })),
-      ]),
-    ]),
-    trigger('pulse', [
-      transition('* => active', [
-        animate(
-          '2s infinite',
-          keyframes([
-            style({ boxShadow: '0 0 0 0 rgba(124, 58, 237, 0.4)' }),
-            style({ boxShadow: '0 0 0 20px rgba(124, 58, 237, 0)' }),
-          ]),
-        ),
-      ]),
-    ]),
-  ],
 })
 export class EmployeePointageComponent implements OnInit, OnDestroy {
   private readonly pointageService = inject(PointageService);
@@ -69,8 +44,9 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly iconAlert = AlertCircle;
   readonly iconPlay = Play;
   readonly iconSquare = Square;
-  readonly iconChevron = ChevronRight;
   readonly iconTrend = TrendingUp;
+  readonly iconActivity = Activity;
+  readonly iconUsers = Users;
 
   readonly currentTime = signal<string>('00:00:00');
   readonly currentDate = signal<string>('');
@@ -80,16 +56,39 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(false);
   readonly isDayOff = signal(false);
 
+  readonly attendanceState = this.pointageService.attendanceState;
+  readonly checkInTime = this.pointageService.checkInTime;
+  readonly checkOutTime = this.pointageService.checkOutTime;
+  readonly serviceError = this.pointageService.lastError;
   readonly sessionDuration = this.pointageService.sessionDuration;
   readonly isCheckedIn = this.pointageService.isCheckedIn;
 
-  readonly enterpriseName = computed(() => this.authService.currentUser()?.entreprise?.nom ?? 'Mon Entreprise');
-  readonly circleProgress = computed(() => {
-    if (!this.isCheckedIn()) return 0;
-    const goalMs = 8 * 3_600_000;
-    return Math.min((this.pointageService.sessionDurationMs() / goalMs) * 100, 100);
+  readonly role = computed(() => this.resolveRole(this.authService.currentUser()?.roles?.[0] ?? this.authService.currentUser()?.role));
+  readonly roleLabel = computed(() => {
+    switch (this.role()) {
+      case 'ADMIN':
+        return 'ADMINISTRATEUR';
+      case 'RH':
+        return 'RESSOURCES HUMAINES';
+      case 'MANAGER':
+        return 'MANAGER';
+      default:
+        return 'COLLABORATEUR';
+    }
   });
-  readonly currentDateTimeFormatted = computed(() => `${this.currentDate()} • ${this.currentTime().substring(0, 5)}`);
+
+  readonly isAdminOrRh = computed(() => this.role() === 'ADMIN' || this.role() === 'RH');
+  readonly isEmployeeOrManager = computed(() => this.role() === 'EMPLOYEE' || this.role() === 'MANAGER');
+  readonly showManagerTeamShortcut = computed(() => this.role() === 'MANAGER');
+
+  readonly dailyDuration = computed(() => {
+    if (this.attendanceState() === 'ACTIVE') {
+      return this.sessionDuration();
+    }
+    return this.formatMinutesToClock(this.stats()?.minutesAujourdhui ?? 0);
+  });
+
+  readonly currentDateTimeFormatted = computed(() => `${this.currentDate()} - ${this.currentTime().slice(0, 5)}`);
 
   private clockSub?: Subscription;
   private statsSub?: Subscription;
@@ -97,7 +96,6 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.updateDate();
     this.startClock();
-    this.pointageService.refreshStatus();
     this.startStatsPolling();
     this.refreshOverview();
 
@@ -108,8 +106,8 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
         if (!event.actionResult?.executed || (tool !== 'clock_in' && tool !== 'clock_out')) {
           return;
         }
+
         this.statusMessage.set(null);
-        this.pointageService.refreshStatus();
         this.refreshOverview();
       });
   }
@@ -119,64 +117,72 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     this.statsSub?.unsubscribe();
   }
 
-  onTogglePointage(): void {
-    if (this.isLoading() || this.isDayOff()) return;
+  onCheckIn(): void {
+    if (this.isLoading() || this.isDayOff() || this.attendanceState() !== 'NOT_STARTED') {
+      return;
+    }
+
+    this.performPointageAction(true);
+  }
+
+  onCheckOut(): void {
+    if (this.isLoading() || this.attendanceState() !== 'ACTIVE') {
+      return;
+    }
+
+    this.performPointageAction(false);
+  }
+
+  onRefresh(): void {
+    if (this.isLoading()) {
+      return;
+    }
 
     this.isLoading.set(true);
     this.statusMessage.set(null);
-
-    const isStarting = !this.isCheckedIn();
-    const request$ = isStarting ? this.pointageService.checkIn() : this.pointageService.checkOut();
-
-    request$.subscribe({
-      next: () => {
-        this.toast.success(isStarting ? 'Session demarree' : 'Session terminee');
-        this.isDayOff.set(false);
-        this.refreshOverview();
-        this.isLoading.set(false);
-      },
-      error: (err: any) => {
-        const code = err?.error?.code ?? err?.error?.error;
-        const errorMsg = err?.error?.details ?? err?.error?.message ?? err?.error?.error ?? 'Erreur lors du pointage';
-
-        if (
-          code === 'ATTENDANCE_SESSION_ALREADY_OPEN' ||
-          String(errorMsg).toLowerCase().includes('already open') ||
-          String(errorMsg).toLowerCase().includes('deja ouverte')
-        ) {
-          this.pointageService.refreshStatus();
-          this.refreshOverview();
-          this.isLoading.set(false);
-          return;
-        }
-
-        if (
-          err?.status === 403 ||
-          String(errorMsg).toLowerCase().includes('leave') ||
-          String(errorMsg).toLowerCase().includes('conge')
-        ) {
-          this.isDayOff.set(true);
-          this.statusMessage.set("Vous avez un conge approuve pour aujourd'hui.");
-          this.isLoading.set(false);
-          return;
-        }
-
-        this.toast.error(errorMsg);
-        this.isLoading.set(false);
-      },
-    });
+    this.refreshOverview(() => this.isLoading.set(false));
   }
 
-  getDayProgressColor(status: string): string {
-    switch (status) {
-      case 'OK':
-        return '#10b981';
-      case 'RETARD':
-        return '#f43f5e';
-      case 'OFF':
-        return 'rgba(0,0,0,0.1)';
+  formatTime(value: string | null): string {
+    return formatLocalTime(value);
+  }
+
+  statusLabel(): string {
+    switch (this.attendanceState()) {
+      case 'ACTIVE':
+        return 'Session démarrée';
+      case 'CLOSED':
+        return 'Journée clôturée';
+      case 'ERROR':
+        return 'Synchronisation requise';
       default:
-        return 'var(--ring-bg)';
+        return 'Aucun pointage aujourd’hui';
+    }
+  }
+
+  dayStatusLabel(status: string): string {
+    switch (status) {
+      case 'RETARD':
+        return 'Retard';
+      case 'ABSENT':
+        return 'Absent';
+      case 'OFF':
+        return 'Repos';
+      default:
+        return 'OK';
+    }
+  }
+
+  dayStatusClass(status: string): string {
+    switch (status) {
+      case 'RETARD':
+        return 'status-chip status-retard';
+      case 'ABSENT':
+        return 'status-chip status-absent';
+      case 'OFF':
+        return 'status-chip status-off';
+      default:
+        return 'status-chip status-ok';
     }
   }
 
@@ -206,7 +212,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
 
   private startStatsPolling(): void {
     this.statsSub = interval(60_000)
-      .pipe(startWith(0), switchMap(() => this.pointageService.getWeeklyStats()))
+      .pipe(switchMap(() => this.pointageService.getWeeklyStats()))
       .subscribe(data => {
         this.stats.set(data);
         this.evaluateDayOff(data);
@@ -214,9 +220,13 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   }
 
   private evaluateDayOff(data: PointageStats | null): void {
-    if (!data?.joursParStatus) return;
+    if (!data?.joursParStatus) {
+      return;
+    }
+
     const todayAbbr = new Date().toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
     const todayStatus = data.joursParStatus.find(item => item.jour === todayAbbr);
+
     if (todayStatus?.statut === 'OFF') {
       this.isDayOff.set(true);
     } else if (!this.isLoading()) {
@@ -224,21 +234,69 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private loadTodayHistory(): void {
-    this.pointageService.getTodayPointages().subscribe({
-      next: entries => this.history.set(entries),
-      error: () => this.history.set([]),
+  private refreshOverview(onSettled?: () => void): void {
+    this.pointageService.loadTodayStatus().pipe(
+      switchMap(() => forkJoin({
+        history: this.pointageService.getTodayPointages().pipe(catchError(() => of([] as PointageEntry[]))),
+        stats: this.pointageService.getWeeklyStats().pipe(catchError(() => of(null)))
+      })),
+      catchError(() => of({ history: [] as PointageEntry[], stats: null as PointageStats | null }))
+    ).subscribe(({ history, stats }) => {
+      this.history.set(history);
+      this.stats.set(stats);
+      this.evaluateDayOff(stats);
+      onSettled?.();
     });
   }
 
-  private refreshOverview(): void {
-    this.loadTodayHistory();
-    this.pointageService.getWeeklyStats().subscribe({
-      next: stats => {
-        this.stats.set(stats);
-        this.evaluateDayOff(stats);
+  private performPointageAction(isStarting: boolean): void {
+    this.isLoading.set(true);
+    this.statusMessage.set(null);
+
+    const request$ = isStarting ? this.pointageService.checkIn() : this.pointageService.checkOut();
+
+    request$.subscribe({
+      next: () => {
+        this.toast.success(isStarting ? 'Session démarrée' : 'Journée clôturée');
+        this.isDayOff.set(false);
+        this.refreshOverview(() => this.isLoading.set(false));
       },
-      error: () => this.stats.set(null),
+      error: err => {
+        if (this.pointageService.isSessionAlreadyOpenError(err)) {
+          this.refreshOverview(() => this.isLoading.set(false));
+          return;
+        }
+
+        const msg = this.pointageService.toFrenchError(err);
+        const normalizedMsg = msg.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        if (normalizedMsg.includes('conge approuve')) {
+          this.isDayOff.set(true);
+          this.statusMessage.set(msg);
+        }
+
+        this.isLoading.set(false);
+      },
     });
   }
+
+  private formatMinutesToClock(minutes: number): string {
+    const safeMinutes = Math.max(0, Number(minutes) || 0);
+    const hours = Math.floor(safeMinutes / 60);
+    const mins = safeMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
+  }
+
+  private resolveRole(value: string | null | undefined): 'ADMIN' | 'RH' | 'MANAGER' | 'EMPLOYEE' {
+    const normalized = String(value ?? '').trim().toUpperCase();
+    const role = normalized.startsWith('ROLE_') ? normalized.substring('ROLE_'.length) : normalized;
+
+    if (role === 'ADMIN' || role === 'RH' || role === 'MANAGER') {
+      return role;
+    }
+
+    return 'EMPLOYEE';
+  }
 }
+
+

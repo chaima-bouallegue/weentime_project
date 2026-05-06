@@ -3,11 +3,11 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Laptop, Clock, CheckCircle, Info, Calendar, Monitor, Home, Plus, Search, Filter, Sparkles, AlertCircle } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TeletravailService } from './teletravail.service';
-import { 
-  QuotaTeletravail, 
-  DemandeTeletravail, 
-  StatutTeletravail, 
-  NouvelleDemandeTeletravailRequest 
+import {
+  QuotaTeletravail,
+  DemandeTeletravail,
+  StatutTeletravail,
+  NouvelleDemandeTeletravailRequest
 } from './models/teletravail.model';
 import { QuotaCardComponent } from './components/quota-card/quota-card.component';
 import { TeletravailHistoriqueComponent } from './components/teletravail-historique/teletravail-historique.component';
@@ -22,7 +22,7 @@ import { ToastService } from '../../../core/services/toast.service';
   selector: 'app-employee-teletravail',
   standalone: true,
   imports: [
-    CommonModule, 
+    CommonModule,
     LucideAngularModule,
     QuotaCardComponent,
     TeletravailHistoriqueComponent,
@@ -74,13 +74,13 @@ export class EmployeeTeletravailComponent implements OnInit {
 
   joursRestants = computed(() => this.quota()?.joursRestants ?? 0);
 
-  approvedDates = computed(() => 
+  approvedDates = computed(() =>
     this.historique()
       .filter(d => d.statut === 'APPROUVE')
       .map(d => d.dateDebut) // Simple mapping for single days
   );
 
-  halfDayDates = computed(() => 
+  halfDayDates = computed(() =>
     this.historique()
       .filter(d => d.statut === 'APPROUVE' && d.periode)
       .map(d => ({ date: d.dateDebut, periode: d.periode! }))
@@ -117,7 +117,7 @@ export class EmployeeTeletravailComponent implements OnInit {
     this.teletravailService.getQuota()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(res => this.quota.set(res));
-    
+
     this.teletravailService.getJoursFeries()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(res => this.holidayDates.set(res));

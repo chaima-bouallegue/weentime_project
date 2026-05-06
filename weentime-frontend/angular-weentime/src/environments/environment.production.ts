@@ -10,5 +10,6 @@ export const environment = {
     rh: 'http://localhost:8222/ws-rh',
     presence: 'http://localhost:8222/ws-presence',
     organisation: 'http://localhost:8222/ws-org',
+    communication: 'http://localhost:8222/ws-communication',
   },
 };

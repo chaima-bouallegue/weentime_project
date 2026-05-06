@@ -6,11 +6,11 @@
     </div>
     <div class="header-actions">
       <button class="btn-outline" (click)="assignHoraire()">
-        <lucide-icon name="user-check" size="18"></lucide-icon>
+<!--        <lucide-icon name="user-check" size="18"></lucide-icon>-->
         <span>Affecter</span>
       </button>
       <button class="btn-primary" (click)="createNewHoraire()">
-        <lucide-icon name="plus" size="18"></lucide-icon>
+<!--        <lucide-icon name="plus" size="18"></lucide-icon>-->
         <span>Nouvel Horaire</span>
       </button>
     </div>
@@ -19,18 +19,18 @@
   <!-- Tabs Navigation -->
   <div class="tabs-nav">
     <button class="tab-item" [class.active]="activeTab() === 'MODELS'" (click)="setTab('MODELS')">
-      <lucide-icon name="layout-grid" size="18"></lucide-icon>
+<!--      <lucide-icon name="layout-grid" size="18"></lucide-icon>-->
       <span>Modèles</span>
     </button>
     <button class="tab-item" [class.active]="activeTab() === 'ASSIGNMENTS'" (click)="setTab('ASSIGNMENTS')">
-      <lucide-icon name="history" size="18"></lucide-icon>
+<!--      <lucide-icon name="history" size="18"></lucide-icon>-->
       <span>Affectations Actives</span>
     </button>
   </div>
 
   @if (isLoading()) {
     <div class="loading-state">
-      <lucide-icon name="loader-2" size="48" class="animate-spin text-primary"></lucide-icon>
+<!--      <lucide-icon name="loader-2" size="48" class="animate-spin text-primary"></lucide-icon>-->
       <p>Chargement des données...</p>
     </div>
   } @else {
@@ -39,7 +39,7 @@
         <div class="empty-state">
           <!-- ... existant ... -->
           <div class="icon-wrapper">
-            <lucide-icon name="clock" size="48"></lucide-icon>
+<!--            <lucide-icon name="clock" size="48"></lucide-icon>-->
           </div>
           <h3>Aucun horaire défini</h3>
           <p>Commencez par créer le premier modèle d'horaire pour vos équipes.</p>
@@ -55,14 +55,14 @@
                 <div class="card-title-group">
                   <h3 class="card-title">{{ horaire.nom }}</h3>
                   @if (horaire.isDefaut) {
-                    <span class="badge default-badge"><lucide-icon name="star" size="12"></lucide-icon> Défaut</span>
+<!--                    <span class="badge default-badge"><lucide-icon name="star" size="12"></lucide-icon> Défaut</span>-->
                   }
                   <span class="badge" [class.badge-active]="horaire.statut === 'ACTIF'" [class.badge-inactive]="horaire.statut === 'INACTIF'">
                     {{ horaire.statut }}
                   </span>
                 </div>
                 <p class="card-meta">
-                  <span><lucide-icon name="timer" size="14"></lucide-icon> {{ horaire.heuresHebdo }}h / semaine</span>
+<!--                  <span><lucide-icon name="timer" size="14"></lucide-icon> {{ horaire.heuresHebdo }}h / semaine</span>-->
                   <span class="dot-separator">•</span>
                   <span>Type: {{ horaire.type }}</span>
                 </p>
@@ -92,10 +92,10 @@
               </div>
               <div class="card-footer">
                 <button class="btn-icon" title="Modifier" (click)="editHoraire(horaire.id)">
-                  <lucide-icon name="edit-2" size="16"></lucide-icon>
+<!--                  <lucide-icon name="edit-2" size="16"></lucide-icon>-->
                 </button>
                 <button class="btn-icon text-red" title="Supprimer" (click)="promptDelete(horaire)">
-                  <lucide-icon name="trash-2" size="16"></lucide-icon>
+<!--                  <lucide-icon name="trash-2" size="16"></lucide-icon>-->
                 </button>
               </div>
             </div>
@@ -107,7 +107,7 @@
       @if (affectations().length === 0) {
         <div class="empty-state">
           <div class="icon-wrapper">
-            <lucide-icon name="user-check" size="48"></lucide-icon>
+<!--            <lucide-icon name="user-check" size="48"></lucide-icon>-->
           </div>
           <h3>Aucune affectation active</h3>
           <p>Vous n'avez pas encore affecté d'horaires spécifiques à vos collaborateurs ou équipes.</p>
@@ -144,7 +144,7 @@
                   </td>
                   <td class="col-modele">
                     <div class="modele-badge">
-                      <lucide-icon name="clock" size="14"></lucide-icon>
+<!--                      <lucide-icon name="clock" size="14"></lucide-icon>-->
                       <span>{{ ah.horaireNom || 'Horaire' }}</span>
                     </div>
                   </td>
@@ -152,7 +152,7 @@
                     <div class="date-range">
                       <span>{{ ah.dateDebut | date:'dd/MM/yyyy' }}</span>
                       @if (ah.dateFin) {
-                        <lucide-icon name="arrow-right" size="12"></lucide-icon>
+<!--                        <lucide-icon name="arrow-right" size="12"></lucide-icon>-->
                         <span>{{ ah.dateFin | date:'dd/MM/yyyy' }}</span>
                       } @else {
                         <span class="permanent">∞ permanent</span>
@@ -168,7 +168,7 @@
                   <td class="text-right">
                     <!-- [WEENTIME - UX - ANNULER] -->
                     <button class="btn-cancel" (click)="promptCancelAffectation(ah)">
-                      <lucide-icon name="x-circle" size="16"></lucide-icon>
+<!--                      <lucide-icon name="x-circle" size="16"></lucide-icon>-->
                       <span>Annuler</span>
                     </button>
                   </td>
@@ -186,18 +186,18 @@
     <div class="modal-overlay" (click)="cancelDelete()">
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-icon-container danger">
-          <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
+<!--          <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>-->
         </div>
         <h3 class="modal-title">Supprimer cet horaire ?</h3>
         <p class="modal-text">
           Êtes-vous sûr de vouloir supprimer le modèle d'horaire <strong>« {{ horaireTarget.nom }} »</strong> ? Cette action est irréversible et pourrait affecter les employés associés.
         </p>
-        
+
         <div class="modal-actions">
           <button class="btn-ghost" (click)="cancelDelete()" [disabled]="isDeleting()">Annuler</button>
           <button class="btn-danger" (click)="confirmDelete()" [disabled]="isDeleting()">
             @if (isDeleting()) {
-              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>
+<!--              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>-->
             }
             <span>Supprimer définitivement</span>
           </button>
@@ -211,18 +211,18 @@
     <div class="modal-overlay" (click)="cancelCancelAffectation()">
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-icon-container danger">
-          <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
+<!--          <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>-->
         </div>
         <h3 class="modal-title">Annuler cette affectation ?</h3>
         <p class="modal-text">
           Êtes-vous sûr de vouloir annuler l'affectation de l'horaire <strong>« {{ affectationTarget.horaireNom || 'Horaire' }} »</strong> pour <strong>{{ affectationTarget.cibleLabel || 'cette cible' }}</strong> ?
         </p>
-        
+
         <div class="modal-actions">
           <button class="btn-ghost" (click)="cancelCancelAffectation()" [disabled]="isDeleting()">Fermer</button>
           <button class="btn-danger" (click)="confirmCancelAffectation()" [disabled]="isDeleting()">
             @if (isDeleting()) {
-              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>
+<!--              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>-->
             }
             <span>Oui, l'annuler</span>
           </button>

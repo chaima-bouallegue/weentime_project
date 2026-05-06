@@ -1,12 +1,43 @@
 import { Component, inject, signal, computed, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, LayoutDashboard, Clock, Calendar, Timer, Laptop, FolderOpen, Users, ClipboardList, CheckCircle, Network, Briefcase, CalendarCheck, FileStack, Settings, Building, UserCog, User, LogOut, Menu, PanelLeft, PanelLeftClose, ChevronRight, Sparkles, Bell, BarChart, Shield } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  LayoutDashboard,
+  Clock,
+  Calendar,
+  Timer,
+  Laptop,
+  FolderOpen,
+  Users,
+  ClipboardList,
+  CheckCircle,
+  Network,
+  Briefcase,
+  CalendarCheck,
+  FileStack,
+  Settings,
+  Building,
+  UserCog,
+  User,
+  LogOut,
+  Menu,
+  PanelLeft,
+  PanelLeftClose,
+  ChevronRight,
+  Sparkles,
+  Bell,
+  BarChart,
+  Shield,
+  MessageSquare
+} from 'lucide-angular';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LogoComponent } from '../../../../shared/components/logo/logo.component';
 import { ThemeService } from '../../../../core/services/theme.service';
+import { CommunicationStoreService } from '@app/features/communication/services/communication-store.service';
 
 interface NavItem {
+  id: string;
   label: string;
   icon: string;
   route: string;
@@ -30,9 +61,9 @@ const ROLE_LABELS: Record<string, string> = {
 })
 export class ShellSidebarComponent {
   private readonly authService = inject(AuthService);
+  private readonly communicationStore = inject(CommunicationStoreService);
   readonly themeService = inject(ThemeService);
 
-  // Icons
   readonly iconDashboard = LayoutDashboard;
   readonly iconClock = Clock;
   readonly iconCalendar = Calendar;
@@ -59,6 +90,7 @@ export class ShellSidebarComponent {
   readonly iconBell = Bell;
   readonly iconBarChart = BarChart;
   readonly iconShield = Shield;
+  readonly iconMessageSquare = MessageSquare;
 
   collapsed = signal(false);
   mobileOpen = signal(false);
@@ -77,61 +109,61 @@ export class ShellSidebarComponent {
     const base = `/app/${this.roleBase()}`;
     const role = this.userRole();
     const items: NavItem[] = [
-      { label: 'Tableau de bord', icon: 'layout-dashboard', route: `${base}/dashboard` },
+      { id: 'dashboard', label: 'Tableau de bord', icon: 'layout-dashboard', route: `${base}/dashboard` },
+      { id: 'messages', label: 'Messages', icon: 'message-square', route: '/app/messages' }
     ];
 
     if (role === 'EMPLOYEE') {
       items.push(
-        { label: 'Planning', icon: 'clock', route: `${base}/horaires` },
-        { label: 'Congés', icon: 'calendar', route: `${base}/conges` },
-        { label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
-        { label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
-        { label: 'Télétravail', icon: 'laptop', route: `${base}/teletravail` },
-        { label: 'Documents', icon: 'folder-open', route: `${base}/documents` }
+        { id: 'employee-horaires', label: 'Planning', icon: 'clock', route: `${base}/horaires` },
+        { id: 'employee-conges', label: 'Conges', icon: 'calendar', route: `${base}/conges` },
+        { id: 'employee-pointage', label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
+        { id: 'employee-autorisations', label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
+        { id: 'employee-teletravail', label: 'Teletravail', icon: 'laptop', route: `${base}/teletravail` },
+        { id: 'employee-documents', label: 'Documents', icon: 'folder-open', route: `${base}/documents` }
       );
     }
 
     if (role === 'MANAGER') {
       items.push(
-        { label: 'Équipe', icon: 'users', route: `${base}/equipe` },
-        { label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
-        { label: 'Présence', icon: 'clipboard-list', route: `${base}/presence` },
-        { label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
-        { label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
-        { label: 'Télétravail', icon: 'laptop', route: `${base}/teletravail` },
-        { label: 'Approbations', icon: 'check-circle', route: `${base}/approbations` }
+        { id: 'manager-equipe', label: 'Equipe', icon: 'users', route: `${base}/equipe` },
+        { id: 'manager-pointage', label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
+        { id: 'manager-presence', label: 'Presence', icon: 'clipboard-list', route: `${base}/presence` },
+        { id: 'manager-horaires', label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
+        { id: 'manager-autorisations', label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
+        { id: 'manager-teletravail', label: 'Teletravail', icon: 'laptop', route: `${base}/teletravail` },
+        { id: 'manager-approbations', label: 'Approbations', icon: 'check-circle', route: `${base}/approbations` }
       );
     }
 
     if (role === 'RH') {
       items.push(
-        { label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
-        { label: 'Structure', icon: 'network', route: `${base}/structure` },
-        { label: 'Employés', icon: 'briefcase', route: `${base}/employes` },
-        { label: 'Congés', icon: 'calendar-check', route: `${base}/conges` },
-        { label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
-        { label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
-        { label: 'Télétravail', icon: 'laptop', route: `${base}/teletravail` },
-        { label: 'Documents', icon: 'file-stack', route: `${base}/documents` },
-        { label: 'Paramètres', icon: 'settings', route: `${base}/parametres` }
+        { id: 'rh-analytics', label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
+        { id: 'rh-structure', label: 'Structure', icon: 'network', route: `${base}/structure` },
+        { id: 'rh-employes', label: 'Employes', icon: 'briefcase', route: `${base}/employes` },
+        { id: 'rh-conges', label: 'Conges', icon: 'calendar-check', route: `${base}/conges` },
+        { id: 'rh-horaires', label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
+        { id: 'rh-pointage', label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
+        { id: 'rh-autorisations', label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
+        { id: 'rh-teletravail', label: 'Teletravail', icon: 'laptop', route: `${base}/teletravail` },
+        { id: 'rh-documents', label: 'Documents', icon: 'file-stack', route: `${base}/documents` },
+        { id: 'rh-parametres', label: 'Parametres', icon: 'settings', route: `${base}/parametres` }
       );
     }
 
     if (role === 'ADMIN') {
       items.push(
-        { label: 'Pointage', icon: 'clock-3', route: `${base}/presence` },
-        { label: 'Utilisateurs', icon: 'users', route: `${base}/users` },
-        { label: 'Roles', icon: 'shield-check', route: `${base}/roles` },
-        { label: 'Entreprises', icon: 'building', route: `${base}/entreprises` },
-        { label: 'Gestionnaires RH', icon: 'user-cog', route: `${base}/rh-owners` },
-        { label: 'Rôles', icon: 'shield', route: `${base}/roles` },
-        { label: 'Paramètres', icon: 'settings', route: `${base}/parametres` }
+        { id: 'admin-pointage', label: 'Pointage', icon: 'clock', route: `${base}/presence` },
+        { id: 'admin-users', label: 'Utilisateurs', icon: 'users', route: `${base}/users` },
+        { id: 'admin-roles', label: 'Roles', icon: 'shield', route: `${base}/roles` },
+        { id: 'admin-entreprises', label: 'Entreprises', icon: 'building', route: `${base}/entreprises` },
+        { id: 'admin-rh-owners', label: 'Gestionnaires RH', icon: 'user-cog', route: `${base}/rh-owners` },
+        { id: 'admin-parametres', label: 'Parametres', icon: 'settings', route: `${base}/parametres` }
       );
     }
 
-    items.push({ label: 'Profil', icon: 'user', route: `${base}/profil` });
-
-    return items;
+    items.push({ id: 'profile', label: 'Profil', icon: 'user', route: `${base}/profil` });
+    return this.uniqueNavItems(items);
   });
 
   readonly fullName = computed(() => {
@@ -158,10 +190,30 @@ export class ShellSidebarComponent {
   });
 
   readonly roleLabel = computed(() => ROLE_LABELS[this.userRole()] ?? 'Utilisateur');
+  readonly messageUnreadCount = this.communicationStore.totalUnread;
+
+  constructor() {
+    this.communicationStore.bootstrapUnreadTracking();
+  }
+
+  navTrackingKey(item: NavItem): string {
+    return `${item.id}:${item.route}`;
+  }
 
   private normalizeRole(role: string | null | undefined): string {
     const normalized = String(role ?? '').trim().toUpperCase();
     return normalized.startsWith('ROLE_') ? normalized.substring('ROLE_'.length) : normalized;
+  }
+
+  private uniqueNavItems(items: NavItem[]): NavItem[] {
+    const seenRoutes = new Set<string>();
+    return items.filter(item => {
+      if (seenRoutes.has(item.route)) {
+        return false;
+      }
+      seenRoutes.add(item.route);
+      return true;
+    });
   }
 
   getNavItemIcon(iconName: string): any {
@@ -186,6 +238,7 @@ export class ShellSidebarComponent {
       case 'bell': return this.iconBell;
       case 'bar-chart': return this.iconBarChart;
       case 'shield': return this.iconShield;
+      case 'message-square': return this.iconMessageSquare;
       default: return this.iconUser;
     }
   }

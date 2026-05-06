@@ -31,8 +31,10 @@ public class UtilisateurResponse {
     private String equipeNom;
     private String equipe;
     private Long managerId;
+    private String managerNom;
     private Long entrepriseId;
     private String entrepriseNom;
+    private String role;
     private Set<RoleResponse> roles;
     private Set<String> permissions;
 }

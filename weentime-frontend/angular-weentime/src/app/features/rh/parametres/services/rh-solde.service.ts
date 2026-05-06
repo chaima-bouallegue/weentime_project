@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../../environments/environment';
+import { ApiConfigService } from '../../../../core/services/api-config.service';
 
 export interface SoldeDetail {
   typeCongeId: number;
@@ -24,7 +24,8 @@ export interface EmployeeSolde {
 })
 export class RhSoldeService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/rh/soldes`;
+  private readonly apiConfig = inject(ApiConfigService);
+  private apiUrl = this.apiConfig.buildUrl('/rh/soldes');
 
   getGlobalSoldes(params: { page: number, size: number, annee: number, query?: string }): Observable<any> {
     let httpParams = new HttpParams()
@@ -56,6 +57,6 @@ export class RhSoldeService {
   }
 
   getLeaveTypes(): Observable<any[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/rh/type-conges`);
+    return this.http.get<any[]>(this.apiConfig.RH.GET_TYPE_CONGES);
   }
 }

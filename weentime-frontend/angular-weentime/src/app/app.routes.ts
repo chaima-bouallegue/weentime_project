@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { LandingComponent } from './features/landing/landing.component';
 import { PricingComponent } from './features/pricing/pricing.component';
 import { ShellComponent } from './features/shell/shell.component';
+import {authGuard} from '@app/core/guards/auth.guard';
+import {roleGuard} from '@app/core/guards/role.guard';
 
 export const routes: Routes = [
     {
@@ -35,6 +37,8 @@ export const routes: Routes = [
         path: 'app',
         component: ShellComponent,
         data: { hideLayout: true },
+        canActivate: [authGuard],
+        canActivateChild: [roleGuard],
         loadChildren: () => import('./features/shell/shell.routes').then(m => m.shellRoutes)
     },
     { path: '**', redirectTo: '' }

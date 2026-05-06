@@ -18,14 +18,27 @@ import { environment } from '../../../environments/environment';
 })
 export class ApiConfigService {
   private readonly API_BASE = this.normalizeApiBase(environment.apiUrl);
+  private readonly GATEWAY_BASE = this.normalizeGatewayBase(environment.gatewayUrl || environment.wsUrl || environment.apiUrl);
 
   // Public getter for API base URL (used by services that need dynamic URL construction)
   getApiBase(): string {
     return this.API_BASE;
   }
 
+  getGatewayBase(): string {
+    return this.GATEWAY_BASE;
+  }
+
   buildUrl(endpoint: string): string {
     return `${this.API_BASE}${this.normalizeEndpoint(endpoint)}`;
+  }
+
+  buildGatewayUrl(endpoint: string): string {
+    return `${this.GATEWAY_BASE}${this.normalizeGatewayEndpoint(endpoint)}`;
+  }
+
+  buildWebSocketUrl(endpoint: string): string {
+    return this.buildGatewayUrl(endpoint);
   }
 
   private normalizeApiBase(baseUrl: string): string {
@@ -39,7 +52,22 @@ export class ApiConfigService {
     return `${dedupedBase}/api/v1`;
   }
 
+  private normalizeGatewayBase(baseUrl: string): string {
+    const trimmedBase = (baseUrl ?? '').trim().replace(/\/+$/, '');
+    return trimmedBase.replace(/(\/api\/v1)+$/i, '');
+  }
+
   private normalizeEndpoint(endpoint: string): string {
+    const rawEndpoint = (endpoint ?? '').trim();
+    if (!rawEndpoint) {
+      return '';
+    }
+
+    const withLeadingSlash = `/${rawEndpoint.replace(/^\/+/, '')}`;
+    return withLeadingSlash.replace(/^\/api\/v1(?=\/|$)/i, '');
+  }
+
+  private normalizeGatewayEndpoint(endpoint: string): string {
     const rawEndpoint = (endpoint ?? '').trim();
     if (!rawEndpoint) {
       return '';
@@ -91,6 +119,7 @@ export class ApiConfigService {
     GET_EQUIPE_MEMBERS: (id: number) => `${this.API_BASE}/organisations/equipes/${id}/members`,
 
     // Users (Employees)
+    GET_ADMIN_USERS: `${this.API_BASE}/users`,
     GET_USERS: `${this.API_BASE}/organisations/users`,
     GET_USER_BY_ID: (id: number) => `${this.API_BASE}/organisations/users/${id}`,
     GET_USER_BY_EMAIL: (email: string) => `${this.API_BASE}/organisations/users/by-email?email=${encodeURIComponent(email)}`,
@@ -104,7 +133,7 @@ export class ApiConfigService {
     GET_ENTREPRISE_BY_ID: (id: number) => `${this.API_BASE}/organisations/entreprises/${id}`,
     CREATE_ENTREPRISE: `${this.API_BASE}/organisations/entreprises`,
     UPDATE_ENTREPRISE: (id: number) => `${this.API_BASE}/organisations/entreprises/${id}`,
-    VALIDATE_COMPANY_CODE: (code: string) => `${this.API_BASE}/organisations/entreprises/validate-code/${code}`,
+    VALIDATE_COMPANY_CODE: (code: string) => `${this.API_BASE}/organisations/entreprises/validate-code/${encodeURIComponent(code)}`,
 
     // RH Users
     GET_RH_USERS: `${this.API_BASE}/organisations/rh`,
@@ -131,6 +160,7 @@ export class ApiConfigService {
   readonly RH = {
     // General Demands
     GET_DEMAND_BY_ID: (id: number) => `${this.API_BASE}/rh/demandes/${id}`,
+    GET_ADMIN_DEMANDS: `${this.API_BASE}/rh/demandes/admin`,
     GET_ALL_DEMANDS: `${this.API_BASE}/rh/demandes`,
     GET_RH_REQUESTS: `${this.API_BASE}/rh/demandes`,
     GET_MANAGER_DEMANDS: `${this.API_BASE}/demandes/manager`,
@@ -188,6 +218,14 @@ export class ApiConfigService {
     DOWNLOAD_DOCUMENT: (id: number) => `${this.API_BASE}/documents/${id}/telecharger`,
     VALIDATE_DOCUMENT_MANAGER: (id: number) => `${this.API_BASE}/documents/${id}/validate/manager`,
     REJECT_DOCUMENT_MANAGER: (id: number) => `${this.API_BASE}/documents/${id}/reject`,
+    GET_RH_DOCUMENT_REQUESTS: `${this.API_BASE}/documents/rh/demandes`,
+    GET_RH_DOCUMENT_STATS: `${this.API_BASE}/documents/rh/stats`,
+    PASSER_DOCUMENT_EN_COURS: (id: number) => `${this.API_BASE}/documents/${id}/passer-en-cours`,
+    VALIDATE_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/valider`,
+    REFUSE_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/refuser`,
+    UPLOAD_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/upload`,
+    GET_DOCUMENT_FILE_RH: (id: number) => `${this.API_BASE}/documents/${id}/file`,
+    GENERATE_DOCUMENT_AI: `${this.API_BASE}/documents/rh/generate-ai`,
 
     // RH Configuration
     GET_TYPE_CONGES: `${this.API_BASE}/rh/type-conges`,
@@ -229,8 +267,8 @@ export class ApiConfigService {
   // PRESENCE ENDPOINTS
   // ─────────────────────────────────────────────
   readonly PRESENCE = {
-    CHECK_IN: `${this.API_BASE}/presence/check-in`,
-    CHECK_OUT: `${this.API_BASE}/presence/check-out`,
+    CHECK_IN: `${this.API_BASE}/presence/me/check-in`,
+    CHECK_OUT: `${this.API_BASE}/presence/me/check-out`,
     GET_ACTIVE_SESSION: `${this.API_BASE}/presence/active-session`,
     GET_TODAY_PRESENCE: `${this.API_BASE}/presence/today`,
     GET_MY_TODAY: `${this.API_BASE}/presence/me/today`,
@@ -260,6 +298,7 @@ export class ApiConfigService {
     RH_SERVICE: environment.websocket.rh,
     PRESENCE_SERVICE: environment.websocket.presence,
     NOTIFICATIONS_SERVICE: environment.websocket.notifications,
+    COMMUNICATION_SERVICE: this.buildWebSocketUrl('/ws-communication'),
     TOPIC_PREFIX: '/topic',
     APP_PREFIX: '/app'
   };

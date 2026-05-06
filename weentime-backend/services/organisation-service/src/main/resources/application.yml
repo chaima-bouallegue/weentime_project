@@ -66,6 +66,9 @@ application:
   config:
     rh-service: ${RH_SERVICE_URL:http://rh-service/api/v1/rh}
 
+integration:
+  internal-api-key: communication-service-local
+
 spring.cloud.openfeign.client.config:
   default:
     connect-timeout: 5000

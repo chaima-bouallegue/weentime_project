@@ -23,7 +23,6 @@ public class UtilisateurRequest {
     @NotBlank(message = "L'email est obligatoire")
     @Email(message = "L'email doit être valide")
     private String email;
-    @NotBlank(message = "Le mot de passe est obligatoire")
     private String motDePasse;
     private String telephone;
     private String poste;
@@ -32,5 +31,6 @@ public class UtilisateurRequest {
     private Long entrepriseId;
     private Long departementId;
     private Long equipeId;
+    private String role;
     private Set<Long> roleIds;
 }

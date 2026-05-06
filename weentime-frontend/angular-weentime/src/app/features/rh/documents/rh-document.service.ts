@@ -6,31 +6,31 @@ import {
   StatsDocuments,
   AIGenerationResult
 } from './models/rh-document.model';
-import { environment } from '../../../../environments/environment';
+import { ApiConfigService } from '../../../core/services/api-config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class RhDocumentService {
   private http = inject(HttpClient);
-  private readonly API = `${environment.apiUrl}/documents`;
+  private readonly apiConfig = inject(ApiConfigService);
 
   getDemandesEntreprise(): Observable<DemandeDocumentRH[]> {
-    return this.http.get<unknown>(`${this.API}/rh/demandes`).pipe(
+    return this.http.get<unknown>(this.apiConfig.RH.GET_RH_DOCUMENT_REQUESTS).pipe(
       map(response => this.unwrapCollection(response).map(d => this.mapToFrontend(d))),
       catchError(err => throwError(() => err))
     );
   }
 
   getStats(): Observable<StatsDocuments> {
-    return this.http.get<unknown>(`${this.API}/rh/stats`).pipe(
+    return this.http.get<unknown>(this.apiConfig.RH.GET_RH_DOCUMENT_STATS).pipe(
       map(response => this.unwrapItem(response) as StatsDocuments),
       catchError(err => throwError(() => err))
     );
   }
 
   passerEnCours(id: number): Observable<DemandeDocumentRH> {
-    return this.http.put<unknown>(`${this.API}/${id}/passer-en-cours`, {}).pipe(
+    return this.http.put<unknown>(this.apiConfig.RH.PASSER_DOCUMENT_EN_COURS(id), {}).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
       catchError(err => throwError(() => err))
     );
@@ -42,14 +42,14 @@ export class RhDocumentService {
     generatedByAI: boolean;
     commentaireRH?: string;
   }): Observable<DemandeDocumentRH> {
-    return this.http.put<unknown>(`${this.API}/${id}/valider`, data).pipe(
+    return this.http.put<unknown>(this.apiConfig.RH.VALIDATE_DOCUMENT_RH(id), data).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
       catchError(err => throwError(() => err))
     );
   }
 
   refuser(id: number, commentaireRH: string): Observable<DemandeDocumentRH> {
-    return this.http.put<unknown>(`${this.API}/${id}/refuser`, { commentaireRH }).pipe(
+    return this.http.put<unknown>(this.apiConfig.RH.REFUSE_DOCUMENT_RH(id), { commentaireRH }).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
       catchError(err => throwError(() => err))
     );
@@ -59,14 +59,14 @@ export class RhDocumentService {
     const formData = new FormData();
     formData.append('file', file);
 
-    return this.http.post<unknown>(`${this.API}/${id}/upload`, formData).pipe(
+    return this.http.post<unknown>(this.apiConfig.RH.UPLOAD_DOCUMENT_RH(id), formData).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
       catchError(err => throwError(() => err))
     );
   }
 
   getDocumentFile(id: number): Observable<Blob> {
-    return this.http.get(`${this.API}/${id}/file`, {
+    return this.http.get(this.apiConfig.RH.GET_DOCUMENT_FILE_RH(id), {
       responseType: 'blob'
     });
   }
@@ -108,29 +108,9 @@ export class RhDocumentService {
       moisConcerne: demande.moisConcerne
     };
 
-    return this.http.post<AIGenerationResult>(`${this.API}/rh/generate-ai`, body).pipe(
-      catchError(() => {
-        // Fallback to mock on error
-        return new Observable<AIGenerationResult>(observer => {
-          this.mockAIGeneration(demande, observer);
-        });
-      })
+    return this.http.post<AIGenerationResult>(this.apiConfig.RH.GENERATE_DOCUMENT_AI, body).pipe(
+      catchError(err => throwError(() => err))
     );
-  }
-
-
-  private mockAIGeneration(demande: DemandeDocumentRH, observer: any) {
-    const mockContent = `WEENTIME\nService des Ressources Humaines\n\nOBJET : ${demande.label.toUpperCase()}\n\nNous soussignés, société WeenTime, certifions que M./Mme ${demande.employe.prenom} ${demande.employe.nom}, demeurant à l'adresse connue de nos services, est employé(e) au sein de notre établissement depuis le ${demande.employe.dateEntree} en qualité de ${demande.employe.poste}.\n\nL'intéressé(e) exerce ses fonctions au sein du département ${demande.employe.departement}.\n\nCette attestation est délivrée à la demande de l'intéressé(e) pour servir et valoir ce que de droit.\n\nFait à Paris, le ${new Date().toLocaleDateString('fr-FR')}\n\nLa Direction des Ressources Humaines`;
-    
-    setTimeout(() => {
-      observer.next({
-        contenu: mockContent,
-        type: demande.type,
-        employeNom: `${demande.employe.prenom} ${demande.employe.nom}`,
-        dateGeneration: new Date().toISOString()
-      });
-      observer.complete();
-    }, 2000);
   }
 
   private unwrapCollection(response: unknown): any[] {
@@ -195,3 +175,4 @@ export class RhDocumentService {
     return elapsedHours >= 24 ? `${Math.floor(elapsedHours / 24)} j` : `${elapsedHours} h`;
   }
 }
+

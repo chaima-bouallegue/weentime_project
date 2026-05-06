@@ -7,14 +7,14 @@
         Gérez vos jours de travail à distance et consultez votre planning.
       </p>
     </div>
-    
+
     <div class="flex items-center gap-4">
       <div class="date-chip hidden md:flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700">
         <lucide-angular [img]="iconCalendar" size="16" class="text-indigo-500"></lucide-angular>
         <span class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ currentDate() }}</span>
       </div>
-      
-      <button 
+
+      <button
         (click)="showDrawer.set(true)"
         class="action-button primary group"
       >
@@ -33,11 +33,11 @@
   <div class="bento-layout">
     <!-- Left Column: Quota & History (65%) -->
     <div class="flex flex-col gap-8 md:col-span-8">
-      
+
       <!-- Quota Section -->
       <section>
-        <app-quota-card 
-          [quota]="quota()" 
+        <app-quota-card
+          [quota]="quota()"
           [isLoading]="isLoading()"
         ></app-quota-card>
       </section>
@@ -49,13 +49,13 @@
             <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
             Historique & Suivi
           </h2>
-          
+
           <div class="flex items-center gap-2">
             <div class="search-box relative">
               <lucide-angular [img]="iconSearch" size="18" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></lucide-angular>
-              <input 
-                type="text" 
-                placeholder="Rechercher..." 
+              <input
+                type="text"
+                placeholder="Rechercher..."
                 class="pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all w-64"
               >
             </div>
@@ -83,7 +83,7 @@
             Vue Calendrier
           </h3>
         </div>
-        
+
         <app-teletravail-calendar
           [approvedDates]="approvedDates()"
           [halfDayDates]="halfDayDates()"
@@ -101,7 +101,7 @@
               <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Politique de l'entreprise</p>
             </div>
           </div>
-          
+
           <ul class="space-y-3">
             <li class="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
               <div class="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
@@ -116,7 +116,7 @@
               Validation Manager + RH
             </li>
           </ul>
-          
+
           <div class="mt-6 pt-6 border-t border-indigo-100 dark:border-indigo-500/10">
             <div class="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
               <span>Besoin d'aide ?</span>

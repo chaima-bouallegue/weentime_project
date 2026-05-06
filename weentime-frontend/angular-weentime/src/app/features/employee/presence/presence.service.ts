@@ -90,6 +90,29 @@ export class PresenceService {
   }
 
   private mapDto(dto: PresenceDTO): PresenceRecord {
+    const anyDto = dto as any;
+    if (anyDto?.state || Array.isArray(anyDto?.sessions)) {
+      const active = anyDto?.activeSession ?? (Array.isArray(anyDto?.sessions) && anyDto.sessions.length > 0 ? anyDto.sessions[anyDto.sessions.length - 1] : null);
+      const checkIn = anyDto?.heureEntree ?? active?.checkInTime;
+      const checkOut = anyDto?.heureSortie ?? active?.checkOutTime;
+      const state = String(anyDto?.state ?? '').toUpperCase();
+      const duration = Number(anyDto?.totalDuration ?? active?.duration ?? 0);
+
+      return {
+        id: Number(active?.id ?? 0) || undefined,
+        utilisateurId: Number(anyDto?.utilisateurId ?? active?.utilisateurId ?? 0),
+        date: String(anyDto?.date ?? active?.date ?? new Date().toISOString().slice(0, 10)),
+        heureArrivee: checkIn,
+        heureDepart: checkOut,
+        dureeActuelle: duration,
+        status: state === 'ACTIVE'
+          ? 'CHECKED_IN'
+          : state === 'CLOSED'
+            ? 'CHECKED_OUT'
+            : 'ABSENT'
+      };
+    }
+
     return {
       id: dto.id,
       utilisateurId: dto.utilisateurId,

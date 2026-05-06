@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiConfigService } from '@app/core/services/api-config.service';
+import { SKIP_ERROR_TOAST } from '@app/core/http/request-context.tokens';
 import { ToastService } from '@app/core/services/toast.service';
 
 export interface DashboardKpi {
@@ -43,6 +44,7 @@ export class DashboardService {
   private httpClient = inject(HttpClient);
   private apiConfig = inject(ApiConfigService);
   private toastService = inject(ToastService);
+  private readonly optionalRequestContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
   getEmployeeDashboardStats(): Observable<DashboardStats> {
     const year = new Date().getFullYear();
@@ -52,7 +54,9 @@ export class DashboardService {
       autorisationKpis: this.httpClient.get<any>(this.apiConfig.RH.GET_EMPLOYEE_AUTORISATION_KPIS).pipe(catchError(() => of(null))),
       todayPresence: this.httpClient.get<any>(this.apiConfig.PRESENCE.GET_MY_TODAY).pipe(catchError(() => of(null))),
       presenceStats: this.httpClient.get<any>(this.apiConfig.PRESENCE.GET_MY_STATS).pipe(catchError(() => of(null))),
-      soldes: this.httpClient.get<any>(this.apiConfig.RH.GET_LEAVE_BALANCE(year)).pipe(catchError(() => of([]))),
+      soldes: this.httpClient.get<any>(this.apiConfig.RH.GET_LEAVE_BALANCE(year), {
+        context: this.optionalRequestContext
+      }).pipe(catchError(() => of([]))),
       conges: this.httpClient.get<any>(this.apiConfig.RH.GET_MY_CONGES, { params: pageParams }).pipe(catchError(() => of({ content: [] }))),
       teletravail: this.httpClient.get<any>(this.apiConfig.RH.GET_MY_TELETRAVAILS, { params: pageParams }).pipe(catchError(() => of({ content: [] }))),
       notifications: this.httpClient.get<any>(`${this.apiConfig.getApiBase()}/rh/notifications/mes-notifications`).pipe(catchError(() => of([]))),

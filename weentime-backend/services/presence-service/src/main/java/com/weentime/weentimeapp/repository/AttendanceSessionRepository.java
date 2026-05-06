@@ -20,6 +20,8 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
 
     Optional<AttendanceSession> findFirstByUtilisateurIdAndStatusOrderByCheckInTimeDesc(Long utilisateurId, AttendanceSessionStatus status);
 
+    List<AttendanceSession> findByUtilisateurIdAndStatusOrderByCheckInTimeDesc(Long utilisateurId, AttendanceSessionStatus status);
+
     List<AttendanceSession> findByUtilisateurIdAndDateOrderByCheckInTimeAsc(Long utilisateurId, LocalDate date);
 
     Page<AttendanceSession> findByUtilisateurIdOrderByCheckInTimeDesc(Long utilisateurId, Pageable pageable);

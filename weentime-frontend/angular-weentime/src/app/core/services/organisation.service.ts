@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { ApiConfigService } from './api-config.service';
 
 // [WEENTIME - CHANGEMENT 8]
 export interface SimpleTeam {
@@ -28,7 +28,8 @@ import { PageResponse } from '../models/horaire.model';
 })
 export class OrganisationService {
   private http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/organisations`;
+  private readonly apiConfig = inject(ApiConfigService);
+  private readonly baseUrl = this.apiConfig.buildUrl('/organisations');
 
   getTeams(page = 0, size = 100): Observable<PageResponse<EquipeResponse>> {
     const safeSize = Math.min(Math.max(size, 1), 100);

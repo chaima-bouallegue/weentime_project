@@ -5,6 +5,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+DEFAULT_CORS_ORIGINS = ["http://localhost:4200", "http://127.0.0.1:4200"]
+
 
 def _to_bool(value: str | None, default: bool) -> bool:
     if value is None:
@@ -16,6 +18,13 @@ def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _safe_cors_origins(value: str | None) -> list[str]:
+    origins = _split_csv(value)
+    if not origins or "*" in origins:
+        return list(DEFAULT_CORS_ORIGINS)
+    return origins
 
 
 class Settings:
@@ -79,9 +88,21 @@ class Settings:
 
         self.rag_keywords = _split_csv(os.getenv("RAG_KEYWORDS", "politique,reglement,procedure"))
         self.rag_search_limit = max(1, int(os.getenv("RAG_SEARCH_LIMIT", "3")))
-        self.cors_origins = _split_csv(
-            os.getenv("CORS_ORIGINS", "http://localhost:4200,http://127.0.0.1:4200")
+        self.cors_origins = _safe_cors_origins(os.getenv("CORS_ORIGINS"))
+
+        self.braintrust_enabled = _to_bool(os.getenv("BRAINTRUST_ENABLED"), False)
+        self.braintrust_api_key = os.getenv("BRAINTRUST_API_KEY")
+        self.braintrust_project_name = os.getenv("BRAINTRUST_PROJECT_NAME", "WeenTime AI Copilot")
+        self.braintrust_project_id = os.getenv("BRAINTRUST_PROJECT_ID")
+        self.braintrust_env = os.getenv("BRAINTRUST_ENV", self.app_env)
+        self.braintrust_log_inputs = _to_bool(os.getenv("BRAINTRUST_LOG_INPUTS"), False)
+        self.braintrust_log_audio = _to_bool(os.getenv("BRAINTRUST_LOG_AUDIO"), False)
+        self.braintrust_sample_rate = max(
+            0.0,
+            min(1.0, float(os.getenv("BRAINTRUST_SAMPLE_RATE", "1.0"))),
         )
+        self.braintrust_redact_emails = _to_bool(os.getenv("BRAINTRUST_REDACT_EMAILS"), True)
+        self.braintrust_max_text_length = max(64, int(os.getenv("BRAINTRUST_MAX_TEXT_LENGTH", "1200")))
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.rag_documents_dir.mkdir(parents=True, exist_ok=True)

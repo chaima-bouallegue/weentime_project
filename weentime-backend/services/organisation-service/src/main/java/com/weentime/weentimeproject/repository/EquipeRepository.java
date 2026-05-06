@@ -19,5 +19,8 @@ public interface EquipeRepository extends JpaRepository<Equipe, Long> {
     List<Equipe> findByDepartement_Entreprise_IdOrderByNomAsc(Long entrepriseId);
 
     @EntityGraph(attributePaths = {"responsable", "departement", "departement.entreprise"})
+    List<Equipe> findByDepartement_IdOrderByNomAsc(Long departementId);
+
+    @EntityGraph(attributePaths = {"responsable", "departement", "departement.entreprise"})
     Page<Equipe> findByDepartement_Entreprise_Id(Long entrepriseId, Pageable pageable);
 }

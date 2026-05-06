@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+SHORT_COMMANDS = {"oui", "non", "ok", "yes", "no", "نعم", "لا"}
+
 
 def _is_repeated_sequence(words: list[str]) -> bool:
     if len(words) < 4:
@@ -27,6 +29,8 @@ def clean_transcription(text: str | None):
         return None
 
     words = [word for word in normalized.split(" ") if word]
+    if len(words) <= 2 and normalized in SHORT_COMMANDS:
+        return normalized
     if len(words) < 2:
         return None
 

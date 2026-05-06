@@ -22,8 +22,6 @@ spring:
           '[/**]':
             allowedOrigins:
               - "http://localhost:4200"
-              - "http://localhost:4201"
-              - "http://localhost:4202"
               - "http://127.0.0.1:4200"
             allowedMethods:
               - GET
@@ -36,6 +34,9 @@ spring:
               - "Authorization"
               - "Content-Type"
               - "Accept"
+              - "X-Requested-With"
+              - "Origin"
+              - "X-Skip-Error-Toast"
             allowCredentials: true
 
       discovery:
@@ -65,6 +66,11 @@ spring:
           predicates:
             - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
 
+        - id: communication-service
+          uri: http://localhost:8094
+          predicates:
+            - Path=/api/v1/communication/**
+
         - id: organisation-ws
           uri: http://localhost:8090
           predicates:
@@ -74,13 +80,16 @@ spring:
           uri: http://localhost:8092
           predicates:
             - Path=/ws-rh/**
-          filters:
-            - RewritePath=/ws-rh(?<segment>/?.*), /ws$\{segment}
 
         - id: presence-ws
           uri: http://localhost:8093
           predicates:
             - Path=/ws-presence/**
+
+        - id: communication-ws
+          uri: http://localhost:8094
+          predicates:
+            - Path=/ws-communication, /ws-communication/**
 
 # 🌐 Eureka (optionnel mais OK en local)
 eureka:
@@ -118,6 +127,8 @@ springdoc:
         url: http://localhost:8092/v3/api-docs
       - name: Presence Service
         url: http://localhost:8093/v3/api-docs
+      - name: Communication Service
+        url: http://localhost:8094/v3/api-docs
 
 # 🧠 Logs (debug utile)
 logging:

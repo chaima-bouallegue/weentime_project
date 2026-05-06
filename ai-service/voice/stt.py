@@ -8,13 +8,15 @@ import tempfile
 import wave
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from config import Settings
+from app.observability.tracing import log_event, start_span
 from voice.audio_conversion import convert_to_wav
-from voice.cleaner import clean_transcription as base_clean_transcription
+from voice.cleaner import SHORT_COMMANDS, clean_transcription as base_clean_transcription
 from voice.vad import VadAnalysis, analyze_voice
-from voice.whisper_service import transcribe_audio
+from voice.whisper_service import transcribe_audio_result
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,8 @@ class VoiceProcessingResult:
     status: str
     raw_text: str | None = None
     cleaned_text: str | None = None
+    language: str = "unknown"
+    language_confidence: float = 0.0
     duration_seconds: float = 0.0
     detected_volume: float = 0.0
     peak_amplitude: int = 0
@@ -53,7 +57,7 @@ def clean_transcription(
         return None
 
     words = [word for word in cleaned.split(" ") if word]
-    if len(words) < min_words:
+    if len(words) < min_words and cleaned not in SHORT_COMMANDS:
         return None
 
     lowered = cleaned.lower()
@@ -90,22 +94,33 @@ class SpeechToTextService:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as handle:
                 wav_path = Path(handle.name)
 
-            try:
-                convert_to_wav(
-                    source_path,
-                    wav_path,
-                    ffmpeg_binary=self.settings.ffmpeg_binary,
-                )
-            except Exception as exc:  # noqa: BLE001
-                raise AudioConversionError("conversion_failed") from exc
+            with start_span("voice.audio_convert", {"size_bytes": source_size}):
+                try:
+                    convert_to_wav(
+                        source_path,
+                        wav_path,
+                        ffmpeg_binary=self.settings.ffmpeg_binary,
+                    )
+                    log_event("voice.audio_convert", metadata={"size_bytes": source_size, "status": "success"})
+                except Exception as exc:  # noqa: BLE001
+                    log_event("voice.audio_convert", metadata={"size_bytes": source_size, "status": "failed"})
+                    raise AudioConversionError("conversion_failed") from exc
 
             duration_seconds, detected_volume, peak_amplitude = self._read_audio_metrics(wav_path)
-            vad_analysis = analyze_voice(
-                wav_path,
-                aggressiveness=self.settings.voice_vad_aggressiveness,
-                frame_ms=self.settings.voice_frame_ms,
-                min_voiced_ms=self.settings.voice_min_voiced_ms,
-            )
+            with start_span(
+                "voice.vad",
+                {
+                    "duration_seconds": duration_seconds,
+                    "detected_volume": detected_volume,
+                    "peak_amplitude": peak_amplitude,
+                },
+            ):
+                vad_analysis = analyze_voice(
+                    wav_path,
+                    aggressiveness=self.settings.voice_vad_aggressiveness,
+                    frame_ms=self.settings.voice_frame_ms,
+                    min_voiced_ms=self.settings.voice_min_voiced_ms,
+                )
 
             logger.info(
                 "voice_pipeline_metrics path=%s size_bytes=%s duration_seconds=%.3f detected_volume=%.3f peak_amplitude=%s voiced_ratio=%.3f voiced_duration_ms=%s",
@@ -154,22 +169,62 @@ class SpeechToTextService:
                     wav_path=str(wav_path),
                 )
 
-            raw_text = transcribe_audio(
-                wav_path,
-                model_name=self.settings.stt_model,
-                language=self.settings.stt_language,
-                device=self.settings.stt_device,
-                compute_type="int8",
-            )
-            cleaned_text = clean_transcription(
-                raw_text,
-                min_words=self.settings.voice_min_words,
-                noise_phrases=self.settings.voice_noise_phrases,
+            stt_started = perf_counter()
+            with start_span(
+                "voice.stt",
+                {
+                    "stt_model": self.settings.stt_model,
+                    "language": "auto",
+                    "duration_seconds": duration_seconds,
+                },
+            ):
+                transcription_result = transcribe_audio_result(
+                    wav_path,
+                    model_name=self.settings.stt_model,
+                    language=None,
+                    device=self.settings.stt_device,
+                    compute_type="int8",
+                )
+                raw_text = transcription_result.text
+            with start_span("voice.cleaner", {"raw_empty": not bool(raw_text)}):
+                cleaned_text = clean_transcription(
+                    raw_text,
+                    min_words=self.settings.voice_min_words,
+                    noise_phrases=self.settings.voice_noise_phrases,
+                )
+                log_event(
+                    "voice.cleaner",
+                    metadata={
+                        "status": "success" if cleaned_text else "retry",
+                        "cleaned_empty": not bool(cleaned_text),
+                        "detected_language": transcription_result.language,
+                        "confidence": transcription_result.language_probability,
+                        "duration_seconds": duration_seconds,
+                    },
+                )
+            log_event(
+                "voice.stt.finished",
+                output={
+                    "cleaned_empty": not bool(cleaned_text),
+                    "raw_length": len(raw_text or ""),
+                    "language": transcription_result.language,
+                    "language_confidence": transcription_result.language_probability,
+                },
+                metadata={
+                    "latency_ms": round((perf_counter() - stt_started) * 1000, 2),
+                    "language": transcription_result.language,
+                    "language_confidence": transcription_result.language_probability,
+                    "stt_model": self.settings.stt_model,
+                    "vad_ratio": vad_analysis.voiced_ratio if vad_analysis else 0.0,
+                },
             )
 
             logger.info(
-                "voice_pipeline_transcription path=%s raw=%r cleaned=%r",
+                "voice_pipeline_transcription path=%s language=%s confidence=%.4f length=%s raw=%r cleaned=%r",
                 source_path,
+                transcription_result.language,
+                transcription_result.language_probability,
+                len(raw_text or ""),
                 raw_text,
                 cleaned_text,
             )
@@ -178,6 +233,8 @@ class SpeechToTextService:
                 return VoiceProcessingResult(
                     status="retry",
                     raw_text=raw_text,
+                    language=transcription_result.language,
+                    language_confidence=transcription_result.language_probability,
                     duration_seconds=duration_seconds,
                     detected_volume=detected_volume,
                     peak_amplitude=peak_amplitude,
@@ -190,6 +247,8 @@ class SpeechToTextService:
                 status="success",
                 raw_text=raw_text,
                 cleaned_text=cleaned_text,
+                language=transcription_result.language,
+                language_confidence=transcription_result.language_probability,
                 duration_seconds=duration_seconds,
                 detected_volume=detected_volume,
                 peak_amplitude=peak_amplitude,

@@ -33,6 +33,7 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
     .shell-layout {
       display: flex;
       height: 100%;
+      overflow: hidden;
       font-family: 'Plus Jakarta Sans', sans-serif;
       background:
         radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 24%),
@@ -54,6 +55,7 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
       flex-direction: column;
       min-width: 0;
       position: relative;
+      overflow: hidden;
     }
 
     .global-loader {
@@ -78,7 +80,8 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
     .shell-content {
       flex: 1;
       overflow-y: auto;
-      padding: 28px 32px;
+      overflow-x: hidden;
+      padding: 28px 32px 96px;
       /* FIX: pas de position:relative ici — évite de créer un stacking context
          qui confinerait tous les z-index enfants et bloquerait les clics sur les boutons */
     }

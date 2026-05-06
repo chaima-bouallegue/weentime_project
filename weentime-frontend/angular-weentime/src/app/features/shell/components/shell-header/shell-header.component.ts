@@ -6,6 +6,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { PointageService } from '../../../../features/employee/pointage/pointage.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { CommunicationStoreService } from '@app/features/communication/services/communication-store.service';
 import { NotificationDropdownComponent } from '../notification-dropdown/notification-dropdown.component';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
@@ -39,7 +40,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
         <button [routerLink]="['/app', userRole(), 'pointage']"
                 class="pointage-status-pill group"
                 [class.active]="isPointageActive()"
-                [attr.data-tooltip]="isPointageActive() ? 'Session active' : 'Pointer maintenant'">
+                [attr.data-tooltip]="isPointageActive() ? 'Session démarrée' : 'Aucun pointage aujourd’hui'">
           @if (isPointageActive()) {
             <div class="pulse-dot"></div>
             <lucide-icon name="zap" size="16" class="status-icon" [strokeWidth]="2.5"></lucide-icon>
@@ -56,6 +57,17 @@ import { TemplatePortal } from '@angular/cdk/portal';
           <button (click)="themeService.toggleTheme()" class="icon-btn" data-tooltip="Changer le thème">
             <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" size="18" [strokeWidth]="2"></lucide-icon>
           </button>
+
+          <a routerLink="/app/messages"
+             class="message-pill"
+             [class.has-unread]="communicationUnreadTotal() > 0"
+             data-tooltip="Messages">
+            <lucide-icon name="message-square" size="16" [strokeWidth]="2"></lucide-icon>
+            <span class="message-pill-label hidden sm:inline">Messages</span>
+            @if (communicationUnreadTotal() > 0) {
+              <span class="message-pill-count">{{ communicationUnreadTotal() > 99 ? '99+' : communicationUnreadTotal() }}</span>
+            }
+          </a>
 
           <!-- Notifications -->
           <div class="notif-wrapper">
@@ -205,6 +217,55 @@ import { TemplatePortal } from '@angular/cdk/portal';
 
     :host-context(.dark) .system-group {
       border-left-color: rgba(45, 53, 72, 0.8);
+    }
+
+    .message-pill {
+      height: 38px;
+      padding: 0 14px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: #475569;
+      background: rgba(15, 23, 42, 0.04);
+      position: relative;
+      transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .message-pill:hover {
+      transform: translateY(-1px);
+      background: rgba(15, 118, 110, 0.1);
+      color: #0f766e;
+    }
+
+    .message-pill.has-unread {
+      color: #0f766e;
+      background: rgba(15, 118, 110, 0.1);
+    }
+
+    .message-pill-count {
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #0f766e;
+      color: white;
+      font-size: 10px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :host-context(.dark) .message-pill {
+      background: rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+    }
+
+    :host-context(.dark) .message-pill.has-unread {
+      background: rgba(15, 118, 110, 0.18);
+      color: #99f6e4;
     }
 
     .icon-btn {
@@ -612,6 +673,7 @@ export class ShellHeaderComponent {
   public authService = inject(AuthService);
   private router = inject(Router);
   private notificationService = inject(NotificationService);
+  private communicationStore = inject(CommunicationStoreService);
   themeService = inject(ThemeService);
   pointageService = inject(PointageService);
 
@@ -621,6 +683,7 @@ export class ShellHeaderComponent {
   shakeBell = signal(false);
 
   unreadCount = this.notificationService.unreadCount;
+  communicationUnreadTotal = this.communicationStore.totalUnread;
 
   readonly pageTitle = toSignal(
     this.router.events.pipe(
@@ -643,7 +706,8 @@ export class ShellHeaderComponent {
   );
 
   userRole = computed(() => {
-    const role = this.normalizeRole(this.authService.currentUser()?.roles?.[0]);
+    const user = this.authService.currentUser();
+    const role = this.normalizeRole(user?.role);
     if (role === 'EMPLOYEE') return 'employee';
     if (role === 'MANAGER') return 'manager';
     if (role === 'RH') return 'rh';
@@ -654,6 +718,7 @@ export class ShellHeaderComponent {
   readonly isAdmin = computed(() => this.authService.hasRole('ADMIN'));
 
   constructor() {
+    this.communicationStore.bootstrapUnreadTracking();
     // Effet pour déclencher le shake quand le nombre de notifs augmente
     effect(() => {
       const count = this.unreadCount();

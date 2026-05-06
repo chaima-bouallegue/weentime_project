@@ -10,5 +10,7 @@ soundfile==0.12.1
 numpy==1.26.4
 pydub==0.25.1
 imageio-ffmpeg==0.5.1
+braintrust>=0.16.0
+wrapt>=1.16.0,<2.0.0
 TTS==0.22.0
 pypdf==5.1.0

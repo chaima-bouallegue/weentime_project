@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService, User } from '../../core/services/auth.service';
+import { AiCopilotEnvelope, AiCopilotService } from '../../core/services/ai-copilot.service';
 import {
   AssistantActionResult,
   AssistantFormFill,
@@ -45,9 +46,13 @@ export interface ChatApiResponse extends AssistantResponseMeta {
   missing_fields?: string[];
   tool_call?: AssistantToolCall | null;
   action_result?: AssistantActionResult | null;
+  actionResult?: AssistantActionResult | null;
   form_fill?: AssistantFormFill | null;
   workflow?: AssistantWorkflowState | null;
   steps?: AssistantWorkflowStep[];
+  requiresConfirmation?: boolean;
+  confirmationId?: string | null;
+  toolCalls?: AssistantToolCall[];
 }
 
 export interface TtsResponse {
@@ -64,9 +69,29 @@ export class ChatService {
 
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
+  private readonly aiCopilot = inject(AiCopilotService);
   private readonly endpoint = environment.aiServiceUrl;
 
   sendMessage(message: string): Observable<ChatApiResponse> {
+    return this.aiCopilot.sendChatV2(message).pipe(
+      map(response => this.fromV2Envelope(response)),
+      catchError(error => {
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          return this.sendLegacyMessage(message);
+        }
+        return this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.");
+      }),
+    );
+  }
+
+  confirmAction(confirmationId: string, approved: boolean): Observable<ChatApiResponse> {
+    return this.aiCopilot.confirmAction(confirmationId, approved).pipe(
+      map(response => this.fromV2Envelope(response)),
+      catchError(error => this.handleConfirmationError(error)),
+    );
+  }
+
+  private sendLegacyMessage(message: string): Observable<ChatApiResponse> {
     const context = this.getUserContext();
     if (!context) {
       return throwError(() => new Error('Utilisateur non authentifie.'));
@@ -144,11 +169,58 @@ export class ChatService {
       entities: response.entities ?? this.readObject(embedded['entities']) ?? undefined,
       missing_fields: response.missing_fields ?? this.readStringArray(embedded['missing_fields']),
       tool_call: response.tool_call ?? this.readObject(embedded['tool_call']) as AssistantToolCall | null,
-      action_result: response.action_result ?? this.readObject(embedded['action_result']) as AssistantActionResult | null,
+      action_result: response.action_result
+        ?? response.actionResult
+        ?? this.readObject(embedded['action_result']) as AssistantActionResult | null,
       form_fill: response.form_fill ?? this.readObject(embedded['form_fill']) as AssistantFormFill | null,
       workflow: response.workflow
         ?? (this.readObject(embedded['workflow']) as AssistantWorkflowState | null)
         ?? this.coerceWorkflowFromResponse(response),
+    };
+  }
+
+  private fromV2Envelope(envelope: AiCopilotEnvelope): ChatApiResponse {
+    if (!envelope.success || !envelope.data) {
+      const message = envelope.error?.message || 'Le copilote AI est temporairement indisponible.';
+      return {
+        success: false,
+        status: 'error',
+        type: 'error',
+        text: message,
+        message,
+        response: message,
+        error: message,
+      };
+    }
+
+    const data = envelope.data;
+    const text = data.text || '';
+    const status = data.type === 'confirm_action'
+      ? 'confirm'
+      : data.type === 'error'
+        ? 'error'
+        : 'success';
+    const toolCall = Array.isArray(data.toolCalls) && data.toolCalls.length > 0
+      ? data.toolCalls[0] as AssistantToolCall
+      : null;
+
+    return {
+      success: data.type !== 'error',
+      status,
+      type: data.type,
+      text,
+      message: text,
+      response: text,
+      intent: data.intent,
+      data,
+      requiresConfirmation: data.requiresConfirmation,
+      requires_confirmation: data.requiresConfirmation,
+      confirmationId: data.confirmationId,
+      toolCalls: data.toolCalls as AssistantToolCall[] | undefined,
+      tool_call: toolCall,
+      actionResult: data.actionResult as AssistantActionResult | null | undefined,
+      action_result: data.actionResult as AssistantActionResult | null | undefined,
+      error: data.type === 'error' ? text : undefined,
     };
   }
 
@@ -192,6 +264,28 @@ export class ChatService {
 
   private rethrowApiError(error: unknown, fallbackMessage: string): Observable<never> {
     return throwError(() => this.toError(error, fallbackMessage));
+  }
+
+  private handleConfirmationError(error: unknown): Observable<ChatApiResponse> {
+    if (error instanceof HttpErrorResponse && error.status === 409) {
+      const payload = error.error as Record<string, unknown> | null;
+      const code = payload && typeof payload === 'object' && payload['error'] && typeof payload['error'] === 'object'
+        ? String((payload['error'] as Record<string, unknown>)['code'] || '')
+        : '';
+      if (code === 'confirmation_already_used') {
+        const message = 'Cette action a deja ete traitee.';
+        return of({
+          success: true,
+          status: 'success',
+          type: 'answer',
+          text: message,
+          message,
+          response: message,
+          intent: 'confirmation.already_used',
+        });
+      }
+    }
+    return this.rethrowApiError(error, "La confirmation n'a pas pu etre traitee.");
   }
 
   private toError(error: unknown, fallbackMessage: string): Error {

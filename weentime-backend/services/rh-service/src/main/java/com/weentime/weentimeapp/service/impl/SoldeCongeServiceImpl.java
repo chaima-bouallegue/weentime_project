@@ -28,13 +28,25 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
     public SoldeCongeDTO getByUtilisateurAndType(Long utilisateurId, Long typeCongeId) {
         return soldeCongeRepository.findByUtilisateurIdAndTypeCongeId(utilisateurId, typeCongeId)
                 .map(soldeCongeMapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("Solde not found for the given user and type"));
+                .orElseGet(() -> defaultSolde(utilisateurId, typeCongeId, java.time.LocalDate.now().getYear()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SoldeCongeDTO> getByUtilisateur(Long utilisateurId) {
         return soldeCongeMapper.toDtoList(soldeCongeRepository.findByUtilisateurId(utilisateurId));
+    }
+
+    private SoldeCongeDTO defaultSolde(Long utilisateurId, Long typeCongeId, Integer annee) {
+        return SoldeCongeDTO.builder()
+                .utilisateurId(utilisateurId)
+                .typeCongeId(typeCongeId)
+                .annee(annee)
+                .joursAcquis(0.0)
+                .joursUtilises(0.0)
+                .joursRestants(0.0)
+                .joursEnAttente(0.0)
+                .build();
     }
 
     @Override

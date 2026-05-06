@@ -40,21 +40,39 @@ public class DemandeController {
             @RequestParam(required = false) String dateFrom,
             @RequestParam(required = false) String dateTo
     ) {
-        String employeeFilter = employee == null ? null : employee.trim().toLowerCase(Locale.ROOT);
-        LocalDate from = parseDate(dateFrom);
-        LocalDate to = parseDate(dateTo);
-        TypeDemandeEnum typeFilter = parseType(type);
-        Set<StatutDemandeEnum> statutFilter = StatutDemandeEnum.resolveFilterValues(statut);
+        return ResponseEntity.ok(ApiResponse.success(filterAndPage(
+                service.getAllForEntreprise(SecurityUtils.getCurrentEntrepriseId()),
+                page,
+                size,
+                statut,
+                type,
+                employee,
+                dateFrom,
+                dateTo
+        )));
+    }
 
-        List<DemandeDTO> demandes = service.getAllForEntreprise(SecurityUtils.getCurrentEntrepriseId()).stream()
-                .filter(demande -> statutFilter == null || statutFilter.contains(demande.getStatut()))
-                .filter(demande -> typeFilter == null || demande.getTypeDemande() == typeFilter)
-                .filter(demande -> employeeFilter == null || employeeFilter.isBlank() || matchesEmployee(demande, employeeFilter))
-                .filter(demande -> from == null || !resolveDate(demande).toLocalDate().isBefore(from))
-                .filter(demande -> to == null || !resolveDate(demande).toLocalDate().isAfter(to))
-                .sorted(Comparator.comparing(DemandeDTO::getDateCreation, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                .toList();
-        return ResponseEntity.ok(ApiResponse.success(toPage(demandes, page, size)));
+    @GetMapping("/admin")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<DemandeDTO>>> getAllForAdminDashboard(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String employee,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(filterAndPage(
+                service.getAll(),
+                page,
+                size,
+                statut,
+                type,
+                employee,
+                dateFrom,
+                dateTo
+        )));
     }
 
     @GetMapping("/{id}")
@@ -73,6 +91,33 @@ public class DemandeController {
     @PreAuthorize("hasAnyRole('RH','MANAGER')")
     public ResponseEntity<List<DemandeDTO>> getByManager(@PathVariable Long id) {
         return ResponseEntity.ok(service.getByManager(id));
+    }
+
+    private PageResponse<DemandeDTO> filterAndPage(
+            List<DemandeDTO> source,
+            int page,
+            int size,
+            String statut,
+            String type,
+            String employee,
+            String dateFrom,
+            String dateTo
+    ) {
+        String employeeFilter = employee == null ? null : employee.trim().toLowerCase(Locale.ROOT);
+        LocalDate from = parseDate(dateFrom);
+        LocalDate to = parseDate(dateTo);
+        TypeDemandeEnum typeFilter = parseType(type);
+        Set<StatutDemandeEnum> statutFilter = StatutDemandeEnum.resolveFilterValues(statut);
+
+        List<DemandeDTO> demandes = source.stream()
+                .filter(demande -> statutFilter == null || statutFilter.contains(demande.getStatut()))
+                .filter(demande -> typeFilter == null || demande.getTypeDemande() == typeFilter)
+                .filter(demande -> employeeFilter == null || employeeFilter.isBlank() || matchesEmployee(demande, employeeFilter))
+                .filter(demande -> from == null || !resolveDate(demande).toLocalDate().isBefore(from))
+                .filter(demande -> to == null || !resolveDate(demande).toLocalDate().isAfter(to))
+                .sorted(Comparator.comparing(DemandeDTO::getDateCreation, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .toList();
+        return toPage(demandes, page, size);
     }
 
     private PageResponse<DemandeDTO> toPage(List<DemandeDTO> source, int page, int size) {

@@ -6,11 +6,16 @@ import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
 import com.weentime.weentimeapp.dto.CheckInRequest;
 import com.weentime.weentimeapp.dto.CheckOutRequest;
 import com.weentime.weentimeapp.dto.GlobalPresenceAnalyticsDTO;
+import com.weentime.weentimeapp.dto.PresenceHistoryResponse;
+import com.weentime.weentimeapp.dto.PresenceSessionResponse;
 import com.weentime.weentimeapp.dto.PresenceStatsDTO;
 import com.weentime.weentimeapp.dto.TeamStatusResponse;
+import com.weentime.weentimeapp.dto.TodayPresenceResponse;
 import com.weentime.weentimeapp.dto.response.ApiResponse;
 import com.weentime.weentimeapp.enums.PresenceSource;
+import com.weentime.weentimeapp.mapper.PresenceApiMapper;
 import com.weentime.weentimeapp.security.SecurityUtils;
+import com.weentime.weentimeapp.config.PresenceProperties;
 import com.weentime.weentimeapp.service.PresenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -23,7 +28,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,54 +40,69 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class PresenceController {
 
+    private static final String PERSONAL_POINTAGE_ROLES =
+            "hasAnyAuthority('ROLE_EMPLOYEE','ROLE_MANAGER','ROLE_RH','ROLE_ADMIN','EMPLOYEE','MANAGER','RH','ADMIN')";
+
     private final PresenceService presenceService;
     private final SecurityUtils securityUtils;
+    private final PresenceApiMapper presenceApiMapper;
+    private final PresenceProperties presenceProperties;
 
-    @PostMapping({"/check-in", "/attendance/start"})
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AttendanceSummaryDTO>> checkIn(@Valid @RequestBody CheckInRequest request) {
-        if (request.getSource() == null) {
-            request.setSource(PresenceSource.WEB);
+    @PostMapping({"/check-in", "/attendance/start", "/me/check-in"})
+    @PreAuthorize(PERSONAL_POINTAGE_ROLES)
+    public ResponseEntity<ApiResponse<TodayPresenceResponse>> checkIn(@Valid @RequestBody(required = false) CheckInRequest request) {
+        CheckInRequest safeRequest = request == null ? CheckInRequest.builder().build() : request;
+        if (safeRequest.getSource() == null) {
+            safeRequest.setSource(PresenceSource.WEB);
         }
         Long userId = securityUtils.getCurrentUserId();
-        log.info("Received check-in request for user {} from source {}", userId, request.getSource());
-        return ResponseEntity.ok(ApiResponse.success(presenceService.checkIn(userId, request)));
+        log.info("Received check-in request for user {} from source {}", userId, safeRequest.getSource());
+        AttendanceSummaryDTO summary = presenceService.checkIn(userId, safeRequest);
+        return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
     }
 
-    @PostMapping("/check-out")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AttendanceSummaryDTO>> checkOut(@RequestBody(required = false) CheckOutRequest request) {
+    @PostMapping({"/check-out", "/me/check-out"})
+    @PreAuthorize(PERSONAL_POINTAGE_ROLES)
+    public ResponseEntity<ApiResponse<TodayPresenceResponse>> checkOut(@RequestBody(required = false) CheckOutRequest request) {
         Long userId = securityUtils.getCurrentUserId();
         log.info("Received check-out request for user {}", userId);
-        return ResponseEntity.ok(ApiResponse.success(presenceService.checkOut(userId, request)));
+        AttendanceSummaryDTO summary = presenceService.checkOut(userId, request);
+        return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
     }
 
     @GetMapping({"/today", "/me/today"})
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AttendanceSummaryDTO>> getTodayAttendance() {
+    @PreAuthorize(PERSONAL_POINTAGE_ROLES)
+    public ResponseEntity<ApiResponse<TodayPresenceResponse>> getTodayAttendance() {
         Long userId = securityUtils.getCurrentUserId();
         log.info("Fetching today attendance for user {}", userId);
-        return ResponseEntity.ok(ApiResponse.success(presenceService.getTodayAttendance(userId)));
+        AttendanceSummaryDTO summary = presenceService.getTodayAttendance(userId);
+        return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
     }
 
     @GetMapping({"/active-session", "/attendance/active-session"})
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AttendanceSessionDTO>> getActiveSession() {
+    public ResponseEntity<ApiResponse<PresenceSessionResponse>> getActiveSession() {
         Long userId = securityUtils.getCurrentUserId();
         AttendanceSummaryDTO summary = presenceService.getTodayAttendance(userId);
-        return ResponseEntity.ok(ApiResponse.success(summary.getActiveSession()));
+        PresenceSessionResponse response = presenceApiMapper.toSessionResponse(
+                summary.getActiveSession(),
+                java.time.ZoneId.of(presenceProperties.getTimezone())
+        );
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping({"/history", "/me", "/me/history"})
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Page<AttendanceSessionDTO>>> getAttendanceHistory(
+    @PreAuthorize(PERSONAL_POINTAGE_ROLES)
+    public ResponseEntity<ApiResponse<PresenceHistoryResponse>> getAttendanceHistory(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "30") int size
     ) {
         Long userId = securityUtils.getCurrentUserId();
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
         log.info("Fetching attendance history for user {} with page {} and size {}", userId, pageable.getPageNumber(), pageable.getPageSize());
-        return ResponseEntity.ok(ApiResponse.success(presenceService.getAttendanceHistory(userId, pageable)));
+        Page<AttendanceSessionDTO> history = presenceService.getAttendanceHistory(userId, pageable);
+        PresenceHistoryResponse response = presenceApiMapper.toHistoryResponse(history, presenceProperties.getTimezone());
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping({"/team/today", "/manager/team"})
@@ -147,5 +166,10 @@ public class PresenceController {
                 : presenceService.getGlobalStats();
 
         return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    private TodayPresenceResponse buildPersonalTodayResponse(Long userId, AttendanceSummaryDTO summary) {
+        PresenceStatsDTO myStats = presenceService.getMyStats(userId);
+        return presenceApiMapper.toTodayResponse(summary, presenceProperties.getTimezone(), myStats);
     }
 }

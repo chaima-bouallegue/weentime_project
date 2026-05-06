@@ -1,0 +1,88 @@
+<section class="attendance-card"
+         [class.state-active]="state === 'ACTIVE'"
+         [class.state-closed]="state === 'CLOSED'"
+         [class.state-error]="state === 'ERROR'">
+  <div class="card-noise" aria-hidden="true"></div>
+
+  <div class="attendance-head">
+    <div class="role-chip">
+      <lucide-angular [img]="iconCalendar" size="14"></lucide-angular>
+      <span>{{ roleLabel }}</span>
+    </div>
+
+    <div class="status-badge" [class.badge-active]="state === 'ACTIVE'" [class.badge-closed]="state === 'CLOSED'" [class.badge-error]="state === 'ERROR'">
+      <lucide-angular [img]="state === 'ERROR' ? iconAlert : (state === 'CLOSED' ? iconCheck : iconClock)" size="14"></lucide-angular>
+      <span>{{ statusLabel }}</span>
+    </div>
+  </div>
+
+  <div class="attendance-body">
+    <div class="timer-wrap" aria-hidden="true">
+      <svg class="timer-ring" viewBox="0 0 220 220">
+        <circle cx="110" cy="110" r="92" class="ring-base"></circle>
+        <circle cx="110" cy="110" r="92" class="ring-progress"
+                [style.strokeDasharray]="578"
+                [style.strokeDashoffset]="578 - (578 * circleProgress / 100)"></circle>
+      </svg>
+
+      <div class="timer-content">
+        <span class="timer-value">{{ dailyDuration }}</span>
+        <span class="timer-label">Compteur du jour</span>
+      </div>
+    </div>
+
+    <div class="details">
+      <h2>Pointage quotidien</h2>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span>Heure locale</span>
+          <strong>{{ currentTime }}</strong>
+        </div>
+        <div class="meta-item">
+          <span>Entrée</span>
+          <strong>{{ formatTime(checkInTime) }}</strong>
+        </div>
+        <div class="meta-item">
+          <span>Sortie</span>
+          <strong>{{ formatTime(checkOutTime) }}</strong>
+        </div>
+        <div class="meta-item">
+          <span>Activités du jour</span>
+          <strong>{{ activityLogs.length }}</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button"
+                class="primary-btn"
+                [class.btn-stop]="state === 'ACTIVE'"
+                [class.btn-closed]="state === 'CLOSED'"
+                [disabled]="primaryDisabled"
+                (click)="onPrimaryAction()">
+          <span *ngIf="isLoading" class="spinner" aria-hidden="true"></span>
+          <lucide-angular *ngIf="!isLoading" [img]="state === 'ACTIVE' ? iconSquare : iconPlay" size="18"></lucide-angular>
+          <span>{{ isLoading ? 'Traitement...' : primaryLabel }}</span>
+        </button>
+
+        <button type="button" class="secondary-btn" [disabled]="isLoading" (click)="onRefresh()">
+          <lucide-angular [img]="iconRefresh" size="16" [class.rotate]="isLoading"></lucide-angular>
+          <span>Synchroniser</span>
+        </button>
+      </div>
+
+      <div class="bottom-metrics">
+        <div>
+          <span>Cette semaine</span>
+          <strong>{{ weeklyStats?.heuresSemaine || '0h00' }}</strong>
+        </div>
+        <div>
+          <span>Ponctualite</span>
+          <strong>{{ (weeklyStats?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+

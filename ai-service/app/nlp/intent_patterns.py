@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+CREATE_LEAVE = "CREATE_LEAVE"
+CHECK_IN = "CHECK_IN"
+CHECK_OUT = "CHECK_OUT"
+REQUEST_DOCUMENT = "REQUEST_DOCUMENT"
+CREATE_TELEWORK = "CREATE_TELEWORK"
+GET_STATUS = "GET_STATUS"
+
+INTENTS = {
+    CREATE_LEAVE,
+    CHECK_IN,
+    CHECK_OUT,
+    REQUEST_DOCUMENT,
+    CREATE_TELEWORK,
+    GET_STATUS,
+    "attendance.status",
+    "attendance.check_in",
+    "attendance.check_out",
+    "attendance.week_hours",
+    "attendance.history",
+    "leave.balance",
+    "leave.create",
+    "leave.list",
+    "leave.status",
+    "document.create",
+    "document.list",
+    "document.download",
+    "telework.create",
+    "telework.list",
+    "authorization.create",
+    "authorization.list",
+    "communication.send_message",
+    "communication.summarize_channel",
+    "meeting.create",
+    "daily.submit",
+    "daily.summary",
+    "hr.policy_question",
+    "fallback.unknown",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class IntentMatch:
+    intent: str
+    confidence: float
+    route_intent: str
+
+
+INTENT_ROUTE_MAP = {
+    CREATE_LEAVE: CREATE_LEAVE,
+    CHECK_IN: "attendance.check_in",
+    CHECK_OUT: "attendance.check_out",
+    REQUEST_DOCUMENT: REQUEST_DOCUMENT,
+    CREATE_TELEWORK: CREATE_TELEWORK,
+    GET_STATUS: "attendance.status",
+}
+
+INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
+    CREATE_LEAVE: (
+        r"\b(je veux|je souhaite|je voudrais|j ai besoin|demande|demander|prendre|create|request|want|need)\b.*\b(congé|conge)\b",
+        r"\b(congé|conge)\b.*\b(demain|aujourd hui|\d{1,2}[/-]\d{1,2}|from|tomorrow|today)\b",
+        r"\b(leave|vacation|holiday|time off)\b",
+        r"(نحب|اريد|بدي|عايز).*(عطلة|عطله|اجازة|اجازه|رخصة|رخصه|كونجي)",
+        r"(عطلة|عطله|اجازة|اجازه|رخصة|رخصه|كونجي)",
+    ),
+    CHECK_IN: (
+        r"\b(pointer mon entrée|pointer mon entree|check in|clock in|sign in|j arrive|je commence|arrivée|arrivee)\b",
+        r"(دخول|نسجل الدخول|نبصم)",
+    ),
+    CHECK_OUT: (
+        r"\b(pointer ma sortie|check out|clock out|sign out|je pars|départ|depart|sortie)\b",
+        r"(خروج|نسجل الخروج)",
+    ),
+    REQUEST_DOCUMENT: (
+        r"\b(document|attestation|certificat|bulletin|fiche de paie|payslip|certificate)\b",
+        r"(وثيقة|وثيقه|شهادة|شهاده|مستند)",
+    ),
+    CREATE_TELEWORK: (
+        r"\b(télétravail|teletravail|telework|remote work|work from home|wfh|travail a distance)\b",
+        r"(تليترافاي|عن بعد|العمل عن بعد)",
+    ),
+    GET_STATUS: (
+        r"\b(statut|status|etat|état)\b.*\b(pointage|presence|présence|attendance)\b",
+        r"\b(pointage|presence|présence|attendance)\b.*\b(statut|status|etat|état)\b",
+        r"\b(est ce que je suis pointe|suis je pointe|am i checked in)\b",
+        r"(حالة|حاله).*(الحضور|الدخول|البصمة)",
+    ),
+}
+
+
+def match_intent(text: str | None) -> IntentMatch | None:
+    value = (text or "").strip().lower()
+    if not value:
+        return None
+
+    for intent in (CHECK_IN, CHECK_OUT, CREATE_LEAVE, CREATE_TELEWORK, REQUEST_DOCUMENT, GET_STATUS):
+        for pattern in INTENT_PATTERNS[intent]:
+            if re.search(pattern, value, flags=re.IGNORECASE | re.UNICODE):
+                return IntentMatch(intent=intent, confidence=0.94, route_intent=INTENT_ROUTE_MAP[intent])
+    return None

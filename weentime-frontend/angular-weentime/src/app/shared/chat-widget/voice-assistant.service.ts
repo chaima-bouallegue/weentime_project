@@ -21,6 +21,7 @@ export interface AudioStreamResponse extends ChatApiResponse {
   audio_duration?: number;
   detected_volume?: number;
   total_bytes?: number;
+  retryable?: boolean;
 }
 
 export type VoiceAssistantEvent =
@@ -101,8 +102,6 @@ export class VoiceAssistantService {
       }
       this.recorderMimeType = mimeType;
       this.recorder = new MediaRecorder(stream, { mimeType });
-      console.info('voice_recorder_started', { mimeType: this.recorderMimeType });
-
       this.recorder.ondataavailable = event => {
         if (!event.data || event.data.size <= 0 || this.finalized) {
           return;
@@ -290,14 +289,6 @@ export class VoiceAssistantService {
       blob,
       `audio.${extension}`
     );
-
-    console.info('voice_upload_finalize', {
-      mimeType,
-      chunksCount: chunks.length,
-      finalBlobSize: blob.size,
-      isFinal: true,
-      sessionId,
-    });
 
     return firstValueFrom(
       this.http.post<AudioStreamResponse>(
@@ -541,6 +532,7 @@ export class VoiceAssistantService {
       || status === 'unclear_audio'
       || status === 'invalid_audio'
       || status === 'retry'
+      || response?.retryable === true
       || error === 'no_speech_detected'
       || error === 'no_input'
       || error === 'empty_audio'

@@ -2,7 +2,7 @@
   <!-- Status Filters -->
   <div class="flex flex-wrap items-center gap-3 mb-8">
     @for (filter of filters; track filter.value) {
-      <button 
+      <button
         (click)="filterChange.emit(filter.value)"
         [class.active]="currentFilter === filter.value"
         class="filter-chip group"
@@ -28,13 +28,13 @@
     @for (demande of demandes; track demande.id) {
       <div class="teletravail-item-card group">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          
+
           <!-- Left: Info -->
           <div class="flex items-center gap-5">
             <div class="type-icon-wrapper" [style.background-color]="getTypeColor(demande.type) + '15'">
               <lucide-angular [img]="getTypeIconRef(demande.type)" [style.color]="getTypeColor(demande.type)" size="24"></lucide-angular>
             </div>
-            
+
             <div>
               <div class="flex items-center gap-3 mb-1">
                 <h4 class="font-black text-slate-900 dark:text-white leading-none">{{ demande.dateDebut | dateFr }}</h4>
@@ -63,7 +63,7 @@
               <button class="icon-btn" title="Voir détails">
                 <lucide-angular [img]="iconInfo" size="18"></lucide-angular>
               </button>
-              
+
               @if (demande.statut === 'EN_ATTENTE_MANAGER' || demande.statut === 'EN_ATTENTE_RH') {
                 <button (click)="cancelRequest.emit(demande)" class="icon-btn danger" title="Annuler">
                   <lucide-angular [img]="iconTrash" size="18"></lucide-angular>

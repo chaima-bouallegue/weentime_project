@@ -18,3 +18,8 @@ SELECT 'CREATE DATABASE presence_db'
 WHERE NOT EXISTS (
     SELECT FROM pg_database WHERE datname = 'presence_db'
 )\gexec
+
+SELECT 'CREATE DATABASE communication_db'
+WHERE NOT EXISTS (
+    SELECT FROM pg_database WHERE datname = 'communication_db'
+)\gexec

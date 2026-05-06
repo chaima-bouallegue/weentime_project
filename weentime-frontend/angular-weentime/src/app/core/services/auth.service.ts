@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, EMPTY, switchMap, map, of } from 'rxjs';
+import { Observable, catchError, switchMap, map, of } from 'rxjs';
 import { Router } from '@angular/router';
-import { environment } from '../../../environments/environment';
+import { ApiConfigService } from './api-config.service';
 
 /**
  * Storage choice: localStorage
@@ -73,7 +73,8 @@ export interface RegisterResponse {
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
-  private readonly API_URL = `${environment.apiUrl}/auth`;
+  private readonly apiConfig = inject(ApiConfigService);
+  private readonly rolePriority = ['ADMIN', 'RH', 'MANAGER', 'EMPLOYEE'];
 
   /** Single source of truth for authentication state */
   currentUser = signal<User | null>(null);
@@ -90,7 +91,7 @@ export class AuthService {
       motDePasse: credentials.password
     };
 
-    return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(`${this.API_URL}/login`, payload).pipe(
+    return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (!res.requires2FA && res.token) {
@@ -102,7 +103,7 @@ export class AuthService {
   }
 
   verify2fa(code: string, tempToken: string, rememberMe?: boolean): Observable<any> {
-    return this.http.post<any>(`${this.API_URL}/verify-2fa`, { code, tempToken }).pipe(
+    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, tempToken }).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (res.token) {
@@ -114,11 +115,11 @@ export class AuthService {
   }
 
   validateCompanyCode(code: string): Observable<any> {
-    return this.http.get<any>(`${environment.apiUrl}/organisations/entreprises/validate-code/${code}`);
+    return this.http.get<any>(this.apiConfig.ORGANISATION.VALIDATE_COMPANY_CODE(code));
   }
 
   register(userData: any): Observable<RegisterResponse> {
-    return this.http.post<ApiResponse<RegisterResponse> | RegisterResponse>(`${this.API_URL}/register`, userData).pipe(
+    return this.http.post<ApiResponse<RegisterResponse> | RegisterResponse>(this.apiConfig.AUTH.REGISTER, userData).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (res.token) {
@@ -134,17 +135,6 @@ export class AuthService {
    * Uses replaceUrl to prevent back-button access to protected pages.
    */
   logout(): void {
-    // No backend token invalidation endpoint exists currently.
-    // If one is added, uncomment and adapt the following:
-    /*
-    const token = this.getToken();
-    if (token) {
-      this.http.post(`${this.API_URL}/logout`, {}).pipe(
-        catchError(() => EMPTY)
-      ).subscribe();
-    }
-    */
-
     // Clear all stored data
     this.clearStorage();
 
@@ -178,12 +168,14 @@ export class AuthService {
     if (!target) {
       return false;
     }
-    return this.currentUser()?.roles?.some(item => this.toBusinessRole(item) === target) ?? false;
+    const user = this.currentUser();
+    return this.toBusinessRole(user?.role) === target
+      || user?.roles?.some(item => this.toBusinessRole(item) === target) === true;
   }
 
   private fetchProfileAndHandleSuccess(res: any, rememberMe: boolean): Observable<any> {
     this.storeValue('token', res.token, rememberMe);
-    return this.http.get<User>(`${environment.apiUrl}/users/me`).pipe(
+    return this.http.get<User>(this.apiConfig.USER.GET_PROFILE).pipe(
       map(profile => {
         res.user = profile;
         this.handleAuthSuccess(res, rememberMe);
@@ -199,7 +191,7 @@ export class AuthService {
   private handleAuthSuccess(res: any, rememberMe: boolean): void {
     this.storeValue('token', res.token, rememberMe);
     const profile = this.sanitizeProfile(res.user);
-    const roles = this.normalizeRoles(profile.roles || res.roles || profile.role);
+    const roles = this.normalizeRoles([profile.role, profile.roles, res.roles]);
     const primaryRole = this.resolvePrimaryRole(roles);
     const entrepriseId = profile.entrepriseId || profile.entreprise?.id || res.entrepriseId;
     const user: User = {
@@ -207,7 +199,7 @@ export class AuthService {
       id: profile.id || res.id || res.userId,
       email: profile.email || res.email,
       roles,
-      role: profile.role || primaryRole || roles[0],
+      role: primaryRole,
       entrepriseId,
       entreprise: profile.entreprise || (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
     };
@@ -269,31 +261,22 @@ export class AuthService {
   }
 
   private normalizeRoles(input: unknown): string[] {
-    const source = Array.isArray(input)
-      ? input.map(role => typeof role === 'string' ? role : (role?.nom || role?.name || role?.authority))
-      : typeof input === 'string' && input.length > 0
-        ? [input]
-        : [];
-
-    const businessRoles = source
+    const businessRoles = this.extractRoleCandidates(input)
       .map(value => this.toBusinessRole(value))
       .filter((value): value is string => !!value);
 
-    const uniqueBusinessRoles = Array.from(new Set(businessRoles));
-    const authorityRoles = uniqueBusinessRoles.map(role => `ROLE_${role}`);
-
-    // Keep ROLE_* first for backward compatibility, plus plain roles for normalized frontend checks.
-    return [...authorityRoles, ...uniqueBusinessRoles];
+    const primaryRole = this.resolvePrimaryRole(businessRoles);
+    return primaryRole ? [primaryRole] : [];
   }
 
   private resolvePrimaryRole(roles: string[]): string | undefined {
-    for (const role of roles) {
-      const normalized = this.toBusinessRole(role);
-      if (normalized) {
-        return normalized;
-      }
-    }
-    return undefined;
+    const normalizedRoles = new Set(
+      roles
+        .map(role => this.toBusinessRole(role))
+        .filter((role): role is string => !!role)
+    );
+
+    return this.rolePriority.find(role => normalizedRoles.has(role));
   }
 
   private toBusinessRole(value: unknown): string | null {
@@ -330,7 +313,7 @@ export class AuthService {
       nom: this.toOptionalString(profile['nom']) ?? undefined,
       prenom: this.toOptionalString(profile['prenom']) ?? undefined,
       role: this.toOptionalString(profile['role']) ?? undefined,
-      roles: this.normalizeRoles(profile['roles'] ?? profile['role']),
+      roles: this.normalizeRoles([profile['role'], profile['roles']]),
       entrepriseId,
       equipe: equipeId || equipeNom ? { id: equipeId, nom: equipeNom } : null,
       equipeNom: equipeNom ?? undefined,
@@ -350,5 +333,19 @@ export class AuthService {
 
   private toRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+  }
+
+  private extractRoleCandidates(input: unknown): unknown[] {
+    const values = Array.isArray(input) ? input : [input];
+    return values.flatMap(value => {
+      if (Array.isArray(value)) {
+        return this.extractRoleCandidates(value);
+      }
+      if (typeof value === 'string') {
+        return [value];
+      }
+      const record = this.toRecord(value);
+      return record ? [record['nom'], record['name'], record['authority'], record['role']] : [];
+    });
   }
 }

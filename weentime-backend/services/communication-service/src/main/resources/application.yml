@@ -1,0 +1,100 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: communication-service
+  datasource:
+    url: jdbc:postgresql://localhost:5433/communication_db?currentSchema=communication
+    username: weentime
+    password: 170502
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 5000
+      initialization-fail-timeout: -1
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: communication
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    default-schema: communication
+    schemas:
+      - communication
+  cloud:
+    config:
+      enabled: false
+  config:
+    import: optional:configserver:http://localhost:8888
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  server:
+    enable-self-preservation: false
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expirationMs: 86400000
+
+integration:
+  organisation-service:
+    url: http://localhost:8090
+    internal-api-key: communication-service-local
+
+cors:
+  allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+
+communication:
+  internal-api-key: communication-service-local
+  websocket:
+    broker: simple
+    typing-throttle-ms: 1000
+    relay:
+      host: localhost
+      port: 61613
+      client-login: guest
+      client-passcode: guest
+      system-login: guest
+      system-passcode: guest
+  redis:
+    enabled: false
+    topic: communication.realtime
+  outbox:
+    dispatch-delay-ms: 5000
+    batch-size: 50
+    max-attempts: 5
+    retry-backoff-ms: 10000
+  replay:
+    max-events: 200
+    retention-days: 7
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics"
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.weentime.communication: DEBUG
+    org.springframework.web.socket: INFO
+    org.hibernate.SQL: INFO

@@ -11,7 +11,7 @@
           <p class="text-xs text-slate-500 font-bold mt-1 uppercase tracking-wider">Télétravail</p>
         </div>
       </div>
-      
+
       <button (click)="close.emit()" class="close-btn group">
         <lucide-angular [img]="iconX" size="20" class="transition-transform group-hover:rotate-90"></lucide-angular>
       </button>
@@ -43,16 +43,16 @@
 
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
-      
+
       <!-- STEP 1: Type Selection -->
       @if (step() === 1) {
         <div class="animate-in slide-in-from-right-4 duration-300">
           <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Quel type de télétravail ?</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">Choisissez la modalité qui vous convient le mieux.</p>
-          
+
           <div class="grid grid-cols-1 gap-4">
             @for (type of types; track type.value) {
-              <div 
+              <div
                 (click)="selectType(type.value)"
                 class="selection-card group"
                 [class.active]="selectedType() === type.value"
@@ -104,11 +104,11 @@
             </div>
 
             <div class="grid grid-cols-7 gap-1">
-              @for (day of ['L', 'M', 'M', 'J', 'V', 'S', 'D']; track day) {
+              @for (day of ['L', 'M', 'M', 'J', 'V', 'S', 'D']; track $index) {
                 <div class="text-[10px] font-black text-slate-400 text-center py-2 uppercase">{{ day }}</div>
               }
               @for (day of calendarDays(); track day.date) {
-                <div 
+                <div
                   (click)="day.isSelectable && selectDate(day.date.toISOString().split('T')[0])"
                   class="calendar-day"
                   [class.other-month]="!day.isCurrentMonth"
@@ -129,7 +129,7 @@
             <div class="space-y-4">
               <h4 class="text-sm font-black text-slate-900 dark:text-white mb-3">Quelle période ?</h4>
               <div class="grid grid-cols-2 gap-4">
-                <button (click)="periodeDemiJournee.set('MATIN')" 
+                <button (click)="periodeDemiJournee.set('MATIN')"
                         class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
                         [class.border-indigo-500]="periodeDemiJournee() === 'MATIN'"
                         [class.bg-indigo-50]="periodeDemiJournee() === 'MATIN'"
@@ -138,7 +138,7 @@
                   <lucide-angular [img]="iconSunrise" size="20"></lucide-angular>
                   <span class="text-xs font-black">Matin</span>
                 </button>
-                <button (click)="periodeDemiJournee.set('APRES_MIDI')" 
+                <button (click)="periodeDemiJournee.set('APRES_MIDI')"
                         class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
                         [class.border-indigo-500]="periodeDemiJournee() === 'APRES_MIDI'"
                         [class.bg-indigo-50]="periodeDemiJournee() === 'APRES_MIDI'"
@@ -158,11 +158,11 @@
         <div class="animate-in slide-in-from-right-4 duration-300">
           <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Motif & Justification</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">Expliquez brièvement les raisons de cette demande.</p>
-          
+
           <div class="space-y-6">
             <div class="form-group">
               <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Votre motif</label>
-              <textarea 
+              <textarea
                 [(ngModel)]="motif"
                 placeholder="Ex: Besoin de calme pour finaliser le projet X, rendez-vous personnel à proximité, etc."
                 class="w-full h-32 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
@@ -200,7 +200,7 @@
 
     <!-- Footer -->
     <footer class="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
-      <button 
+      <button
         (click)="prevStep()"
         [disabled]="step() === 1"
         class="btn-secondary px-6 py-3 rounded-2xl font-bold flex items-center gap-2 disabled:opacity-0 transition-all"
@@ -210,7 +210,7 @@
       </button>
 
       @if (step() < 3) {
-        <button 
+        <button
           (click)="nextStep()"
           [disabled]="(step() === 1 && !isStep1Valid()) || (step() === 2 && !isStep2Valid())"
           class="btn-primary group px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:shadow-none transition-all"
@@ -219,7 +219,7 @@
           <lucide-angular [img]="iconChevronRight" size="18" class="group-hover:translate-x-1 transition-transform"></lucide-angular>
         </button>
       } @else {
-        <button 
+        <button
           (click)="onSubmit()"
           [disabled]="!isStep3Valid() || isSubmitting()"
           class="btn-primary px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 transition-all"

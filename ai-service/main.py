@@ -32,6 +32,14 @@ from tools.hr_tools import HRTools
 from voice.audio_conversion import convert_to_wav
 from voice.stt import AudioConversionError, SpeechToTextService, VoiceProcessingResult, is_valid_audio
 from voice.tts import TextToSpeechService
+from app.api.chat_v2 import router as chat_v2_router
+from app.api.health_v2 import router as health_v2_router
+from app.api.voice_v2 import router as voice_v2_router
+from app.core.copilot_engine import configure_copilot_engine, process_copilot_message
+from app.nlp.language_detector import detect_language as detect_response_language
+from app.observability.decorators import trace_ai_step
+from app.observability.braintrust_client import flush_braintrust, init_braintrust
+from app.observability.tracing import log_event, start_span
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -162,6 +170,7 @@ class HistoryResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
+    language: str | None = None
 
 
 class TTSResponse(BaseModel):
@@ -249,10 +258,14 @@ async def lifespan(app: FastAPI):
     app.state.agent_router = agent_router
     app.state.audio_stream_sessions = {}
     app.state.completed_audio_streams = {}
+    app.state.legacy_process_chat = _process_chat
+    configure_copilot_engine(app.state, legacy_handler=_process_chat)
+    init_braintrust()
 
     try:
         yield
     finally:
+        flush_braintrust()
         await hr_tools.aclose()
 
 
@@ -266,6 +279,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(chat_v2_router)
+app.include_router(health_v2_router)
+app.include_router(voice_v2_router)
 
 
 @app.exception_handler(RequestValidationError)
@@ -658,8 +674,21 @@ async def _process_uploaded_audio(
 ) -> tuple[VoiceProcessingResult, Path]:
     stt_service: SpeechToTextService = app.state.stt_service
     work_dir = settings.temp_audio_dir / "uploads" / request_id
-    input_path = await _store_uploaded_audio(upload, work_dir, stem=stem)
-    result = await stt_service.aprocess(input_path)
+    with start_span("voice.audio_received", {"request_id": request_id, "content_type": upload.content_type}):
+        input_path = await _store_uploaded_audio(upload, work_dir, stem=stem)
+    with start_span("voice.stt", {"request_id": request_id}):
+        result = await stt_service.aprocess(input_path)
+    log_event(
+        "voice.stt.result",
+        output={"status": result.status, "cleaned_empty": not bool(result.cleaned_text)},
+        metadata={
+            "request_id": request_id,
+            "duration_seconds": result.duration_seconds,
+            "detected_volume": result.detected_volume,
+            "language": settings.stt_language,
+            "stt_model": settings.stt_model,
+        },
+    )
     return result, work_dir
 
 
@@ -786,16 +815,48 @@ def _voice_soft_chat_response(
     )
 
 
+def _coerce_copilot_response(response: Any, *, transcription: str | None = None) -> ChatResponse:
+    if isinstance(response, ChatResponse):
+        if transcription:
+            response.transcription = transcription
+        return response
+
+    payload = response.model_dump(mode="json") if hasattr(response, "model_dump") else getattr(response, "__dict__", {})
+    if not isinstance(payload, dict):
+        payload = {"text": str(response)}
+
+    text = str(payload.get("text") or payload.get("message") or payload.get("response") or "")
+    response_type = str(payload.get("type") or "chat")
+    chat_type = response_type if response_type in {"chat", "action", "ask", "error", "workflow"} else "ask"
+    status = "error" if response_type == "error" else ("confirm" if response_type == "confirm_action" else "success")
+
+    return ChatResponse(
+        success=response_type != "error",
+        status=status,
+        type=chat_type,  # preserve unsupported V2 types in data while keeping legacy response_model valid
+        text=text,
+        message=text,
+        response=text,
+        intent=payload.get("intent"),
+        data=payload,
+        transcription=transcription,
+        error=payload.get("error") if response_type == "error" else None,
+        entities=_clean_json(payload.get("extracted_entities") or payload.get("entities") or {}),
+    )
+
+
 async def _route_voice_transcript(
     *,
     transcription: str,
     user_id: int,
     role: str | None,
     access_token: str | None,
+    language: str | None = None,
 ) -> ChatResponse:
     normalized_text = transcription.strip()
-    detected_intent = detect_intent(normalized_text, role=role)
-    entities = extract_entities(normalized_text, intent=detected_intent, role=role)
+    with start_span("voice.agent_route", {"user_id": user_id, "role": role}):
+        detected_intent = detect_intent(normalized_text, role=role)
+        entities = extract_entities(normalized_text, intent=detected_intent, role=role)
     logger.info(
         "voice_route user_id=%s role=%s intent=%s entities=%s transcription=%r",
         user_id,
@@ -805,19 +866,22 @@ async def _route_voice_transcript(
         normalized_text,
     )
 
-    response = await _process_chat(
-        ChatRequest(
-            user_id=user_id,
-            message=normalized_text,
-            role=role,
-            access_token=access_token,
-            metadata={
-                "channel": "voice",
-                "intent": detected_intent,
-                "entities": entities,
-            },
-        )
+    copilot_response = await process_copilot_message(
+        user_id,
+        normalized_text,
+        access_token,
+        role,
+        channel="voice",
+        metadata={
+            "app_state": app.state,
+            "voice": True,
+            "language": language,
+            "detected_intent": detected_intent,
+            "entities": entities,
+            "allow_legacy_without_token": True,
+        },
     )
+    response = _coerce_copilot_response(copilot_response, transcription=normalized_text)
     response.transcription = normalized_text
     if not response.intent:
         response.intent = detected_intent
@@ -1067,9 +1131,14 @@ async def _append_stream_chunk(
     return None
 
 
-async def _maybe_generate_tts(text: str) -> str | None:
+async def _maybe_generate_tts(text: str, language: str | None = None) -> str | None:
     tts_service: TextToSpeechService = app.state.tts_service
-    audio_path = await tts_service.asynthesize(text)
+    resolved_language = language or detect_response_language(text)
+    with start_span(
+        "voice.tts",
+        {"text_length": len(text or ""), "language": resolved_language, "tts_model": settings.tts_model},
+    ):
+        audio_path = await tts_service.asynthesize(text, resolved_language)
     if not audio_path:
         return None
     return f"{settings.public_base_url}/audio/files/{Path(audio_path).name}"
@@ -1093,7 +1162,8 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
         stt_service: SpeechToTextService = app.state.stt_service
         session.stream_state = "processing"
 
-        merged_path = merge_chunks(session.session_id)
+        with start_span("voice.stream.merge_chunks", {"session_id": session.session_id, "chunk_count": session.chunk_count}):
+            merged_path = merge_chunks(session.session_id)
         if merged_path is None or not merged_path.exists() or session.total_bytes <= 0:
             payload = _no_speech_payload(
                 session_id=session.session_id,
@@ -1102,7 +1172,8 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             )
             return _complete_stream_session(session, payload)
 
-        is_valid_stream, probe_detail = _validate_stream_audio(merged_path)
+        with start_span("voice.stream.ffprobe", {"session_id": session.session_id, "total_bytes": session.total_bytes}):
+            is_valid_stream, probe_detail = _validate_stream_audio(merged_path)
         if not is_valid_stream:
             logger.warning(
                 "audio_stream_invalid_probe session_id=%s merged_path=%s detail=%s",
@@ -1117,7 +1188,8 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             return _complete_stream_session(session, payload)
 
         try:
-            wav_path = convert_stream_to_wav(session.session_id, merged_path)
+            with start_span("voice.audio_convert", {"session_id": session.session_id, "total_bytes": session.total_bytes}):
+                wav_path = convert_stream_to_wav(session.session_id, merged_path)
             logger.info(
                 "audio_stream_merged session_id=%s merged_path=%s wav_path=%s chunk_count=%s total_bytes=%s",
                 session.session_id,
@@ -1156,7 +1228,8 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             )
             return _complete_stream_session(session, payload)
 
-        stt_result = await stt_service.aprocess(merged_path)
+        with start_span("voice.stt", {"session_id": session.session_id, "stt_model": settings.stt_model, "language": settings.stt_language}):
+            stt_result = await stt_service.aprocess(merged_path)
         session.detected_volume = max(session.detected_volume, stt_result.detected_volume)
 
         if stt_result.status == "no_input":
@@ -1222,8 +1295,9 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             user_id=session.user_id,
             role=session.role,
             access_token=session.access_token,
+            language=stt_result.language,
         )
-        audio_url = await _maybe_generate_tts(response.text) if response.text else None
+        audio_url = await _maybe_generate_tts(response.text, language=stt_result.language) if response.text else None
         if audio_url:
             response.audio_url = audio_url
             if isinstance(response.data, dict):
@@ -1240,6 +1314,8 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
                 "audio": audio_url,
                 "stream_state": "done",
                 "audio_duration": stt_result.duration_seconds,
+                "language": stt_result.language,
+                "language_confidence": stt_result.language_confidence,
                 "detected_volume": session.detected_volume,
                 "total_bytes": session.total_bytes,
             }
@@ -1264,11 +1340,19 @@ async def health() -> HealthResponse:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, authorization: str | None = Header(None)) -> ChatResponse:
     access_token = payload.access_token or _extract_access_token(authorization)
-    request = payload.model_copy(update={"access_token": access_token})
-    return await _process_chat(request)
+    return await _process_chat(
+        ChatRequest(
+            user_id=payload.user_id,
+            message=payload.message,
+            role=payload.role,
+            access_token=access_token,
+            metadata=payload.metadata,
+        )
+    )
 
 
 @app.post("/audio")
+@trace_ai_step("ai.audio.request")
 async def audio(file: UploadFile = File(...)) -> dict[str, Any]:
     request_id = uuid.uuid4().hex
     work_dir: Path | None = None
@@ -1306,6 +1390,7 @@ async def audio(file: UploadFile = File(...)) -> dict[str, Any]:
 
 
 @app.post("/voice", response_model=ChatResponse)
+@trace_ai_step("ai.voice.request")
 async def voice(
     audio_file: UploadFile = File(...),
     user_id: int = Form(...),
@@ -1349,10 +1434,11 @@ async def voice(
             user_id=user_id,
             role=role,
             access_token=resolved_access_token,
+            language=result.language,
         )
         response.transcription = transcription
         if generate_tts and response.text:
-            audio_url = await _maybe_generate_tts(response.text)
+            audio_url = await _maybe_generate_tts(response.text, language=result.language)
             if audio_url:
                 response.audio_url = audio_url
                 if isinstance(response.data, dict):
@@ -1386,6 +1472,7 @@ async def voice(
 
 
 @app.post("/audio-stream")
+@trace_ai_step("ai.audio_stream.request")
 async def audio_stream(
     file: UploadFile | None = File(None),
     user_id: int | None = Form(None),
@@ -1427,6 +1514,15 @@ async def audio_stream(
     try:
         should_finalize = bool(is_final or finalize or end)
         if file is not None:
+            log_event(
+                "voice.stream.chunk_received",
+                metadata={
+                    "session_id": session.session_id,
+                    "chunk_index": chunk_index,
+                    "is_final": should_finalize,
+                    "content_type": file.content_type,
+                },
+            )
             await _append_stream_chunk(
                 session,
                 file,
@@ -1520,8 +1616,9 @@ async def chat_history(user_id: int) -> HistoryResponse:
 
 
 @app.post("/tts", response_model=TTSResponse)
+@trace_ai_step("ai.tts.request")
 async def tts(payload: TTSRequest) -> TTSResponse:
-    audio_url = await _maybe_generate_tts(payload.text)
+    audio_url = await _maybe_generate_tts(payload.text, language=payload.language)
     if not audio_url:
         raise HTTPException(status_code=503, detail="tts_unavailable")
     return TTSResponse(success=True, audio_url=audio_url, filename=Path(audio_url).name)

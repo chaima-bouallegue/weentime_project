@@ -70,17 +70,23 @@ import {
 export const shellRoutes: Routes = [
   {
     path: 'notifications',
-    title: 'WeenTime — Notifications',
+    title: 'WeenTime â€” Notifications',
     data: { title: 'Notifications' },
     loadComponent: () => import('../notifications/notification-page.component').then(m => m.NotificationPageComponent)
   },
-  // ── Vocal ──
+  // â”€â”€ Vocal â”€â”€
   {
     path: 'vocal',
     loadChildren: () => import('../vocal/vocal.routes').then(m => m.vocalRoutes)
   },
+  {
+    path: 'messages',
+    title: 'WeenTime - Messages',
+    data: { title: 'Messages' },
+    loadChildren: () => import('../communication/communication.routes').then(m => m.communicationRoutes)
+  },
 
-  // ── Employee ──
+  // â”€â”€ Employee â”€â”€
   { path: 'employee', redirectTo: 'employee/dashboard', pathMatch: 'full' },
   {
     path: 'employee/dashboard',
@@ -108,25 +114,25 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'employee/absences',
-    title: 'WeenTime — Mes absences',
+    title: 'WeenTime â€” Mes absences',
     data: { title: 'Mes absences' },
     loadComponent: () => import('../employee/absences/employee-absences.component').then(m => m.EmployeeAbsencesComponent)
   },
   {
     path: 'employee/pointage',
-    title: 'WeenTime — Pointage',
+    title: 'WeenTime â€” Pointage',
     data: { title: 'Pointage' },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
     path: 'employee/autorisations',
-    title: 'WeenTime — Mes autorisations',
+    title: 'WeenTime â€” Mes autorisations',
     data: { title: 'Mes autorisations' },
     loadComponent: () => import('../employee/autorisation/employee-autorisation.component').then(m => m.EmployeeAutorisationComponent)
   },
   {
     path: 'employee/autorisations/nouvelle',
-    title: 'WeenTime — Nouvelle demande',
+    title: 'WeenTime â€” Nouvelle demande',
     data: { title: 'Nouvelle demande' },
     loadComponent: () => import('../employee/autorisation/employee-autorisation.component').then(m => m.EmployeeAutorisationComponent)
   },
@@ -138,7 +144,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'employee/horaires',
-    title: 'WeenTime — Mon planning',
+    title: 'WeenTime â€” Mon planning',
     data: { title: 'Mon planning' },
     loadComponent: () => import('../employee/horaires/employee-horaires.component').then(m => m.EmployeeHorairesComponent)
   },
@@ -152,7 +158,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'manager/pointage',
-    title: 'WeenTime — Pointage',
+    title: 'WeenTime â€” Pointage',
     data: { title: 'Pointage' },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
@@ -176,13 +182,13 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'manager/absences',
-    title: 'WeenTime — Absences équipe',
+    title: 'WeenTime â€” Absences équipe',
     data: { title: 'Absences équipe' },
     loadComponent: () => import('../manager/absences/manager-absences.component').then(m => m.ManagerAbsencesComponent)
   },
   {
     path: 'manager/autorisations',
-    title: 'WeenTime — Autorisations équipe',
+    title: 'WeenTime â€” Autorisations équipe',
     data: { title: 'Autorisations équipe' },
     loadComponent: () => import('../manager/autorisation/manager-autorisation.component').then(m => m.ManagerAutorisationComponent)
   },
@@ -194,13 +200,13 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'manager/horaires',
-    title: 'WeenTime — Horaires équipe',
+    title: 'WeenTime â€” Horaires équipe',
     data: { title: 'Horaires équipe' },
     loadComponent: () => import('../manager/horaires/manager-horaires.component').then(m => m.ManagerHorairesComponent)
   },
   {
     path: 'manager/presence',
-    title: 'WeenTime — Présence équipe',
+    title: 'WeenTime â€” Présence équipe',
     data: { title: 'Présence équipe' },
     loadComponent: () => import('../manager/presence/manager-presence.component').then(m => m.ManagerPresenceComponent)
   },
@@ -230,7 +236,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/analytics',
-    title: 'WeenTime — Analytics',
+    title: 'WeenTime â€” Analytics',
     data: { title: 'Analytics' },
     loadComponent: () => import('../rh/analytics/rh-analytics.component').then(m => m.RhAnalyticsComponent),
     providers: [
@@ -338,7 +344,7 @@ export const shellRoutes: Routes = [
   { path: 'rh/employes', redirectTo: 'rh/structure/employes', pathMatch: 'full' },
   {
     path: 'rh/conges',
-    title: 'WeenTime — Gestion des congés',
+    title: 'WeenTime â€” Gestion des congés',
     data: { title: 'Gestion des congés' },
     loadComponent: () => import('../rh/conges/rh-conges.component').then(m => m.RhCongesComponent),
     providers: [
@@ -355,7 +361,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/teletravail',
-    title: 'WeenTime — Télétravail',
+    title: 'WeenTime â€” Télétravail',
     data: { title: 'Télétravail' },
     loadComponent: () => import('../rh/teletravail/rh-teletravail.component').then(m => m.RhTeletravailComponent),
     providers: [
@@ -382,13 +388,13 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/documents',
-    title: 'WeenTime — Gestion des documents',
+    title: 'WeenTime â€” Gestion des documents',
     data: { title: 'Gestion des documents' },
     loadComponent: () => import('../rh/documents/rh-documents.component').then(m => m.RhDocumentsComponent)
   },
   {
     path: 'rh/absences',
-    title: 'WeenTime — Absences',
+    title: 'WeenTime â€” Absences',
     data: { title: 'Absences' },
     loadComponent: () => import('../rh/absences/rh-absences.component').then(m => m.RhAbsencesComponent),
     providers: [
@@ -415,13 +421,13 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/autorisations',
-    title: 'WeenTime — Gestion autorisations',
+    title: 'WeenTime â€” Gestion autorisations',
     data: { title: 'Gestion autorisations' },
     loadComponent: () => import('../rh/autorisation/rh-autorisation.component').then(m => m.RhAutorisationComponent)
   },
   {
     path: 'rh/parametres',
-    title: 'WeenTime — Paramètres RH',
+    title: 'WeenTime â€” Paramètres RH',
     data: { title: 'Paramètres RH' },
     loadComponent: () => import('../rh/parametres/rh-parametres.component').then(m => m.RhParametresComponent),
     providers: [
@@ -458,7 +464,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires',
-    title: 'WeenTime — Horaires de travail',
+    title: 'WeenTime â€” Horaires de travail',
     data: { title: 'Horaires de travail' },
     loadComponent: () => import('../rh/horaires/rh-horaires.component').then(m => m.RhHorairesComponent),
     providers: [
@@ -475,27 +481,33 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires/nouveau',
-    title: 'WeenTime — Nouvel horaire',
+    title: 'WeenTime â€” Nouvel horaire',
     data: { title: 'Nouvel horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent)
   },
   {
     path: 'rh/horaires/:id/modifier',
-    title: 'WeenTime — Modifier horaire',
+    title: 'WeenTime â€” Modifier horaire',
     data: { title: 'Modifier horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent)
   },
   {
     path: 'rh/horaires/affecter',
-    title: 'WeenTime — Affectation horaire',
+    title: 'WeenTime â€” Affectation horaire',
     data: { title: 'Affectation horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-assign/rh-horaire-assign.component').then(m => m.RhHoraireAssignComponent)
+  },
+  {
+    path: 'rh/pointage',
+    title: 'WeenTime - Pointage',
+    data: { title: 'Pointage' },
+    loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
     path: 'rh/presence',
     title: 'WeenTime - Pointage',
     data: { title: 'Pointage' },
-    loadComponent: () => import('../employee/presence/presence.component').then(m => m.PresenceComponent)
+    loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
     path: 'rh/conges-validation',
@@ -583,11 +595,18 @@ export const shellRoutes: Routes = [
     loadComponent: () => import('../admin/settings/admin-settings.component').then(m => m.AdminSettingsComponent)
   },
   {
+    path: 'admin/pointage',
+    title: 'WeenTime - Pointage',
+    data: { title: 'Pointage' },
+    canActivate: [adminGuard],
+    loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
+  },
+  {
     path: 'admin/presence',
     title: 'WeenTime - Pointage',
     data: { title: 'Pointage' },
     canActivate: [adminGuard],
-    loadComponent: () => import('../employee/presence/presence.component').then(m => m.PresenceComponent)
+    loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
     path: 'admin/rh-owners',
@@ -604,4 +623,5 @@ export const shellRoutes: Routes = [
     loadComponent: () => import('../shared-profile/profile.component').then(m => m.ProfileComponent)
   }
 ];
+
 

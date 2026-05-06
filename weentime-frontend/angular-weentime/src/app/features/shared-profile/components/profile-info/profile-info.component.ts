@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnInit, computed, inject, input, output, signal } from '@angular/core';
+﻿import { Component, ChangeDetectionStrategy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -196,6 +196,11 @@ export class ProfileInfoComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    if (!this.canLoadDepartments()) {
+      this.departements.set([]);
+      return;
+    }
+
     this.structureService.getDepartements().subscribe({
       next: depts => this.departements.set(depts),
       error: () => this.departements.set([])
@@ -214,8 +219,8 @@ export class ProfileInfoComponent implements OnInit {
       { label: 'Email', value: p.email, icon: 'mail' },
       { label: 'Telephone', value: p.telephone, icon: 'phone' },
       { label: 'Poste', value: p.poste, icon: 'briefcase' },
-      { label: 'Departement', value: p.departement?.nom ?? 'Non assigné', icon: 'building-2' },
-      { label: 'Entreprise', value: p.entreprise?.nom ?? 'Non assigné', icon: 'building' }
+      { label: 'Departement', value: p.departement?.nom ?? 'Non renseigné', icon: 'building-2' },
+      { label: 'Entreprise', value: p.entreprise?.nom ?? 'Non renseigné', icon: 'building' }
     ];
   });
 
@@ -279,4 +284,11 @@ export class ProfileInfoComponent implements OnInit {
       }
     });
   }
+
+  private canLoadDepartments(): boolean {
+    return this.authService.hasRole('ADMIN')
+      || this.authService.hasRole('RH')
+      || this.authService.hasRole('MANAGER');
+  }
 }
+
