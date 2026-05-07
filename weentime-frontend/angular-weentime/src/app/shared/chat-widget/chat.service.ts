@@ -34,11 +34,13 @@ export interface ChatApiResponse extends AssistantResponseMeta {
   type?: string;
   action?: string | null;
   response?: string;
+  transcript?: string;
   transcription?: string;
   intent?: AssistantIntent | string;
   requires_confirmation?: boolean;
   pending_action?: string | null;
   data?: unknown;
+  audioUrl?: string | null;
   audio_url?: string | null;
   error?: string;
   stream_state?: string | null;
@@ -181,14 +183,25 @@ export class ChatService {
 
   private fromV2Envelope(envelope: AiCopilotEnvelope): ChatApiResponse {
     if (!envelope.success || !envelope.data) {
-      const message = envelope.error?.message || 'Le copilote AI est temporairement indisponible.';
+      const data = envelope.data && typeof envelope.data === 'object'
+        ? envelope.data as unknown as Record<string, unknown>
+        : {};
+      const message = this.readString(data['text'])
+        ?? this.readString(data['response'])
+        ?? this.readString(data['message'])
+        ?? envelope.error?.message
+        ?? 'Le copilote AI est temporairement indisponible.';
       return {
         success: false,
         status: 'error',
-        type: 'error',
+        type: this.readString(data['type']) ?? 'error',
         text: message,
         message,
         response: message,
+        intent: this.readString(data['intent']),
+        data: envelope.data,
+        actionResult: this.readObject(data['actionResult']) as AssistantActionResult | null,
+        action_result: this.readObject(data['actionResult']) as AssistantActionResult | null,
         error: message,
       };
     }
@@ -285,6 +298,19 @@ export class ChatService {
         });
       }
     }
+    if (error instanceof HttpErrorResponse && error.status === 404) {
+      const message = this.extractApiErrorMessage(error.error) ?? "Cette confirmation est introuvable ou expiree.";
+      return of({
+        success: false,
+        status: 'error',
+        type: 'error',
+        text: message,
+        message,
+        response: message,
+        intent: 'confirmation.not_found',
+        error: message,
+      });
+    }
     return this.rethrowApiError(error, "La confirmation n'a pas pu etre traitee.");
   }
 
@@ -350,6 +376,16 @@ export class ChatService {
       return this.normalizeAudioError(errorText) ?? this.normalizeBusinessError(errorText);
     }
 
+    const nestedError = body['error'];
+    if (nestedError && typeof nestedError === 'object') {
+      const nestedMessage = typeof (nestedError as Record<string, unknown>)['message'] === 'string'
+        ? String((nestedError as Record<string, unknown>)['message']).trim()
+        : '';
+      if (nestedMessage) {
+        return this.normalizeBusinessError(nestedMessage);
+      }
+    }
+
     const details = body['details'];
     if (details && typeof details === 'object') {
       const detailMessage = typeof (details as Record<string, unknown>)['message'] === 'string'
@@ -408,7 +444,7 @@ export class ChatService {
 
   private normalizeBusinessError(value: string): string {
     const lowered = value.trim().toLowerCase();
-    if (lowered.includes('action deja traitee') || lowered.includes('action déjà traitée')) {
+    if (lowered.includes('action deja traitee') || lowered.includes('action dÃ©jÃ  traitÃ©e')) {
       return 'Cette demande a deja ete traitee.';
     }
     if (lowered.includes('deja en cours')) {

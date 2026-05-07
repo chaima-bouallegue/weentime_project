@@ -31,6 +31,8 @@ def redact_value(value: Any, *, log_inputs: bool | None = None) -> Any:
     if isinstance(value, str):
         text = BEARER_PATTERN.sub("Bearer [redacted]", value)
         text = JWT_PATTERN.sub("[redacted-jwt]", text)
+        if settings.braintrust_api_key:
+            text = text.replace(settings.braintrust_api_key, "[redacted-braintrust-api-key]")
         if settings.braintrust_redact_emails:
             text = EMAIL_PATTERN.sub("[redacted-email]", text)
         if not should_log_inputs and len(text) > 0:

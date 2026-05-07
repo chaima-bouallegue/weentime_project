@@ -103,6 +103,51 @@
 
             <p class="message-bubble__text">{{ message.text }}</p>
 
+            <section *ngIf="message.pendingFlow" class="message-bubble__pending-flow">
+              <span class="pending-flow__pill">
+                Demande en cours: {{ message.pendingFlow.intent || message.pendingFlow.agent }}
+              </span>
+              <span
+                *ngFor="let field of message.pendingFlow.missingFields"
+                class="pending-flow__pill pending-flow__pill--missing"
+              >
+                Champ manquant: {{ pendingFieldLabel(field) }}
+              </span>
+            </section>
+
+            <section *ngIf="message.confirmationSummary" class="message-bubble__confirmation-summary">
+              <div
+                *ngFor="let row of confirmationSummaryRows(message.confirmationSummary)"
+                class="confirmation-summary__row"
+              >
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </section>
+
+            <section *ngIf="message.readResult" class="message-bubble__read-result">
+              <div class="message-bubble__read-head">
+                <span>{{ message.readResult.summary || 'Resultat' }}</span>
+                <span *ngIf="message.readResult.count !== undefined">
+                  {{ message.readResult.count }} element(s)
+                </span>
+              </div>
+
+              <p *ngIf="message.readResult.empty" class="message-bubble__read-empty">
+                Aucune donnee a afficher.
+              </p>
+
+              <div
+                *ngFor="let item of readResultItems(message.readResult)"
+                class="read-result-item"
+              >
+                <span class="read-result-item__label">{{ readItemLabel(item) }}</span>
+                <span *ngIf="readItemStatus(item)" class="read-result-item__status">
+                  {{ readItemStatus(item) }}
+                </span>
+              </div>
+            </section>
+
             <section *ngIf="message.workflow?.steps?.length" class="message-bubble__workflow">
               <div class="message-bubble__workflow-head">
                 <span>{{ workflowStatusLabel(message.workflow) }}</span>

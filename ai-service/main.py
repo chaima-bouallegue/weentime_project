@@ -39,6 +39,7 @@ from app.core.copilot_engine import configure_copilot_engine, process_copilot_me
 from app.nlp.language_detector import detect_language as detect_response_language
 from app.observability.decorators import trace_ai_step
 from app.observability.braintrust_client import flush_braintrust, init_braintrust
+from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_event, start_span
 
 logger = logging.getLogger(__name__)
@@ -215,6 +216,7 @@ class AudioStreamSession:
     access_token: str | None
     directory: Path
     stream_path: Path
+    request_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     final_result: dict[str, Any] | None = None
     stream_state: str = "listening"
@@ -674,10 +676,25 @@ async def _process_uploaded_audio(
 ) -> tuple[VoiceProcessingResult, Path]:
     stt_service: SpeechToTextService = app.state.stt_service
     work_dir = settings.temp_audio_dir / "uploads" / request_id
-    with start_span("voice.audio_received", {"request_id": request_id, "content_type": upload.content_type}):
+    with start_span("voice.audio.store", {"request_id": request_id, "content_type": upload.content_type}):
         input_path = await _store_uploaded_audio(upload, work_dir, stem=stem)
+    with start_span("voice.audio.validate", {"request_id": request_id, "path": str(input_path)}):
+        log_event("voice.audio.validate", metadata={"request_id": request_id, "status": "stored"})
     with start_span("voice.stt", {"request_id": request_id}):
         result = await stt_service.aprocess(input_path)
+    with start_span(
+        "voice.cleaner",
+        {"request_id": request_id, "status": result.status, "cleaned_empty": not bool(result.cleaned_text)},
+    ):
+        log_event(
+            "voice.cleaner",
+            metadata={
+                "request_id": request_id,
+                "status": result.status,
+                "cleaned_empty": not bool(result.cleaned_text),
+                "text_length": len(result.cleaned_text or result.raw_text or ""),
+            },
+        )
     log_event(
         "voice.stt.result",
         output={"status": result.status, "cleaned_empty": not bool(result.cleaned_text)},
@@ -852,9 +869,10 @@ async def _route_voice_transcript(
     role: str | None,
     access_token: str | None,
     language: str | None = None,
+    request_id: str | None = None,
 ) -> ChatResponse:
     normalized_text = transcription.strip()
-    with start_span("voice.agent_route", {"user_id": user_id, "role": role}):
+    with start_span("voice.agent_route", {"user_id": user_id, "role": role, "request_id": request_id}):
         detected_intent = detect_intent(normalized_text, role=role)
         entities = extract_entities(normalized_text, intent=detected_intent, role=role)
     logger.info(
@@ -876,6 +894,7 @@ async def _route_voice_transcript(
             "app_state": app.state,
             "voice": True,
             "language": language,
+            "request_id": request_id,
             "detected_intent": detected_intent,
             "entities": entities,
             "allow_legacy_without_token": True,
@@ -1041,6 +1060,8 @@ def convert_stream_to_wav(session_id: str, merged_path: Path) -> Path:
 
 
 def _complete_stream_session(session: AudioStreamSession, payload: dict[str, Any]) -> dict[str, Any]:
+    payload["request_id"] = session.request_id
+    payload["requestId"] = session.request_id
     session.stream_state = "done"
     session.final_result = payload
     _get_completed_streams()[session.session_id] = payload
@@ -1052,13 +1073,16 @@ def _complete_stream_session(session: AudioStreamSession, payload: dict[str, Any
 def _get_or_create_audio_stream_session(
     session_id: str | None,
     *,
+    request_id: str,
     user_id: int,
     role: str,
     access_token: str | None,
 ) -> AudioStreamSession:
     sessions = _get_stream_sessions()
     if session_id and session_id in sessions:
-        return sessions[session_id]
+        session = sessions[session_id]
+        session.request_id = request_id
+        return session
     resolved_session_id = uuid.uuid4().hex
     if session_id and session_id.strip():
         cleaned = "".join(char for char in session_id.strip() if char.isalnum() or char in {"-", "_"})
@@ -1068,6 +1092,7 @@ def _get_or_create_audio_stream_session(
     directory.mkdir(parents=True, exist_ok=True)
     session = AudioStreamSession(
         session_id=resolved_session_id,
+        request_id=request_id,
         user_id=user_id,
         role=role,
         access_token=access_token,
@@ -1296,6 +1321,7 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             role=session.role,
             access_token=session.access_token,
             language=stt_result.language,
+            request_id=session.request_id,
         )
         audio_url = await _maybe_generate_tts(response.text, language=stt_result.language) if response.text else None
         if audio_url:
@@ -1397,15 +1423,18 @@ async def voice(
     access_token: str | None = Form(None),
     role: str | None = Form(None),
     generate_tts: bool = Form(True),
+    request_id: str | None = Form(None),
     authorization: str | None = Header(None),
+    x_request_id: str | None = Header(None, alias="X-Request-ID"),
 ) -> ChatResponse:
     resolved_access_token = access_token or _extract_access_token(authorization)
-    request_id = uuid.uuid4().hex
+    resolved_request_id = ensure_request_id(x_request_id or request_id)
+    request_token = set_request_id(resolved_request_id)
     work_dir: Path | None = None
     try:
         result, work_dir = await _process_uploaded_audio(
             audio_file,
-            request_id=request_id,
+            request_id=resolved_request_id,
             stem=f"voice_{user_id}",
         )
         if result.status == "no_input":
@@ -1435,7 +1464,9 @@ async def voice(
             role=role,
             access_token=resolved_access_token,
             language=result.language,
+            request_id=resolved_request_id,
         )
+        response.data = {**(response.data or {}), "request_id": resolved_request_id, "requestId": resolved_request_id}
         response.transcription = transcription
         if generate_tts and response.text:
             audio_url = await _maybe_generate_tts(response.text, language=result.language)
@@ -1467,6 +1498,7 @@ async def voice(
             error="server_error",
         )
     finally:
+        reset_request_id(request_token)
         if work_dir is not None:
             shutil.rmtree(work_dir, ignore_errors=True)
 
@@ -1477,6 +1509,7 @@ async def audio_stream(
     file: UploadFile | None = File(None),
     user_id: int | None = Form(None),
     session_id: str | None = Form(None),
+    request_id: str | None = Form(None),
     access_token: str | None = Form(None),
     role: str | None = Form(None),
     is_final: bool = Form(False),
@@ -1485,7 +1518,10 @@ async def audio_stream(
     end: bool = Form(False),
     detected_volume: float | None = Form(None),
     authorization: str | None = Header(None),
+    x_request_id: str | None = Header(None, alias="X-Request-ID"),
 ) -> dict[str, Any]:
+    resolved_request_id = ensure_request_id(x_request_id or request_id)
+    request_token = set_request_id(resolved_request_id)
     resolved_access_token = access_token or _extract_access_token(authorization)
     sessions = _get_stream_sessions()
     if session_id and session_id in sessions:
@@ -1501,6 +1537,7 @@ async def audio_stream(
         )
         session = _get_or_create_audio_stream_session(
             session_id,
+            request_id=resolved_request_id,
             user_id=user_id,
             role=resolved_role,
             access_token=resolved_access_token,
@@ -1521,6 +1558,7 @@ async def audio_stream(
                     "chunk_index": chunk_index,
                     "is_final": should_finalize,
                     "content_type": file.content_type,
+                    "request_id": resolved_request_id,
                 },
             )
             await _append_stream_chunk(
@@ -1542,7 +1580,7 @@ async def audio_stream(
         if should_finalize:
             return await _finalize_audio_stream(session.session_id)
 
-        return AudioStreamProgress(
+        progress_payload = AudioStreamProgress(
             success=True,
             session_id=session.session_id,
             final=False,
@@ -1554,6 +1592,9 @@ async def audio_stream(
             status="listening",
             total_bytes=session.total_bytes,
         ).model_dump(mode="json")
+        progress_payload["request_id"] = resolved_request_id
+        progress_payload["requestId"] = resolved_request_id
+        return progress_payload
     except ValueError:
         payload = _no_speech_payload(
             session_id=session.session_id,
@@ -1561,20 +1602,29 @@ async def audio_stream(
             total_bytes=session.total_bytes,
         )
         payload["session_id"] = session.session_id
+        payload["request_id"] = resolved_request_id
+        payload["requestId"] = resolved_request_id
         return payload
     except AudioConversionError as exc:
         if str(exc) == "invalid_audio":
-            return _invalid_audio_payload(
+            payload = _invalid_audio_payload(
                 session_id=session.session_id,
                 total_bytes=session.total_bytes,
             )
+            payload["request_id"] = resolved_request_id
+            payload["requestId"] = resolved_request_id
+            return payload
         payload = _audio_error(
             "server_error",
             SERVER_ERROR_MESSAGE,
             status="server_error",
         )
         payload["session_id"] = session.session_id
+        payload["request_id"] = resolved_request_id
+        payload["requestId"] = resolved_request_id
         return payload
+    finally:
+        reset_request_id(request_token)
 
 
 @app.get("/audio-stream/result/{session_id}")

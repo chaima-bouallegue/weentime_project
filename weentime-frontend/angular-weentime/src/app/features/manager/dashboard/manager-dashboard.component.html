@@ -1,313 +1,409 @@
-<div class="dashboard-bento-container fade-in">
-  <!-- Manager Command Center Hero -->
-  <header class="dashboard-hero mb-10">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#2563eb'"></div>
+<div class="mgr-dash">
 
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-indigo-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-200 dark:shadow-none">
-              Centre de Commande Manager
-            </span>
-            <div class="live-indicator" [class.active]="hasLiveSignals()">
-              <div class="dot"></div>
-              <span>{{ hasLiveSignals() ? 'Flux d\'Équipe Live' : 'Signal Stable' }}</span>
-            </div>
-          </div>
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <header class="mgr-hero">
+    <div class="mgr-hero__mesh"></div>
+    <div class="mgr-hero__orb mgr-hero__orb--a"></div>
+    <div class="mgr-hero__orb mgr-hero__orb--b"></div>
+    <div class="mgr-hero__orb mgr-hero__orb--c"></div>
 
-          <h1 class="text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Bonjour, {{ firstName() }} <span class="text-indigo-500">.</span>
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Aujourd'hui, {{ todayLabel }}. Supervisez les présences et gérez le flux de travail de votre équipe.
-          </p>
+    <div class="mgr-hero__body">
+      <div class="mgr-hero__left">
+
+        <div class="mgr-hero__eyebrow">
+          <lucide-angular [img]="ic.shield" size="13"></lucide-angular>
+          Centre de commande manager
+          <span class="live-badge" [class.live-badge--on]="hasLiveSignals()">
+            <span class="live-badge__dot"></span>
+            {{ hasLiveSignals() ? 'Live' : 'Stable' }}
+          </span>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-4">
-          <a routerLink="/app/manager/approbations" class="hero-btn primary">
-            <lucide-angular [img]="iconClipboardCheck" size="20"></lucide-angular>
-            <span>Approbations</span>
+        <h1 class="mgr-hero__title">
+          Bonjour, <span class="mgr-hero__name">{{ firstName() }}</span>
+          <span class="wave">👋</span>
+        </h1>
+
+        <p class="mgr-hero__sub">
+          <lucide-angular [img]="ic.calendar" size="14"></lucide-angular>
+          {{ todayLabel() }}
+          <span class="sep">·</span>
+          <lucide-angular [img]="ic.clock" size="14"></lucide-angular>
+          {{ timeLabel() }}
+        </p>
+
+        <div class="mgr-hero__chips">
+          <div class="chip chip--present">
+            <lucide-angular [img]="ic.userCheck" size="13"></lucide-angular>
+            {{ presentCount() }} présents
+          </div>
+          <div class="chip chip--absent">
+            <lucide-angular [img]="ic.userX" size="13"></lucide-angular>
+            {{ absentCount() }} absents
+          </div>
+          <div class="chip chip--pending">
+            <lucide-angular [img]="ic.inbox" size="13"></lucide-angular>
+            {{ pendingCount() }} en attente
+          </div>
+        </div>
+      </div>
+
+      <div class="mgr-hero__right">
+        <button
+          class="btn-icon"
+          type="button"
+          [disabled]="refreshing()"
+          (click)="refreshData()">
+          <lucide-angular [img]="ic.refresh" size="18" [class.spin]="refreshing()"></lucide-angular>
+        </button>
+
+        <div class="mgr-hero__actions">
+          <a class="cta-btn cta-btn--primary" routerLink="/app/manager/approbations">
+            <lucide-angular [img]="ic.clipboard" size="18"></lucide-angular>
+            Approbations
+            @if (pendingCount() > 0) {
+              <span class="cta-btn__badge">{{ pendingCount() }}</span>
+            }
           </a>
-          <a routerLink="/app/manager/equipe" class="hero-btn secondary">
-            <lucide-angular [img]="iconUsers" size="20"></lucide-angular>
-            <span>Mon Équipe</span>
+          <a class="cta-btn cta-btn--ghost" routerLink="/app/manager/equipe">
+            <lucide-angular [img]="ic.users" size="18"></lucide-angular>
+            Mon équipe
           </a>
         </div>
       </div>
     </div>
   </header>
 
-  @if (isLoading()) {
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-      @for (i of [1,2,3,4]; track i) {
-        <div class="h-40 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+  <!-- ═══════════════════ KPI ═══════════════════ -->
+  @if (loading()) {
+    <div class="kpi-grid">
+      @for (s of skeletons; track s) {
+        <div class="kpi-skeleton pulse"></div>
       }
     </div>
   } @else {
-    <!-- KPI Grid -->
-    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-      <div class="bento-stat-card success">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconUsers" size="24"></lucide-angular>
-        </div>
-        <div class="stat-content">
-          <span class="stat-label">Présents</span>
-          <div class="stat-value-line">
-            <span class="value">{{ presentCount() }}</span>
-            <span class="delta success">Sur {{ totalCount() }} actifs</span>
-          </div>
-        </div>
-        <div class="stat-visual-glow"></div>
-      </div>
+    <section class="kpi-grid">
 
-      <div class="bento-stat-card warning">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconInbox" size="24"></lucide-angular>
+      <!-- Present -->
+      <article class="kpi-card kpi-card--success">
+        <div class="kpi-card__glow"></div>
+        <div class="kpi-card__icon">
+          <lucide-angular [img]="ic.userCheck" size="24"></lucide-angular>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">En Attente</span>
-          <div class="stat-value-line">
-            <span class="value">{{ pendingRequests().length }}</span>
-            <span class="delta warning">Demandes Manager</span>
-          </div>
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Présents</span>
+          <strong class="kpi-card__value">{{ presentCount() }}</strong>
+          <span class="kpi-card__sub">Sur {{ totalCount() }} membres</span>
         </div>
-        <div class="stat-visual-glow"></div>
-      </div>
+        <div class="kpi-card__rate">
+          <svg viewBox="0 0 36 36" class="kpi-card__ring">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(16,185,129,.15)" stroke-width="3"></circle>
+            <circle cx="18" cy="18" r="15" fill="none" stroke="#10b981" stroke-width="3"
+                    stroke-dasharray="94.2"
+                    [attr.stroke-dashoffset]="94.2 - (94.2 * attendanceRate() / 100)"
+                    stroke-linecap="round"
+                    transform="rotate(-90 18 18)">
+            </circle>
+          </svg>
+          <span class="kpi-card__pct">{{ attendanceRate() }}%</span>
+        </div>
+      </article>
 
-      <div class="bento-stat-card danger">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconUserX" size="24"></lucide-angular>
+      <!-- Absent -->
+      <article class="kpi-card kpi-card--danger">
+        <div class="kpi-card__glow"></div>
+        <div class="kpi-card__icon">
+          <lucide-angular [img]="ic.userX" size="24"></lucide-angular>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Absents</span>
-          <div class="stat-value-line">
-            <span class="value">{{ absentCount() }}</span>
-            <span class="delta danger">Signal critique</span>
-          </div>
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Absents</span>
+          <strong class="kpi-card__value">{{ absentCount() }}</strong>
+          <span class="kpi-card__sub">Signal critique</span>
         </div>
-        <div class="stat-visual-glow"></div>
-      </div>
+      </article>
 
-      <div class="bento-stat-card info">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconTimer" size="24"></lucide-angular>
+      <!-- Pending -->
+      <article class="kpi-card kpi-card--warning">
+        <div class="kpi-card__glow"></div>
+        <div class="kpi-card__icon">
+          <lucide-angular [img]="ic.inbox" size="24"></lucide-angular>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Retards</span>
-          <div class="stat-value-line">
-            <span class="value">{{ lateCount() }}</span>
-            <span class="delta info">À surveiller</span>
-          </div>
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">En attente</span>
+          <strong class="kpi-card__value">{{ pendingCount() }}</strong>
+          <span class="kpi-card__sub">Demandes manager</span>
         </div>
-        <div class="stat-visual-glow"></div>
-      </div>
+      </article>
+
+      <!-- Late -->
+      <article class="kpi-card kpi-card--info">
+        <div class="kpi-card__glow"></div>
+        <div class="kpi-card__icon">
+          <lucide-angular [img]="ic.timer" size="24"></lucide-angular>
+        </div>
+        <div class="kpi-card__body">
+          <span class="kpi-card__label">Retards</span>
+          <strong class="kpi-card__value">{{ lateCount() }}</strong>
+          <span class="kpi-card__sub">À surveiller</span>
+        </div>
+      </article>
+
     </section>
+  }
 
-    <!-- Main Dashboard Grid -->
-    <div class="grid grid-cols-12 gap-8">
+  <!-- ═══════════════════ MAIN GRID ═══════════════════ -->
+  @if (!loading()) {
+    <div class="mgr-grid">
 
-      <!-- Team Monitoring (8 cols) -->
-      <section class="col-span-12 lg:col-span-8 space-y-8">
-        <div class="bento-card p-8">
-          <div class="flex items-center justify-between mb-8 px-2">
-            <div>
-              <h3 class="text-3xl font-black text-slate-900 dark:text-white mb-1">Live Team Pulse</h3>
-              <p class="text-sm font-medium text-slate-400">Suivi des présences et des arrivées de votre équipe.</p>
+      <!-- ─── LEFT COLUMN ─── -->
+      <div class="mgr-grid__left">
+
+        <!-- Team Pulse -->
+        <section class="card" aria-labelledby="team-pulse-title">
+          <div class="card__head">
+            <div class="card__head-left">
+              <div class="card__icon card__icon--primary">
+                <lucide-angular [img]="ic.activity" size="18"></lucide-angular>
+              </div>
+              <div>
+                <h2 class="card__title" id="team-pulse-title">Live Team Pulse</h2>
+                <p class="card__caption">Statuts de présence en temps réel</p>
+              </div>
             </div>
-            <a routerLink="/app/manager/equipe" class="action-link-btn group">
-              <span>Voir tout</span>
-              <lucide-angular [img]="iconChevronRight" size="16" class="group-hover:translate-x-1 transition-transform"></lucide-angular>
+            <a class="card__link" routerLink="/app/manager/equipe">
+              Voir tout
+              <lucide-angular [img]="ic.chevron" size="14"></lucide-angular>
             </a>
           </div>
 
           @if (mergedMembers().length === 0) {
-            <div class="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-              <lucide-angular [img]="iconUsers" size="48" class="text-slate-200 mb-4 mx-auto"></lucide-angular>
-              <h4 class="font-black text-slate-400 uppercase tracking-widest text-xs">Aucun membre rattaché</h4>
+            <div class="empty-state">
+              <lucide-angular [img]="ic.users" size="48"></lucide-angular>
+              <p>Aucun membre rattaché à votre équipe.</p>
             </div>
           } @else {
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="team-grid">
               @for (member of mergedMembers(); track member.id) {
-                <div class="team-member-item group">
-                  <div class="flex items-center gap-4">
-                    <div class="member-avatar-box">
-                      <div class="status-ring" [class]="statusTone(member.status)"></div>
-                      <div class="avatar-text" [style.background]="'linear-gradient(135deg, #6366f1, #8b5cf6)'">
-                        {{ initials(member.fullName) }}
-                      </div>
-                    </div>
-                    <div class="flex-1 min-width-0">
-                      <div class="flex items-center gap-2 mb-0.5">
-                        <span class="font-black text-slate-900 dark:text-white truncate">{{ member.fullName }}</span>
-                        @if (member.isLate) {
-                          <lucide-angular [img]="iconTimer" size="14" class="text-amber-500"></lucide-angular>
-                        }
-                      </div>
-                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        {{ member.email }}
-                      </span>
-                    </div>
+                <div class="member-card" [attr.data-tone]="statusTone(member.status)">
+                  <div class="member-card__avatar"
+                       [style.background]="avatarGradient(member.fullName)">
+                    {{ initials(member.fullName) }}
+                    <span class="member-card__status-dot"
+                          [style.background]="statusDot(member.status)">
+                    </span>
                   </div>
-                  <div class="flex flex-col items-end gap-1">
-                    <span class="status-pill-small" [class]="statusTone(member.status)">
+
+                  <div class="member-card__info">
+                    <span class="member-card__name">{{ member.fullName }}</span>
+                    <span class="member-card__role">{{ member.poste || member.equipeNom || member.email }}</span>
+                  </div>
+
+                  <div class="member-card__right">
+                    <span class="status-pill" [attr.data-tone]="statusTone(member.status)">
                       {{ statusLabel(member.status) }}
                     </span>
                     @if (member.arrivalTime) {
-                      <span class="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                        Entrée: {{ member.arrivalTime }}
-                      </span>
+                      <span class="member-card__time">{{ member.arrivalTime }}</span>
                     }
                   </div>
                 </div>
               }
             </div>
           }
-        </div>
+        </section>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Pending Requests -->
-          <div class="bento-card p-8">
-            <div class="flex items-center justify-between mb-8">
-              <h3 class="text-2xl font-black text-slate-900 dark:text-white">Demandes</h3>
-              <a routerLink="/app/manager/approbations" class="text-indigo-500 font-black text-xs uppercase tracking-widest hover:underline">Voir tout</a>
+        <!-- Pending Requests -->
+        <section class="card" aria-labelledby="requests-title">
+          <div class="card__head">
+            <div class="card__head-left">
+              <div class="card__icon card__icon--warning">
+                <lucide-angular [img]="ic.clipboard" size="18"></lucide-angular>
+              </div>
+              <div>
+                <h2 class="card__title" id="requests-title">Demandes en attente</h2>
+                <p class="card__caption">Workflow de validation manager</p>
+              </div>
             </div>
-
-            @if (pendingRequests().length === 0) {
-              <div class="py-10 text-center">
-                <lucide-angular [img]="iconCheck" size="32" class="text-slate-100 mx-auto mb-2"></lucide-angular>
-                <p class="text-slate-400 text-xs italic tracking-wide">Workflow à jour</p>
-              </div>
-            } @else {
-              <div class="space-y-4">
-                @for (request of pendingRequests().slice(0, 4); track request.id) {
-                  <a routerLink="/app/manager/approbations" class="request-item-card group">
-                    <div class="flex-1">
-                      <div class="type-tag mb-2">Congé</div>
-                      <div class="font-black text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">{{ requestOwner(request) }}</div>
-                      <div class="text-[11px] text-slate-400 font-medium">{{ requestWindow(request) }}</div>
-                    </div>
-                    <lucide-angular [img]="iconChevronRight" size="16" class="text-slate-200 group-hover:text-indigo-500 transition-all"></lucide-angular>
-                  </a>
-                }
-              </div>
-            }
+            <a class="card__link" routerLink="/app/manager/approbations">
+              Voir tout
+              <lucide-angular [img]="ic.chevron" size="14"></lucide-angular>
+            </a>
           </div>
 
-          <!-- Priority Actions / Alerts -->
-          <div class="bento-card p-8 border-2 border-indigo-50 dark:border-indigo-900/10">
-            <div class="flex items-center justify-between mb-8">
-              <h3 class="text-2xl font-black text-slate-900 dark:text-white">Alertes Pulse</h3>
-              <lucide-angular [img]="iconSparkles" size="18" class="text-indigo-500"></lucide-angular>
+          @if (pendingRequests().length === 0) {
+            <div class="empty-state empty-state--success">
+              <lucide-angular [img]="ic.check" size="44"></lucide-angular>
+              <p>Toutes les demandes sont traitées !</p>
             </div>
+          } @else {
+            <div class="requests-list">
+              @for (req of pendingRequests().slice(0, 5); track req.id) {
+                <a class="request-row" routerLink="/app/manager/approbations">
+                  <div class="request-row__avatar"
+                       [style.background]="avatarGradient(requestOwner(req))">
+                    {{ initials(requestOwner(req)) }}
+                  </div>
 
-            <div class="space-y-4">
-              @for (alert of alerts(); track alert.title) {
-                <div class="alert-bento-card" [class]="alert.tone">
-                  <div class="alert-icon">
-                    <lucide-angular [img]="alert.icon" size="18"></lucide-angular>
+                  <div class="request-row__body">
+                    <span class="request-row__name">{{ requestOwner(req) }}</span>
+                    <span class="request-row__window">{{ requestWindow(req) }}</span>
                   </div>
-                  <div>
-                    <div class="font-black text-xs uppercase tracking-wider mb-1">{{ alert.title }}</div>
-                    <p class="text-[11px] font-medium leading-relaxed opacity-80">{{ alert.description }}</p>
+
+                  <div class="request-row__right">
+                    <span class="type-badge">{{ typeLabel(req.type) }}</span>
+                    <lucide-angular [img]="ic.chevron" size="14" class="request-row__arrow"></lucide-angular>
                   </div>
-                </div>
+                </a>
               }
             </div>
-          </div>
-        </div>
-      </section>
+          }
+        </section>
 
-      <!-- Sidebar Content (4 cols) -->
-      <aside class="col-span-12 lg:col-span-4 space-y-8">
-        <!-- Live Notifications -->
-        <div class="bento-card p-8">
-          <div class="flex items-center justify-between mb-8">
-            <div class="flex items-center gap-2">
-              <lucide-angular [img]="iconActivity" size="16" class="text-indigo-500"></lucide-angular>
-              <h3 class="text-xl font-black text-slate-900 dark:text-white">Manager Pulse</h3>
+      </div>
+
+      <!-- ─── RIGHT COLUMN ─── -->
+      <aside class="mgr-grid__right">
+
+        <!-- Alerts -->
+        <section class="card card--alerts" aria-labelledby="alerts-title">
+          <div class="card__head">
+            <div class="card__head-left">
+              <div class="card__icon card__icon--danger">
+                <lucide-angular [img]="ic.zap" size="18"></lucide-angular>
+              </div>
+              <div>
+                <h2 class="card__title" id="alerts-title">Alertes Pulse</h2>
+                <p class="card__caption">Priorités du moment</p>
+              </div>
             </div>
-            @if (notificationService.unreadCount() > 0) {
-              <span class="px-2 py-0.5 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase">
-                New
-              </span>
-            }
           </div>
 
-          <div class="space-y-4">
-            @for (notif of notificationService.notifications().slice(0, 6); track notif.id) {
-              <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-2 border-transparent hover:border-indigo-100 dark:hover:border-indigo-900 transition-all cursor-pointer overflow-hidden relative"
-                   (click)="notificationService.navigateToNotification(notif)">
-                @if (!notif.lu) {
-                  <div class="absolute top-0 right-0 w-1.5 h-1.5 bg-indigo-500 rounded-bl-lg"></div>
-                }
-                <div class="flex gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
-                    <lucide-angular [img]="iconClock" size="16"></lucide-angular>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="text-xs font-black text-slate-900 dark:text-white truncate" [title]="notif.titre">{{ notif.titre }}</div>
-                    <p class="text-[11px] text-slate-400 truncate mb-1">{{ notif.message }}</p>
-                    <span class="text-[9px] font-black text-indigo-400">{{ notif.date | date:'shortTime' }}</span>
-                  </div>
+          <div class="alerts-list">
+            @for (alert of alerts(); track alert.title) {
+              <div class="alert-item" [attr.data-tone]="alert.tone">
+                <div class="alert-item__icon">
+                  <lucide-angular [img]="alert.icon" size="18"></lucide-angular>
+                </div>
+                <div class="alert-item__body">
+                  <strong>{{ alert.title }}</strong>
+                  <p>{{ alert.description }}</p>
                 </div>
               </div>
             }
-            @if (notificationService.notifications().length === 0) {
-              <div class="py-10 text-center opacity-30">
-                <p class="text-xs font-black uppercase tracking-widest">Aucune notification</p>
-              </div>
-            }
           </div>
-        </div>
+        </section>
 
-        <!-- Performance Stats -->
-        <div class="bento-card p-8 bg-slate-900 text-white border-0 shadow-2xl relative overflow-hidden group">
-          <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-3xl transition-transform group-hover:scale-125"></div>
+        <!-- Performance panel -->
+        <section class="perf-card" aria-label="Performance équipe">
+          <div class="perf-card__bg"></div>
 
-          <div class="flex items-center justify-between mb-8 relative z-10">
-            <h3 class="text-xl font-black">Performance</h3>
-            <div class="px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-indigo-400">
-              Live
+          <div class="perf-card__head">
+            <lucide-angular [img]="ic.flame" size="22"></lucide-angular>
+            <h2>Performance</h2>
+            <span class="perf-badge">Live</span>
+          </div>
+
+          <!-- Attendance bar -->
+          <div class="perf-stat">
+            <div class="perf-stat__row">
+              <span>Taux de présence</span>
+              <strong>{{ attendanceRate() }}%</strong>
+            </div>
+            <div class="perf-bar">
+              <div class="perf-bar__fill"
+                   [style.width.%]="attendanceRate()"
+                   [class.perf-bar__fill--good]="attendanceRate() >= 80"
+                   [class.perf-bar__fill--warn]="attendanceRate() < 80">
+              </div>
             </div>
           </div>
 
-          <div class="space-y-8 relative z-10">
-            <div>
-              <div class="flex justify-between text-[11px] font-black uppercase tracking-widest mb-3 opacity-50">
-                <span>Taux de Présence</span>
-                <span>{{ (presentCount() / (totalCount() || 1) * 100) | number:'1.0-0' }}%</span>
-              </div>
-              <div class="h-2 rounded-full bg-white/5 overflow-hidden">
-                <div class="h-full bg-indigo-500 rounded-full transition-all duration-1000" [style.width.%]="(presentCount() / (totalCount() || 1) * 100)"></div>
-              </div>
+          <!-- Members grid -->
+          <div class="perf-stat">
+            <div class="perf-stat__row">
+              <span>Membres</span>
+              <strong>{{ totalCount() }}</strong>
             </div>
-
-            <div class="p-6 rounded-3xl bg-indigo-600 shadow-xl shadow-indigo-500/20">
-              <div class="flex items-center gap-3 mb-4">
-                <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-                  <lucide-angular [img]="iconBadgeCheck" size="16"></lucide-angular>
-                </div>
-                <h4 class="text-xs font-black uppercase tracking-[0.2em]">Focus Travail</h4>
-              </div>
-              <p class="text-sm font-bold opacity-90 mb-6 leading-relaxed">
-                @if (pendingRequests().length > 0) {
-                  Vérifiez les demandes de congés pour maintenir la fluidité opérationnelle.
-                } @else {
-                  Toutes les demandes sont traitées. Excellente gestion opérationnelle !
-                }
-              </p>
-              <a routerLink="/app/manager/approbations" class="flex items-center gap-2 text-xs font-black py-2 rounded-xl bg-white text-indigo-600 justify-center hover:bg-slate-50 transition-colors">
-                <span>Workflow Approbations</span>
-                <lucide-angular [img]="iconChevronRight" size="12"></lucide-angular>
-              </a>
-            </div>
-
-            <button (click)="refreshData()" class="w-full py-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 border border-white/10 rounded-2xl hover:bg-white/5 transition-all">
-              Actualiser les Signaux
-            </button>
           </div>
-        </div>
+
+          <!-- Tip -->
+          <div class="perf-tip">
+            <lucide-angular [img]="ic.sparkles" size="16"></lucide-angular>
+            <p>
+              @if (pendingCount() > 0) {
+                {{ pendingCount() }} demande{{ pendingCount() > 1 ? 's' : '' }} attende{{ pendingCount() > 1 ? 'nt' : '' }} votre validation.
+              } @else {
+                Toutes les demandes sont traitées. Excellente gestion !
+              }
+            </p>
+          </div>
+
+          <div class="perf-actions">
+            <a class="perf-cta" routerLink="/app/manager/approbations">
+              <lucide-angular [img]="ic.clipboard" size="16"></lucide-angular>
+              Workflow approbations
+              <lucide-angular [img]="ic.chevron" size="14" class="ml-auto"></lucide-angular>
+            </a>
+            <a class="perf-cta perf-cta--ghost" routerLink="/app/manager/presence">
+              <lucide-angular [img]="ic.eye" size="16"></lucide-angular>
+              Voir présences
+              <lucide-angular [img]="ic.chevron" size="14" class="ml-auto"></lucide-angular>
+            </a>
+          </div>
+
+          <button class="perf-refresh" type="button" (click)="refreshData()">
+            <lucide-angular [img]="ic.refresh" size="14" [class.spin]="refreshing()"></lucide-angular>
+            Actualiser les signaux
+          </button>
+        </section>
+
+        <!-- Quick links -->
+        <section class="quick-links" aria-label="Navigation rapide">
+          <a class="quick-link" routerLink="/app/manager/equipe">
+            <div class="quick-link__icon quick-link__icon--primary">
+              <lucide-angular [img]="ic.users" size="20"></lucide-angular>
+            </div>
+            <div class="quick-link__text">
+              <span>Mon équipe</span>
+              <small>Voir tous les membres</small>
+            </div>
+            <lucide-angular [img]="ic.chevron" size="16" class="quick-link__arrow"></lucide-angular>
+          </a>
+
+          <a class="quick-link" routerLink="/app/manager/presence">
+            <div class="quick-link__icon quick-link__icon--success">
+              <lucide-angular [img]="ic.activity" size="20"></lucide-angular>
+            </div>
+            <div class="quick-link__text">
+              <span>Présences</span>
+              <small>Suivi temps réel</small>
+            </div>
+            <lucide-angular [img]="ic.chevron" size="16" class="quick-link__arrow"></lucide-angular>
+          </a>
+
+          <a class="quick-link" routerLink="/app/manager/approbations">
+            <div class="quick-link__icon quick-link__icon--warning">
+              <lucide-angular [img]="ic.clipboard" size="20"></lucide-angular>
+            </div>
+            <div class="quick-link__text">
+              <span>Approbations</span>
+              <small>{{ pendingCount() }} en attente</small>
+            </div>
+            <lucide-angular [img]="ic.chevron" size="16" class="quick-link__arrow"></lucide-angular>
+          </a>
+
+          <a class="quick-link" routerLink="/app/manager/horaires">
+            <div class="quick-link__icon quick-link__icon--info">
+              <lucide-angular [img]="ic.calendar" size="20"></lucide-angular>
+            </div>
+            <div class="quick-link__text">
+              <span>Planning</span>
+              <small>Horaires équipe</small>
+            </div>
+            <lucide-angular [img]="ic.chevron" size="16" class="quick-link__arrow"></lucide-angular>
+          </a>
+        </section>
+
       </aside>
     </div>
   }

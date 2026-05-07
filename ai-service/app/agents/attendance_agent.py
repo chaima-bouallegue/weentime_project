@@ -51,7 +51,9 @@ class AttendanceAgent(DomainAgent):
             return "attendance.unknown", 0.0
 
         has_attendance_word = any(term in text for term in ("pointage", "pointe", "pointer", "presence", "present", "attendance"))
-        if any(term in text for term in ("pointer mon entree", "pointe mon entree", "check in", "clock in", "arrivee", "j arrive", "je commence", "checked in")):
+        if any(term in text for term in ("je veux pointer", "veux pointer", "souhaite pointer", "nheb npointi", "npointi", "أريد تسجيل الحضور", "اريد تسجيل الحضور")):
+            return "attendance.unknown", 0.91
+        if any(term in text for term in ("pointer mon entree", "pointe mon entree", "check in", "check me in", "clock in", "arrivee", "j arrive", "je commence", "checked in")):
             return "attendance.check_in", 0.94
         if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie")):
             return "attendance.check_out", 0.94
@@ -123,12 +125,18 @@ class AttendanceAgent(DomainAgent):
         if not result.success:
             return compose_tool_error("attendance.team_presence", result)
         data = result.data
-        text = "Presence equipe recuperee depuis le backend."
+        text = "Vue de presence recuperee depuis le backend."
         if isinstance(data, dict):
-            presents = data.get("presents") or data.get("presentCount")
-            absents = data.get("absents") or data.get("absentCount")
-            late = data.get("late") or data.get("retards") or data.get("lateCount")
-            text = f"Equipe aujourd'hui: presents {compact_value(presents)}, absents {compact_value(absents)}, retards {compact_value(late)}."
+            scope = data.get("scope") or data.get("view") or ("GLOBAL" if "presentToday" in data else "COLLECTIVE")
+            presents = data.get("presentMembers") or data.get("presents") or data.get("presentCount") or data.get("presentToday")
+            absents = data.get("absentMembers") or data.get("absents") or data.get("absentCount") or data.get("absentToday")
+            late = data.get("lateMembers") or data.get("late") or data.get("retards") or data.get("lateCount") or data.get("lateToday")
+            total = data.get("totalMembers") or data.get("totalTrackedUsers")
+            text = (
+                f"Presence {compact_value(scope).lower()} aujourd'hui: "
+                f"total {compact_value(total)}, presents {compact_value(presents)}, "
+                f"absents {compact_value(absents)}, retards {compact_value(late)}."
+            )
         return AgentResponse(
             type="answer",
             text=text,

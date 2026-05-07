@@ -12,6 +12,7 @@ from .registry import ToolRegistry
 from .result import ToolResult
 
 ALL_BUSINESS_ROLES = {"EMPLOYEE", "MANAGER", "RH", "ADMIN"}
+TEAM_PRESENCE_UNAVAILABLE = "Cette vue de presence n'est pas encore disponible pour votre role."
 
 
 class EmptyToolInput(BaseModel):
@@ -99,12 +100,11 @@ class AttendanceTools:
         registry.register(
             ToolDefinition(
                 name="get_team_presence",
-                description="Retourne la presence equipe quand l'API backend l'autorise.",
+                description="Retourne la presence collective selon le role authentifie.",
                 input_model=TeamPresenceInput,
                 output_model=None,
                 type="read",
-                allowed_roles={"MANAGER", "RH", "ADMIN"},
-                required_permissions={"attendance:read:team"},
+                allowed_roles=ALL_BUSINESS_ROLES,
             ),
             self.get_team_presence,
         )
@@ -126,11 +126,22 @@ class AttendanceTools:
         return await self.backend_client.get("/presence/me/stats", context=context)
 
     async def get_team_presence(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
         params: dict[str, Any] = {}
         team_id = getattr(payload, "team_id", None)
-        if team_id is not None:
+        if role == "MANAGER" and team_id is not None:
             params["teamId"] = team_id
-        return await self.backend_client.get("/presence/team/today", context=context, params=params or None)
+        if role == "MANAGER":
+            return await self.backend_client.get("/presence/team/today", context=context, params=params or None)
+        if role == "RH":
+            return await self.backend_client.get("/presence/company/today", context=context)
+        if role == "ADMIN":
+            return await self.backend_client.get("/presence/global/analytics", context=context)
+        return ToolResult.fail(
+            "capability_unavailable",
+            TEAM_PRESENCE_UNAVAILABLE,
+            status_code=403,
+        )
 
 
 def register_attendance_tools(registry: ToolRegistry, backend_client: BackendClient) -> AttendanceTools:

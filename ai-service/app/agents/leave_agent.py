@@ -7,6 +7,7 @@ from app.tools.executor import ToolExecutor
 
 from .base_domain_agent import DomainAgent
 from .hr_agent_utils import ConfirmationMixin, extract_payload, has_any
+from .leave_planner import LeaveRiskAnalyzer
 
 
 class LeaveAgent(ConfirmationMixin, DomainAgent):
@@ -24,17 +25,37 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
         intent, confidence = self.detect_intent(message, context)
         if intent == "leave.balance":
             return await self.read_response(
-                tool_name="legacy.get_leave_balance",
+                tool_name="leave.get_balance",
                 tool_input={},
                 context=context,
                 intent=intent,
                 success_text="Voici votre solde de conges.",
                 confidence=confidence,
             )
-        if intent in {"leave.list", "leave.status"}:
+        if intent == "leave.status":
+            payload = extract_payload(message, "GET_LEAVE_STATUS", context)
+            request_id = payload.get("request_id")
+            if request_id:
+                return await self.read_response(
+                    tool_name="leave.get_request_status",
+                    tool_input={"request_id": request_id},
+                    context=context,
+                    intent=intent,
+                    success_text="Voici le statut de cette demande de conge.",
+                    confidence=confidence,
+                )
             return await self.read_response(
-                tool_name="legacy.get_my_requests",
-                tool_input={"payload": {"filter": "leave"}},
+                tool_name="leave.list_my_requests",
+                tool_input={},
+                context=context,
+                intent="leave.list",
+                success_text="Voici vos demandes de conge.",
+                confidence=confidence,
+            )
+        if intent == "leave.list":
+            return await self.read_response(
+                tool_name="leave.list_my_requests",
+                tool_input={},
                 context=context,
                 intent=intent,
                 success_text="Voici vos demandes de conge.",
@@ -49,6 +70,20 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
                     intent=intent,
                     confidence=confidence,
                 )
+            if not payload.get("leave_type_label") and not payload.get("type_conge_id"):
+                return AgentResponse(
+                    type="ask",
+                    text="Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT.",
+                    intent=intent,
+                    confidence=confidence,
+                )
+            if not payload.get("reason"):
+                return AgentResponse(
+                    type="ask",
+                    text="Quel motif souhaitez-vous indiquer pour cette demande de conge ?",
+                    intent=intent,
+                    confidence=confidence,
+                )
             if payload.get("date_precision") == "month_inferred":
                 return AgentResponse(
                     type="ask",
@@ -56,19 +91,42 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
                     intent=intent,
                     confidence=0.62,
                 )
+            tool_input = {
+                "start_date": payload["start_date"],
+                "end_date": payload["end_date"],
+                "reason": payload["reason"],
+                "type_conge_id": payload.get("type_conge_id"),
+                "leave_type_label": payload.get("leave_type_label"),
+            }
+            risk_analysis = await LeaveRiskAnalyzer(self.executor).analyze(tool_input, context)
+            confirmation_text = LeaveRiskAnalyzer.build_confirmation_text(
+                "Confirmez-vous la creation de cette demande de conge ?",
+                risk_analysis,
+            )
             return self.confirmation_response(
                 context=context,
-                tool_name="legacy.create_leave_request",
-                tool_input={"payload": payload},
+                tool_name="leave.create_request",
+                tool_input=tool_input,
                 intent=intent,
-                text="Confirmez-vous la creation de cette demande de conge ?",
+                text=confirmation_text,
                 confidence=confidence,
+                action_result={
+                    "kind": "confirmation_summary",
+                    "intent": intent,
+                    "summary": {
+                        "type": payload.get("leave_type_label"),
+                        "date": payload["start_date"],
+                        "endDate": payload["end_date"],
+                        "motif": payload["reason"],
+                    },
+                    "riskAnalysis": risk_analysis,
+                },
             )
         return AgentResponse(type="ask", text="Que souhaitez-vous faire avec vos conges ?", intent="leave.unknown", confidence=0.35)
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
-        if not has_any(text, ("congé", "conge", "leave", "vacance", "absence", "reste")):
+        if not has_any(text, ("congÃ©", "congé", "conge", "leave", "vacance", "absence", "reste")):
             return None, 0.0
         if has_any(text, ("combien", "solde", "jours restants", "how many", "balance", "reste")):
             return "leave.balance", 0.91

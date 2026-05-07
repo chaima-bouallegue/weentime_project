@@ -1,0 +1,11 @@
+﻿{
+  "id": "tenant7-cross-tenant",
+  "tenant_id": 7,
+  "title": "Cross tenant private policy",
+  "source_type": "fixture",
+  "path_or_url": "tenant7_private.json",
+  "language": "fr",
+  "approved": true,
+  "updated_at": "2026-01-01",
+  "content": "Source autre tenant confidentielle qui ne doit pas etre visible pour le tenant 42."
+}

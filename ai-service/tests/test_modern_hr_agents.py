@@ -46,7 +46,7 @@ def test_leave_balance_routes_to_leave_agent() -> None:
     response = asyncio.run(agent.handle("combien de jours de conge", context()))
 
     assert response.intent == "leave.balance"
-    assert executor.calls[0][0] == "legacy.get_leave_balance"
+    assert executor.calls[0][0] == "leave.get_balance"
 
 
 def test_leave_creation_asks_clarification_if_date_missing() -> None:
@@ -62,11 +62,29 @@ def test_leave_creation_requires_confirmation() -> None:
     store = ConfirmationStore()
     agent = LeaveAgent(FakeExecutor(), store)  # type: ignore[arg-type]
 
-    response = asyncio.run(agent.handle("je veux un conge demain", context()))
+    response = asyncio.run(agent.handle("je veux un conge annuel demain pour repos", context()))
 
     assert response.type == "confirm_action"
     assert response.requiresConfirmation is True
-    assert response.toolCalls[0].name == "legacy.create_leave_request"
+    assert response.toolCalls[0].name == "leave.create_request"
+
+
+def test_leave_creation_requires_type_before_confirmation() -> None:
+    agent = LeaveAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("je veux un conge demain pour repos", context()))
+
+    assert response.type == "ask"
+    assert "type de conge" in response.text.lower()
+
+
+def test_leave_creation_requires_reason_before_confirmation() -> None:
+    agent = LeaveAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("je veux un conge annuel demain", context()))
+
+    assert response.type == "ask"
+    assert "motif" in response.text.lower()
 
 
 def test_document_request_asks_document_type_if_missing() -> None:
@@ -75,7 +93,7 @@ def test_document_request_asks_document_type_if_missing() -> None:
     response = asyncio.run(agent.handle("je veux un document", context()))
 
     assert response.type == "ask"
-    assert response.intent == "document.request"
+    assert response.intent == "document.create"
 
 
 def test_document_request_requires_confirmation() -> None:
@@ -85,7 +103,7 @@ def test_document_request_requires_confirmation() -> None:
 
     assert response.type == "confirm_action"
     assert response.requiresConfirmation is True
-    assert response.toolCalls[0].name == "legacy.request_document"
+    assert response.toolCalls[0].name == "document.create_request"
 
 
 def test_employee_cannot_approve_request() -> None:

@@ -93,7 +93,7 @@ TN_HINTS = {
 
 
 def detect_language(text: str | None) -> str:
-    """Return one of the supported routing languages: fr, en, or ar."""
+    """Return one of the supported routing languages: fr, en, ar, or tn."""
     value = (text or "").strip().lower()
     if not value:
         return "fr"
@@ -102,7 +102,7 @@ def detect_language(text: str | None) -> str:
 
     tokens = set(LATIN_RE.findall(value))
     if tokens & TN_HINTS:
-        return "ar"
+        return "tn"
 
     fr_score = len(tokens & FR_HINTS)
     en_score = len(tokens & EN_HINTS)

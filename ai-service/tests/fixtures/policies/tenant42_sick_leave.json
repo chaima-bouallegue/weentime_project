@@ -1,0 +1,11 @@
+﻿{
+  "id": "tenant42-sick-leave",
+  "tenant_id": 42,
+  "title": "Politique conge maladie",
+  "source_type": "fixture",
+  "path_or_url": "tenant42_sick_leave.json",
+  "language": "fr",
+  "approved": true,
+  "updated_at": "2026-01-01",
+  "content": "Le conge maladie doit etre justifie par un certificat medical transmis au service RH. Cette source de test est approuvee pour le tenant 42."
+}

@@ -3,8 +3,8 @@
 ROLE_PERMISSIONS = {
     "EMPLOYEE": {"attendance:read:self", "attendance:write:self"},
     "MANAGER": {"attendance:read:self", "attendance:write:self", "attendance:read:team"},
-    "RH": {"attendance:read:self", "attendance:write:self", "attendance:read:company", "attendance:read:team"},
-    "ADMIN": {"attendance:read:self", "attendance:write:self", "attendance:read:global", "attendance:read:team"},
+    "RH": {"attendance:read:self", "attendance:write:self", "attendance:read:company"},
+    "ADMIN": {"attendance:read:self", "attendance:write:self", "attendance:read:global"},
 }
 
 

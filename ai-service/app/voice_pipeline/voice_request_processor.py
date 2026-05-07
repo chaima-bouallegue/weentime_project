@@ -42,13 +42,21 @@ class VoiceRequestProcessor:
         context: CurrentUserContext,
         language_hint: str | None = None,
     ) -> VoiceProcessorResult:
-        with start_span("voice.audio_received", {"content_type": upload.content_type}):
+        with start_span("voice.audio.store", {"content_type": upload.content_type}):
             stored = await self.store_upload(upload)
             log_event(
-                "voice.audio_received",
+                "voice.audio.store",
                 metadata={
                     "size_bytes": stored.size_bytes,
                     "status": "stored",
+                },
+            )
+        with start_span("voice.audio.validate", {"content_type": upload.content_type, "size_bytes": stored.size_bytes}):
+            log_event(
+                "voice.audio.validate",
+                metadata={
+                    "status": "accepted" if stored.size_bytes > 0 else "empty",
+                    "size_bytes": stored.size_bytes,
                 },
             )
 
@@ -66,7 +74,23 @@ class VoiceRequestProcessor:
                 },
             )
 
-        transcript = stt_result.cleaned_text or stt_result.raw_text or ""
+        with start_span(
+            "voice.cleaner",
+            {
+                "raw_empty": not bool(stt_result.raw_text),
+                "cleaned_empty": not bool(stt_result.cleaned_text),
+                "status": stt_result.status,
+            },
+        ):
+            transcript = stt_result.cleaned_text or stt_result.raw_text or ""
+            log_event(
+                "voice.cleaner",
+                metadata={
+                    "status": stt_result.status,
+                    "cleaned_empty": not bool(stt_result.cleaned_text),
+                    "text_length": len(transcript),
+                },
+            )
         with start_span("voice.language.detect", {"stt_language": stt_result.language, "language_hint": language_hint}):
             detected_language = self._resolve_language(transcript, stt_result.language, language_hint)
 
