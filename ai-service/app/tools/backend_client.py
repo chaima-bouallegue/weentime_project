@@ -6,6 +6,8 @@ from typing import Any
 import httpx
 
 from app.context.current_user import CurrentUserContext
+from app.observability.request_context import get_request_id
+from app.observability.tracing import log_error, log_event, start_span
 from .result import ToolResult
 
 DEFAULT_BACKEND_BASE_URL = "http://localhost:8222/api/v1"
@@ -56,20 +58,45 @@ class BackendClient:
         request_headers = dict(headers or {})
         if context.token:
             request_headers["Authorization"] = f"Bearer {context.token}"
+        request_id = get_request_id() or str(context.metadata.get("request_id") or "") or None
+        if request_id:
+            request_headers["X-Request-ID"] = request_id
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.request(
-                    method,
-                    self.build_url(path),
-                    params=params,
-                    json=json,
-                    headers=request_headers,
-                )
+            url = self.build_url(path)
+            with start_span(
+                "tool.backend.call",
+                {
+                    "method": method.upper(),
+                    "path": path,
+                    "request_id": request_id,
+                    "tenant_id": context.tenant_id,
+                    "role": context.role,
+                },
+            ):
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.request(
+                        method,
+                        url,
+                        params=params,
+                        json=json,
+                        headers=request_headers,
+                    )
         except httpx.RequestError as exc:
+            log_error(
+                "tool.error",
+                exc,
+                {"method": method.upper(), "path": path, "request_id": request_id, "error_code": "backend_unreachable"},
+            )
             return ToolResult.fail("backend_unreachable", str(exc), status_code=503)
 
-        return self._to_tool_result(response)
+        result = self._to_tool_result(response)
+        log_event(
+            "tool.backend.response",
+            output={"success": result.success, "error_code": result.error_code, "status_code": result.status_code},
+            metadata={"method": method.upper(), "path": path, "request_id": request_id},
+        )
+        return result
 
     def _to_tool_result(self, response: httpx.Response) -> ToolResult:
         try:

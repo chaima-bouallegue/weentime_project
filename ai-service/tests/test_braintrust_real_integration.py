@@ -52,7 +52,7 @@ def test_braintrust_enabled_without_key_disables_safely(monkeypatch) -> None:
 
 
 def test_redaction_removes_authorization_jwt_and_api_key(monkeypatch) -> None:
-    reset_settings(monkeypatch)
+    reset_settings(monkeypatch, api_key="bt-secret-key")
     token = "Bearer abcdefghij.abcdefghij.abcdefghij"
     redacted = redact_headers({"Authorization": token, "x-api-key": "secret", "email": "person@example.com"})
 
@@ -60,6 +60,7 @@ def test_redaction_removes_authorization_jwt_and_api_key(monkeypatch) -> None:
     assert redacted["x-api-key"] == "[redacted]"
     assert redacted["email"] == "[redacted-email]"
     assert redact_value("abcdefghij.abcdefghij.abcdefghij", log_inputs=True) == "[redacted-jwt]"
+    assert redact_value("key=bt-secret-key", log_inputs=True) == "key=[redacted-braintrust-api-key]"
 
 
 def test_health_deep_includes_braintrust_status(monkeypatch) -> None:

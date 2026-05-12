@@ -1,0 +1,11 @@
+﻿{
+  "id": "tenant42-remote-friday",
+  "tenant_id": 42,
+  "title": "Remote work policy",
+  "source_type": "fixture",
+  "path_or_url": "tenant42_remote_work.json",
+  "language": "en",
+  "approved": true,
+  "updated_at": "2026-01-01",
+  "content": "Remote work requests must be submitted before the planned work-from-home day and remain subject to manager approval."
+}

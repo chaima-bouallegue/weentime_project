@@ -1,9 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService, User } from '../../core/services/auth.service';
 import { ChatApiResponse } from './chat.service';
+import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-response-normalizer';
 
 export type VoiceAssistantState =
   | 'idle'
@@ -16,12 +17,17 @@ export interface AudioStreamResponse extends ChatApiResponse {
   session_id?: string;
   final?: boolean;
   partial?: string;
+  transcript?: string;
   text?: string;
   status?: string;
+  audioUrl?: string | null;
   audio_duration?: number;
   detected_volume?: number;
   total_bytes?: number;
   retryable?: boolean;
+  warnings?: string[];
+  request_id?: string;
+  requestId?: string;
 }
 
 export type VoiceAssistantEvent =
@@ -251,16 +257,44 @@ export class VoiceAssistantService {
       type: mimeType
     });
 
-    const formData = new FormData();
     const sessionId = this.recordingSessionId ?? this.generateSessionId();
+    const requestId = this.generateRequestId('voice');
     this.recordingSessionId = sessionId;
     const extension = this.resolveFileExtension(mimeType);
+    if (!context.token) {
+      throw new Error('Session expiree. Reconnectez-vous pour utiliser la voix.');
+    }
 
+    const voiceFormData = new FormData();
+    voiceFormData.append('audio_file', blob, `audio.${extension}`);
+    voiceFormData.append('generate_tts', 'true');
+    voiceFormData.append('session_id', sessionId);
+    voiceFormData.append('request_id', requestId);
+    voiceFormData.append('language_hint', this.resolveLanguageHint());
+    const headers = new HttpHeaders({ Authorization: `Bearer ${context.token}`, 'X-Request-ID': requestId });
+    this.debugVoiceRequest('v2/voice', requestId);
+
+    try {
+      return await firstValueFrom(
+        this.http.post<AudioStreamResponse>(
+          `${this.endpoint}/v2/voice`,
+          voiceFormData,
+          { headers }
+        )
+      );
+    } catch (error) {
+      if (!this.shouldFallbackToAudioStream(error)) {
+        throw error;
+      }
+    }
+
+    const formData = new FormData();
     formData.append(
       'is_final',
       'true'
     );
     formData.append('session_id', sessionId);
+    formData.append('request_id', requestId);
     formData.append('chunk_index', '1');
 
     formData.append(
@@ -293,32 +327,38 @@ export class VoiceAssistantService {
     return firstValueFrom(
       this.http.post<AudioStreamResponse>(
         `${this.endpoint}/audio-stream`,
-        formData
+        formData,
+        { headers: new HttpHeaders({ 'X-Request-ID': requestId }) }
       )
     );
   }
 
   private finish(response: AudioStreamResponse): void {
-    if (this.isSoftVoiceResponse(response)) {
-      const message = this.resolveSoftVoiceMessage(response);
+    const normalized = normalizeVoiceAiResponse(response);
+    if (this.isSoftVoiceResponse(response, normalized)) {
+      const message = this.resolveSoftVoiceMessage(response, normalized);
       this.finalized = true;
       this.eventsSubject.next({
         type: 'final',
-        response: {
+        response: this.withNormalizedResponse({
           ...response,
           success: true,
-          status: this.normalizeSoftVoiceStatus(response),
+          status: this.normalizeSoftVoiceStatus(response, normalized),
           message,
           response: message,
           text: '',
-        },
+          requiresConfirmation: false,
+          confirmationId: null,
+        }, normalized),
       });
       this.completeSession();
       return;
     }
 
     this.finalized = true;
-    const assistantMessage = this.extractAssistantText(response);
+    const assistantMessage = normalized.assistantText
+      || (normalized.requiresConfirmation ? 'Confirmez-vous cette action ?' : null)
+      || this.extractAssistantText(response);
     if (this.isAudioFailure(response.error) || !assistantMessage) {
       this.emitError(assistantMessage ?? VoiceAssistantService.AUDIO_ERROR_MESSAGE);
       return;
@@ -326,11 +366,12 @@ export class VoiceAssistantService {
 
     this.eventsSubject.next({
       type: 'final',
-      response: {
+      response: this.withNormalizedResponse({
         ...response,
         message: assistantMessage,
         response: assistantMessage,
-      },
+        text: assistantMessage,
+      }, normalized),
     });
     this.completeSession();
   }
@@ -432,8 +473,13 @@ export class VoiceAssistantService {
     if (!response) {
       return null;
     }
+    const normalized = normalizeVoiceAiResponse(response);
+    if (normalized.assistantText) {
+      return normalized.assistantText;
+    }
     return response.message?.trim()
       || response.response?.trim()
+      || response.text?.trim()
       || this.normalizeAudioErrorMessage(response.error)
       || response.error?.trim()
       || null;
@@ -522,10 +568,13 @@ export class VoiceAssistantService {
     return value.trim();
   }
 
-  private isSoftVoiceResponse(response: AudioStreamResponse | null | undefined): boolean {
-    const status = String(response?.status ?? '').trim().toLowerCase();
-    const error = String(response?.error ?? '').trim().toLowerCase();
-    const message = `${response?.message ?? ''} ${response?.response ?? ''}`.trim().toLowerCase();
+  private isSoftVoiceResponse(
+    response: AudioStreamResponse | null | undefined,
+    normalized: NormalizedVoiceAiResponse = normalizeVoiceAiResponse(response),
+  ): boolean {
+    const status = String(normalized.status ?? response?.status ?? '').trim().toLowerCase();
+    const error = String(normalized.error ?? response?.error ?? '').trim().toLowerCase();
+    const message = `${normalized.assistantText ?? ''} ${response?.message ?? ''} ${response?.response ?? ''}`.trim().toLowerCase();
 
     return status === 'no_speech'
       || status === 'no_input'
@@ -545,8 +594,11 @@ export class VoiceAssistantService {
       || message.includes('phrase repetee');
   }
 
-  private normalizeSoftVoiceStatus(response: AudioStreamResponse | null | undefined): string {
-    const status = String(response?.status ?? '').trim().toLowerCase();
+  private normalizeSoftVoiceStatus(
+    response: AudioStreamResponse | null | undefined,
+    normalized: NormalizedVoiceAiResponse = normalizeVoiceAiResponse(response),
+  ): string {
+    const status = String(normalized.status ?? response?.status ?? '').trim().toLowerCase();
     if (status === 'invalid_audio') {
       return 'invalid_audio';
     }
@@ -556,15 +608,18 @@ export class VoiceAssistantService {
     return status === 'no_input' ? 'no_speech' : (status || 'no_speech');
   }
 
-  private resolveSoftVoiceMessage(response: AudioStreamResponse | null | undefined): string {
-    const status = this.normalizeSoftVoiceStatus(response);
+  private resolveSoftVoiceMessage(
+    response: AudioStreamResponse | null | undefined,
+    normalized: NormalizedVoiceAiResponse = normalizeVoiceAiResponse(response),
+  ): string {
+    const status = this.normalizeSoftVoiceStatus(response, normalized);
     if (status === 'invalid_audio') {
-      return String(response?.message || response?.response || VoiceAssistantService.INVALID_AUDIO_MESSAGE).trim();
+      return String(normalized.assistantText || response?.message || response?.response || VoiceAssistantService.INVALID_AUDIO_MESSAGE).trim();
     }
     if (status === 'unclear_audio') {
-      return String(response?.message || response?.response || VoiceAssistantService.SOFT_UNCLEAR_MESSAGE).trim();
+      return String(normalized.assistantText || response?.message || response?.response || VoiceAssistantService.SOFT_UNCLEAR_MESSAGE).trim();
     }
-    return String(response?.message || response?.response || VoiceAssistantService.SOFT_NO_INPUT_MESSAGE).trim();
+    return String(normalized.assistantText || response?.message || response?.response || VoiceAssistantService.SOFT_NO_INPUT_MESSAGE).trim();
   }
 
   private isAudioFailure(value: string | null | undefined): boolean {
@@ -625,10 +680,64 @@ export class VoiceAssistantService {
     return tracks.length > 0 && tracks.some(track => track.readyState === 'live' && track.enabled);
   }
 
+  private shouldFallbackToAudioStream(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404);
+  }
+
+  private resolveLanguageHint(): string {
+    const language = typeof navigator !== 'undefined' && navigator.language
+      ? navigator.language
+      : 'fr-FR';
+    return language.split('-')[0] || 'fr';
+  }
+
+  private withNormalizedResponse(
+    response: AudioStreamResponse,
+    normalized: NormalizedVoiceAiResponse,
+  ): AudioStreamResponse {
+    return {
+      ...response,
+      success: normalized.success,
+      transcription: normalized.transcript ?? response.transcription,
+      transcript: normalized.transcript ?? response.transcript,
+      text: normalized.assistantText ?? response.text,
+      message: normalized.assistantText ?? response.message,
+      response: normalized.assistantText ?? response.response,
+      audio_url: normalized.audioUrl ?? response.audio_url,
+      audioUrl: normalized.audioUrl ?? response.audioUrl,
+      intent: normalized.intent ?? response.intent,
+      requiresConfirmation: normalized.requiresConfirmation,
+      requires_confirmation: normalized.requiresConfirmation,
+      confirmationId: normalized.confirmationId,
+      toolCalls: normalized.toolCalls as AudioStreamResponse['toolCalls'],
+      actionResult: normalized.actionResult as AudioStreamResponse['actionResult'],
+      action_result: normalized.actionResult as AudioStreamResponse['action_result'],
+      status: normalized.status ?? response.status,
+      error: normalized.error ?? response.error,
+      warnings: normalized.warnings,
+      request_id: normalized.requestId ?? response.request_id,
+      requestId: normalized.requestId ?? response.requestId,
+      data: response.data,
+    };
+  }
+
   private generateSessionId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
     }
     return `voice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private generateRequestId(prefix: string): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private debugVoiceRequest(endpoint: string, requestId: string): void {
+    if (!environment.production) {
+      console.debug('[voice-assistant]', endpoint, { requestId });
+    }
   }
 }

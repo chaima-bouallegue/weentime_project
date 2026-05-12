@@ -1,207 +1,309 @@
-<div class="rh-bento-container fade-in">
-  <!-- Bento Hero Header -->
-  <header class="dashboard-hero mb-8">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#6366f1'"></div>
+<div class="dash" [class.dash--loading]="loading()">
 
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-indigo-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-200 dark:shadow-none">
-              Panneau d'Administration
-            </span>
-          </div>
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="dash-header">
+    <div class="dash-header__accent"></div>
+    <div class="dash-header__body">
 
-          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Bonjour, {{ firstName() }} 👋
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            {{ todayFormatted }} · Supervisez l'ensemble de la plateforme WeenTime depuis ce centre de contrôle.
-          </p>
-        </div>
+      <div class="dash-header__left">
+        <span class="dash-header__badge">
+          <lucide-angular [img]="ic.shieldCheck" size="12"></lucide-angular>
+          Administration
+        </span>
+        <h1 class="dash-header__title">
+          {{ greeting() }}, {{ firstName() }}
+          <span class="dash-header__wave">👋</span>
+        </h1>
+        <p class="dash-header__sub">
+          <lucide-angular [img]="ic.calendar" size="14"></lucide-angular>
+          {{ todayLabel() }}
+          <span class="dash-header__dot">·</span>
+          <lucide-angular [img]="ic.clock" size="14"></lucide-angular>
+          {{ timeLabel() }}
+        </p>
+      </div>
 
-        <div class="flex flex-col sm:flex-row gap-4">
-          <button class="hero-btn secondary" (click)="loadData()" [disabled]="isLoading()">
-            <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
-            <span>Actualiser</span>
-          </button>
-          <a class="hero-btn primary-indigo" routerLink="/app/admin/parametres">
-            <lucide-angular [img]="iconSettings" size="20"></lucide-angular>
-            <span>Paramètres</span>
-          </a>
-        </div>
+      <div class="dash-header__actions">
+        <button class="btn-ghost" (click)="loadAll()" [disabled]="refreshing()">
+          <lucide-angular [img]="ic.refresh" size="18" [class.spin]="refreshing()"></lucide-angular>
+          Actualiser
+        </button>
+        <a class="btn-solid" routerLink="/app/admin/parametres">
+          <lucide-angular [img]="ic.settings" size="18"></lucide-angular>
+          Paramètres
+        </a>
       </div>
     </div>
   </header>
 
-  <!-- KPI Grid -->
-  @if (isLoading()) {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      @for (i of [1,2,3,4]; track i) {
-        <div class="h-36 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+  <!-- ═══════════════════ KPI STRIP ═══════════════════ -->
+  @if (loading()) {
+    <div class="kpi-grid">
+      @for (s of skeletons; track s) {
+        <div class="kpi-skeleton pulse"></div>
       }
     </div>
   } @else {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="kpi-grid">
+
+      <!-- Users -->
+      <div class="kpi" data-tone="primary">
+        <div class="kpi__icon"><lucide-angular [img]="ic.users" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">Utilisateurs</span>
+          <span class="kpi__value">{{ totalUsers() }}</span>
+          <span class="kpi__detail">{{ activeUsers() }} actifs · {{ inactiveUsers() }} inactifs</span>
+        </div>
+        <div class="kpi__glow"></div>
+      </div>
+
       <!-- Entreprises -->
-      <div class="bento-stat-card info">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconBuilding" size="24"></lucide-angular>
+      <div class="kpi" data-tone="info">
+        <div class="kpi__icon"><lucide-angular [img]="ic.building" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">Entreprises</span>
+          <span class="kpi__value">{{ totalEntreprises() }}</span>
+          <span class="kpi__detail">{{ activeEntreprises() }} actives</span>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Entreprises</span>
-          <div class="stat-value-line">
-            <span class="value">{{ totalEntreprises() }}</span>
-            <span class="delta">{{ activeEntreprises() }} actives</span>
-          </div>
-        </div>
-        <div class="stat-visual-glow"></div>
+        <div class="kpi__glow"></div>
       </div>
 
-      <!-- Gestionnaires RH -->
-      <div class="bento-stat-card success">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconUserCog" size="24"></lucide-angular>
+      <!-- RH -->
+      <div class="kpi" data-tone="success">
+        <div class="kpi__icon"><lucide-angular [img]="ic.userCog" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">Gestionnaires RH</span>
+          <span class="kpi__value">{{ rhCount() }}</span>
+          <span class="kpi__detail">Responsables actifs</span>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Gestionnaires</span>
-          <div class="stat-value-line">
-            <span class="value">{{ rhCount() }}</span>
-            <span class="delta">Responsables RH</span>
-          </div>
-        </div>
-        <div class="stat-visual-glow"></div>
+        <div class="kpi__glow"></div>
       </div>
 
-      <!-- Rôles -->
-      <div class="bento-stat-card warning">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconShieldRole" size="24"></lucide-angular>
+      <!-- Managers -->
+      <div class="kpi" data-tone="violet">
+        <div class="kpi__icon"><lucide-angular [img]="ic.shieldCheck" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">Managers</span>
+          <span class="kpi__value">{{ managerCount() }}</span>
+          <span class="kpi__detail">Resp. d'équipes</span>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Rôles</span>
-          <div class="stat-value-line">
-            <span class="value">{{ totalRoles() }}</span>
-            <span class="delta">Niveaux d'accès</span>
-          </div>
-        </div>
-        <div class="stat-visual-glow"></div>
+        <div class="kpi__glow"></div>
       </div>
 
-      <!-- Activité -->
-      <div class="bento-stat-card danger">
-        <div class="stat-icon-box">
-          <lucide-angular [img]="iconActivity" size="24"></lucide-angular>
+      <!-- Pending -->
+      <div class="kpi" data-tone="warning">
+        <div class="kpi__icon"><lucide-angular [img]="ic.inbox" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">En attente</span>
+          <span class="kpi__value">{{ pendingCount() }}</span>
+          <span class="kpi__detail">Demandes à traiter</span>
         </div>
-        <div class="stat-content">
-          <span class="stat-label">Inactives</span>
-          <div class="stat-value-line">
-            <span class="value">{{ inactiveEntreprises() }}</span>
-            <span class="delta">À vérifier</span>
-          </div>
-        </div>
-        <div class="stat-visual-glow"></div>
+        <div class="kpi__glow"></div>
       </div>
+
+      <!-- Roles -->
+      <div class="kpi" data-tone="danger">
+        <div class="kpi__icon"><lucide-angular [img]="ic.shield" size="22"></lucide-angular></div>
+        <div class="kpi__body">
+          <span class="kpi__label">Rôles</span>
+          <span class="kpi__value">{{ totalRoles() }}</span>
+          <span class="kpi__detail">Niveaux d'accès</span>
+        </div>
+        <div class="kpi__glow"></div>
+      </div>
+
     </div>
   }
 
-  <!-- Bottom Grid: Recent + Quick Actions -->
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+  <!-- ═══════════════════ MAIN GRID ═══════════════════ -->
+  @if (!loading()) {
+    <div class="main-grid">
 
-    <!-- Recent Entreprises -->
-    <section class="lg:col-span-7">
-      <div class="bento-card p-6 h-full">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">Entreprises récentes</h2>
-          <a routerLink="/app/admin/entreprises" class="flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:gap-2 transition-all">
-            Voir tout
-            <lucide-angular [img]="iconArrow" size="14"></lucide-angular>
-          </a>
-        </div>
+      <!-- ─── LEFT COL: Overview + Companies ─── -->
+      <div class="main-grid__left">
 
-        @if (isLoading()) {
-          <div class="space-y-3">
-            @for (i of [1,2,3]; track i) {
-              <div class="h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
-            }
+        <!-- Platform overview card -->
+        <section class="card card--overview">
+          <div class="card__head">
+            <h2 class="card__title">Vue d'ensemble plateforme</h2>
+            <span class="card__pill card__pill--live">
+              <span class="live-dot"></span> Live
+            </span>
           </div>
-        } @else if (recentEntreprises().length > 0) {
-          <div class="space-y-3">
-            @for (ent of recentEntreprises(); track ent.id) {
-              <div class="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0" [style.background-color]="getAvatarColor(ent.nom)">
-                  {{ getInitials(ent.nom) }}
+
+          <div class="overview-body">
+
+            <!-- Donut -->
+            <div class="overview-donut-wrap">
+              <div class="donut" [style.background]="donutBg()">
+                <div class="donut__hole">
+                  <span class="donut__total">{{ totalUsers() }}</span>
+                  <span class="donut__sub">utilisateurs</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-black text-sm text-slate-900 dark:text-white truncate">{{ ent.nom }}</h4>
-                  <p class="text-xs font-medium text-slate-400 truncate">{{ ent.secteur || 'Secteur non défini' }} · {{ formatDate(ent.createdAt) }}</p>
-                </div>
-                <span class="status-pill-small shrink-0" [class.success]="ent.status === 'ACTIVE'" [class.danger]="ent.status !== 'ACTIVE'">
-                  {{ ent.statusLabel }}
-                </span>
               </div>
+              <ul class="donut-legend">
+                @for (slice of roleSlices(); track slice.label) {
+                  <li class="donut-legend__item">
+                    <span class="donut-legend__dot" [style.background]="slice.color"></span>
+                    <span class="donut-legend__label">{{ slice.label }}</span>
+                    <span class="donut-legend__value">{{ slice.count }}</span>
+                    <span class="donut-legend__pct">{{ slice.pct }}%</span>
+                  </li>
+                }
+              </ul>
+            </div>
+
+            <!-- Ring gauges -->
+            <div class="overview-gauges">
+              <div class="gauge">
+                <div class="gauge__ring" [style.background]="progressBg(activityRate(), '#6366f1')">
+                  <div class="gauge__center">
+                    <span class="gauge__val">{{ activityRate() }}%</span>
+                  </div>
+                </div>
+                <span class="gauge__label">Taux d'activité</span>
+              </div>
+              <div class="gauge">
+                <div class="gauge__ring" [style.background]="progressBg(enterpriseHealth(), '#10b981')">
+                  <div class="gauge__center">
+                    <span class="gauge__val">{{ enterpriseHealth() }}%</span>
+                  </div>
+                </div>
+                <span class="gauge__label">Santé entreprises</span>
+              </div>
+            </div>
+
+            <!-- Health -->
+            <div class="health-strip">
+              <h3 class="health-strip__title">Statut services</h3>
+              <div class="health-strip__items">
+                @for (h of healthItems(); track h.label) {
+                  <div class="health-item" [class.health-item--ok]="h.ok" [class.health-item--ko]="!h.ok">
+                    <lucide-angular [img]="h.icon" size="14"></lucide-angular>
+                    <span>{{ h.label }}</span>
+                    <span class="health-item__dot"></span>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recent companies -->
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Entreprises récentes</h2>
+            <a class="card__link" routerLink="/app/admin/entreprises">
+              Voir tout <lucide-angular [img]="ic.arrowRight" size="14"></lucide-angular>
+            </a>
+          </div>
+
+          @if (recentCompanies().length === 0) {
+            <div class="card__empty">
+              <lucide-angular [img]="ic.building" size="36"></lucide-angular>
+              <p>Aucune entreprise enregistrée</p>
+            </div>
+          } @else {
+            <ul class="company-list">
+              @for (c of recentCompanies(); track c.id) {
+                <li class="company-list__row">
+                  <div class="avatar-sm" [style.background]="c.gradient">{{ c.initials }}</div>
+                  <div class="company-list__info">
+                    <span class="company-list__name">{{ c.nom }}</span>
+                    <span class="company-list__meta">{{ c.secteur }} · {{ c.date }}</span>
+                  </div>
+                  <span class="pill" [attr.data-tone]="c.estActive ? 'success' : 'danger'">
+                    {{ c.estActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <!-- ─── RIGHT COL: Activity + Quick actions ─── -->
+      <div class="main-grid__right">
+
+        <!-- Activity timeline -->
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Activité récente</h2>
+            <a class="card__link" routerLink="/app/admin/requests">
+              Voir tout <lucide-angular [img]="ic.arrowRight" size="14"></lucide-angular>
+            </a>
+          </div>
+
+          @if (recentActivity().length === 0) {
+            <div class="card__empty">
+              <lucide-angular [img]="ic.activity" size="36"></lucide-angular>
+              <p>Aucune activité récente</p>
+            </div>
+          } @else {
+            <ul class="timeline">
+              @for (a of recentActivity(); track a.id) {
+                <li class="timeline__item">
+                  <div class="timeline__dot" [attr.data-tone]="a.tone"></div>
+                  <div class="timeline__body">
+                    <span class="timeline__title">{{ a.owner }}</span>
+                    <span class="timeline__desc">
+                      {{ a.type }}
+                      <span class="pill pill--inline" [attr.data-tone]="a.tone">{{ a.status }}</span>
+                    </span>
+                    <time class="timeline__time">{{ a.date }}</time>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
+        <!-- Quick nav -->
+        <section class="card card--nav">
+          <div class="card__head">
+            <h2 class="card__title">Accès rapides</h2>
+          </div>
+
+          <div class="qnav-grid">
+            @for (link of quickLinks; track link.route) {
+              <a class="qnav" [routerLink]="link.route" [attr.data-tone]="link.tone">
+                <div class="qnav__icon">
+                  <lucide-angular [img]="link.icon" size="20"></lucide-angular>
+                </div>
+                <div class="qnav__text">
+                  <span class="qnav__label">{{ link.label }}</span>
+                  <span class="qnav__sub">{{ link.sub }}</span>
+                </div>
+                <lucide-angular [img]="ic.chevron" size="16" class="qnav__arrow"></lucide-angular>
+              </a>
             }
           </div>
-        } @else {
-          <div class="text-center py-12 text-slate-400">
-            <lucide-angular [img]="iconBuilding" size="40" class="mb-4 opacity-40"></lucide-angular>
-            <p class="font-medium">Aucune entreprise enregistrée.</p>
+        </section>
+
+        <!-- Request breakdown mini -->
+        <section class="card card--mini">
+          <div class="card__head">
+            <h2 class="card__title">Résumé demandes</h2>
           </div>
-        }
+          <div class="req-breakdown">
+            <div class="req-breakdown__item" data-tone="warning">
+              <lucide-angular [img]="ic.clock" size="16"></lucide-angular>
+              <span class="req-breakdown__val">{{ pendingCount() }}</span>
+              <span class="req-breakdown__label">En attente</span>
+            </div>
+            <div class="req-breakdown__item" data-tone="success">
+              <lucide-angular [img]="ic.dot" size="16"></lucide-angular>
+              <span class="req-breakdown__val">{{ approvedCount() }}</span>
+              <span class="req-breakdown__label">Approuvées</span>
+            </div>
+            <div class="req-breakdown__item" data-tone="danger">
+              <lucide-angular [img]="ic.dot" size="16"></lucide-angular>
+              <span class="req-breakdown__val">{{ rejectedCount() }}</span>
+              <span class="req-breakdown__label">Refusées</span>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
-
-    <!-- Quick Actions -->
-    <section class="lg:col-span-5">
-      <div class="bento-card p-6 h-full">
-        <h2 class="text-xl font-black text-slate-900 dark:text-white mb-6">Accès rapides</h2>
-
-        <div class="space-y-4">
-          <a routerLink="/app/admin/entreprises" class="group flex items-center gap-4 p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
-            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <lucide-angular [img]="iconBuilding" size="22"></lucide-angular>
-            </div>
-            <div class="flex-1">
-              <h4 class="font-black text-slate-900 dark:text-white text-sm">Gérer les Entreprises</h4>
-              <p class="text-xs font-medium text-slate-400">{{ totalEntreprises() }} sociétés référencées</p>
-            </div>
-            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"></lucide-angular>
-          </a>
-
-          <a routerLink="/app/admin/rh-owners" class="group flex items-center gap-4 p-4 bg-sky-50 dark:bg-sky-500/5 rounded-2xl border border-sky-100 dark:border-sky-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
-            <div class="w-12 h-12 bg-sky-100 dark:bg-sky-500/10 text-sky-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <lucide-angular [img]="iconUserCog" size="22"></lucide-angular>
-            </div>
-            <div class="flex-1">
-              <h4 class="font-black text-slate-900 dark:text-white text-sm">Gestionnaires RH</h4>
-              <p class="text-xs font-medium text-slate-400">{{ rhCount() }} responsables actifs</p>
-            </div>
-            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all"></lucide-angular>
-          </a>
-
-          <a routerLink="/app/admin/roles" class="group flex items-center gap-4 p-4 bg-purple-50 dark:bg-purple-500/5 rounded-2xl border border-purple-100 dark:border-purple-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
-            <div class="w-12 h-12 bg-purple-100 dark:bg-purple-500/10 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <lucide-angular [img]="iconShieldRole" size="22"></lucide-angular>
-            </div>
-            <div class="flex-1">
-              <h4 class="font-black text-slate-900 dark:text-white text-sm">Rôles & Permissions</h4>
-              <p class="text-xs font-medium text-slate-400">{{ totalRoles() }} profils sécurisés</p>
-            </div>
-            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 transition-all"></lucide-angular>
-          </a>
-
-          <a routerLink="/app/admin/parametres" class="group flex items-center gap-4 p-4 bg-amber-50 dark:bg-amber-500/5 rounded-2xl border border-amber-100 dark:border-amber-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all">
-            <div class="w-12 h-12 bg-amber-100 dark:bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <lucide-angular [img]="iconSettings" size="22"></lucide-angular>
-            </div>
-            <div class="flex-1">
-              <h4 class="font-black text-slate-900 dark:text-white text-sm">Paramètres Système</h4>
-              <p class="text-xs font-medium text-slate-400">Configuration globale</p>
-            </div>
-            <lucide-angular [img]="iconArrow" size="18" class="text-slate-300 group-hover:text-amber-600 group-hover:translate-x-1 transition-all"></lucide-angular>
-          </a>
-        </div>
-      </div>
-    </section>
-  </div>
+    </div>
+  }
 </div>

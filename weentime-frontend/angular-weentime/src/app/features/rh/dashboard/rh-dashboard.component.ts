@@ -1,11 +1,265 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RhDashboardPageComponent } from '@app/shared/ui/pages/rh-dashboard/rh-dashboard.page.component';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  OnDestroy,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { interval, Subscription } from 'rxjs';
+import {
+  LucideAngularModule,
+  Users,
+  UserCheck,
+  UserX,
+  Clock,
+  Inbox,
+  Briefcase,
+  RefreshCw,
+  ChevronRight,
+  BarChart3,
+  PieChart,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  History,
+  Calendar,
+  TrendingUp,
+  AlertCircle,
+  Sparkles,
+  Shield,
+  Eye,
+  FileText
+} from 'lucide-angular';
+import { RhDashboardService } from './rh-dashboard.service';
+import {
+  DashboardViewModel,
+  DashboardLeaveRequest,
+  HighlightedMember,
+  AttendanceBarItem,
+  RequestMixItem
+} from './rh-dashboard.models';
+
+interface DashAlert {
+  title: string;
+  description: string;
+  tone: 'warning' | 'danger' | 'info' | 'success';
+  icon: any;
+}
 
 @Component({
   selector: 'app-rh-dashboard',
   standalone: true,
-  imports: [RhDashboardPageComponent],
-  template: `<ui-rh-dashboard-page></ui-rh-dashboard-page>`,
+  imports: [CommonModule, RouterLink, LucideAngularModule],
+  templateUrl: './rh-dashboard.component.html',
+  styleUrl: './rh-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class RhDashboardComponent {}
+export class RhDashboardComponent implements OnInit, OnDestroy {
+  private readonly svc = inject(RhDashboardService);
+
+  /* ── icons ──────────────────────────────────────────── */
+  protected readonly ic = {
+    users: Users,
+    userCheck: UserCheck,
+    userX: UserX,
+    clock: Clock,
+    inbox: Inbox,
+    briefcase: Briefcase,
+    refresh: RefreshCw,
+    chevron: ChevronRight,
+    chart: BarChart3,
+    pie: PieChart,
+    activity: Activity,
+    alert: AlertTriangle,
+    check: CheckCircle2,
+    history: History,
+    calendar: Calendar,
+    trending: TrendingUp,
+    alertCircle: AlertCircle,
+    sparkles: Sparkles,
+    shield: Shield,
+    eye: Eye,
+    file: FileText
+  };
+
+  /* ── state ──────────────────────────────────────────── */
+  readonly loading = signal(true);
+  readonly refreshing = signal(false);
+  readonly now = signal(new Date());
+  readonly firstName = signal('RH');
+
+  private readonly _data = signal<DashboardViewModel | null>(null);
+  private clockSub?: Subscription;
+  private dataSub?: Subscription;
+
+  /* ── computed ───────────────────────────────────────── */
+  readonly todayLabel = computed(() =>
+    this.now().toLocaleDateString('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    })
+  );
+
+  readonly totalEmployees = computed(() => this._data()?.totalEmployees ?? 0);
+  readonly presentCount = computed(() => this._data()?.presentCount ?? 0);
+  readonly absentCount = computed(() => this._data()?.absentCount ?? 0);
+  readonly pendingCount = computed(() => this._data()?.pendingRequests?.length ?? 0);
+  readonly hoursWorked = computed(() => this._data()?.hoursWorked ?? 0);
+  readonly attendanceRate = computed(() => this._data()?.attendanceRate ?? 0);
+
+  readonly attendanceBars = computed<AttendanceBarItem[]>(() =>
+    this._data()?.attendanceBars ?? []
+  );
+
+  readonly requestMix = computed<RequestMixItem[]>(() =>
+    this._data()?.requestMix ?? []
+  );
+
+  readonly pendingRequests = computed<DashboardLeaveRequest[]>(() =>
+    this._data()?.pendingRequests ?? []
+  );
+
+  readonly highlightedMembers = computed<HighlightedMember[]>(() =>
+    this._data()?.highlightedMembers ?? []
+  );
+
+  readonly activityFeed = computed(() => this._data()?.activityFeed ?? []);
+
+  readonly alerts = computed<DashAlert[]>(() => {
+    const out: DashAlert[] = [];
+    const pending = this.pendingCount();
+    const absent = this.absentCount();
+    const rate = this.attendanceRate();
+
+    if (pending > 0) {
+      out.push({
+        title: `${pending} demande${pending > 1 ? 's' : ''} RH en attente`,
+        description: 'Validation requise pour finaliser le workflow.',
+        tone: 'warning',
+        icon: this.ic.inbox
+      });
+    }
+    if (absent > 3) {
+      out.push({
+        title: `${absent} absences signalées`,
+        description: 'Taux d\'absence supérieur à la moyenne.',
+        tone: 'danger',
+        icon: this.ic.userX
+      });
+    }
+    if (rate >= 95) {
+      out.push({
+        title: 'Excellente présence globale',
+        description: `${rate}% de taux de présence aujourd'hui.`,
+        tone: 'success',
+        icon: this.ic.check
+      });
+    }
+    if (out.length === 0) {
+      out.push({
+        title: 'Situation stable',
+        description: 'Aucune alerte majeure à signaler.',
+        tone: 'info',
+        icon: this.ic.shield
+      });
+    }
+    return out;
+  });
+
+  readonly skeletons = Array.from({ length: 5 }, (_, i) => i);
+
+  /* ── lifecycle ──────────────────────────────────────── */
+  ngOnInit(): void {
+    this.loadFirstName();
+    this.loadData();
+    this.clockSub = interval(60_000).subscribe(() => this.now.set(new Date()));
+  }
+
+  ngOnDestroy(): void {
+    this.clockSub?.unsubscribe();
+    this.dataSub?.unsubscribe();
+  }
+
+  /* ── actions ────────────────────────────────────────── */
+  refreshData(): void {
+    this.refreshing.set(true);
+    this.svc.refresh();
+    setTimeout(() => this.refreshing.set(false), 1200);
+  }
+
+  /* ── helpers ────────────────────────────────────────── */
+  private loadData(): void {
+    this.loading.set(true);
+    this.dataSub = this.svc.getDashboardData().subscribe({
+      next: (data) => {
+        this._data.set(data);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false)
+    });
+  }
+
+  private loadFirstName(): void {
+    try {
+      const raw = localStorage.getItem('auth_user') ?? localStorage.getItem('user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        this.firstName.set(u?.prenom ?? u?.firstName ?? 'RH');
+      }
+    } catch { /* ignore */ }
+  }
+
+  initials(name: string): string {
+    return (name ?? '')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(p => p[0]?.toUpperCase() ?? '')
+      .join('') || 'RH';
+  }
+
+  avatarGradient(name: string): string {
+    const g = [
+      'linear-gradient(135deg,#8b5cf6,#a855f7)',
+      'linear-gradient(135deg,#6366f1,#818cf8)',
+      'linear-gradient(135deg,#ec4899,#f43f5e)',
+      'linear-gradient(135deg,#f59e0b,#f97316)',
+      'linear-gradient(135deg,#10b981,#14b8a6)',
+      'linear-gradient(135deg,#0ea5e9,#06b6d4)',
+    ];
+    const h = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return g[h % g.length];
+  }
+
+  requestOwner(req: DashboardLeaveRequest): string {
+    return req.employeeName || `Employé #${req.userId}`;
+  }
+
+  requestPeriod(req: DashboardLeaveRequest): string {
+    if (!req.startDate) return 'Date non précisée';
+    const from = new Date(req.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const to = req.endDate ? new Date(req.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null;
+    return to && to !== from ? `${from} → ${to}` : from;
+  }
+
+  memberTone(status: string): string {
+    const m: Record<string, string> = {
+      ACTIVE: 'success', ABSENT: 'danger', ON_LEAVE: 'warning'
+    };
+    return m[status] ?? 'neutral';
+  }
+
+  memberLabel(status: string): string {
+    const m: Record<string, string> = {
+      ACTIVE: 'Actif', ABSENT: 'Absent', ON_LEAVE: 'Congé'
+    };
+    return m[status] ?? status;
+  }
+
+  trackById(_: number, item: any): any {
+    return item?.id ?? _;
+  }
+}

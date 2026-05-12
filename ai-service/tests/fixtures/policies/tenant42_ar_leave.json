@@ -1,0 +1,11 @@
+﻿{
+  "id": "tenant42-ar-leave",
+  "tenant_id": 42,
+  "title": "سياسة العطل",
+  "source_type": "fixture",
+  "path_or_url": "tenant42_ar_leave.json",
+  "language": "ar",
+  "approved": true,
+  "updated_at": "2026-01-01",
+  "content": "يجب تقديم طلب العطلة قبل الموعد والحصول على موافقة المدير حسب سياسة الشركة."
+}

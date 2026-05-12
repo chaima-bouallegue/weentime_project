@@ -1,0 +1,415 @@
+<div class="emp-dash" [class.emp-dash--loading]="loading()">
+
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <header class="emp-hero">
+    <div class="emp-hero__gradient"></div>
+    <div class="emp-hero__pattern"></div>
+    <div class="emp-hero__orb emp-hero__orb--one"></div>
+    <div class="emp-hero__orb emp-hero__orb--two"></div>
+
+    <div class="emp-hero__body">
+
+      <!-- LEFT -->
+      <div class="emp-hero__left">
+
+        <div class="emp-hero__eyebrow">
+          <lucide-angular [img]="ic.briefcase" size="13"></lucide-angular>
+          Espace collaborateur
+        </div>
+
+        <div class="emp-hero__greeting">
+          <lucide-angular
+            [img]="greetingIcon()"
+            size="28"
+            class="greeting-icon">
+          </lucide-angular>
+
+          <h1 class="emp-hero__title">
+            {{ greeting() }},&nbsp;<span class="highlight">{{ firstName() }}</span>
+            <span class="wave">👋</span>
+          </h1>
+        </div>
+
+        <div class="emp-hero__meta">
+          <span class="meta-item">
+            <lucide-angular [img]="ic.calendar" size="14"></lucide-angular>
+            {{ dateLabel() }}
+          </span>
+          <span class="meta-dot">·</span>
+          <span class="meta-item meta-item--clock">
+            <lucide-angular [img]="ic.clock" size="14"></lucide-angular>
+            {{ timeLabel() }}
+          </span>
+        </div>
+
+        <div class="emp-hero__quote">
+          <lucide-angular [img]="motivationalQuote().icon" size="15"></lucide-angular>
+          <span>{{ motivationalQuote().text }}</span>
+        </div>
+
+      </div>
+
+      <!-- RIGHT -->
+      <div class="emp-hero__right">
+
+        <button
+          class="btn-refresh"
+          type="button"
+          [disabled]="refreshing()"
+          (click)="loadDashboard()">
+          <lucide-angular
+            [img]="ic.refresh"
+            size="18"
+            [class.spin]="refreshing()">
+          </lucide-angular>
+        </button>
+
+        <div class="session-card" [class.session-card--active]="sessionActive()">
+
+          <div class="session-card__status">
+            <span class="session-card__dot"></span>
+            {{ sessionActive() ? 'Session ouverte' : 'Session fermée' }}
+          </div>
+
+          <div class="session-card__time">
+            {{ hoursTodayLabel() }}
+          </div>
+
+          <p class="session-card__hint">
+            {{
+              sessionActive()
+                ? 'Votre journée est en cours.'
+                : 'Aucun pointage ouvert.'
+            }}
+          </p>
+
+          <a class="session-card__cta" routerLink="/app/employee/presence">
+            Gérer mon pointage
+            <lucide-angular [img]="ic.chevron" size="14"></lucide-angular>
+          </a>
+
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ WARNING ═══════════════════ -->
+  @if (warningMessage(); as warning) {
+    <div class="warning-banner" role="alert">
+      <lucide-angular [img]="ic.bell" size="18"></lucide-angular>
+      <span>{{ warning }}</span>
+    </div>
+  }
+
+  <!-- ═══════════════════ KPI ═══════════════════ -->
+  @if (loading()) {
+    <div class="kpi-grid">
+      @for (item of skeletons; track item) {
+        <div class="kpi-skeleton pulse"></div>
+      }
+    </div>
+  } @else {
+    <section class="kpi-grid" aria-label="Indicateurs clés">
+      @for (kpi of kpiCards(); track kpi.id) {
+        <article
+          class="kpi-card"
+          [style.--kpi-gradient]="kpi.gradient">
+
+          <div class="kpi-card__bg" aria-hidden="true"></div>
+
+          <div class="kpi-card__icon" aria-hidden="true">
+            <lucide-angular [img]="kpi.icon" size="22"></lucide-angular>
+          </div>
+
+          <div class="kpi-card__content">
+            <span class="kpi-card__label">{{ kpi.label }}</span>
+            <strong class="kpi-card__value">{{ kpi.value }}</strong>
+            <span
+              class="kpi-card__trend"
+              [class.kpi-card__trend--up]="kpi.trendUp"
+              [class.kpi-card__trend--down]="!kpi.trendUp">
+              <lucide-angular
+                [img]="kpi.trendUp ? ic.trendUp : ic.trendDown"
+                size="13">
+              </lucide-angular>
+              {{ kpi.trend }}
+            </span>
+          </div>
+
+        </article>
+      }
+    </section>
+  }
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  @if (!loading()) {
+    <main class="emp-grid">
+
+      <!-- ─── LEFT ─── -->
+      <div class="emp-grid__left">
+
+        <!-- Quick Actions -->
+        <section class="card card--actions" aria-labelledby="actions-title">
+
+          <div class="card__head">
+            <h2 class="card__title" id="actions-title">
+              <lucide-angular [img]="ic.zap" size="18"></lucide-angular>
+              Actions rapides
+            </h2>
+            <span class="card__caption">Vos raccourcis essentiels</span>
+          </div>
+
+          <p class="quick-description">{{ quickDescription() }}</p>
+
+          <div class="actions-grid">
+            @for (action of quickActions; track action.id) {
+              <a
+                class="action-card"
+                [routerLink]="action.route"
+                [style.--action-gradient]="action.gradient"
+                [attr.aria-label]="action.label">
+
+                <div class="action-card__shine" aria-hidden="true"></div>
+
+                <div class="action-card__icon" aria-hidden="true">
+                  <lucide-angular [img]="action.icon" size="20"></lucide-angular>
+                </div>
+
+                <div class="action-card__text">
+                  <span class="action-card__label">{{ action.label }}</span>
+                  <span class="action-card__sub">{{ action.sub }}</span>
+                </div>
+
+                <lucide-angular
+                  [img]="ic.chevron"
+                  size="15"
+                  class="action-card__arrow"
+                  aria-hidden="true">
+                </lucide-angular>
+
+              </a>
+            }
+          </div>
+
+        </section>
+
+        <!-- Activity -->
+        <section class="card" aria-labelledby="activity-title">
+
+          <div class="card__head">
+            <h2 class="card__title" id="activity-title">
+              <lucide-angular [img]="ic.activity" size="18"></lucide-angular>
+              Activité récente
+            </h2>
+          </div>
+
+          @if (activityItems().length === 0) {
+            <div class="empty-state">
+              <lucide-angular [img]="ic.bell" size="44"></lucide-angular>
+              <p>Aucune activité récente.</p>
+            </div>
+          } @else {
+            <ul class="activity-list" role="list">
+              @for (item of activityItems(); track item.id) {
+                <li class="activity-item">
+
+                  <div
+                    class="activity-item__avatar"
+                    [style.background]="item.color"
+                    aria-hidden="true">
+                    <lucide-angular [img]="item.icon" size="15"></lucide-angular>
+                  </div>
+
+                  <div class="activity-item__body">
+                    <p class="activity-item__desc">{{ item.description }}</p>
+                    <time class="activity-item__date">{{ item.date }}</time>
+                  </div>
+
+                </li>
+              }
+            </ul>
+          }
+
+        </section>
+
+      </div>
+
+      <!-- ─── RIGHT ─── -->
+      <aside class="emp-grid__right">
+
+        <!-- Leave Balance -->
+        <section class="card card--balance" aria-labelledby="balance-title">
+
+          <div class="card__head">
+            <h2 class="card__title" id="balance-title">
+              <lucide-angular [img]="ic.plane" size="18"></lucide-angular>
+              Solde de congés
+            </h2>
+          </div>
+
+          <div class="balance">
+
+            <!-- SVG Donut -->
+            <div class="balance__circle">
+              <svg
+                viewBox="0 0 140 140"
+                width="150"
+                height="150"
+                aria-hidden="true"
+                overflow="visible">
+
+                <defs>
+                  <linearGradient
+                    id="employee-balance-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%">
+                    <stop offset="0%" stop-color="#6366f1"></stop>
+                    <stop offset="100%" stop-color="#8b5cf6"></stop>
+                  </linearGradient>
+                </defs>
+
+                <!-- Track -->
+                <circle
+                  cx="70"
+                  cy="70"
+                  r="60"
+                  fill="none"
+                  stroke="rgba(226,232,240,0.95)"
+                  stroke-width="12">
+                </circle>
+
+                <!-- Progress -->
+                <circle
+                  cx="70"
+                  cy="70"
+                  r="60"
+                  fill="none"
+                  stroke="url(#employee-balance-gradient)"
+                  stroke-width="12"
+                  stroke-linecap="round"
+                  stroke-dasharray="377"
+                  [attr.stroke-dashoffset]="leaveStrokeOffset()"
+                  transform="rotate(-90 70 70)">
+                </circle>
+
+              </svg>
+
+              <div class="balance__center">
+                <strong>{{ leaveBalanceLabel() }}</strong>
+                <span>disponible</span>
+              </div>
+
+            </div>
+
+            <!-- Details -->
+            <div class="balance__details">
+
+              <div class="balance-row">
+                <span>Référence annuelle</span>
+                <strong>25 j</strong>
+              </div>
+
+              <div class="balance-row">
+                <span>Progression</span>
+                <strong>{{ leaveProgress() }}%</strong>
+              </div>
+
+              <div class="balance-row balance-row--highlight">
+                <span>Solde restant</span>
+                <strong>{{ leaveBalanceLabel() }}</strong>
+              </div>
+
+            </div>
+          </div>
+
+          <a class="card-cta" routerLink="/app/employee/conges">
+            Planifier un congé
+            <lucide-angular [img]="ic.chevron" size="14"></lucide-angular>
+          </a>
+
+        </section>
+
+        <!-- My Requests -->
+        <section class="card" aria-labelledby="requests-title">
+
+          <div class="card__head">
+            <h2 class="card__title" id="requests-title">
+              <lucide-angular [img]="ic.fileCheck" size="18"></lucide-angular>
+              Mes demandes
+            </h2>
+          </div>
+
+          <div class="request-grid">
+
+            <div class="request-item request-item--pending">
+              <lucide-angular [img]="ic.clockIcon" size="22"></lucide-angular>
+              <strong>{{ pendingRequests() }}</strong>
+              <span>En attente</span>
+            </div>
+
+            <div class="request-item request-item--approved">
+              <lucide-angular [img]="ic.check" size="22"></lucide-angular>
+              <strong>{{ approvedRequests() }}</strong>
+              <span>Approuvées</span>
+            </div>
+
+            <div class="request-item request-item--rejected">
+              <lucide-angular [img]="ic.x" size="22"></lucide-angular>
+              <strong>{{ rejectedRequests() }}</strong>
+              <span>Refusées</span>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- Attendance Rate -->
+        <section class="card card--attendance" aria-labelledby="attendance-title">
+
+          <div class="attendance-card">
+
+            <div class="attendance-card__icon" aria-hidden="true">
+              <lucide-angular [img]="ic.activity" size="24"></lucide-angular>
+            </div>
+
+            <div>
+              <h3 id="attendance-title">Taux de présence</h3>
+              <p>{{ attendanceRateLabel() }} de présence sur la période suivie.</p>
+            </div>
+
+            <div class="attendance-bar" role="progressbar"
+                 [attr.aria-valuenow]="attendanceRate()"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+              <span [style.width.%]="attendanceRate()"></span>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- Daily Tip -->
+        <aside class="tip-card" aria-label="Conseil du jour">
+
+          <div class="tip-card__icon" aria-hidden="true">
+            <lucide-angular [img]="ic.sparkles" size="24"></lucide-angular>
+          </div>
+
+          <h3>Conseil du jour</h3>
+
+          <p>
+            Pensez à planifier vos congés et télétravails à l'avance
+            pour faciliter l'organisation de votre équipe et
+            bénéficier d'une meilleure sérénité.
+          </p>
+
+        </aside>
+
+      </aside>
+
+    </main>
+  }
+
+</div>

@@ -88,6 +88,7 @@ LEAVE_TYPE_HINTS = {
 }
 
 AUTHORIZATION_TYPE_HINTS = {
+    "sortie": "SORTIE_ANTICIPEE",
     "sortie anticipee": "SORTIE_ANTICIPEE",
     "partir plus tot": "SORTIE_ANTICIPEE",
     "arrivee tardive": "ARRIVEE_TARDIVE",
@@ -168,8 +169,10 @@ def _relative_date_range(normalized: str) -> tuple[str | None, str | None, str |
     mapping = (
         ("after tomorrow", 2),
         ("apres demain", 2),
+        ("baad ghodwa", 2),
         ("tomorrow", 1),
         ("demain", 1),
+        ("ghodwa", 1),
         ("today", 0),
         ("aujourd hui", 0),
     )
@@ -274,9 +277,23 @@ def _extract_reason(normalized: str) -> str | None:
         match = re.search(pattern, normalized)
         if match:
             value = match.group(1).strip(" .")
-            if value:
+            if value and not _looks_like_date_time_only(value):
                 return value
     return None
+
+
+def _looks_like_date_time_only(value: str) -> bool:
+    compact = value.strip().lower()
+    if not compact:
+        return True
+    cleaned = re.sub(
+        r"\b(demain|today|tomorrow|apres demain|aujourd hui|de|du|a|au|from|to|pour|le|la|un|une|heure|heures|h|matin|apres midi)\b",
+        " ",
+        compact,
+    )
+    cleaned = re.sub(r"\b\d{1,2}(?::\d{2})?\s*h?(?:\s*\d{2})?\b", " ", cleaned)
+    cleaned = re.sub(r"\b\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b", " ", cleaned)
+    return not re.sub(r"[^a-z]", "", cleaned)
 
 
 def _extract_month_reference(normalized: str) -> str | None:
@@ -315,6 +332,17 @@ def _extract_time_range(normalized: str) -> tuple[str | None, str | None]:
             end_minute = int(match.group(4))
         return f"{start_hour:02d}:{start_minute:02d}:00", f"{end_hour:02d}:{end_minute:02d}:00"
     return None, None
+
+
+def _extract_duration_hours(normalized: str) -> float | None:
+    match = re.search(r"\b(?:pendant\s*)?(\d{1,2})(?::(\d{2}))?\s*h(?:eure|eures)?\b", normalized)
+    if match and not re.search(r"(?:a|au|-|to)\s*\d{1,2}", normalized):
+        hours = float(match.group(1))
+        minutes = int(match.group(2) or 0)
+        return hours + (minutes / 60.0)
+    if "une heure" in normalized or "one hour" in normalized:
+        return 1.0
+    return None
 
 
 def _extract_leave_type(normalized: str) -> str | None:
@@ -414,6 +442,7 @@ def extract_entities(
     reason = _extract_reason(normalized)
     month = _extract_month_reference(normalized)
     time_start, time_end = _extract_time_range(normalized)
+    duration_hours = _extract_duration_hours(normalized)
     leave_type_label = _extract_leave_type(normalized)
     authorization_type = _extract_authorization_type(normalized)
     telework_type, telework_period = _extract_telework_type(normalized)
@@ -458,6 +487,7 @@ def extract_entities(
         "request_date": request_date,
         "time_start": time_start,
         "time_end": time_end,
+        "duration_hours": duration_hours,
         "leave_type_label": leave_type_label,
         "authorization_type": authorization_type,
         "telework_type": telework_type,

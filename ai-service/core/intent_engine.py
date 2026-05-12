@@ -77,6 +77,27 @@ REJECT_TERMS = ("refuse", "refuser", "rejette", "rejeter")
 
 def normalize_text(value: str) -> str:
     lowered = (value or "").strip().lower()
+    replacements = {
+        "baad ghodwa": "apres demain",
+        "ba3d ghodwa": "apres demain",
+        "بعد غدوة": "apres demain",
+        "بعد غدا": "apres demain",
+        "ghodwa": "demain",
+        "غدوة": "demain",
+        "غدا": "demain",
+        "nheb": "je veux",
+        "نحب": "je veux",
+        "konji": "conge",
+        "كونجي": "conge",
+        "عطلة مرضية": "conge maladie",
+        "عطلة": "conge",
+        "إذن خروج": "autorisation sortie",
+        "اذن خروج": "autorisation sortie",
+        "nokhrej": "sortie",
+        "remote": "telework",
+    }
+    for source, target in replacements.items():
+        lowered = lowered.replace(source, target)
     ascii_text = unicodedata.normalize("NFKD", lowered).encode("ascii", "ignore").decode("ascii")
     compact = ascii_text.replace("'", " ")
     compact = re.sub(r"[^a-z0-9:/\-\s]", " ", compact)

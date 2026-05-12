@@ -7,6 +7,7 @@ from typing import Any
 
 from .braintrust_client import get_braintrust_logger
 from .redaction import redact_value
+from .request_context import get_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 class NoopSpan(AbstractContextManager["NoopSpan"]):
     def __init__(self, name: str, metadata: dict[str, Any] | None = None) -> None:
         self.name = name
-        self.metadata = metadata or {}
+        self.metadata = _with_request_id(metadata)
         self.started_at = 0.0
         self._span: Any | None = None
 
@@ -55,6 +56,14 @@ def start_span(name: str, metadata: dict[str, Any] | None = None) -> NoopSpan:
     return NoopSpan(name, metadata)
 
 
+def _with_request_id(metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    enriched = dict(metadata or {})
+    request_id = get_request_id()
+    if request_id and not enriched.get("request_id"):
+        enriched["request_id"] = request_id
+    return enriched
+
+
 def log_event(
     name: str,
     *,
@@ -69,7 +78,7 @@ def log_event(
         braintrust_logger.log(
             input=redact_value(input),
             output=redact_value(output),
-            metadata=redact_value({"event": name, **(metadata or {})}, log_inputs=True),
+            metadata=redact_value({"event": name, **_with_request_id(metadata)}, log_inputs=True),
             allow_concurrent_with_spans=True,
         )
     except Exception as exc:  # noqa: BLE001
@@ -84,7 +93,7 @@ def log_error(name: str, error: BaseException | str, metadata: dict[str, Any] | 
         braintrust_logger.log(
             input=None,
             error=redact_value(str(error), log_inputs=True),
-            metadata=redact_value({"event": name, "status": "error", **(metadata or {})}, log_inputs=True),
+            metadata=redact_value({"event": name, "status": "error", **_with_request_id(metadata)}, log_inputs=True),
             allow_concurrent_with_spans=True,
         )
     except Exception as exc:  # noqa: BLE001

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 from app.context.current_user import CurrentUserContext
@@ -9,9 +10,19 @@ from app.tools.executor import ToolExecutor
 from app.tools.result import ToolResult
 from core.entity_extractor import extract_entities
 
+from .response_composer import compose_read_response
+
 
 def has_any(text: str, terms: tuple[str, ...]) -> bool:
-    return any(term in text for term in terms)
+    if any(term in text for term in terms):
+        return True
+    normalized_text = _strip_accents(text)
+    return any(_strip_accents(term) in normalized_text for term in terms)
+
+
+def _strip_accents(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
 def extract_payload(message: str, intent: str, context: CurrentUserContext) -> dict[str, Any]:
@@ -20,14 +31,6 @@ def extract_payload(message: str, intent: str, context: CurrentUserContext) -> d
         for key, value in extract_entities(message, intent=intent, role=context.role).items()
         if value not in (None, "", [], {})
     }
-
-
-def tool_success_text(default: str, result: ToolResult) -> str:
-    if isinstance(result.data, dict):
-        text = result.data.get("text") or result.data.get("message")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-    return default
 
 
 def error_response(intent: str, result: ToolResult) -> AgentResponse:
@@ -53,6 +56,7 @@ class ConfirmationMixin:
         intent: str,
         text: str,
         confidence: float = 0.9,
+        action_result: dict[str, Any] | None = None,
     ) -> AgentResponse:
         record = self.confirmation_store.create(context, tool_name, tool_input)
         return AgentResponse(
@@ -63,6 +67,7 @@ class ConfirmationMixin:
             requiresConfirmation=True,
             confirmationId=record.confirmation_id,
             toolCalls=[ToolCallRecord(name=tool_name, arguments=tool_input, status="pending_confirmation")],
+            actionResult=action_result,
         )
 
     async def read_response(
@@ -76,13 +81,12 @@ class ConfirmationMixin:
         confidence: float = 0.88,
     ) -> AgentResponse:
         result = await self.executor.execute(tool_name, tool_input or {}, context)
-        if not result.success:
-            return error_response(intent, result)
-        return AgentResponse(
-            type="answer",
-            text=tool_success_text(success_text, result),
-            intent=intent,
-            confidence=confidence,
-            toolCalls=[ToolCallRecord(name=tool_name, arguments=tool_input or {}, status="success")],
-            actionResult=result.model_dump(mode="json"),
-        )
+        response = compose_read_response(intent, result, fallback_text=success_text, confidence=confidence)
+        response.toolCalls = [
+            ToolCallRecord(
+                name=tool_name,
+                arguments=tool_input or {},
+                status="success" if result.success else "failed",
+            )
+        ]
+        return response

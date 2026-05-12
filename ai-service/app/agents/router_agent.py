@@ -38,6 +38,45 @@ class RouterAgent:
             context.metadata["route_intent"] = multilingual_match.route_intent
 
         routing_text = normalized or message
+        role_action_agent = self._role_action_agent(routing_text, context)
+        if role_action_agent is not None:
+            confidence = role_action_agent.can_handle(routing_text, context)
+            selected_agent = getattr(role_action_agent, "name", role_action_agent.__class__.__name__)
+            context.metadata["selected_agent"] = selected_agent
+            entities = extract_basic_entities(normalized, context.language)
+            log_event(
+                "router.selected",
+                input=message,
+                output={"agent": selected_agent, "confidence": confidence, "entities": entities},
+                metadata={
+                    "selected_agent": selected_agent,
+                    "confidence": confidence,
+                    "language": context.language,
+                    "routing_reason": "role_action",
+                },
+            )
+            return await role_action_agent.handle(routing_text, context)
+
+        explicit_agent = self._explicit_domain_agent(routing_text, context)
+        if explicit_agent is not None:
+            confidence = explicit_agent.can_handle(routing_text, context)
+            selected_agent = getattr(explicit_agent, "name", explicit_agent.__class__.__name__)
+            context.metadata["selected_agent"] = selected_agent
+            entities = extract_basic_entities(normalized, context.language)
+            log_event(
+                "router.selected",
+                input=message,
+                output={"agent": selected_agent, "confidence": confidence, "entities": entities},
+                metadata={
+                    "selected_agent": selected_agent,
+                    "intent": context.metadata.get("route_intent") or context.metadata.get("matched_intent"),
+                    "confidence": confidence,
+                    "language": context.language,
+                    "routing_reason": "explicit_domain",
+                },
+            )
+            return await explicit_agent.handle(routing_text, context)
+
         candidates: list[tuple[float, DomainAgent]] = []
         candidates.append((self.attendance_agent.can_handle(routing_text, context), self.attendance_agent))
         for agent in self.extra_agents:
@@ -132,3 +171,47 @@ class RouterAgent:
             intent="fallback.unknown",
             confidence=0.35,
         )
+
+    def _explicit_domain_agent(self, text: str, context: CurrentUserContext) -> DomainAgent | None:
+        """Keep explicit domain reads/actions from being swallowed by broad role summaries."""
+        normalized = (text or "").lower()
+        if not normalized:
+            return None
+
+        domain = _explicit_domain(normalized)
+        if not domain:
+            return None
+        for agent in [self.attendance_agent, *self.extra_agents]:
+            if getattr(agent, "name", "") == domain and agent.can_handle(normalized, context) >= 0.5:
+                return agent
+        return None
+
+    def _role_action_agent(self, text: str, context: CurrentUserContext) -> DomainAgent | None:
+        normalized = (text or "").lower()
+        if not _has_any(normalized, ("approuve", "approve", "valide", "refuse", "reject", "rejette")):
+            return None
+        role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
+        target_name = "rh" if role == "RH" else "manager" if role == "MANAGER" else None
+        if not target_name:
+            return None
+        for agent in self.extra_agents:
+            if getattr(agent, "name", "") == target_name and agent.can_handle(normalized, context) >= 0.5:
+                return agent
+        return None
+
+
+def _explicit_domain(text: str) -> str | None:
+    has_list = _has_any(text, ("montre", "voir", "liste", "list", "show", "historique", "mes demandes", "mes"))
+    if _has_any(text, ("document", "documents", "attestation", "bulletin", "payslip", "certificate")) and has_list:
+        return "document"
+    if _has_any(text, ("cong", "conge", "conges", "leave", "vacance")) and has_list:
+        return "leave"
+    if _has_any(text, ("teletravail", "telework", "remote", "travail a distance")) and has_list:
+        return "telework"
+    if _has_any(text, ("autorisation", "autorisations", "permission")) and has_list:
+        return "authorization"
+    return None
+
+
+def _has_any(text: str, terms: tuple[str, ...]) -> bool:
+    return any(term in text for term in terms)

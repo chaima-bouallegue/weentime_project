@@ -25,6 +25,8 @@ export interface AiCopilotChatData {
   confirmationId?: string | null;
   toolCalls?: AiCopilotToolCall[];
   actionResult?: Record<string, unknown> | null;
+  request_id?: string;
+  requestId?: string;
 }
 
 export interface AiCopilotEnvelope<T = AiCopilotChatData> {
@@ -42,6 +44,8 @@ export class AiCopilotService {
 
   sendChatV2(message: string): Observable<AiCopilotEnvelope> {
     const user = this.authService.currentUser();
+    const requestId = this.createRequestId('chat');
+    this.debugRequest('chat.v2', requestId);
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat`,
       {
@@ -49,20 +53,42 @@ export class AiCopilotService {
         channel: 'chat',
         user_id: user?.id ?? undefined,
       },
-      { headers: this.authHeaders() },
+      { headers: this.authHeaders(requestId) },
     );
   }
 
   confirmAction(confirmationId: string, approved: boolean): Observable<AiCopilotEnvelope> {
+    const requestId = this.createRequestId('confirm');
+    this.debugRequest('chat.confirm', requestId);
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
       { confirmation_id: confirmationId, approved },
-      { headers: this.authHeaders() },
+      { headers: this.authHeaders(requestId) },
     );
   }
 
-  private authHeaders(): HttpHeaders {
+  private authHeaders(requestId?: string): HttpHeaders {
     const token = this.authService.getToken();
-    return token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (requestId) {
+      headers['X-Request-ID'] = requestId;
+    }
+    return new HttpHeaders(headers);
+  }
+
+  private createRequestId(prefix: string): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private debugRequest(flow: string, requestId: string): void {
+    if (!environment.production) {
+      console.debug('[ai-copilot]', flow, { requestId });
+    }
   }
 }
