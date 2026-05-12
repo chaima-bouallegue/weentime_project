@@ -38,7 +38,7 @@
         <section class="space-y-4">
           <label class="block text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Type d'autorisation</label>
           <div class="grid grid-cols-1 gap-3">
-            @for (type of types; track type.id) {
+            @for (type of types(); track type.id) {
               <div 
                 class="type-option-card"
                 [class.active]="form.get('type')?.value === type.id"

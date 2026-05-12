@@ -31,6 +31,16 @@ export interface MessageThreadSummaryModel {
   lastReplyAt: string | null;
 }
 
+export interface AttachmentModel {
+  id: string;
+  fileName: string;
+  originalName: string;
+  contentType: string;
+  fileSize: number;
+  url: string;
+  createdAt: string;
+}
+
 export interface MessageModel {
   id: string;
   channelId: string;
@@ -42,6 +52,7 @@ export interface MessageModel {
   parentMessageId: string | null;
   thread: MessageThreadSummaryModel | null;
   reactions: ReactionSummaryModel[];
+  attachments: AttachmentModel[];
   status: string;
   clientMessageId: string | null;
   createdAt: string;
@@ -65,6 +76,7 @@ export interface ChannelModel {
   isPrivate: boolean;
   isArchived: boolean;
   memberCount: number;
+  members: SenderSummaryModel[];
   unreadCount: number;
   lastMessage: MessageModel | null;
   permissions: ChannelPermissionModel;

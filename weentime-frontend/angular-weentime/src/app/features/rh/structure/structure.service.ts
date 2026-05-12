@@ -159,15 +159,11 @@ export class StructureService {
   }
 
   createEquipe(request: CreateEquipeRequest): Observable<Equipe> {
-    if (!request.managerId) {
-      this.toastService.error('Un manager est obligatoire pour creer une equipe.');
-      return throwError(() => new Error('Manager is required to create a team.'));
-    }
 
     return this.http.post<EquipeResponse>(this.apiConfig.ORGANISATION.CREATE_EQUIPE, {
       nom: request.nom,
       description: request.description?.trim() || '',
-      responsableId: request.managerId,
+      responsableId: request.managerId ?? null,
       effectifMaximum: 50,
       estActive: true,
       departementId: request.departementId
@@ -222,7 +218,7 @@ export class StructureService {
         nom: request.nom,
         prenom: request.prenom,
         email: request.email,
-        motDePasse: this.generateTemporaryPassword(),
+        motDePasse: request.password,
         telephone: request.telephone?.trim() || '',
         poste: request.poste,
         statut: 'ACTIF',
@@ -248,6 +244,24 @@ export class StructureService {
 
   toggleEmployeStatus(id: number): Observable<EmployeRH> {
     return this.http.put<UtilisateurResponse>(this.apiConfig.ORGANISATION.TOGGLE_USER_STATUS(id), {}).pipe(
+      map(response => this.mapEmploye(response))
+    );
+  }
+
+  getPendingUsers(): Observable<EmployeRH[]> {
+    return this.http.get<UtilisateurResponse[]>(`${this.apiConfig.getApiBase()}/organisations/users/pending`).pipe(
+      map(items => items.map(item => this.mapEmploye(item)))
+    );
+  }
+
+  validateUser(id: number, request: any = {}): Observable<EmployeRH> {
+    return this.http.patch<UtilisateurResponse>(`${this.apiConfig.getApiBase()}/organisations/users/${id}/valider`, request).pipe(
+      map(response => this.mapEmploye(response))
+    );
+  }
+
+  rejectUser(id: number): Observable<EmployeRH> {
+    return this.http.patch<UtilisateurResponse>(`${this.apiConfig.getApiBase()}/organisations/users/${id}/rejeter`, {}).pipe(
       map(response => this.mapEmploye(response))
     );
   }

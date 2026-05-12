@@ -1,11 +1,11 @@
-import { Component, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LUCIDE_ICONS, Plus, GitBranch, Building, Edit2, Trash2, UserCog, Users, AlertTriangle, Loader2, LucideAngularModule } from 'lucide-angular';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { LucideAngularModule } from 'lucide-angular';
 import { StructureService } from '../../structure.service';
 import { Equipe, Departement, EmployeRH } from '../../models/structure.model';
 import { EquipeFormComponent } from './equipe-form/equipe-form.component';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
 
 @Component({
   selector: 'app-equipes',
@@ -20,45 +20,21 @@ import { ToastService } from '../../../../../core/services/toast.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class EquipesComponent {
+  private structureStore = inject(RhStructureStore);
   private structureService = inject(StructureService);
   private toastService = inject(ToastService);
-  private destroyRef = inject(DestroyRef);
 
-  equipes = signal<Equipe[]>([]);
-  departements = signal<Departement[]>([]);
-  managers = signal<EmployeRH[]>([]);
-  isLoading = signal(true);
+  equipes = this.structureStore.equipes;
+  departements = this.structureStore.departements;
+  managers = this.structureStore.managers;
+  isLoading = this.structureStore.isLoading;
   showDrawer = signal(false);
   equipeToEdit = signal<Equipe | null>(null);
   showDeleteConfirm = signal<Equipe | null>(null);
   isDeleting = signal(false);
 
-  constructor() {
-    this.loadData();
-  }
-
-  loadData(): void {
-    this.isLoading.set(true);
-    this.structureService.getEquipes()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data) => { this.equipes.set(data); this.isLoading.set(false); },
-        error: () => this.isLoading.set(false)
-      });
-    this.structureService.getDepartements()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(data => this.departements.set(data));
-    this.structureService.getManagers()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(data => this.managers.set(data));
-  }
-
   refresh(): void {
-    this.isLoading.set(true);
-    this.structureService.getEquipes().subscribe({
-      next: (data) => { this.equipes.set(data); this.isLoading.set(false); },
-      error: () => this.isLoading.set(false)
-    });
+    this.structureStore.loadAll(true).subscribe();
   }
 
   getEquipesByDept(): { dept: string; equipes: Equipe[] }[] {
@@ -96,10 +72,10 @@ export class EquipesComponent {
     this.isDeleting.set(true);
     this.structureService.deleteEquipe(eq.id).subscribe({
       next: () => {
-        this.isDeleting.set(true);
+        this.isDeleting.set(false);
         this.showDeleteConfirm.set(null);
         this.toastService.success('Équipe supprimée');
-        this.refresh();
+        this.structureStore.deleteEquipe(eq.id);
       },
       error: () => this.isDeleting.set(false)
     });

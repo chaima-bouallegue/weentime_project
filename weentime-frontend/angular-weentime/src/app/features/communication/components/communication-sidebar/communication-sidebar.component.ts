@@ -75,13 +75,13 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
     .comm-sidebar {
       height: 100%;
       background:
-        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(232, 244, 248, 0.96)),
-        linear-gradient(135deg, #f8fafc, #f0fdfa);
-      border: 1px solid rgba(148, 163, 184, 0.18);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 237, 254, 0.98)),
+        linear-gradient(135deg, #ffffff, #f5f3ff);
+      border: 1px solid rgba(83, 74, 183, 0.12);
       border-radius: 28px;
       padding: 18px;
       overflow: auto;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 24px 60px rgba(83, 74, 183, 0.08);
     }
 
     .comm-sidebar-header p {
@@ -89,13 +89,15 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.18em;
-      color: #0f766e;
+      color: #534AB7;
+      opacity: 0.8;
     }
 
     .comm-sidebar-header h2 {
       margin: 6px 0 0;
       font-size: 24px;
-      color: #0f172a;
+      color: #1e1b4b;
+      font-weight: 800;
     }
 
     .comm-sidebar-header {
@@ -103,62 +105,77 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
+      margin-bottom: 24px;
     }
 
     .comm-sync-btn {
       border: none;
       border-radius: 999px;
       padding: 10px 14px;
-      background: #0f766e;
+      background: #534AB7;
       color: white;
       cursor: pointer;
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.2);
+    }
+
+    .comm-sync-btn:hover {
+      background: #4338ca;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(83, 74, 183, 0.3);
     }
 
     .comm-sync-btn:disabled {
       opacity: 0.7;
       cursor: wait;
+      transform: none;
     }
 
     .comm-sync-card {
       margin-top: 16px;
       padding: 14px 16px;
       border-radius: 18px;
-      background: rgba(15, 118, 110, 0.08);
-      color: #115e59;
+      background: rgba(83, 74, 183, 0.06);
+      color: #3730a3;
       display: grid;
       gap: 4px;
       font-size: 12px;
+      border: 1px solid rgba(83, 74, 183, 0.1);
     }
 
     .comm-sync-card.error {
-      background: rgba(248, 113, 113, 0.08);
-      color: #991b1b;
+      background: rgba(244, 63, 94, 0.06);
+      color: #9f1239;
+      border-color: rgba(244, 63, 94, 0.1);
     }
 
     .comm-section {
       display: grid;
-      gap: 8px;
-      margin-top: 22px;
+      gap: 4px;
+      margin-top: 24px;
     }
 
     .comm-section-heading {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      color: #64748b;
-      font-size: 12px;
+      color: #6366f1;
+      font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      padding: 0 6px;
+      padding: 0 10px;
+      margin-bottom: 8px;
     }
 
     .comm-empty {
-      padding: 0 6px;
+      padding: 10px 14px;
       color: #94a3b8;
       font-size: 13px;
+      font-style: italic;
     }
 
     .comm-state-list {
@@ -168,11 +185,11 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
     }
 
     .comm-skeleton {
-      height: 56px;
-      border-radius: 16px;
-      background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(90deg, #f5f3ff, #ede9fe, #f5f3ff);
       background-size: 200% 100%;
-      animation: shimmer 1.2s linear infinite;
+      animation: shimmer 1.5s linear infinite;
     }
 
     .comm-error {

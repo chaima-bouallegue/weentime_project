@@ -54,6 +54,10 @@ export class CommunicationStoreService {
   readonly syncError = signal<string | null>(null);
   readonly pendingReadRetryByChannel = signal<Record<string, string | null>>({});
   readonly lastEventId = signal<string | null>(null);
+  readonly activeThreadRootId = signal<string | null>(null);
+  readonly messagesByThread = signal<Record<string, MessageModel[]>>({});
+  readonly loadingThread = signal(false);
+  readonly hiddenMessageIds = signal<Set<string>>(new Set());
 
   readonly connectionState = this.websocket.connectionState;
   readonly activeChannel = computed(() => {
@@ -62,7 +66,19 @@ export class CommunicationStoreService {
   });
   readonly activeMessages = computed(() => {
     const channelId = this.activeChannelId();
-    return channelId ? this.messagesByChannel()[channelId] ?? [] : [];
+    const messages = channelId ? this.messagesByChannel()[channelId] ?? [] : [];
+    const hidden = this.hiddenMessageIds();
+    return hidden.size > 0 ? messages.filter(m => !hidden.has(m.id)) : messages;
+  });
+  readonly activeThreadRoot = computed(() => {
+    const rootId = this.activeThreadRootId();
+    if (!rootId) return null;
+    const channelId = this.activeChannelId();
+    return channelId ? this.messagesByChannel()[channelId]?.find(m => m.id === rootId) ?? null : null;
+  });
+  readonly activeThreadReplies = computed(() => {
+    const rootId = this.activeThreadRootId();
+    return rootId ? this.messagesByThread()[rootId] ?? [] : [];
   });
   readonly directMessages = computed(() => this.channels().filter(channel => channel.type === 'DIRECT' || channel.type === 'GROUP_DM'));
   readonly visibleChannels = computed(() => this.channels().filter(channel => channel.type !== 'DIRECT' && channel.type !== 'GROUP_DM'));
@@ -76,6 +92,7 @@ export class CommunicationStoreService {
     const channelId = this.activeChannelId();
     return channelId ? !!this.pendingReadRetryByChannel()[channelId] : false;
   });
+  readonly currentUserId = computed(() => this.authService.currentUser()?.id ?? null);
 
   private subscribedChannelId: string | null = null;
   private loadingMessagesChannelId: string | null = null;
@@ -244,6 +261,83 @@ export class CommunicationStoreService {
     );
   }
 
+  openThread(rootId: string): void {
+    this.activeThreadRootId.set(rootId);
+    this.loadThreadReplies(rootId);
+  }
+
+  closeThread(): void {
+    this.activeThreadRootId.set(null);
+  }
+
+  sendReply(body: string, attachmentIds: string[] = []): void {
+    const rootId = this.activeThreadRootId();
+    const channel = this.activeChannel();
+    if (!rootId || !channel || !this.canSend()) return;
+
+    const request = this.buildSendMessageRequest(body, attachmentIds);
+    request.parentMessageId = rootId;
+
+    const optimistic = this.buildOptimisticMessage(channel.id, request);
+    this.upsertThreadReply(rootId, optimistic);
+
+    this.api.sendMessage(channel.id, request)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => {
+          this.markThreadReplyFailed(rootId, optimistic.clientMessageId ?? optimistic.id);
+          return EMPTY;
+        })
+      )
+      .subscribe(reply => {
+        this.upsertThreadReply(rootId, reply);
+        // Also update the root message's thread summary if needed
+        this.refreshChannel(channel.id);
+      });
+  }
+
+  private loadThreadReplies(rootId: string): void {
+    this.loadingThread.set(true);
+    this.api.getThreadReplies(rootId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => {
+          this.loadingThread.set(false);
+          return EMPTY;
+        })
+      )
+      .subscribe(page => {
+        this.messagesByThread.update(state => ({ ...state, [rootId]: page.items }));
+        this.loadingThread.set(false);
+      });
+  }
+
+  private upsertThreadReply(rootId: string, reply: MessageModel): void {
+    this.messagesByThread.update(state => {
+      const current = [...(state[rootId] ?? [])];
+      const matchIndex = current.findIndex(item => 
+        item.id === reply.id || (reply.clientMessageId && item.clientMessageId === reply.clientMessageId)
+      );
+      if (matchIndex >= 0) {
+        current[matchIndex] = reply;
+      } else {
+        current.push(reply);
+      }
+      return { ...state, [rootId]: current };
+    });
+  }
+
+  private markThreadReplyFailed(rootId: string, messageId: string): void {
+    this.messagesByThread.update(state => {
+      const current = [...(state[rootId] ?? [])];
+      const matchIndex = current.findIndex(item => item.id === messageId || item.clientMessageId === messageId);
+      if (matchIndex >= 0) {
+        current[matchIndex] = { ...current[matchIndex], localState: 'failed' };
+      }
+      return { ...state, [rootId]: current };
+    });
+  }
+
   retryLoadMessages(): void {
     const channelId = this.activeChannelId();
     if (channelId) {
@@ -261,13 +355,13 @@ export class CommunicationStoreService {
     this.retryPendingRead(channelId);
   }
 
-  sendMessage(body: string): void {
+  sendMessage(body: string, attachmentIds: string[] = []): void {
     const channel = this.activeChannel();
     if (!channel || !this.canSend()) {
       return;
     }
 
-    const request = this.buildSendMessageRequest(body);
+    const request = this.buildSendMessageRequest(body, attachmentIds);
     const optimistic = this.buildOptimisticMessage(channel.id, request);
     this.upsertMessage(channel.id, optimistic);
     this.bumpChannelWithMessage(channel.id, optimistic, false);
@@ -321,6 +415,14 @@ export class CommunicationStoreService {
         this.upsertMessage(updated.channelId, updated);
         this.bumpChannelWithMessage(updated.channelId, updated, false);
       });
+  }
+
+  hideMessageForMe(message: MessageModel): void {
+    this.hiddenMessageIds.update(set => {
+      const next = new Set(set);
+      next.add(message.id);
+      return next;
+    });
   }
 
   retryMessage(message: MessageModel): void {
@@ -817,7 +919,7 @@ export class CommunicationStoreService {
     }));
   }
 
-  private buildSendMessageRequest(body: string): SendMessageRequest {
+  private buildSendMessageRequest(body: string, attachmentIds: string[] = []): SendMessageRequest {
     return {
       clientMessageId: this.createClientMessageId(),
       type: 'TEXT',
@@ -825,7 +927,9 @@ export class CommunicationStoreService {
       richBody: null,
       parentMessageId: null,
       mentions: [],
-      metadata: {}
+      metadata: {
+        attachments: attachmentIds
+      }
     };
   }
 
@@ -849,6 +953,7 @@ export class CommunicationStoreService {
       parentMessageId: request.parentMessageId ?? null,
       thread: null,
       reactions: [],
+      attachments: [], // Optimistic doesn't show attachments yet, they come from server
       status: 'ACTIVE',
       clientMessageId: request.clientMessageId,
       createdAt: new Date().toISOString(),
@@ -906,9 +1011,6 @@ export class CommunicationStoreService {
     return true;
   }
 
-  private currentUserId(): number | null {
-    return this.authService.currentUser()?.id ?? null;
-  }
 
   private hasTenantContext(): boolean {
     return this.communicationSessionKey(this.authService.currentUser()) !== null;

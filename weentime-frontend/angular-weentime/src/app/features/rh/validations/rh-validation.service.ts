@@ -142,16 +142,13 @@ export class RHValidationService {
     this.filterByTypeSignal.set('ALL');
     const params = this.buildPageParams(0, 100);
 
-    forkJoin([
-      this.fetchValidationPage<CongeDto>('/conges/rh/pending', 'CONGE', params),
-      this.fetchValidationPage<AbsenceDto>('/absences/rh/pending', 'ABSENCE', params)
-    ]).pipe(
+    this.fetchValidationPage<CongeDto>('/conges/rh/pending', 'CONGE', params).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
-      next: ([conges, absences]) => {
-        const all = this.sortDemandes([...conges.items, ...absences.items]);
+      next: (result) => {
+        const all = result.items;
         this.pendingValidationsSignal.set(all);
-        this.totalElementsSignal.set(all.length);
+        this.totalElementsSignal.set(result.totalElements);
         this.loadingSignal.set(false);
       },
       error: () => {

@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule, Clock, CircleCheck, CircleX } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { StructureService } from '../../structure.service';
-import { EmployeRH, Departement, Equipe } from '../../models/structure.model';
+import { EmployeRH } from '../../models/structure.model';
 import { EmployeFormComponent } from './employe-form/employe-form.component';
+import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
+import { ToastService } from '../../../../../core/services/toast.service';
 
 @Component({
   selector: 'app-employes',
@@ -17,14 +19,28 @@ import { EmployeFormComponent } from './employe-form/employe-form.component';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class EmployesComponent {
+  readonly ClockIcon = Clock;
+  readonly CheckIcon = CircleCheck;
+  readonly XIcon = CircleX;
+  protected Math = Math;
+  private structureStore = inject(RhStructureStore);
   private structureService = inject(StructureService);
+  private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
 
-  employes = signal<EmployeRH[]>([]);
-  departements = signal<Departement[]>([]);
-  equipes = signal<Equipe[]>([]);
-  isLoading = signal(true);
+  employes = this.structureStore.employes;
+  pendingEmployes = this.structureStore.pendingEmployes;
+  departements = this.structureStore.departements;
+  equipes = this.structureStore.equipes;
+  managers = this.structureStore.managers;
+  isLoading = this.structureStore.isLoading;
+  
   showDrawer = signal(false);
+  isValidationMode = signal(false);
+  selectedPendingUser = signal<EmployeRH | null>(null);
+  selectedRejectUser = signal<EmployeRH | null>(null);
+  isRejecting = signal(false);
+  
   searchQuery = signal('');
   filterDept = signal<number | null>(null);
   filterStatut = signal<'ALL' | 'ACTIF' | 'INACTIF'>('ALL');
@@ -34,7 +50,7 @@ export class EmployesComponent {
   private searchSubject = new Subject<string>();
 
   filteredEmployes = computed(() => {
-    let list = this.employes();
+    let list = this.employes().filter(e => e.statut !== 'PENDING');
     const query = this.searchQuery().toLowerCase();
     const dept = this.filterDept();
     const statut = this.filterStatut();
@@ -60,7 +76,6 @@ export class EmployesComponent {
   totalPages = computed(() => Math.ceil(this.filteredEmployes().length / this.pageSize) || 1);
 
   constructor() {
-    this.loadData();
     this.searchSubject.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -71,28 +86,8 @@ export class EmployesComponent {
     });
   }
 
-  loadData(): void {
-    this.isLoading.set(true);
-    this.structureService.getEmployes()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data) => { this.employes.set(data); this.isLoading.set(false); },
-        error: () => this.isLoading.set(false)
-      });
-    this.structureService.getDepartements()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(d => this.departements.set(d));
-    this.structureService.getEquipes()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(e => this.equipes.set(e));
-  }
-
   refresh(): void {
-    this.isLoading.set(true);
-    this.structureService.getEmployes().subscribe({
-      next: (data) => { this.employes.set(data); this.isLoading.set(false); },
-      error: () => this.isLoading.set(false)
-    });
+    this.structureStore.loadAll(true).subscribe();
   }
 
   onSearchInput(value: string): void {
@@ -119,9 +114,70 @@ export class EmployesComponent {
     this.structureService.toggleEmployeStatus(id).subscribe(() => this.refresh());
   }
 
+  onOpenValidation(user: EmployeRH): void {
+    this.selectedPendingUser.set(user);
+    this.isValidationMode.set(true);
+    this.showDrawer.set(true);
+  }
+
+  onValidate(id: number, request: any): void {
+    this.structureService.validateUser(id, request).subscribe({
+      next: () => {
+        this.showDrawer.set(false);
+        this.selectedPendingUser.set(null);
+        this.isValidationMode.set(false);
+        this.toastService.success('Le collaborateur a été validé avec succès.');
+        this.refresh();
+      },
+      error: () => {
+        this.toastService.error('Une erreur est survenue lors de la validation.');
+      }
+    });
+  }
+
+  onOpenReject(user: EmployeRH): void {
+    this.selectedRejectUser.set(user);
+  }
+
+  onCancelReject(): void {
+    this.selectedRejectUser.set(null);
+    this.isRejecting.set(false);
+  }
+
+  confirmReject(): void {
+    const user = this.selectedRejectUser();
+    if (!user) return;
+    
+    this.isRejecting.set(true);
+    this.structureService.rejectUser(user.id).subscribe({
+      next: () => {
+        this.selectedRejectUser.set(null);
+        this.isRejecting.set(false);
+        this.toastService.success('La demande d\'inscription a été rejetée et supprimée.');
+        this.refresh();
+      },
+      error: () => {
+        this.isRejecting.set(false);
+        this.toastService.error('Une erreur est survenue lors du rejet.');
+      }
+    });
+  }
+
   onFormSaved(): void {
     this.showDrawer.set(false);
+    this.isValidationMode.set(false);
+    this.selectedPendingUser.set(null);
     this.refresh();
+  }
+
+  onCloseDrawer(): void {
+    this.showDrawer.set(false);
+    this.isValidationMode.set(false);
+    this.selectedPendingUser.set(null);
+  }
+
+  getManagersForForm(): EmployeRH[] {
+    return this.managers();
   }
 
   getInitials(prenom: string, nom: string): string {

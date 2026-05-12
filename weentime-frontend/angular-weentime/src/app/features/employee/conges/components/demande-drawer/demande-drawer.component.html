@@ -28,23 +28,23 @@
         <div class="step-content animate-fade-in">
           <h3 class="step-title">Quel type de congé ?</h3>
           <div class="type-grid">
-            @for (type of leaveTypes; track type) {
+            @for (type of leaveTypes(); track type.id) {
               <button
                 class="type-card"
                 [class.selected]="selectedType() === type"
-                [class.disabled]="getSoldeForType(type) === 0 && type !== 'SANS_SOLDE'"
+                [class.disabled]="getSoldeForType(type.libelle) === 0 && type.libelle !== 'SANS_SOLDE'"
                 (click)="selectType(type)"
               >
-                <div class="type-icon-wrapper" [class]="type.toLowerCase()">
-                  <lucide-icon [name]="type === 'ANNUEL' ? 'umbrella' : type === 'MALADIE' ? 'heart' : type === 'SANS_SOLDE' ? 'minus-circle' : type === 'MATERNITE_PATERNITE' ? 'baby' : type === 'EXCEPTIONNEL' ? 'star' : 'clock'" size="24"></lucide-icon>
+                <div class="type-icon-wrapper" [class]="type.libelle.toLowerCase()">
+                  <lucide-icon [name]="type.libelle === 'ANNUEL' ? 'umbrella' : type.libelle === 'MALADIE' ? 'heart' : type.libelle === 'SANS_SOLDE' ? 'minus-circle' : type.libelle === 'MATERNITE_PATERNITE' ? 'baby' : type.libelle === 'EXCEPTIONNEL' ? 'star' : 'clock'" size="24"></lucide-icon>
                 </div>
                 <div class="type-info">
-                  <span class="type-label">{{ getTypeLabel(type) }}</span>
-                  <span class="type-quota" *ngIf="type !== 'SANS_SOLDE'">{{ getSoldeForType(type) }} jours dispos.</span>
-                  <span class="type-quota" *ngIf="type === 'SANS_SOLDE'">Aucun quota</span>
+                  <span class="type-label">{{ type.libelle }}</span>
+                  <span class="type-quota" *ngIf="type.libelle !== 'SANS_SOLDE'">{{ getSoldeForType(type.libelle) }} jours dispos.</span>
+                  <span class="type-quota" *ngIf="type.libelle === 'SANS_SOLDE'">Aucun quota</span>
                 </div>
-                @if (getSoldeForType(type) === 0 && type !== 'SANS_SOLDE') {
-                  <span class="sold-out-badge">Solde épuise</span>
+                @if (getSoldeForType(type.libelle) === 0 && type.libelle !== 'SANS_SOLDE') {
+                  <span class="sold-out-badge">Solde épuisé</span>
                 }
               </button>
             }
@@ -56,7 +56,7 @@
         <div class="step-content animate-fade-in">
           <div class="step-header-row">
             <h3 class="step-title">Selectionnez vos dates</h3>
-            <div class="type-badge" [class]="selectedType()?.toLowerCase()">
+            <div class="type-badge" [class]="selectedType()?.libelle?.toLowerCase()">
               {{ getTypeLabel(selectedType()!) }}
             </div>
           </div>
@@ -112,10 +112,10 @@
             @if (endDate()) {
               <div class="days-count animate-fade-in">
                 <strong>{{ selectedBusinessDays }}</strong> jours ouvres selectionnes
-                @if (selectedType() !== 'SANS_SOLDE' && selectedBusinessDays > getSoldeForType(selectedType()!)) {
+                @if (selectedType()?.libelle !== 'SANS_SOLDE' && selectedBusinessDays > getSoldeForType(selectedType()?.libelle)) {
                   <div class="error-alert">
                     <lucide-icon name="alert-triangle" size="14"></lucide-icon>
-                    Solde insuffisant ({{ getSoldeForType(selectedType()!) }} jours)
+                    Solde insuffisant ({{ getSoldeForType(selectedType()?.libelle) }} jours)
                   </div>
                 }
               </div>
@@ -129,26 +129,26 @@
           <h3 class="step-title">Resume et motif</h3>
 
           <div class="final-summary">
-            <div class="summary-card">
-              <div class="row">
+            <div class="receipt-card">
+              <div class="summary-row">
                 <span class="label">Type de conge</span>
-                <span class="value badge" [class]="selectedType()?.toLowerCase()">{{ getTypeLabel(selectedType()!) }}</span>
+                <span class="value badge" [class]="selectedType()?.libelle?.toLowerCase()">{{ getTypeLabel(selectedType()!) }}</span>
               </div>
-              <div class="row">
+              <div class="summary-row">
                 <span class="label">Periode</span>
                 <span class="value">{{ startDate() | date:'dd/MM/yyyy' }} au {{ endDate() | date:'dd/MM/yyyy' }}</span>
               </div>
-              <div class="row">
+              <div class="summary-row">
                 <span class="label">Total jours ouvres</span>
                 <span class="value highlight">{{ selectedBusinessDays }} jours</span>
               </div>
-              <div class="row footer">
+              <div class="summary-row total">
                 <span class="label">Solde apres deduction</span>
-                @if (selectedType() === 'SANS_SOLDE') {
+                @if (selectedType()?.libelle === 'SANS_SOLDE') {
                   <span class="value">Non applicable</span>
                 } @else {
-                  <span class="value" [class.text-danger]="(getSoldeForType(selectedType()!) - selectedBusinessDays) < 3">
-                    {{ getSoldeForType(selectedType()!) - selectedBusinessDays }} jours
+                  <span class="value" [class.text-danger]="(getSoldeForType(selectedType()?.libelle) - selectedBusinessDays) < 3">
+                    {{ getSoldeForType(selectedType()?.libelle) - selectedBusinessDays }} jours
                   </span>
                 }
               </div>

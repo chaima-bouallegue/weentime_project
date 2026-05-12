@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { WebSocketService } from './websocket.service';
 import { AuthService } from './auth.service';
 import { ApiConfigService } from './api-config.service';
+import { ToastService } from './toast.service';
 
 export type NotificationType =
   | 'CONGE_SOUMIS'
@@ -79,6 +80,7 @@ export class NotificationService {
   private readonly webSocket = inject(WebSocketService);
   private readonly authService = inject(AuthService);
   private readonly apiConfig = inject(ApiConfigService);
+  private readonly toastService = inject(ToastService);
 
   private readonly rhUrl = this.apiConfig.buildUrl('/rh/notifications');
   private readonly orgUrl = this.apiConfig.NOTIFICATIONS.GET_ALL;
@@ -131,12 +133,21 @@ export class NotificationService {
     return this.http.get<unknown>(`${this.rhUrl}/mes-notifications`).pipe(
       catchError(() => this.http.get<unknown>(this.orgUrl)),
       map(payload => this.extractCollection(payload).map(item => this.normalize(item))),
-      tap(items => this._notifications.set(items)),
-      catchError(() => {
-        this._notifications.set([]);
-        return of([]);
+      tap(serverItems => {
+        // Merge: keep any in-memory items not yet on the server (e.g. just received via WS)
+        this._notifications.update(current => {
+          const serverIds = new Set(serverItems.map(i => String(i.id)));
+          const localOnly = current.filter(i => !serverIds.has(String(i.id)));
+          return [...serverItems, ...localOnly];
+        });
       }),
-      tap(() => this._loading.set(false))
+      catchError(() => {
+        // Don't clear existing notifications on network failure — just log and keep current state
+        this._loading.set(false);
+        return of(this._notifications());
+      }),
+      tap(() => this._loading.set(false)),
+      map(() => this._notifications())
     );
   }
 
@@ -165,19 +176,37 @@ export class NotificationService {
     this.subscriptions.add(
       this.webSocket.watch<unknown>(`/topic/notifications/${userId}`, orgEndpoint)
         .pipe(catchError(() => EMPTY))
-        .subscribe(payload => this.upsert(this.normalize(payload)))
+        .subscribe(payload => {
+          const n = this.normalize(payload);
+          this.upsert(n);
+          if (this.toastService && n.titre) {
+            this.toastService.show(n.titre + ': ' + n.message, 'success', 10000);
+          }
+        })
     );
     this.subscriptions.add(
       this.webSocket.watch<unknown>(`/topic/user/${userId}`, orgEndpoint)
         .pipe(catchError(() => EMPTY))
-        .subscribe(payload => this.upsert(this.normalize(payload)))
+        .subscribe(payload => {
+          const n = this.normalize(payload);
+          this.upsert(n);
+          if (this.toastService && n.titre) {
+            this.toastService.show(n.titre + ': ' + n.message, 'success', 10000);
+          }
+        })
     );
 
     if (canUseRhChannel) {
       this.subscriptions.add(
         this.webSocket.watch<unknown>('/user/queue/notifications', rhEndpoint)
           .pipe(catchError(() => EMPTY))
-          .subscribe(payload => this.upsert(this.normalize(payload)))
+          .subscribe(payload => {
+            const n = this.normalize(payload);
+            this.upsert(n);
+            if (this.toastService && n.titre) {
+              this.toastService.show(n.titre + ': ' + n.message, 'success', 10000);
+            }
+          })
       );
     }
   }

@@ -60,6 +60,7 @@ export interface CreateEmployeRequest {
   email: string;
   telephone?: string;
   poste: string;
+  password: string;
   departementId: number;
   equipeId?: number | null;
   managerId?: number | null;

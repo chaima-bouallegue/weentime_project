@@ -116,7 +116,7 @@
           <div class="grid grid-cols-2 gap-3 mb-6">
             <div class="info-pill">
               <span class="pill-label">Periode</span>
-              <span class="pill-value">{{ demande.dateDebut | date:'dd/MM' }} au {{ demande.dateFin | date:'dd/MM' }}</span>
+              <span class="pill-value">{{ (demande.dateDebut | date:'dd/MM') || '--' }} au {{ (demande.dateFin | date:'dd/MM') || '--' }}</span>
             </div>
             <div class="info-pill">
               <span class="pill-label">Duree</span>

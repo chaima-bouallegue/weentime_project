@@ -1,11 +1,11 @@
-import { Component, inject, signal, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { StructureService } from '../../structure.service';
 import { Departement } from '../../models/structure.model';
 import { DepartementFormComponent } from './departement-form/departement-form.component';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
 
 @Component({
   selector: 'app-departements',
@@ -16,37 +16,19 @@ import { ToastService } from '../../../../../core/services/toast.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DepartementsComponent {
+  private structureStore = inject(RhStructureStore);
   private structureService = inject(StructureService);
   private toastService = inject(ToastService);
-  private destroyRef = inject(DestroyRef);
 
-  departements = signal<Departement[]>([]);
-  isLoading = signal(true);
+  departements = this.structureStore.departements;
+  isLoading = this.structureStore.isLoading;
   showDrawer = signal(false);
   departementToEdit = signal<Departement | null>(null);
   showDeleteConfirm = signal<Departement | null>(null);
   isDeleting = signal(false);
 
-  constructor() {
-    this.loadData();
-  }
-
-  loadData(): void {
-    this.isLoading.set(true);
-    this.structureService.getDepartements()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (data) => { this.departements.set(data); this.isLoading.set(false); },
-        error: () => this.isLoading.set(false)
-      });
-  }
-
   refresh(): void {
-    this.isLoading.set(true);
-    this.structureService.getDepartements().subscribe({
-      next: (data) => { this.departements.set(data); this.isLoading.set(false); },
-      error: () => this.isLoading.set(false)
-    });
+    this.structureStore.loadAll(true).subscribe();
   }
 
   openCreate(): void {
@@ -61,6 +43,7 @@ export class DepartementsComponent {
 
   onFormSaved(): void {
     this.showDrawer.set(false);
+    // The form itself or the resolver might refresh, but we force refresh to be sure
     this.refresh();
   }
 
@@ -77,7 +60,7 @@ export class DepartementsComponent {
         this.isDeleting.set(false);
         this.showDeleteConfirm.set(null);
         this.toastService.success('Département supprimé');
-        this.refresh();
+        this.structureStore.deleteDepartement(dept.id);
       },
       error: () => this.isDeleting.set(false)
     });

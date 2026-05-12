@@ -22,8 +22,11 @@ export class EmployeFormComponent implements OnInit {
   @Input() submitLabel = 'Creer le collaborateur';
   @Input() defaultRole: 'ROLE_EMPLOYEE' | 'ROLE_MANAGER' = 'ROLE_EMPLOYEE';
   @Input() allowRoleChange = true;
+  @Input() pendingUser: EmployeRH | null = null;
+  @Input() isValidationMode = false;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
+  @Output() validate = new EventEmitter<{id: number, request: any}>();
 
   private fb = inject(FormBuilder);
   private structureService = inject(StructureService);
@@ -34,20 +37,24 @@ export class EmployeFormComponent implements OnInit {
   isSubmitting = signal(false);
   generatedPassword = signal('');
 
+  selectedDeptId = signal<number | null>(null);
+
   filteredEquipes = computed(() => {
-    const deptId = this.form?.get('departementId')?.value;
+    const deptId = this.selectedDeptId();
     if (!deptId) return [];
-    return this.equipes.filter(e => e.departementId === deptId);
+    // Convert deptId to number in case it comes as string from select
+    const deptIdNum = Number(deptId);
+    return this.equipes.filter(e => e.departementId === deptIdNum);
   });
 
   ngOnInit(): void {
     this.form = this.fb.group({
       // Step 1
-      prenom: ['', [Validators.required, Validators.minLength(2)]],
-      nom: ['', [Validators.required, Validators.minLength(2)]],
-      email: ['', [Validators.required, Validators.email]],
-      telephone: [''],
-      poste: ['', [Validators.required]],
+      prenom: [{ value: '', disabled: this.isValidationMode }, [Validators.required, Validators.minLength(2)]],
+      nom: [{ value: '', disabled: this.isValidationMode }, [Validators.required, Validators.minLength(2)]],
+      email: [{ value: '', disabled: this.isValidationMode }, [Validators.required, Validators.email]],
+      telephone: [{ value: '', disabled: this.isValidationMode }],
+      poste: [{ value: '', disabled: this.isValidationMode }, [Validators.required]],
       // Step 2
       departementId: [null, [Validators.required]],
       equipeId: [null],
@@ -55,7 +62,20 @@ export class EmployeFormComponent implements OnInit {
       role: [this.defaultRole, [Validators.required]]
     });
 
-    this.generatePassword();
+    if (this.isValidationMode && this.pendingUser) {
+      this.form.patchValue({
+        prenom: this.pendingUser.prenom,
+        nom: this.pendingUser.nom,
+        email: this.pendingUser.email,
+        telephone: this.pendingUser.telephone,
+        poste: this.pendingUser.poste
+      });
+      this.step.set(2); // Skip to assignment step
+    }
+
+    if (!this.isValidationMode) {
+      this.generatePassword();
+    }
   }
 
   generatePassword(): void {
@@ -94,6 +114,8 @@ export class EmployeFormComponent implements OnInit {
   }
 
   onDeptChange(): void {
+    const deptId = this.form.get('departementId')?.value;
+    this.selectedDeptId.set(deptId);
     this.form.get('equipeId')?.setValue(null);
     this.form.get('managerId')?.setValue(null);
   }
@@ -127,8 +149,20 @@ export class EmployeFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.form.invalid) return;
-    this.isSubmitting.set(true);
-    const data: CreateEmployeRequest = this.form.getRawValue();
+    if (this.isValidationMode && this.pendingUser) {
+      const validationData = {
+        departementId: this.form.get('departementId')?.value,
+        equipeId: this.form.get('equipeId')?.value,
+        role: this.form.get('role')?.value
+      };
+      this.validate.emit({ id: this.pendingUser.id, request: validationData });
+      return;
+    }
+
+    const data: CreateEmployeRequest = {
+      ...this.form.getRawValue(),
+      password: this.generatedPassword()
+    };
 
     this.structureService.createEmploye(data).subscribe({
       next: () => {

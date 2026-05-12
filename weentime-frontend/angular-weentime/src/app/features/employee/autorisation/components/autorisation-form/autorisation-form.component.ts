@@ -59,14 +59,25 @@ export class AutorisationFormComponent implements OnInit {
   heureFinValue = signal<string>('');
   typeValue = signal<TypeAutorisation | null>(null);
 
-  types = [
-    { id: TypeAutorisation.RDV_MEDICAL, label: 'RDV Médical', icon: Stethoscope, bg: 'bg-rose-50', color: 'text-rose-600', desc: 'Consultation ou examen' },
-    { id: TypeAutorisation.SORTIE_ANTICIPEE, label: 'Sortie anticipée', icon: LogOut, bg: 'bg-amber-50', color: 'text-amber-600', desc: 'Partir avant l\'heure' },
-    { id: TypeAutorisation.ARRIVEE_TARDIVE, label: 'Arrivée tardive', icon: AlarmClock, bg: 'bg-blue-50', color: 'text-blue-600', desc: 'Arriver après l\'heure' },
-    { id: TypeAutorisation.TELETRAVAIL_EXCEPTIONNEL, label: 'Télétravail exp.', icon: Laptop, bg: 'bg-indigo-50', color: 'text-indigo-600', desc: 'Besoin ponctuel' },
-    { id: TypeAutorisation.PAUSE_LONGUE, label: 'Pause longue', icon: Coffee, bg: 'bg-emerald-50', color: 'text-emerald-600', desc: 'Déplacement ou imprévu' },
-    { id: TypeAutorisation.MI_TEMPS_EXCEPTIONNEL, label: 'Mi-temps exp.', icon: Hourglass, bg: 'bg-violet-50', color: 'text-violet-600', desc: 'Situation particulière' }
-  ];
+  types = signal<any[]>([]);
+
+  private readonly defaultIcons: Record<string, any> = {
+    'RDV MEDICAL': Stethoscope,
+    'SORTIE ANTICIPEE': LogOut,
+    'ARRIVEE TARDIVE': AlarmClock,
+    'TELETRAVAIL EXCEPTIONNEL': Laptop,
+    'PAUSE LONGUE': Coffee,
+    'MI TEMPS EXCEPTIONNEL': Hourglass
+  };
+
+  private readonly defaultStyles: Record<string, { bg: string, color: string }> = {
+    'RDV MEDICAL': { bg: 'bg-rose-50', color: 'text-rose-600' },
+    'SORTIE ANTICIPEE': { bg: 'bg-amber-50', color: 'text-amber-600' },
+    'ARRIVEE TARDIVE': { bg: 'bg-blue-50', color: 'text-blue-600' },
+    'TELETRAVAIL EXCEPTIONNEL': { bg: 'bg-indigo-50', color: 'text-indigo-600' },
+    'PAUSE LONGUE': { bg: 'bg-emerald-50', color: 'text-emerald-600' },
+    'MI TEMPS EXCEPTIONNEL': { bg: 'bg-violet-50', color: 'text-violet-600' }
+  };
 
   constructor() {
     this.form = this.fb.group({
@@ -88,6 +99,19 @@ export class AutorisationFormComponent implements OnInit {
       this.isOpen = true;
       this.cdr.markForCheck();
     }, 50);
+
+    this.service.getTypesAutorisation().subscribe(types => {
+      const mapped = types.map(t => ({
+        id: t.libelle,
+        label: t.libelle,
+        icon: this.defaultIcons[t.libelle.toUpperCase()] || Timer,
+        bg: this.defaultStyles[t.libelle.toUpperCase()]?.bg || 'bg-slate-50',
+        color: this.defaultStyles[t.libelle.toUpperCase()]?.color || 'text-slate-600',
+        desc: t.requireJustificatif ? 'Justificatif requis' : 'Sans justificatif'
+      }));
+      this.types.set(mapped);
+      this.cdr.markForCheck();
+    });
 
     // Sync form values with signals for computed properties
     this.form.get('heureDebut')?.valueChanges.subscribe(v => this.heureDebutValue.set(v));
@@ -130,7 +154,8 @@ export class AutorisationFormComponent implements OnInit {
 
   get attachmentMode() {
     const type = this.typeValue();
-    return type ? ATTACHMENT_CONFIG[type] : 'HIDDEN';
+    const dynamicType = this.types().find(t => t.id === type);
+    return dynamicType?.desc === 'Justificatif requis' ? 'REQUIRED' : 'HIDDEN';
   }
 
   dureeInfo = computed(() => {
@@ -263,7 +288,11 @@ export class AutorisationFormComponent implements OnInit {
     return value.length >= 5 ? value.slice(0, 5) : value;
   }
 
-  private resolveDraftType(value?: string): TypeAutorisation | null {
+  private resolveDraftType(value?: string): any | null {
+    const types = this.types();
+    if (!value || types.length === 0) {
+      return null;
+    }
     const normalized = typeof value === 'string'
       ? value
         .normalize('NFD')
@@ -275,28 +304,13 @@ export class AutorisationFormComponent implements OnInit {
     if (!normalized) {
       return null;
     }
-    if (normalized.includes('rdv') || normalized.includes('medical')) {
-      return TypeAutorisation.RDV_MEDICAL;
-    }
-    if (normalized.includes('sortie')) {
-      return TypeAutorisation.SORTIE_ANTICIPEE;
-    }
-    if (normalized.includes('arrivee') || normalized.includes('retard')) {
-      return TypeAutorisation.ARRIVEE_TARDIVE;
-    }
-    if (normalized.includes('teletravail')) {
-      return TypeAutorisation.TELETRAVAIL_EXCEPTIONNEL;
-    }
-    if (normalized.includes('pause')) {
-      return TypeAutorisation.PAUSE_LONGUE;
-    }
-    if (normalized.includes('mi temps')) {
-      return TypeAutorisation.MI_TEMPS_EXCEPTIONNEL;
-    }
-    if (normalized.includes('autre')) {
-      return TypeAutorisation.AUTRE;
-    }
 
-    return Object.values(TypeAutorisation).find(type => type.toLowerCase() === normalized) ?? null;
+    // Look for exact or partial match in label
+    const found = types.find(t => {
+      const tLabel = t.label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return tLabel.includes(normalized) || normalized.includes(tLabel);
+    });
+
+    return found?.id ?? null;
   }
 }

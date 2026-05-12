@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } 
 import { LucideAngularModule } from 'lucide-angular';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
 import { DemandeConge, JourFerie, NouvelleDemandeRequest, SoldeConge, TypeConge } from '../../models/conge.model';
+import { CongeService } from '../../conge.service';
 
 interface CalendarDay {
   date: Date;
@@ -31,10 +32,11 @@ export class DemandeDrawerComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
   private readonly assistantWorkflow = inject(AssistantWorkflowService);
+  private readonly congeService = inject(CongeService);
 
-  readonly leaveTypes: TypeConge[] = ['ANNUEL', 'MALADIE', 'RTT', 'MATERNITE_PATERNITE', 'EXCEPTIONNEL', 'SANS_SOLDE'];
+  readonly leaveTypes = signal<any[]>([]);
   readonly step = signal(1);
-  readonly selectedType = signal<TypeConge | null>(null);
+  readonly selectedType = signal<any | null>(null);
   readonly startDate = signal<Date | null>(null);
   readonly endDate = signal<Date | null>(null);
   readonly hoverDate = signal<Date | null>(null);
@@ -48,6 +50,10 @@ export class DemandeDrawerComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.congeService.getTypesConge().subscribe((types: any[]) => {
+      this.leaveTypes.set(types);
+    });
+
     const draft = this.assistantWorkflow.leaveDraft();
     if (!draft) {
       return;
@@ -78,13 +84,12 @@ export class DemandeDrawerComponent implements OnInit {
     this.assistantWorkflow.clearLeaveDraft(draft.id);
   }
 
-  selectType(type: TypeConge): void {
-    const solde = this.soldes.find(item => item.type === type);
-    if (solde && (solde.disponible > 0 || type === 'SANS_SOLDE')) {
-      this.validationError.set(null);
-      this.selectedType.set(type);
-      this.step.set(2);
-    }
+  selectType(type: any): void {
+    const solde = this.soldes.find(item => item.type === type.libelle || item.label === type.libelle);
+    // If no solde found, it might be a new type without balance yet, allow it if it's sans solde or similar
+    this.validationError.set(null);
+    this.selectedType.set(type);
+    this.step.set(2);
   }
 
   onDayClick(day: CalendarDay): void {
@@ -195,28 +200,36 @@ export class DemandeDrawerComponent implements OnInit {
 
     this.validationError.set(null);
     this.submitted.emit({
-      type: this.selectedType()!,
+      type: this.selectedType()?.libelle as TypeConge,
+      label: this.selectedType()?.libelle,
+      typeCongeId: this.selectedType()?.id,
       dateDebut: this.startDate()!.toISOString().split('T')[0],
       dateFin: this.endDate()!.toISOString().split('T')[0],
       motif: this.motifForm.value.motif
     });
   }
 
-  getTypeLabel(type: TypeConge): string {
-    const labels: Record<TypeConge, string> = {
-      ANNUEL: 'Congé annuel',
-      MALADIE: 'Congé maladie',
-      SANS_SOLDE: 'Sans solde',
-      MATERNITE_PATERNITE: 'Maternité/Paternité',
-      EXCEPTIONNEL: 'Congé exceptionnel',
-      RTT: 'RTT'
-    };
-
-    return labels[type];
+  getTypeLabel(type: any): string {
+    return type?.libelle || 'Type inconnu';
   }
 
-  getSoldeForType(type: TypeConge): number {
-    return this.soldes.find(item => item.type === type)?.disponible || 0;
+  getSoldeForType(typeOrLibelle: any): number {
+    const libelle = typeof typeOrLibelle === 'object' ? typeOrLibelle?.libelle : typeOrLibelle;
+    if (!libelle) return 0;
+    
+    const normalizedSearch = this.normalize(libelle);
+    const solde = this.soldes.find(item => {
+      const normType = this.normalize(item.type);
+      const normLabel = this.normalize(item.label);
+      return normType === normalizedSearch || 
+             normLabel === normalizedSearch ||
+             normType.includes(normalizedSearch) ||
+             normalizedSearch.includes(normType) ||
+             normLabel.includes(normalizedSearch) ||
+             normalizedSearch.includes(normLabel);
+    });
+    
+    return solde?.disponible || 0;
   }
 
   canProceedToSummary(): boolean {
@@ -239,8 +252,8 @@ export class DemandeDrawerComponent implements OnInit {
       return 'La periode choisie ne contient aucun jour ouvrable disponible.';
     }
 
-    if (type !== 'SANS_SOLDE' && this.selectedBusinessDays > this.getSoldeForType(type)) {
-      return `Solde insuffisant (${this.getSoldeForType(type)} jours disponibles).`;
+    if (type.libelle !== 'SANS_SOLDE' && this.selectedBusinessDays > this.getSoldeForType(type.libelle)) {
+      return `Solde insuffisant (${this.getSoldeForType(type.libelle)} jours disponibles).`;
     }
 
     if (this.findOverlappingRequest()) {
@@ -339,42 +352,21 @@ export class DemandeDrawerComponent implements OnInit {
     return count;
   }
 
-  private resolveDraftType(typeLabel?: string, typeCongeId?: number): TypeConge | null {
-    const byId: Record<number, TypeConge> = {
-      1: 'ANNUEL',
-      2: 'MALADIE',
-      3: 'RTT',
-      4: 'MATERNITE_PATERNITE',
-      5: 'EXCEPTIONNEL',
-      6: 'SANS_SOLDE',
-    };
-    if (typeCongeId && byId[typeCongeId]) {
-      return byId[typeCongeId];
+  private resolveDraftType(typeLabel?: string, typeCongeId?: number): any | null {
+    const types = this.leaveTypes();
+    if (typeCongeId) {
+      const found = types.find(t => t.id === typeCongeId);
+      if (found) return found;
     }
 
+    if (!typeLabel) return null;
     const normalized = this.normalize(typeLabel);
-    if (!normalized) {
-      return null;
-    }
-    if (normalized.includes('sans solde')) {
-      return 'SANS_SOLDE';
-    }
-    if (normalized.includes('maternite') || normalized.includes('paternite')) {
-      return 'MATERNITE_PATERNITE';
-    }
-    if (normalized.includes('rtt')) {
-      return 'RTT';
-    }
-    if (normalized.includes('maladie')) {
-      return 'MALADIE';
-    }
-    if (normalized.includes('exception')) {
-      return 'EXCEPTIONNEL';
-    }
-    if (normalized.includes('annuel') || normalized.includes('paye')) {
-      return 'ANNUEL';
-    }
-    return null;
+    
+    // Look for exact or partial match in libelle
+    return types.find(t => {
+      const tLib = this.normalize(t.libelle);
+      return tLib.includes(normalized) || normalized.includes(tLib);
+    }) || null;
   }
 
   private toDate(value?: string): Date | null {

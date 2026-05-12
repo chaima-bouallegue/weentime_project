@@ -1,5 +1,16 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from '../../core/guards/admin.guard';
+import { dashboardResolver } from '../../core/resolvers/dashboard.resolver';
+import { planningResolver } from '../../core/resolvers/planning.resolver';
+import { presenceResolver } from '../../core/resolvers/presence.resolver';
+import { validationResolver } from '../../core/resolvers/validation.resolver';
+import { rhStructureResolver } from '../../core/resolvers/rh-structure.resolver';
+import { rhLeaveResolver } from '../../core/resolvers/rh-leave.resolver';
+import { rhConfigResolver } from '../../core/resolvers/rh-config.resolver';
+import { rhTeletravailResolver } from '../../core/resolvers/rh-teletravail.resolver';
+import { rhHorairesResolver } from '../../core/resolvers/rh-horaires.resolver';
+import { rhAnalyticsResolver } from '../../core/resolvers/rh-analytics.resolver';
+import { teletravailDataResolver } from '../../core/resolvers/teletravail.resolver';
 import {
   LUCIDE_ICONS,
   LucideIconProvider,
@@ -13,6 +24,7 @@ import {
   Edit2,
   Trash2,
   AlertTriangle,
+  Loader,
   Loader2,
   ShieldOff,
   ShieldCheck,
@@ -25,6 +37,10 @@ import {
   Settings,
   Tent,
   PiggyBank,
+  Monitor,
+  CalendarCheck,
+  Sunrise,
+  Sunset,
   UserX,
   Clock,
   FileText,
@@ -64,7 +80,29 @@ import {
   FilePlus,
   FileCheck,
   Bell,
-  CheckCheck
+  CheckCheck,
+  Map,
+  List,
+  Home,
+  CalendarDays,
+  Landmark,
+  HelpCircle,
+  Send,
+  UserMinus,
+  Hourglass,
+  CalendarRange,
+  RefreshCw,
+  CalendarX2,
+  Clock10,
+  Target,
+  Settings2,
+  CalendarClock,
+  LayoutGrid,
+  Star,
+  Flame,
+  ShieldAlert,
+  UserCheck as LucideUserCheck,
+  ArrowRight as LucideArrowRight
 } from 'lucide-angular';
 
 export const shellRoutes: Routes = [
@@ -85,6 +123,12 @@ export const shellRoutes: Routes = [
     data: { title: 'Messages' },
     loadChildren: () => import('../communication/communication.routes').then(m => m.communicationRoutes)
   },
+  {
+    path: 'reunions',
+    title: 'WeenTime â€” Réunions',
+    data: { title: 'Réunions' },
+    loadChildren: () => import('../reunions/reunion.routes').then(m => m.REUNION_ROUTES)
+  },
 
   // â”€â”€ Employee â”€â”€
   { path: 'employee', redirectTo: 'employee/dashboard', pathMatch: 'full' },
@@ -92,6 +136,7 @@ export const shellRoutes: Routes = [
     path: 'employee/dashboard',
     title: 'WeenTime - Tableau de bord',
     data: { title: 'Tableau de bord' },
+    resolve: { dashboardData: dashboardResolver('EMPLOYEE') },
     loadComponent: () => import('../employee/dashboard/employee-dashboard.component').then(m => m.EmployeeDashboardComponent)
   },
   {
@@ -110,6 +155,7 @@ export const shellRoutes: Routes = [
     path: 'employee/teletravail',
     title: 'WeenTime - Mon teletravail',
     data: { title: 'Mon teletravail' },
+    resolve: { teletravail: teletravailDataResolver },
     loadComponent: () => import('../employee/teletravail/employee-teletravail.component').then(m => m.EmployeeTeletravailComponent)
   },
   {
@@ -122,6 +168,7 @@ export const shellRoutes: Routes = [
     path: 'employee/pointage',
     title: 'WeenTime â€” Pointage',
     data: { title: 'Pointage' },
+    resolve: { presence: presenceResolver },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
@@ -154,12 +201,14 @@ export const shellRoutes: Routes = [
     path: 'manager/dashboard',
     title: 'WeenTime - Tableau de bord',
     data: { title: 'Tableau de bord' },
+    resolve: { dashboardData: dashboardResolver('MANAGER') },
     loadComponent: () => import('../manager/dashboard/manager-dashboard.component').then(m => m.ManagerDashboardComponent)
   },
   {
     path: 'manager/pointage',
     title: 'WeenTime â€” Pointage',
     data: { title: 'Pointage' },
+    resolve: { presence: presenceResolver },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
@@ -172,6 +221,7 @@ export const shellRoutes: Routes = [
     path: 'manager/approbations',
     title: 'WeenTime - Approbations',
     data: { title: 'Approbations' },
+    resolve: { validation: validationResolver('MANAGER') },
     loadComponent: () => import('../manager/approbations/manager-approbations.component').then(m => m.ManagerApprobationsComponent)
   },
   {
@@ -208,6 +258,7 @@ export const shellRoutes: Routes = [
     path: 'manager/presence',
     title: 'WeenTime â€” Présence équipe',
     data: { title: 'Présence équipe' },
+    resolve: { presence: presenceResolver },
     loadComponent: () => import('../manager/presence/manager-presence.component').then(m => m.ManagerPresenceComponent)
   },
 
@@ -216,6 +267,7 @@ export const shellRoutes: Routes = [
     path: 'rh/dashboard',
     title: 'WeenTime - Tableau de bord',
     data: { title: 'Tableau de bord' },
+    resolve: { dashboardData: dashboardResolver('RH') },
     loadComponent: () => import('../rh/dashboard/rh-dashboard.component').then(m => m.RhDashboardComponent),
     providers: [
       {
@@ -238,6 +290,7 @@ export const shellRoutes: Routes = [
     path: 'rh/analytics',
     title: 'WeenTime â€” Analytics',
     data: { title: 'Analytics' },
+    resolve: { stats: rhAnalyticsResolver },
     loadComponent: () => import('../rh/analytics/rh-analytics.component').then(m => m.RhAnalyticsComponent),
     providers: [
       {
@@ -259,24 +312,38 @@ export const shellRoutes: Routes = [
     path: 'rh/requests',
     title: 'WeenTime - Demandes RH',
     data: { title: 'Demandes RH' },
+    resolve: { validation: validationResolver('RH') },
     loadComponent: () => import('../rh/requests/rh-requests.component').then(m => m.RhRequestsComponent)
-  },
-  {
-    path: 'rh/analytics',
-    title: 'WeenTime - Analytics RH',
-    data: { title: 'Analytics RH' },
-    loadComponent: () => import('../rh/analytics/rh-analytics.component').then(m => m.RhAnalyticsComponent)
   },
   {
     path: 'rh/leave-balances',
     title: 'WeenTime - Soldes conges',
     data: { title: 'Soldes conges' },
-    loadComponent: () => import('../rh/leave-balances/rh-leave-balances.component').then(m => m.RhLeaveBalancesComponent)
+    resolve: { leave: rhLeaveResolver },
+    loadComponent: () => import('../rh/leave-balances/rh-leave-balances.component').then(m => m.RhLeaveBalancesComponent),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          Wallet: Wallet,
+          CalendarCheck: CalendarCheck,
+          Hourglass: Hourglass,
+          CalendarRange: CalendarRange,
+          RefreshCw: RefreshCw,
+          Pencil: Pencil,
+          X: X,
+          Users: Users,
+          CalendarX2: CalendarX2
+        })
+      }
+    ]
   },
   {
     path: 'rh/structure',
     title: 'WeenTime - Structure',
     data: { title: 'Structure' },
+    resolve: { structure: rhStructureResolver },
     loadComponent: () => import('../rh/structure/rh-structure.component').then(m => m.RhStructureComponent),
     providers: [
       {
@@ -346,6 +413,7 @@ export const shellRoutes: Routes = [
     path: 'rh/conges',
     title: 'WeenTime â€” Gestion des congés',
     data: { title: 'Gestion des congés' },
+    resolve: { leave: rhLeaveResolver },
     loadComponent: () => import('../rh/conges/rh-conges.component').then(m => m.RhCongesComponent),
     providers: [
       {
@@ -354,7 +422,8 @@ export const shellRoutes: Routes = [
         useValue: new LucideIconProvider({
           ChevronDown, ChevronLeft, ChevronRight, Filter,
           Calendar, Clock, Check, X, Search, Plus,
-          CheckCircle, XCircle, AlertCircle, FileText
+          CheckCircle, XCircle, AlertCircle, FileText,
+          CalendarCheck
         })
       }
     ]
@@ -363,6 +432,7 @@ export const shellRoutes: Routes = [
     path: 'rh/teletravail',
     title: 'WeenTime â€” Télétravail',
     data: { title: 'Télétravail' },
+    resolve: { teletravail: rhTeletravailResolver },
     loadComponent: () => import('../rh/teletravail/rh-teletravail.component').then(m => m.RhTeletravailComponent),
     providers: [
       {
@@ -396,6 +466,7 @@ export const shellRoutes: Routes = [
     path: 'rh/absences',
     title: 'WeenTime â€” Absences',
     data: { title: 'Absences' },
+    resolve: { leave: rhLeaveResolver },
     loadComponent: () => import('../rh/absences/rh-absences.component').then(m => m.RhAbsencesComponent),
     providers: [
       {
@@ -414,7 +485,8 @@ export const shellRoutes: Routes = [
           Check,
           X,
           ChevronLeft,
-          ChevronRight
+          ChevronRight,
+          CalendarCheck
         })
       }
     ]
@@ -429,6 +501,7 @@ export const shellRoutes: Routes = [
     path: 'rh/parametres',
     title: 'WeenTime â€” Paramètres RH',
     data: { title: 'Paramètres RH' },
+    resolve: { config: rhConfigResolver },
     loadComponent: () => import('../rh/parametres/rh-parametres.component').then(m => m.RhParametresComponent),
     providers: [
       {
@@ -438,6 +511,10 @@ export const shellRoutes: Routes = [
           Settings,
           Tent,
           PiggyBank,
+          Monitor,
+          CalendarCheck,
+          Sunrise,
+          Sunset,
           UserX,
           Clock,
           FileText,
@@ -466,6 +543,7 @@ export const shellRoutes: Routes = [
     path: 'rh/horaires',
     title: 'WeenTime â€” Horaires de travail',
     data: { title: 'Horaires de travail' },
+    resolve: { horaires: rhHorairesResolver },
     loadComponent: () => import('../rh/horaires/rh-horaires.component').then(m => m.RhHorairesComponent),
     providers: [
       {
@@ -474,7 +552,27 @@ export const shellRoutes: Routes = [
         useValue: new LucideIconProvider({
           ChevronDown, ChevronLeft, ChevronRight, Filter,
           Clock, Plus, Edit2, Trash2, Check, X,
-          Search, Settings, Calendar, AlertCircle
+          Search, Settings, Calendar, AlertCircle,
+          UserCheck: LucideUserCheck, History, LayoutGrid, Loader2,
+          Star, Timer, ArrowRight: LucideArrowRight, XCircle, AlertTriangle
+        })
+      }
+    ]
+  },
+  {
+    path: 'rh/planning',
+    title: 'WeenTime — Calendrier Global',
+    data: { title: 'Calendrier Global' },
+    resolve: { planning: planningResolver },
+    loadComponent: () => import('../rh/planning/rh-planning.component').then(m => m.RhPlanningComponent),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          Calendar, Map, List, Filter, Download, Search, X, TrendingUp, UserMinus, Home, AlertTriangle, AlertCircle, 
+          ChevronLeft, ChevronRight, CalendarDays, Landmark, Bell, ArrowLeft, CheckCircle, HelpCircle, Send, Check,
+          LayoutGrid, Flame, Activity, UserX, ShieldAlert, Award
         })
       }
     ]
@@ -483,24 +581,55 @@ export const shellRoutes: Routes = [
     path: 'rh/horaires/nouveau',
     title: 'WeenTime â€” Nouvel horaire',
     data: { title: 'Nouvel horaire' },
-    loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent)
+    loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          ArrowLeft, Settings2, CalendarClock, Copy, Check, Trash2, Plus, Loader2,
+          Loader, Sunset, ArrowRight, AlertTriangle
+        })
+      }
+    ]
   },
   {
     path: 'rh/horaires/:id/modifier',
     title: 'WeenTime â€” Modifier horaire',
     data: { title: 'Modifier horaire' },
-    loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent)
+    loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          ArrowLeft, Settings2, CalendarClock, Copy, Check, Trash2, Plus, Loader2,
+          Loader, Sunset, ArrowRight, AlertTriangle
+        })
+      }
+    ]
   },
   {
     path: 'rh/horaires/affecter',
     title: 'WeenTime â€” Affectation horaire',
     data: { title: 'Affectation horaire' },
-    loadComponent: () => import('../rh/horaires/rh-horaire-assign/rh-horaire-assign.component').then(m => m.RhHoraireAssignComponent)
+    loadComponent: () => import('../rh/horaires/rh-horaire-assign/rh-horaire-assign.component').then(m => m.RhHoraireAssignComponent),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          ArrowLeft, Clock10, Target, Search, Check, CalendarDays, Loader2,
+          Loader, Building2, Users, User, Info
+        })
+      }
+    ]
   },
   {
     path: 'rh/pointage',
     title: 'WeenTime - Pointage',
     data: { title: 'Pointage' },
+    resolve: { presence: presenceResolver },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
@@ -536,6 +665,7 @@ export const shellRoutes: Routes = [
     title: 'WeenTime - Tableau de bord',
     data: { title: 'Tableau de bord' },
     canActivate: [adminGuard],
+    resolve: { dashboardData: dashboardResolver('ADMIN') },
     loadComponent: () => import('../admin/dashboard/admin-dashboard.component').then(m => m.AdminDashboardComponent)
   },
   {
@@ -599,6 +729,7 @@ export const shellRoutes: Routes = [
     title: 'WeenTime - Pointage',
     data: { title: 'Pointage' },
     canActivate: [adminGuard],
+    resolve: { presence: presenceResolver },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {

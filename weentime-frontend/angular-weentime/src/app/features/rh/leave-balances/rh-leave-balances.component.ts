@@ -2,15 +2,15 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize, forkJoin } from 'rxjs';
+import { finalize } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
-import { AdminApiService, AdminUser } from '../../admin/admin-api.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AdminEmptyStateComponent } from '../../../shared/components/admin-empty-state/admin-empty-state.component';
 import { AdminPageHeaderComponent } from '../../../shared/components/admin-page-header/admin-page-header.component';
 import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleton/admin-skeleton.component';
 import { AdminStatCardComponent } from '../../../shared/components/admin-stat-card/admin-stat-card.component';
-import { RhApiService, RhLeaveBalance, TypeCongeOption } from '../rh-api.service';
+import { RhApiService, RhLeaveBalance } from '../rh-api.service';
+import { RhLeaveStore } from '../../../core/services/rh-leave.store';
 
 interface BalanceView extends RhLeaveBalance {
   typeLabel: string;
@@ -166,84 +166,59 @@ interface BalanceView extends RhLeaveBalance {
   `]
 })
 export class RhLeaveBalancesComponent {
+  private readonly leaveStore = inject(RhLeaveStore);
   private readonly api = inject(RhApiService);
-  private readonly adminApi = inject(AdminApiService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly breadcrumbs = [{ label: 'RH', route: '/app/rh/dashboard' }, { label: 'Leave balances' }];
   readonly currentYear = new Date().getFullYear();
-  readonly isLoading = signal(true);
+  readonly isLoading = this.leaveStore.isLoading;
   readonly isSaving = signal(false);
-  readonly users = signal<AdminUser[]>([]);
-  readonly typeConges = signal<TypeCongeOption[]>([]);
-  readonly balances = signal<BalanceView[]>([]);
+  
   readonly selectedUserId = signal<number | null>(null);
   readonly selectedYear = signal(this.currentYear);
   readonly editingBalance = signal<BalanceView | null>(null);
   draft = { joursAcquis: 0, joursUtilises: 0, joursRestants: 0, joursEnAttente: 0 };
 
+  readonly users = this.leaveStore.users;
+  readonly typeConges = this.leaveStore.leaveTypes;
+  
   readonly userOptions = computed(() => this.users().filter(user => user.roles.some(role => role.nom === 'ROLE_EMPLOYEE')));
+  
+  readonly balances = computed(() => {
+    return this.leaveStore.leaveBalances().map(balance => this.toView(balance));
+  });
+
   readonly totalAcquired = computed(() => this.sumBalance('joursAcquis'));
   readonly totalRemaining = computed(() => this.sumBalance('joursRestants'));
   readonly totalPending = computed(() => this.sumBalance('joursEnAttente'));
+  
   readonly selectedUserLabel = computed(() => {
     const user = this.users().find(item => item.id === this.selectedUserId());
     return user ? `${user.prenom} ${user.nom}` : 'Unknown employee';
   });
 
   constructor() {
-    this.loadReferences();
-
     effect(() => {
-      this.selectedUserId();
-      this.selectedYear();
-      if (this.selectedUserId()) {
+      const userId = this.selectedUserId();
+      const year = this.selectedYear();
+      if (userId) {
         queueMicrotask(() => this.loadBalances());
       }
     });
   }
 
-  private loadReferences(): void {
-    this.isLoading.set(true);
-    forkJoin({
-      users: this.adminApi.getUsers(0, 200),
-      typeConges: this.api.getTypeConges()
-    })
-      .pipe(
-        finalize(() => this.isLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: ({ users, typeConges }) => {
-          this.users.set(users.content);
-          this.typeConges.set(typeConges);
-        },
-        error: () => this.toast.error('Unable to load leave balance references.')
-      });
-  }
-
   loadBalances(): void {
     const userId = this.selectedUserId();
     if (!userId) {
-      this.balances.set([]);
-      this.isLoading.set(false);
       return;
     }
-
-    this.isLoading.set(true);
-    this.api.getLeaveBalances(userId, this.selectedYear())
-      .pipe(
-        finalize(() => this.isLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: balances => this.balances.set(balances.map(balance => this.toView(balance))),
-        error: () => {
-          this.balances.set([]);
-          this.toast.error('Unable to load leave balances.');
-        }
-      });
+    this.leaveStore.loadLeaveBalances(userId, this.selectedYear()).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      error: () => this.toast.error('Unable to load leave balances.')
+    });
   }
 
   openEdit(balance: BalanceView): void {
@@ -285,7 +260,7 @@ export class RhLeaveBalancesComponent {
       .subscribe({
         next: saved => {
           this.toast.success('Leave balance updated.');
-          this.balances.update(items => items.map(item => item.typeCongeId === saved.typeCongeId ? this.toView(saved) : item));
+          this.leaveStore.updateBalance(saved);
           this.closeEdit();
         },
         error: () => this.toast.error('Unable to save leave balance.')

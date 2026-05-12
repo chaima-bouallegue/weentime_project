@@ -107,10 +107,25 @@
           <div class="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 mb-6 shadow-xl shadow-emerald-500/10">
             <lucide-icon name="check" size="40" strokeWidth="3"></lucide-icon>
           </div>
-          <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-2">Bienvenue à bord ! 🎉</h2>
-          <p class="text-slate-500 dark:text-slate-400 font-medium mb-8">Votre compte a été créé avec succès.</p>
-          <button routerLink="/login" class="btn-primary">
-            Aller vers la connexion →
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-2">Inscription enregistrée ! 🎉</h2>
+          <p class="text-slate-500 dark:text-slate-400 font-medium mb-2">Votre demande a été envoyée avec succès.</p>
+          
+          <div class="bg-indigo-50 dark:bg-indigo-950/30 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 mb-8 max-w-[340px] animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div class="flex flex-col items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600">
+                <lucide-icon name="clock" size="20"></lucide-icon>
+              </div>
+              <p class="text-[13px] font-bold text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                Votre compte est en <span class="underline decoration-indigo-300">attente de validation</span> par votre service RH.
+              </p>
+              <p class="text-[11px] font-medium text-indigo-600/70 dark:text-indigo-400/70">
+                Vous pourrez vous connecter dès que votre profil aura été approuvé par un administrateur.
+              </p>
+            </div>
+          </div>
+
+          <button routerLink="/login" class="btn-primary px-8">
+            Retourner à l'accueil →
           </button>
         </div>
 
@@ -158,7 +173,7 @@
 
               <!-- Error Message -->
               <div *ngIf="isCodeInvalid()" class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-start gap-2.5 shake-animation">
-                <lucide-icon name="alert-circle" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
+                <lucide-icon name="circle-alert" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
                 <p class="text-[13px] font-semibold text-red-600 dark:text-red-400">Ce code n'est pas reconnu. Contactez votre RH.</p>
               </div>
 
@@ -178,6 +193,7 @@
                     <lucide-icon name="user" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
                     <input formControlName="firstName" type="text" placeholder="Ex: Jean" class="register-input" [ngClass]="getInputClass(2, 'firstName')">
                   </div>
+                  <p *ngIf="isFieldInvalid(2, 'firstName')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Prénom requis (2 caractères min)</p>
                 </div>
                 <div class="space-y-1.5">
                   <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Nom</label>
@@ -185,6 +201,7 @@
                     <lucide-icon name="user" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
                     <input formControlName="lastName" type="text" placeholder="Ex: Dupont" class="register-input" [ngClass]="getInputClass(2, 'lastName')">
                   </div>
+                  <p *ngIf="isFieldInvalid(2, 'lastName')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Nom requis (2 caractères min)</p>
                 </div>
               </div>
 
@@ -194,32 +211,20 @@
                   <lucide-icon name="mail" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
                   <input formControlName="email" type="email" placeholder="nom@entreprise.com" class="register-input" [ngClass]="getInputClass(2, 'email')">
                 </div>
+                <p *ngIf="isFieldInvalid(2, 'email')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Format d'email professionnel invalide</p>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Poste</label>
-                  <div class="relative">
-                    <lucide-icon name="briefcase" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
-                    <input formControlName="jobTitle" type="text" placeholder="Développeur" class="register-input" [ngClass]="getInputClass(2, 'jobTitle')">
-                  </div>
+              <div class="space-y-1.5">
+                <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Poste / Intitulé de mission</label>
+                <div class="relative">
+                  <lucide-icon name="briefcase" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                  <input formControlName="jobTitle" type="text" placeholder="Ex: Chef de Projet, Développeur..." class="register-input" [ngClass]="getInputClass(2, 'jobTitle')">
                 </div>
-                <div class="space-y-1.5">
-                  <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Département</label>
-                  <div class="relative">
-                    <lucide-icon name="layers" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
-                    <select formControlName="department" class="register-input !py-2.5 appearance-none cursor-pointer" [ngClass]="getInputClass(2, 'department')">
-                      <ng-container *ngIf="departments().length > 0; else noDepts">
-                        <option value="" disabled selected>Choisir...</option>
-                        <option *ngFor="let d of departments()" [value]="d">{{d}}</option>
-                      </ng-container>
-                      <ng-template #noDepts>
-                        <option value="" selected>Sera assigné par votre RH</option>
-                      </ng-template>
-                    </select>
-                    <lucide-icon name="chevron-down" size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
-                  </div>
-                </div>
+                <p *ngIf="isFieldInvalid(2, 'jobTitle')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Poste requis</p>
+                <p class="text-[11px] text-slate-400 font-medium ml-1 flex items-center gap-1.5 mt-2">
+                  <lucide-icon name="info" size="12"></lucide-icon>
+                  Votre département et équipe seront assignés par votre RH après validation.
+                </p>
               </div>
 
               <div class="space-y-1.5">
@@ -231,6 +236,7 @@
                     <lucide-icon [name]="showPassword() ? 'eye-off' : 'eye'" size="16"></lucide-icon>
                   </button>
                 </div>
+                <p *ngIf="isFieldInvalid(2, 'password')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Mot de passe requis (8 caractères min)</p>
                 <!-- Strength bar -->
                 <div class="flex gap-1.5 mt-2 ml-0.5">
                   <div *ngFor="let i of [1,2,3,4]" class="h-1 flex-1 rounded-full transition-all duration-300"
@@ -312,7 +318,7 @@
 
               <!-- Error Massage -->
               <div *ngIf="apiError()" class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-start gap-2.5 shake-animation">
-                <lucide-icon name="alert-circle" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
+                <lucide-icon name="circle-alert" [size]="18" class="text-red-500 shrink-0"></lucide-icon>
                 <p class="text-[13px] font-semibold text-red-600 dark:text-red-400 leading-snug">{{ apiError() }}</p>
               </div>
 

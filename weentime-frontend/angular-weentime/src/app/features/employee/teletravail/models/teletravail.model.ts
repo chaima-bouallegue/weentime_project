@@ -1,3 +1,13 @@
+export interface TypeTeletravailConfig {
+  id: number;
+  libelle: string;
+  periode: 'MATIN' | 'APRES_MIDI' | 'JOURNEE_COMPLETE';
+  active: boolean;
+  icon?: any;
+  color?: string;
+  desc?: string;
+}
+
 export type TypeTeletravail =
   | 'JOURNEE_COMPLETE'
   | 'DEMI_JOURNEE_MATIN'
@@ -11,15 +21,7 @@ export type StatutTeletravail =
   | 'EN_ATTENTE_RH'
   | 'APPROUVE'
   | 'REFUSE'
-  | 'ANNULE'
-  | 'PENDING_MANAGER'
-  | 'PENDING_RH'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'CANCELLED'
-  | 'EN_ATTENTE'
-  | 'VALIDEE'
-  | 'REFUSEE';
+  | 'ANNULE';
 
 export interface DemandeTeletravail {
   id: number;
@@ -49,7 +51,8 @@ export interface QuotaTeletravail {
 }
 
 export interface NouvelleDemandeTeletravailRequest {
-  type: TypeTeletravail;
+  typeTeletravailId: number;
+  type?: TypeTeletravail;
   dateDebut: string;
   dateFin: string;
   periode?: PeriodeDemiJournee;

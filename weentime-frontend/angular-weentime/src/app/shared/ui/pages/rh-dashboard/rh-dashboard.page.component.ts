@@ -4,6 +4,7 @@ import { interval, take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { DashboardService } from '@app/features/dashboard/dashboard.service';
+import { DashboardStore } from '@app/core/services/dashboard.store';
 import { DashboardPayload, DashboardSegment } from '../../models/dashboard-ui.models';
 import { DashboardLayoutComponent } from '../../templates/dashboard-layout/dashboard-layout.component';
 import { DashboardStatsGridComponent } from '../../organisms/dashboard-stats-grid/dashboard-stats-grid.component';
@@ -329,12 +330,13 @@ import { SkeletonListComponent } from '../../molecules/skeleton-list/skeleton-li
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RhDashboardPageComponent {
-  private readonly service = inject(DashboardService);
+  private readonly store = inject(DashboardStore);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly data = signal<DashboardPayload | null>(null);
-  readonly loading = signal(true);
-  readonly error = signal<string | null>(null);
+  readonly data = this.store.rhData;
+  readonly loading = this.store.isLoading('RH');
+  readonly error = this.store.getError('RH');
+  
   readonly warnings = computed(() => this.data()?.warnings ?? []);
   readonly hasPartialData = computed(() => this.warnings().length > 0);
 
@@ -344,7 +346,7 @@ export class RhDashboardPageComponent {
   );
 
   constructor() {
-    this.loadData(true, false);
+    // Initial data is handled by the resolver, but we set up polling here
     interval(60_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadData(false, true));
@@ -355,24 +357,9 @@ export class RhDashboardPageComponent {
   }
 
   private loadData(showLoader: boolean, forceRefresh: boolean): void {
-    if (showLoader) {
-      this.loading.set(true);
-    }
-    this.error.set(null);
-
-    this.service.getRhDashboard(forceRefresh)
-      .pipe(take(1))
-      .subscribe({
-        next: payload => {
-          this.data.set(payload);
-          this.loading.set(false);
-        },
-        error: err => {
-          this.loading.set(false);
-          const message = err instanceof Error ? err.message : 'Erreur lors du chargement des données.';
-          this.error.set(message);
-        }
-      });
+    // Note: showLoader is handled by the store internally if we wanted to, 
+    // but here we just trigger the store load.
+    this.store.loadDashboard('RH', forceRefresh).pipe(take(1)).subscribe();
   }
 
   private segmentValue(label: string): number {

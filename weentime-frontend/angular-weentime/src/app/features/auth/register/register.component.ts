@@ -1,19 +1,18 @@
 import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { LogoComponent } from '../../../shared/components/logo/logo.component';
 import { ThemeService } from '../../../core/services/theme.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { debounceTime, distinctUntilChanged, Subject, takeUntil, switchMap, map, tap, of, EMPTY, catchError } from 'rxjs';
+import { debounceTime, distinctUntilChanged, Subject, takeUntil, switchMap, map, tap, of, catchError } from 'rxjs';
 
 interface CompanyInfo {
     id?: number;
     name: string;
     industry: string;
     employees: string;
-    departments: string[];
 }
 
 @Component({
@@ -45,7 +44,7 @@ export class RegisterComponent implements OnDestroy {
 
     registerForm: FormGroup = this.fb.group({
         step1: this.fb.group({
-            companyCode: ['', [Validators.required, Validators.pattern(/^WEEN-[A-Z0-9]{4}$/i)]]
+            companyCode: ['', [Validators.required, Validators.pattern(/^#?WEEN-[A-Z0-9]{4,15}$/i)]]
         }),
         step2: this.fb.group({
             firstName: ['', [Validators.required, Validators.minLength(2)]],
@@ -53,7 +52,6 @@ export class RegisterComponent implements OnDestroy {
             email: ['', [Validators.required, Validators.email]],
             password: ['', [Validators.required, Validators.minLength(8)]],
             jobTitle: ['', [Validators.required]],
-            department: [''],
             phone: ['']
         }),
         step3: this.fb.group({}), // Photo step is optional
@@ -62,24 +60,6 @@ export class RegisterComponent implements OnDestroy {
         })
     });
 
-    onFileChange(event: any) {
-        const file = event.target.files[0];
-        if (file) {
-            if (file.size > 500 * 1024) {
-                this.apiError.set("La photo ne doit pas dépasser 500Ko.");
-                return;
-            }
-            this.apiError.set(null);
-            const reader = new FileReader();
-            reader.onload = () => {
-                this.photoPreview.set(reader.result as string);
-                this.base64Photo.set(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-    departments = signal<string[]>([]);
-
     stepperSteps = [
         { label: 'Code entreprise', desc: 'Vérification du code' },
         { label: 'Informations', desc: 'Identité & sécurité' },
@@ -87,39 +67,43 @@ export class RegisterComponent implements OnDestroy {
         { label: 'Profil', desc: 'Photo & Social' },
         { label: 'Finalisation', desc: 'Confirmation' }
     ];
+
     constructor() {
         this.registerForm.get('step1.companyCode')?.valueChanges
             .pipe(
-                debounceTime(500),
-                map(val => val?.toUpperCase() ?? ''),
+                debounceTime(400),
+                map(val => (val?.trim() || '').toUpperCase()),
+                map(val => val.startsWith('#') ? val.substring(1) : val),
                 distinctUntilChanged(),
                 tap(code => {
                     this.foundCompany.set(null);
                     this.isCodeInvalid.set(false);
-                    this.isCheckingCode.set(code.length === 9);
+                    const isValidFormat = /^WEEN-[A-Z0-9]{4,15}$/.test(code);
+                    this.isCheckingCode.set(isValidFormat);
                 }),
-                switchMap(code =>
-                    code.length === 9
+                switchMap(code => {
+                    const isValidFormat = /^WEEN-[A-Z0-9]{4,15}$/.test(code);
+                    return isValidFormat
                         ? this.authService.validateCompanyCode(code).pipe(
                               catchError(() => {
                                   this.isCodeInvalid.set(true);
                                   this.isCheckingCode.set(false);
-                                  return EMPTY;
+                                  return of(null);
                               })
                           )
-                        : EMPTY
-                ),
+                        : of(null);
+                }),
                 takeUntil(this.destroy$)
             )
             .subscribe(res => {
-                this.foundCompany.set({
-                    id: res.id,
-                    name: res.nom,
-                    industry: res.secteur,
-                    employees: res.collaborateurs.toString(),
-                    departments: res.departements || []
-                });
-                this.departments.set(res.departements || []);
+                if (res) {
+                    this.foundCompany.set({
+                        id: res.id,
+                        name: res.nom,
+                        industry: res.secteur,
+                        employees: res.collaborateurs.toString()
+                    });
+                }
                 this.isCheckingCode.set(false);
             });
     }
@@ -129,6 +113,72 @@ export class RegisterComponent implements OnDestroy {
         this.destroy$.complete();
     }
 
+    onFileChange(event: any) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            this.apiError.set("La photo ne doit pas dépasser 5 Mo.");
+            return;
+        }
+
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            this.apiError.set("Formats acceptés : JPG, PNG, WebP uniquement.");
+            return;
+        }
+
+        this.apiError.set(null);
+        this.isLoading.set(true);
+
+        this.compressImage(file).then(base64 => {
+            this.photoPreview.set(base64);
+            this.base64Photo.set(base64);
+            this.isLoading.set(false);
+        }).catch(() => {
+            this.isLoading.set(false);
+            this.apiError.set("Erreur lors du traitement de l'image.");
+        });
+    }
+
+    private compressImage(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e: any) => {
+                const img = new Image();
+                img.src = e.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    const MAX_SIZE = 800;
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    resolve(compressedBase64);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    }
 
     getPasswordStrength(): { score: number; label: string; colorClass: string } {
         const pass = this.registerForm.get('step2.password')?.value || '';
@@ -190,7 +240,7 @@ export class RegisterComponent implements OnDestroy {
         };
 
         this.authService.register(userData).subscribe({
-            next: (res) => {
+            next: () => {
                 this.isLoading.set(false);
                 this.isSuccess.set(true);
                 setTimeout(() => {
@@ -199,7 +249,9 @@ export class RegisterComponent implements OnDestroy {
             },
             error: (err) => {
                 this.isLoading.set(false);
-                this.apiError.set(err.error?.message || 'Une erreur est survenue lors de l\'inscription.');
+                const errorBody = err.error;
+                const message = errorBody?.details || errorBody?.message || 'Une erreur est survenue lors de l\'inscription.';
+                this.apiError.set(message);
             }
         });
     }
@@ -218,15 +270,15 @@ export class RegisterComponent implements OnDestroy {
 
     isFieldInvalid(step: number, fieldName: string): boolean {
         const control = this.registerForm.get(`step${step}.${fieldName}`);
-        return !!(control && control.touched && control.invalid);
+        return !!(control && (control.touched || control.dirty) && control.invalid);
     }
 
     getInputClass(step: number, fieldName: string): string {
-        let classes = 'input-underline';
+        let classes = '';
         if (this.isFieldInvalid(step, fieldName)) {
-            classes += ' input-underline-invalid shake-error';
+            classes = 'input-error shake-error';
         } else if (this.isFieldValid(step, fieldName)) {
-            classes += ' input-underline-valid';
+            classes = 'input-valid';
         }
         return classes;
     }

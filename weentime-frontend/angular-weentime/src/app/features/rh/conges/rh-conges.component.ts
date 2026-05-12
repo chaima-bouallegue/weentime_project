@@ -1,11 +1,12 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Check, X, Search, Filter, CalendarCheck, Clock } from 'lucide-angular';
+import { LucideAngularModule } from 'lucide-angular';
 import { CongeService } from '../../employee/conges/conge.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { DemandeConge } from '../../employee/conges/models/conge.model';
 import { finalize } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { RhLeaveStore } from '../../../core/services/rh-leave.store';
 
 @Component({
   selector: 'app-rh-conges',
@@ -35,11 +36,11 @@ import { FormsModule } from '@angular/forms';
       <div class="filters-bar card mb-6">
         <div class="search-box">
           <lucide-icon name="search" size="18"></lucide-icon>
-          <input type="text" placeholder="Rechercher un collaborateur..." [(ngModel)]="searchQuery" (input)="filterDemandes()">
+          <input type="text" placeholder="Rechercher un collaborateur..." [(ngModel)]="searchQuery" (input)="onFilterChange()">
         </div>
         
         <div class="filter-actions">
-          <select class="filter-select" [(ngModel)]="statusFilter" (change)="filterDemandes()">
+          <select class="filter-select" [(ngModel)]="statusFilter" (change)="onFilterChange()">
             <option value="ALL">Tous les statuts</option>
             <option value="EN_ATTENTE_RH">En attente RH</option>
             <option value="EN_ATTENTE_MANAGER">En attente Manager</option>
@@ -129,7 +130,7 @@ import { FormsModule } from '@angular/forms';
       </div>
     </div>
 
-    <!-- Rejection Modal (shared UI pattern) -->
+    <!-- Rejection Modal -->
     @if (showRejectModal()) {
       <div class="modal-overlay">
         <div class="modal-card">
@@ -162,52 +163,38 @@ import { FormsModule } from '@angular/forms';
   `,
   styles: [`
     .rh-conges-container { padding: 32px; max-width: 1400px; margin: 0 auto; }
-    
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
     .page-title { font-size: 28px; font-weight: 900; color: #1e293b; margin: 0; }
     .page-subtitle { color: #64748b; margin: 4px 0 0; }
-    
     .stats-row { display: flex; gap: 24px; }
     .mini-stat { display: flex; flex-direction: column; align-items: flex-end; }
     .mini-stat .label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
     .mini-stat .value { font-size: 28px; font-weight: 900; line-height: 1; margin-top: 4px; }
     .mini-stat .value.yellow { color: #eab308; }
     .mini-stat .value.green { color: #10b981; }
-
     .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     :host-context(.dark) .card { background: #1e293b; border-color: #334155; }
-    :host-context(.dark) .page-title { color: #f8fafc; }
-
     .filters-bar { padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
     .search-box { flex: 1; position: relative; display: flex; align-items: center; color: #94a3b8; }
     .search-box input { width: 100%; border: none; background: transparent; padding: 10px 12px; font-size: 14px; outline: none; color: #1e293b; }
     :host-context(.dark) .search-box input { color: #f8fafc; }
-    
     .filter-select { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 16px; font-size: 13px; font-weight: 600; outline: none; transition: border-color 0.2s; }
     :host-context(.dark) .filter-select { background: #0f172a; border-color: #334155; color: #f8fafc; }
-
     .data-table { width: 100%; border-collapse: collapse; }
     .data-table th { padding: 16px 24px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.025em; text-align: left; }
-    :host-context(.dark) .data-table th { background: #0f172a; border-bottom-color: #334155; }
     .data-table td { padding: 16px 24px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     :host-context(.dark) .data-table td { border-bottom-color: #334155; }
-
     .user-info { display: flex; align-items: center; gap: 12px; }
     .user-avatar { width: 40px; height: 40px; border-radius: 12px; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
     .user-name { display: block; font-weight: 700; font-size: 14px; color: #1e293b; }
     :host-context(.dark) .user-name { color: #f8fafc; }
     .user-email { display: block; font-size: 12px; color: #94a3b8; }
-
-    .team-name { font-size: 13px; color: #64748b; }
-
     .type-pill { padding: 4px 12px; border-radius: 10px; border: 1px solid; font-size: 11px; font-weight: 700; color: #64748b; background: rgba(0,0,0,0.02); }
-
     .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .status-badge.en_attente_rh { background: #dbeafe; color: #1e40af; }
     .status-badge.en_attente_manager { background: #fef9c3; color: #854d0e; }
     .status-badge.approuve { background: #dcfce7; color: #166534; }
     .status-badge.refuse { background: #fee2e2; color: #991b1b; }
-
     .actions-col { text-align: right; }
     .action-buttons { display: flex; gap: 8px; justify-content: flex-end; }
     .btn-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; }
@@ -215,82 +202,62 @@ import { FormsModule } from '@angular/forms';
     .btn-icon.approve:hover { background: #16a34a; color: #fff; }
     .btn-icon.reject { background: #fee2e2; color: #ef4444; }
     .btn-icon.reject:hover { background: #ef4444; color: #fff; }
-
-    /* Modal styles (same as manager for consistency) */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal-card { background: #fff; border-radius: 24px; width: 100%; max-width: 440px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
     .modal-header { padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
     .modal-body { padding: 24px; }
     .form-control { width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; outline: none; resize: none; font-size: 14px; }
     .modal-footer { padding: 16px 24px; background: #f8fafc; display: flex; gap: 12px; justify-content: flex-end; }
-    
     .btn { padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
     .btn-outline { background: #fff; border: 1px solid #e2e8f0; color: #64748b; }
     .btn-danger { background: #ef4444; color: #fff; }
-
     .loading-state, .empty-state { padding: 80px; text-align: center; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   `]
 })
 export class RhCongesComponent {
+  private leaveStore = inject(RhLeaveStore);
   private congeService = inject(CongeService);
   private toast = inject(ToastService);
 
-  allDemandes = signal<DemandeConge[]>([]);
-  filteredDemandes = signal<DemandeConge[]>([]);
-  isLoading = signal(true);
+  isLoading = this.leaveStore.isLoading;
+  allDemandes = this.leaveStore.allDemandes;
+  
+  searchQuery = signal('');
+  statusFilter = signal('ALL');
   processingIds = signal<number[]>([]);
-
-  searchQuery = '';
-  statusFilter = 'ALL';
 
   showRejectModal = signal(false);
   selectedDemande = signal<DemandeConge | null>(null);
   rejectComment = '';
 
-  pendingCount = signal(0);
-  approvedCount = signal(0);
+  filteredDemandes = computed(() => {
+    let list = this.allDemandes();
+    const query = this.searchQuery().toLowerCase();
+    const status = this.statusFilter();
 
-  constructor() {
-    this.loadDemandes();
-  }
-
-  loadDemandes(): void {
-    this.isLoading.set(true);
-    this.congeService.getAllDemandes().pipe(
-      finalize(() => this.isLoading.set(false))
-    ).subscribe({
-      next: (data) => {
-        this.allDemandes.set(data);
-        this.filterDemandes();
-        this.updateStats(data);
-      },
-      error: () => this.toast.error('Erreur de chargement des demandes')
-    });
-  }
-
-  updateStats(data: DemandeConge[]): void {
-    this.pendingCount.set(data.filter(d => d.statut === 'EN_ATTENTE_RH').length);
-    this.approvedCount.set(data.filter(d => d.statut === 'APPROUVE').length);
-  }
-
-  filterDemandes(): void {
-    let filtered = this.allDemandes();
-
-    if (this.statusFilter !== 'ALL') {
-      filtered = filtered.filter(d => d.statut === this.statusFilter);
+    if (status !== 'ALL') {
+      list = list.filter(d => d.statut === status);
     }
-
-    if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(d => 
+    if (query) {
+      list = list.filter(d => 
         d.userName?.toLowerCase().includes(query) || 
         d.userEmail?.toLowerCase().includes(query)
       );
     }
+    return list;
+  });
 
-    this.filteredDemandes.set(filtered);
+  pendingCount = computed(() => this.allDemandes().filter(d => d.statut === 'EN_ATTENTE_RH').length);
+  approvedCount = computed(() => this.allDemandes().filter(d => d.statut === 'APPROUVE').length);
+
+  refresh(): void {
+    this.leaveStore.loadAllDemandes().subscribe();
+  }
+
+  onFilterChange(): void {
+    // Computed signals handle filtering automatically
   }
 
   approve(demande: DemandeConge): void {
@@ -298,9 +265,9 @@ export class RhCongesComponent {
     this.congeService.validerParRH(demande.id).pipe(
       finalize(() => this.stopProcessing(demande.id))
     ).subscribe({
-      next: () => {
+      next: (updated) => {
         this.toast.success(`Demande de ${demande.userName} approuvée officiellement`);
-        this.loadDemandes();
+        this.leaveStore.updateDemande(updated);
       },
       error: () => this.toast.error('Échec de la validation RH')
     });
@@ -328,9 +295,9 @@ export class RhCongesComponent {
         this.closeRejectModal();
       })
     ).subscribe({
-      next: () => {
+      next: (updated) => {
         this.toast.success('Demande rejetée par les RH');
-        this.loadDemandes();
+        this.leaveStore.updateDemande(updated);
       },
       error: () => this.toast.error('Erreur lors du rejet')
     });

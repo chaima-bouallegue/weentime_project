@@ -2,14 +2,15 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal 
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, forkJoin, of, timer } from 'rxjs';
+import { timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { TeletravailService } from '../../employee/teletravail/teletravail.service';
-import { DemandeTeletravailWorkflow, StatsRH } from '../../shared/models/workflow-teletravail.model';
+import { DemandeTeletravailWorkflow } from '../../shared/models/workflow-teletravail.model';
 import { StatsRhCardsComponent } from './components/stats-rh-cards/stats-rh-cards.component';
 import { DemandesRhListComponent } from './components/demandes-rh-list/demandes-rh-list.component';
 import { DecisionRhModalComponent } from './components/decision-rh-modal/decision-rh-modal.component';
 import { HistoriqueGlobalComponent } from './components/historique-global/historique-global.component';
+import { RhTeletravailStore } from '../../../core/services/rh-teletravail.store';
 
 @Component({
   selector: 'app-rh-teletravail',
@@ -27,14 +28,16 @@ import { HistoriqueGlobalComponent } from './components/historique-global/histor
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RhTeletravailComponent implements OnInit {
+  private readonly store = inject(RhTeletravailStore);
   private readonly service = inject(TeletravailService);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly demandesEnAttente = signal<DemandeTeletravailWorkflow[]>([]);
-  readonly historiqueGlobal = signal<DemandeTeletravailWorkflow[]>([]);
-  readonly stats = signal<StatsRH | null>(null);
-  readonly isLoading = signal(true);
-  readonly loadWarning = signal<string | null>(null);
+  readonly demandesEnAttente = this.store.demandesEnAttente;
+  readonly historiqueGlobal = this.store.historiqueGlobal;
+  readonly stats = this.store.stats;
+  readonly isLoading = this.store.isLoading;
+  readonly loadWarning = this.store.error;
+
   readonly demandeSelectionnee = signal<DemandeTeletravailWorkflow | null>(null);
   readonly modeDecision = signal<'VALIDER' | 'REFUSER' | null>(null);
   readonly isSubmitting = signal(false);
@@ -60,14 +63,9 @@ export class RhTeletravailComponent implements OnInit {
 
   onConfirmDecision(event: { id: number; commentaire: string }): void {
     const mode = this.modeDecision();
-    if (!mode) {
-      return;
-    }
+    if (!mode) return;
 
     this.isSubmitting.set(true);
-    const backup = this.demandesEnAttente();
-    this.demandesEnAttente.update(list => list.filter(d => d.id !== event.id));
-
     const request$ = mode === 'VALIDER'
       ? this.service.validerRH(event.id, event.commentaire)
       : this.service.rejeterRH(event.id, event.commentaire);
@@ -78,50 +76,20 @@ export class RhTeletravailComponent implements OnInit {
         next: result => {
           this.isSubmitting.set(false);
           this.closeModal();
-          this.historiqueGlobal.update(list => result ? [result, ...list] : list);
-          this.stats.update(current => current ? {
-            ...current,
-            enAttente: Math.max(current.enAttente - 1, 0),
-            ...(mode === 'VALIDER'
-              ? { approuveCeMois: current.approuveCeMois + 1 }
-              : { refuseCeMois: current.refuseCeMois + 1 })
-          } : current);
+          this.store.updateAfterDecision(event.id, result, mode);
         },
         error: () => {
-          this.demandesEnAttente.set(backup);
           this.isSubmitting.set(false);
         }
       });
   }
 
   private startPolling(): void {
-    timer(0, 10000)
+    timer(30000, 30000)
       .pipe(
-        switchMap(() => {
-          this.isLoading.set(true);
-          return forkJoin({
-            stats: this.service.getStatsRH(),
-            pending: this.service.getDemandesEnAttenteRH(),
-            history: this.service.getHistoriqueGlobal()
-          }).pipe(
-            catchError(() => {
-              this.loadWarning.set('Certaines donnees RH sont indisponibles pour le moment.');
-              return of({
-                stats: null,
-                pending: [] as DemandeTeletravailWorkflow[],
-                history: [] as DemandeTeletravailWorkflow[]
-              });
-            })
-          );
-        }),
+        switchMap(() => this.store.loadAll(true)),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(({ stats, pending, history }) => {
-        this.stats.set(stats);
-        this.demandesEnAttente.set(pending);
-        this.historiqueGlobal.set(history);
-        this.loadWarning.set(stats === null ? 'Certaines donnees RH sont indisponibles pour le moment.' : null);
-        this.isLoading.set(false);
-      });
+      .subscribe();
   }
 }

@@ -53,7 +53,7 @@ export class ManagerApiService {
 
   getPendingRequests(page = 0, size = 20): Observable<ManagerPage<ManagerApprovalRequest>> {
     const params = new HttpParams().set('page', String(page)).set('size', String(size)).set('sort', 'dateCreation,desc');
-    return this.http.get<ApiEnvelope<ManagerPage<any>>>(this.api.RH.GET_MANAGER_ALL_DEMANDS, { params }).pipe(
+    return this.http.get<ApiEnvelope<ManagerPage<any>>>(this.api.RH.GET_MANAGER_ALL_DEMANDS(this.auth.currentUser()?.id || 0), { params }).pipe(
       map(response => this.mapDemandPage(this.unwrap(response))),
       map(pageData => ({
         ...pageData,
@@ -70,7 +70,7 @@ export class ManagerApiService {
     if (statut) {
       params = params.set('statut', statut);
     }
-    return this.http.get<ApiEnvelope<ManagerPage<any>>>(this.api.RH.GET_MANAGER_ALL_DEMANDS, { params }).pipe(
+    return this.http.get<ApiEnvelope<ManagerPage<any>>>(this.api.RH.GET_MANAGER_ALL_DEMANDS(this.auth.currentUser()?.id || 0), { params }).pipe(
       map(response => this.mapDemandPage(this.unwrap(response)))
     );
   }

@@ -1,23 +1,21 @@
 import { Component, OnInit, inject, signal, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { 
-  LucideAngularModule, 
-  LUCIDE_ICONS,
-  LucideIconProvider,
-  Wallet, 
-  History, 
-  Database, 
-  UserPlus, 
-  AlertTriangle, 
-  ChevronDown, 
-  Search, 
-  Check, 
-  AlertCircle, 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
-  Loader2 
+import {
+  LucideAngularModule,
+  Wallet,
+  History,
+  Database,
+  UserPlus,
+  AlertTriangle,
+  ChevronDown,
+  Search,
+  Check,
+  AlertCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from 'lucide-angular';
 import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { RhSoldeService, EmployeeSolde, SoldeDetail } from '../services/rh-solde.service';
@@ -27,9 +25,9 @@ import { RhSoldeService, EmployeeSolde, SoldeDetail } from '../services/rh-solde
   selector: 'app-rh-soldes-manager',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    LucideAngularModule
+    CommonModule,
+    FormsModule,
+    LucideAngularModule,
   ],
   template: `
     <div class="flex flex-col gap-6 animate-in fade-in duration-500 pb-20">
@@ -397,12 +395,12 @@ export class RhSoldesManagerComponent implements OnInit {
 
   leaveTypes = signal<any[]>([]);
   selectedEmployeeIds = signal<Set<number>>(new Set());
-  
-  editing = signal<{user: any, solde: any} | null>(null);
+
+  editing = signal<{ user: any, solde: any } | null>(null);
   newJours = signal<number>(0);
   motif = signal<string>('');
   showResetModal = signal<boolean>(false);
-  
+
   // Audit Signals
   showAuditModal = signal<boolean>(false);
   auditLogs = signal<any[]>([]);
@@ -443,7 +441,7 @@ export class RhSoldesManagerComponent implements OnInit {
 
   loadSoldes() {
     this.loading.set(true);
-    
+
     this.soldeService.getGlobalSoldes({
       page: this.currentPage(),
       size: this.pageSize(),

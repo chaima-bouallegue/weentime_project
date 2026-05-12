@@ -2,9 +2,10 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule, SlicePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
-import { HoraireService } from '../../../core/services/horaire.service';
-import { Horaire, AffectationHoraire } from '../../../core/models/horaire.model';
-import { ToastService } from '../../../core/services/toast.service';
+import { HoraireService } from '@app/core/services/horaire.service';
+import { RhHorairesStore } from '@app/core/services/rh-horaires.store';
+import { Horaire, AffectationHoraire } from '@app/core/models/horaire.model';
+import { ToastService } from '@app/core/services/toast.service';
 
 @Component({
   selector: 'app-rh-horaires',
@@ -17,61 +18,30 @@ export class RhHorairesComponent implements OnInit {
   private horaireService = inject(HoraireService);
   private router = inject(Router);
   private toastService = inject(ToastService);
+  private store = inject(RhHorairesStore);
 
-  horaires = signal<Horaire[]>([]);
-  affectations = signal<AffectationHoraire[]>([]);
+  horaires = this.store.horaires;
+  affectations = this.store.affectations;
   activeTab = signal<'MODELS' | 'ASSIGNMENTS'>('MODELS');
   
-  isLoading = signal(true);
-  error = signal<string | null>(null);
+  isLoading = this.store.isLoading;
+  error = this.store.error;
   
   showDeleteConfirm = signal<Horaire | null>(null);
   showCancelAffectationConfirm = signal<AffectationHoraire | null>(null);
   isDeleting = signal(false);
 
   ngOnInit(): void {
-    this.refreshData();
+    // Data is pre-fetched by resolver, but we can refresh if needed
+    // this.store.refresh();
   }
 
   setTab(tab: 'MODELS' | 'ASSIGNMENTS'): void {
     this.activeTab.set(tab);
-    this.refreshData();
   }
 
   refreshData(): void {
-    if (this.activeTab() === 'MODELS') {
-      this.loadHoraires();
-    } else {
-      this.loadAffectations();
-    }
-  }
-
-  loadHoraires(): void {
-    this.isLoading.set(true);
-    this.horaireService.getHoraires(0, 100).subscribe({
-      next: (response) => {
-        this.horaires.set(response.content);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        this.error.set('Impossible de charger les horaires');
-        this.isLoading.set(false);
-      }
-    });
-  }
-
-  loadAffectations(): void {
-    this.isLoading.set(true);
-    this.horaireService.getAffectations(0, 100).subscribe({
-      next: (response) => {
-        this.affectations.set(response.content);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        this.error.set('Impossible de charger les affectations');
-        this.isLoading.set(false);
-      }
-    });
+    this.store.refresh();
   }
 
   promptDelete(horaire: Horaire): void {
@@ -92,7 +62,7 @@ export class RhHorairesComponent implements OnInit {
         this.toastService.success('Modèle d\'horaire supprimé avec succès');
         this.isDeleting.set(false);
         this.showDeleteConfirm.set(null);
-        this.loadHoraires();
+        this.refreshData();
       },
       error: (err) => {
         this.toastService.error('Erreur lors de la suppression de l\'horaire');
@@ -119,7 +89,7 @@ export class RhHorairesComponent implements OnInit {
         this.toastService.success('Affectation annulée avec succès');
         this.isDeleting.set(false);
         this.showCancelAffectationConfirm.set(null);
-        this.loadAffectations();
+        this.refreshData();
       },
       error: (err) => {
         this.toastService.error('Erreur lors de l\'annulation de l\'affectation');

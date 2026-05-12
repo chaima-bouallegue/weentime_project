@@ -16,74 +16,55 @@ export class DocumentService {
   private http = inject(HttpClient);
   private apiConfig = inject(ApiConfigService);
 
-  private typesDisponibles: TypeDocumentConfig[] = [
-    {
-      type: 'ATTESTATION_TRAVAIL',
-      label: 'Attestation de travail',
-      description: "Confirme votre emploi actuel dans l'entreprise",
-      icone: 'file-check',
-      couleur: '#6366f1',
-      delaiEstime: '24h',
-      requiresMois: false
-    },
-    {
-      type: 'BULLETIN_PAIE',
-      label: 'Bulletin de paie',
-      description: 'Bulletin de salaire pour un mois selectionne',
-      icone: 'receipt',
-      couleur: '#10b981',
-      delaiEstime: '48h',
-      requiresMois: true
-    },
-    {
-      type: 'ATTESTATION_SALAIRE',
-      label: 'Attestation de salaire',
-      description: "Montant brut et net certifie par l'employeur",
-      icone: 'banknote',
-      couleur: '#059669',
-      delaiEstime: '24h',
-      requiresMois: false
-    },
-    {
-      type: 'CONTRAT_TRAVAIL',
-      label: 'Contrat de travail',
-      description: 'Copie certifiee de votre contrat signe',
-      icone: 'file-signature',
-      couleur: '#8b5cf6',
-      delaiEstime: '72h',
-      requiresMois: false
-    },
-    {
-      type: 'CERTIFICAT_CONGE',
-      label: 'Certificat de conge',
-      description: 'Attestation de la periode de conge approuvee',
-      icone: 'umbrella',
-      couleur: '#3b82f6',
-      delaiEstime: '24h',
-      requiresMois: false
-    },
-    {
-      type: 'ATTESTATION_ANCIENNETE',
-      label: "Attestation d'anciennete",
-      description: "Confirme votre duree de service dans l'entreprise",
-      icone: 'award',
-      couleur: '#f59e0b',
-      delaiEstime: '24h',
-      requiresMois: false
-    },
-    {
-      type: 'FICHE_POSTE',
-      label: 'Fiche de poste',
-      description: 'Description officielle de votre poste actuel',
-      icone: 'briefcase',
-      couleur: '#64748b',
-      delaiEstime: '48h',
-      requiresMois: false
-    }
-  ];
+  private cachedTypes: TypeDocumentConfig[] = [];
+
+  getTypesDocument(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiConfig.buildUrl('/rh')}/parametres/types-documents`);
+  }
 
   getTypesDisponibles(): Observable<TypeDocumentConfig[]> {
-    return of([...this.typesDisponibles]);
+    if (this.cachedTypes.length > 0) return of(this.cachedTypes);
+
+    return this.getTypesDocument().pipe(
+      map(types => {
+        this.cachedTypes = types.map(t => ({
+          type: t.code as TypeDocument,
+          label: t.libelle,
+          description: t.requireSignature ? 'Signature requise' : 'Validation simple',
+          icone: this.mapTypeToIcon(t.code),
+          couleur: this.mapTypeToColor(t.code),
+          delaiEstime: '48h',
+          requiresMois: t.code === 'BULLETIN_PAIE'
+        }));
+        return this.cachedTypes;
+      })
+    );
+  }
+
+  private mapTypeToIcon(code: string): string {
+    const map: Record<string, string> = {
+      'ATTESTATION_TRAVAIL': 'file-check',
+      'BULLETIN_PAIE': 'receipt',
+      'ATTESTATION_SALAIRE': 'banknote',
+      'CONTRAT_TRAVAIL': 'file-signature',
+      'CERTIFICAT_CONGE': 'umbrella',
+      'ATTESTATION_ANCIENNETE': 'award',
+      'FICHE_POSTE': 'briefcase'
+    };
+    return map[code] || 'file-text';
+  }
+
+  private mapTypeToColor(code: string): string {
+    const map: Record<string, string> = {
+      'ATTESTATION_TRAVAIL': '#6366f1',
+      'BULLETIN_PAIE': '#10b981',
+      'ATTESTATION_SALAIRE': '#059669',
+      'CONTRAT_TRAVAIL': '#8b5cf6',
+      'CERTIFICAT_CONGE': '#3b82f6',
+      'ATTESTATION_ANCIENNETE': '#f59e0b',
+      'FICHE_POSTE': '#64748b'
+    };
+    return map[code] || '#4f46e5';
   }
 
   getHistorique(): Observable<DemandeDocument[]> {
@@ -135,7 +116,7 @@ export class DocumentService {
   }
 
   getConfigForType(type: TypeDocument): TypeDocumentConfig | undefined {
-    return this.typesDisponibles.find(t => t.type === type);
+    return this.cachedTypes.find(t => t.type === type);
   }
 
   private mapToDemandeDocument(item: any): DemandeDocument {

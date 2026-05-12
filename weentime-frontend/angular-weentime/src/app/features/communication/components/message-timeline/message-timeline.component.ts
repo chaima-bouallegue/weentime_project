@@ -33,7 +33,9 @@ import { MessageBubbleComponent } from '../message-bubble/message-bubble.compone
           (deleteFailed)="deleteFailed.emit($event)"
           (toggleReaction)="toggleReaction.emit($event)"
           (editMessage)="editMessage.emit($event)"
-          (deleteMessage)="deleteMessage.emit($event)">
+          (deleteForEveryone)="deleteForEveryone.emit($event)"
+          (deleteForMe)="deleteForMe.emit($event)"
+          (replyThread)="replyThread.emit($event)">
         </app-message-bubble>
       </div>
     </section>
@@ -42,48 +44,77 @@ import { MessageBubbleComponent } from '../message-bubble/message-bubble.compone
     .comm-timeline {
       flex: 1;
       overflow: auto;
-      padding: 24px;
+      padding: 32px 0;
       display: flex;
       flex-direction: column;
     }
 
     .comm-timeline-list {
-      display: grid;
-      gap: 16px;
+      display: flex;
+      flex-direction: column;
       margin-top: auto;
+      padding-bottom: 80px;
     }
 
     .comm-timeline-state {
       display: grid;
       gap: 16px;
+      padding: 0 32px;
     }
 
     .comm-line-skeleton {
-      height: 94px;
-      border-radius: 24px;
-      background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #f5f3ff, #ede9fe, #f5f3ff);
       background-size: 200% 100%;
-      animation: shimmer 1.2s linear infinite;
+      animation: shimmer 1.5s linear infinite;
     }
 
     .comm-timeline-error,
     .comm-timeline-empty {
       margin: auto;
-      max-width: 420px;
+      max-width: 400px;
       text-align: center;
-      padding: 28px;
-      border-radius: 28px;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      padding: 40px;
+      border-radius: 32px;
+      background: white;
+      box-shadow: 0 20px 50px rgba(83, 74, 183, 0.06);
+      border: 1px solid rgba(83, 74, 183, 0.1);
+    }
+
+    .comm-timeline-empty h3 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1e1b4b;
+      margin-bottom: 8px;
+    }
+
+    .comm-timeline-empty p {
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .comm-timeline-error p {
+      color: #f43f5e;
+      font-weight: 600;
+      margin-bottom: 16px;
     }
 
     .comm-timeline-error button {
       border: none;
       border-radius: 999px;
-      background: #0f766e;
+      background: #534AB7;
       color: white;
-      padding: 10px 16px;
+      padding: 10px 20px;
+      font-weight: 700;
       cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .comm-timeline-error button:hover {
+      background: #4338ca;
+      transform: translateY(-1px);
     }
 
     @keyframes shimmer {
@@ -101,6 +132,8 @@ export class MessageTimelineComponent {
   @Output() retrySend = new EventEmitter<MessageModel>();
   @Output() deleteFailed = new EventEmitter<MessageModel>();
   @Output() toggleReaction = new EventEmitter<{ message: MessageModel; emoji: string }>();
-  @Output() editMessage = new EventEmitter<MessageModel>();
-  @Output() deleteMessage = new EventEmitter<MessageModel>();
+  @Output() editMessage = new EventEmitter<{ message: MessageModel; body: string }>();
+  @Output() deleteForEveryone = new EventEmitter<MessageModel>();
+  @Output() deleteForMe = new EventEmitter<MessageModel>();
+  @Output() replyThread = new EventEmitter<MessageModel>();
 }

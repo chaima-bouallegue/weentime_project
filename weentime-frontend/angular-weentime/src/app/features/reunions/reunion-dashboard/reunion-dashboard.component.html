@@ -1,0 +1,135 @@
+<div class="dashboard-bento-container">
+  <!-- Hero Section: Prochaine Réunion -->
+  @if (prochaineReunion(); as next) {
+    <div class="dashboard-hero">
+      <div class="hero-card premium-glass" [routerLink]="['/app/reunions', next.uuid]">
+        <div class="card-mesh"></div>
+        <div class="hero-content">
+          <div class="hero-main">
+            <div class="live-indicator" [class.active]="next.statut === 'EN_COURS'">
+              <span class="dot"></span>
+              {{ next.statut === 'EN_COURS' ? 'En cours' : 'Prochaine réunion' }}
+            </div>
+            <h1 class="hero-title">{{ next.titre }}</h1>
+            <div class="hero-meta">
+              <div class="meta-item">
+                <lucide-icon [img]="iconClock" size="20"></lucide-icon>
+                <span>{{ next.heureDebut }} — {{ next.heureFin }}</span>
+              </div>
+              <div class="meta-item">
+                <lucide-icon [img]="next.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="20"></lucide-icon>
+                <span>{{ next.type === 'EN_LIGNE' ? 'Visioconférence' : next.lieu }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="hero-side">
+            @if (countdown(); as time) {
+              <div class="countdown-badge">
+                <span class="label">Commence dans</span>
+                <span class="time">{{ time }}</span>
+              </div>
+            }
+            @if (next.type === 'EN_LIGNE' && next.lienVisio) {
+              <button class="hero-btn primary" (click)="$event.stopPropagation()">
+                <lucide-icon [img]="iconVideo"></lucide-icon>
+                Rejoindre maintenant
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="dashboard-hero">
+      <div class="hero-card premium-glass empty-hero-card">
+         <div class="hero-main">
+            <h1 class="hero-title">Bonjour, {{ currentUser()?.prenom }}</h1>
+            <p>Aucune réunion immédiate prévue. Profitez-en pour organiser votre journée !</p>
+         </div>
+      </div>
+    </div>
+  }
+
+  <!-- Search & Quick Actions -->
+  <div class="dashboard-actions-row">
+    <div class="search-glass">
+      <lucide-icon [img]="iconSearch" size="18"></lucide-icon>
+      <input type="text" placeholder="Rechercher une réunion, un projet..." (input)="onSearch($event)">
+    </div>
+
+    <div class="filter-tabs">
+      <button class="tab-btn" [class.active]="filter() === 'all'" (click)="setFilter('all')">Toutes</button>
+      <button class="tab-btn" [class.active]="filter() === 'upcoming'" (click)="setFilter('upcoming')">À venir</button>
+      <button class="tab-btn" [class.active]="filter() === 'past'" (click)="setFilter('past')">Terminées</button>
+    </div>
+
+    @if (isManagerOrRh()) {
+      <button class="hero-btn primary compact" routerLink="create">
+        <lucide-icon [img]="iconPlus"></lucide-icon>
+        <span>Nouvelle réunion</span>
+      </button>
+    }
+  </div>
+
+  <!-- Bento Grid of Meetings -->
+  <div class="bento-grid">
+    <!-- Meeting Card -->
+    @for (r of filteredReunions(); track r.uuid) {
+      <div class="bento-card meeting-card" [routerLink]="['/app/reunions', r.uuid]">
+        <div class="card-header">
+          <div class="date-tag">
+            <span class="day">{{ r.dateReunion | date:'dd' }}</span>
+            <span class="month">{{ r.dateReunion | date:'MMM' }}</span>
+          </div>
+          <div class="status-pill" [attr.data-status]="r.statut">
+            {{ r.statut }}
+          </div>
+        </div>
+
+        <div class="card-body">
+          <h3 class="meeting-title">{{ r.titre }}</h3>
+          <div class="meeting-type">
+            <lucide-icon [img]="r.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="14"></lucide-icon>
+            <span>{{ r.type }}</span>
+          </div>
+          <p class="meeting-desc">{{ r.description | slice:0:80 }}{{ r.description.length > 80 ? '...' : '' }}</p>
+        </div>
+
+        <div class="card-footer">
+          <div class="participant-stack">
+            <div class="avatars">
+              @for (p of r.participants.slice(0, 3); track p.utilisateurId) {
+                <div class="avatar-mini">
+                  @if (p.photo) {
+                    <img [src]="p.photo" [title]="p.nom">
+                  } @else {
+                    <div class="initials">{{ p.nom?.[0] }}</div>
+                  }
+                </div>
+              }
+              @if (r.participants.length > 3) {
+                <div class="avatar-more">+{{ r.participants.length - 3 }}</div>
+              }
+            </div>
+            <span class="p-count">{{ r.participants.length }} participants</span>
+          </div>
+          <div class="time-tag">
+            <lucide-icon [img]="iconClock" size="14"></lucide-icon>
+            {{ r.heureDebut }}
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Empty State -->
+  @if (!isLoading() && filteredReunions().length === 0) {
+    <div class="empty-state-glass">
+      <div class="empty-icon-wrap">
+        <lucide-icon [img]="iconCalendar" size="40"></lucide-icon>
+      </div>
+      <h3>Aucune réunion à afficher</h3>
+      <p>Vos réunions apparaîtront ici une fois planifiées.</p>
+    </div>
+  }
+</div>

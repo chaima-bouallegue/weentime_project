@@ -4,6 +4,7 @@ import { interval, take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { DashboardService } from '@app/features/dashboard/dashboard.service';
+import { DashboardStore } from '@app/core/services/dashboard.store';
 import { DashboardPayload, DashboardSegment } from '../../models/dashboard-ui.models';
 import { DashboardLayoutComponent } from '../../templates/dashboard-layout/dashboard-layout.component';
 import { DashboardStatsGridComponent } from '../../organisms/dashboard-stats-grid/dashboard-stats-grid.component';
@@ -329,12 +330,13 @@ import { SkeletonListComponent } from '../../molecules/skeleton-list/skeleton-li
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class EmployeeDashboardPageComponent {
-  private readonly service = inject(DashboardService);
+  private readonly store = inject(DashboardStore);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly data = signal<DashboardPayload | null>(null);
-  readonly loading = signal(true);
-  readonly error = signal<string | null>(null);
+  readonly data = this.store.employeeData;
+  readonly loading = this.store.isLoading('EMPLOYEE');
+  readonly error = this.store.getError('EMPLOYEE');
+  
   readonly warnings = computed(() => this.data()?.warnings ?? []);
   readonly hasPartialData = computed(() => this.warnings().length > 0);
 
@@ -344,7 +346,6 @@ export class EmployeeDashboardPageComponent {
   );
 
   constructor() {
-    this.loadData(true, false);
     interval(60_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadData(false, true));
@@ -355,24 +356,7 @@ export class EmployeeDashboardPageComponent {
   }
 
   private loadData(showLoader: boolean, forceRefresh: boolean): void {
-    if (showLoader) {
-      this.loading.set(true);
-    }
-    this.error.set(null);
-
-    this.service.getEmployeeDashboard(forceRefresh)
-      .pipe(take(1))
-      .subscribe({
-        next: payload => {
-          this.data.set(payload);
-          this.loading.set(false);
-        },
-        error: err => {
-          this.loading.set(false);
-          const message = err instanceof Error ? err.message : 'Erreur lors du chargement des données.';
-          this.error.set(message);
-        }
-      });
+    this.store.loadDashboard('EMPLOYEE', forceRefresh).pipe(take(1)).subscribe();
   }
 
   private segmentValue(label: string): number {

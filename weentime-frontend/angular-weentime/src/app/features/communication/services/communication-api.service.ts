@@ -16,7 +16,8 @@ import {
   ReadMarkerResponse,
   SendMessageRequest,
   UpdateMessageRequest,
-  UnreadSummaryModel
+  UnreadSummaryModel,
+  AttachmentModel
 } from '../models/communication.models';
 
 @Injectable({
@@ -56,6 +57,12 @@ export class CommunicationApiService {
     return this.http.get<ApiEnvelope<CursorMessagePageResponse>>(url, { params }).pipe(this.unwrapResponse('GET', url));
   }
 
+  getThreadReplies(rootMessageId: string, limit: number = 50): Observable<CursorMessagePageResponse> {
+    const url = this.apiConfig.buildUrl(`/communication/messages/${rootMessageId}/replies`);
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<ApiEnvelope<CursorMessagePageResponse>>(url, { params }).pipe(this.unwrapResponse('GET', url));
+  }
+
   sendMessage(channelId: string, request: SendMessageRequest): Observable<MessageModel> {
     const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/messages`);
     return this.http.post<ApiEnvelope<MessageModel>>(url, request).pipe(this.unwrapResponse('POST', url));
@@ -90,6 +97,17 @@ export class CommunicationApiService {
     const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/read`);
     const payload: MarkChannelReadRequest = messageId ? { messageId } : {};
     return this.http.post<ApiEnvelope<ReadMarkerResponse>>(url, payload).pipe(this.unwrapResponse('POST', url));
+  }
+
+  uploadAttachments(files: File[]): Observable<AttachmentModel[]> {
+    const url = this.apiConfig.buildUrl('/communication/attachments');
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    return this.http.post<ApiEnvelope<AttachmentModel[]>>(url, formData).pipe(this.unwrapResponse('POST', url));
+  }
+
+  getDownloadUrl(attachmentId: string): string {
+    return this.apiConfig.buildUrl(`/communication/attachments/${attachmentId}/download`);
   }
 
   getUnreadSummary(): Observable<UnreadSummaryModel> {

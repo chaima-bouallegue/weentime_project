@@ -19,8 +19,6 @@ import { ReactionSummaryModel } from '../../models/communication.models';
         <span>{{ reaction.emoji }}</span>
         <small>{{ reaction.count }}</small>
       </button>
-
-      <button type="button" class="comm-reaction add" [disabled]="disabled" (click)="toggle.emit('👍')">+ 👍</button>
     </div>
   `,
   styles: [`
@@ -32,25 +30,35 @@ import { ReactionSummaryModel } from '../../models/communication.models';
     }
 
     .comm-reaction {
-      border: none;
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: rgba(226, 232, 240, 0.8);
-      color: #334155;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 20px;
+      padding: 3px 10px;
+      background: white;
+      color: #64748b;
       display: inline-flex;
       gap: 6px;
       align-items: center;
       cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      box-shadow: 0 2px 4px rgba(15, 23, 42, 0.02);
+    }
+
+    .comm-reaction:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: rgba(83, 74, 183, 0.2);
+      transform: translateY(-1px);
     }
 
     .comm-reaction.active {
-      background: rgba(14, 165, 233, 0.16);
-      color: #0369a1;
+      background: #EEEDFE;
+      color: #534AB7;
+      border-color: rgba(83, 74, 183, 0.3);
+      box-shadow: 0 4px 10px rgba(83, 74, 183, 0.1);
     }
 
-    .comm-reaction.add {
-      background: rgba(15, 118, 110, 0.1);
-      color: #0f766e;
+    .comm-reaction small {
+      font-weight: 700;
     }
   `]
 })

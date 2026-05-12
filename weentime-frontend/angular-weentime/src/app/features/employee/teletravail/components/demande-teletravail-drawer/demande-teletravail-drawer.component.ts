@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, X, ChevronLeft, ChevronRight, Sun, Sunrise, Sunset, Home, Calendar, Info, Send, Loader2, Monitor, AlertCircle, Sparkles, Laptop, Check } from 'lucide-angular';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
-import { TypeTeletravail, PeriodeDemiJournee, NouvelleDemandeTeletravailRequest } from '../../models/teletravail.model';
+import { PeriodeDemiJournee, NouvelleDemandeTeletravailRequest, TypeTeletravailConfig } from '../../models/teletravail.model';
+import { TeletravailService } from '../../teletravail.service';
 
 interface CalendarDay {
   date: Date;
@@ -34,9 +35,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
 
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<NouvelleDemandeTeletravailRequest>();
-
-  private readonly assistantWorkflow = inject(AssistantWorkflowService);
-
+  
   // Icons
   readonly iconX = X;
   readonly iconChevronLeft = ChevronLeft;
@@ -55,22 +54,28 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
   readonly iconLaptop = Laptop;
   readonly iconCheck = Check;
 
+  private readonly assistantWorkflow = inject(AssistantWorkflowService);
+  private readonly teletravailService = inject(TeletravailService);
+
   step = signal(1);
-  selectedType = signal<TypeTeletravail | null>(null);
+  selectedType = signal<TypeTeletravailConfig | null>(null);
   selectedStartDate = signal<string | null>(null);
   selectedEndDate = signal<string | null>(null);
   periodeDemiJournee = signal<PeriodeDemiJournee>('MATIN');
   motif = signal('');
   isSubmitting = signal(false);
 
+  availableTypes = signal<TypeTeletravailConfig[]>([]);
+
   viewDate = signal(new Date());
 
-  types = [
-    { value: 'JOURNEE_COMPLETE', label: 'Journée complète', icon: this.iconSun, color: 'indigo', desc: 'Toute la journée depuis chez vous' },
-    { value: 'DEMI_JOURNEE_MATIN', label: 'Matinée', icon: this.iconSunrise, color: 'blue', desc: 'Matin uniquement (jusqu\'à 13h)' },
-    { value: 'DEMI_JOURNEE_APRES_MIDI', label: 'Après-midi', icon: this.iconSunset, color: 'orange', desc: 'Après-midi uniquement (à partir de 13h)' },
-    { value: 'SEMAINE_COMPLETE', label: 'Semaine complète', icon: this.iconHome, color: 'violet', desc: '5 jours consécutifs — justification requise' }
-  ];
+  // These will be merged with backend types to provide labels/icons
+  private readonly TYPE_UI_CONFIG: Record<string, { label: string; icon: any; color: string; desc: string }> = {
+    'JOURNEE_COMPLETE': { label: 'Journée complète', icon: Sun, color: 'indigo', desc: 'Toute la journée depuis chez vous' },
+    'MATIN': { label: 'Matinée', icon: Sunrise, color: 'blue', desc: 'Matin uniquement (jusqu\'à 13h)' },
+    'APRES_MIDI': { label: 'Après-midi', icon: Sunset, color: 'orange', desc: 'Après-midi uniquement (à partir de 13h)' },
+    'DEFAULT': { label: 'Autre', icon: Home, color: 'violet', desc: 'Modalité de télétravail personnalisée' }
+  };
 
   calendarDays = computed(() => {
     const date = this.viewDate();
@@ -94,58 +99,56 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
 
   nombreJoursSelectionnes = computed(() => {
     if (!this.selectedStartDate()) return 0;
-    if (this.selectedType()?.startsWith('DEMI_JOURNEE')) return 0.5;
+    const periode = this.selectedType()?.periode;
+    if (periode === 'MATIN' || periode === 'APRES_MIDI') return 0.5;
     if (!this.selectedEndDate()) return 1;
-    
-    // Simple diff (exclusive of weekends/holidays for JOURNEE_COMPLETE range)
-    // But for simplicity in mock, we just calculate business days in range
     return this.calculateBusinessDays(this.selectedStartDate()!, this.selectedEndDate()!);
   });
 
   isStep1Valid = computed(() => !!this.selectedType() && this.joursRestants > 0);
   isStep2Valid = computed(() => !!this.selectedStartDate() && this.nombreJoursSelectionnes() <= this.joursRestants);
   isStep3Valid = computed(() => {
-    const minLen = this.selectedType() === 'SEMAINE_COMPLETE' ? 20 : 10;
+    const minLen = 10;
     return this.motif().length >= minLen;
   });
 
   ngOnInit(): void {
-    const draft = this.assistantWorkflow.teleworkDraft();
-    if (!draft) {
-      return;
-    }
+    this.teletravailService.getTypes().subscribe(types => {
+      this.availableTypes.set(types.map(t => ({
+        ...t,
+        icon: this.TYPE_UI_CONFIG[t.periode]?.icon || this.TYPE_UI_CONFIG['DEFAULT'].icon,
+        color: this.TYPE_UI_CONFIG[t.periode]?.color || this.TYPE_UI_CONFIG['DEFAULT'].color,
+        desc: t.libelle || this.TYPE_UI_CONFIG[t.periode]?.desc || this.TYPE_UI_CONFIG['DEFAULT'].desc
+      })));
+      
+      const draft = this.assistantWorkflow.teleworkDraft();
+      if (draft) {
+        this.applyDraft(draft);
+      }
+    });
+  }
 
-    const type = this.resolveDraftType(draft.type);
+  private applyDraft(draft: any): void {
+    const type = this.availableTypes().find(t => t.periode === this.resolveDraftType(draft.type)) || this.availableTypes()[0];
     if (type) {
       this.selectedType.set(type);
       this.step.set(2);
-      if (type === 'DEMI_JOURNEE_MATIN') {
-        this.periodeDemiJournee.set('MATIN');
-      } else if (type === 'DEMI_JOURNEE_APRES_MIDI') {
-        this.periodeDemiJournee.set('APRES_MIDI');
-      }
+      if (type.periode === 'MATIN') this.periodeDemiJournee.set('MATIN');
+      else if (type.periode === 'APRES_MIDI') this.periodeDemiJournee.set('APRES_MIDI');
     }
     if (draft.dateDebut) {
       this.selectedStartDate.set(draft.dateDebut);
       const viewDate = new Date(`${draft.dateDebut}T00:00:00`);
-      if (!Number.isNaN(viewDate.getTime())) {
-        this.viewDate.set(viewDate);
-      }
+      if (!Number.isNaN(viewDate.getTime())) this.viewDate.set(viewDate);
     }
-    if (draft.dateFin) {
-      this.selectedEndDate.set(draft.dateFin);
-    }
-    if (draft.motif) {
-      this.motif.set(draft.motif);
-    }
-    if (type && draft.dateDebut && draft.dateFin) {
-      this.step.set(3);
-    }
+    if (draft.dateFin) this.selectedEndDate.set(draft.dateFin);
+    if (draft.motif) this.motif.set(draft.motif);
+    if (type && draft.dateDebut && draft.dateFin) this.step.set(3);
 
     this.assistantWorkflow.clearTeleworkDraft(draft.id);
   }
 
-  selectType(type: any): void {
+  selectType(type: TypeTeletravailConfig): void {
     if (this.joursRestants === 0) return;
     this.selectedType.set(type);
     this.selectedStartDate.set(null);
@@ -157,10 +160,13 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
 
   selectDate(dStr: string): void {
     const type = this.selectedType();
-    if (type?.startsWith('DEMI_JOURNEE')) {
+    if (!type) return;
+
+    if (type.periode === 'MATIN' || type.periode === 'APRES_MIDI') {
       this.selectedStartDate.set(dStr);
       this.selectedEndDate.set(dStr);
-    } else if (type === 'JOURNEE_COMPLETE') {
+      this.periodeDemiJournee.set(type.periode);
+    } else {
       if (!this.selectedStartDate() || (this.selectedStartDate() && this.selectedEndDate() !== this.selectedStartDate())) {
         this.selectedStartDate.set(dStr);
         this.selectedEndDate.set(dStr);
@@ -171,7 +177,6 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
           this.selectedStartDate.set(dStr);
           this.selectedEndDate.set(dStr);
         } else {
-          // Check max 5 days
           const days = this.calculateBusinessDays(this.selectedStartDate()!, dStr);
           if (days <= 5) this.selectedEndDate.set(dStr);
           else {
@@ -180,14 +185,6 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
           }
         }
       }
-    } else if (type === 'SEMAINE_COMPLETE') {
-      const date = new Date(dStr);
-      const day = date.getDay(); // 0-6 (Sun-Sat)
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      const monday = new Date(date.setDate(diff));
-      const friday = new Date(date.setDate(diff + 4));
-      this.selectedStartDate.set(monday.toISOString().split('T')[0]);
-      this.selectedEndDate.set(friday.toISOString().split('T')[0]);
     }
   }
 
@@ -238,13 +235,22 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
   onSubmit(): void {
     if (!this.isStep3Valid()) return;
     this.isSubmitting.set(true);
+    const type = this.selectedType()!;
     this.submitted.emit({
-      type: this.selectedType()!,
+      typeTeletravailId: type.id,
+      type: this.mapType(type.periode),
       dateDebut: this.selectedStartDate()!,
       dateFin: this.selectedEndDate()!,
-      periode: this.selectedType()?.startsWith('DEMI_JOURNEE') ? this.periodeDemiJournee() : undefined,
+      periode: type.periode === 'JOURNEE_COMPLETE' ? undefined : type.periode as PeriodeDemiJournee,
       motif: this.motif()
     });
+  }
+
+  private mapType(periode: string): any {
+    if (periode === 'MATIN') return 'DEMI_JOURNEE_MATIN';
+    if (periode === 'APRES_MIDI') return 'DEMI_JOURNEE_APRES_MIDI';
+    if (periode === 'JOURNEE_COMPLETE') return 'JOURNEE_COMPLETE';
+    return 'JOURNEE_COMPLETE';
   }
 
   getMonthLabel(): string {
@@ -261,7 +267,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
     this.viewDate.set(new Date(d.getFullYear(), d.getMonth() - 1, 1));
   }
 
-  private resolveDraftType(value?: string): TypeTeletravail | null {
+  private resolveDraftType(value?: string): string | null {
     const normalized = typeof value === 'string'
       ? value
         .normalize('NFD')
@@ -270,22 +276,13 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
         .trim()
       : '';
 
-    if (!normalized) {
-      return null;
-    }
-    if (normalized.includes('semaine')) {
-      return 'SEMAINE_COMPLETE';
-    }
-    if (normalized.includes('matin')) {
-      return 'DEMI_JOURNEE_MATIN';
-    }
-    if (normalized.includes('apres')) {
-      return 'DEMI_JOURNEE_APRES_MIDI';
-    }
-    if (normalized.includes('journee')) {
-      return 'JOURNEE_COMPLETE';
-    }
+    if (!normalized) return null;
+    if (normalized.includes('matin')) return 'MATIN';
+    if (normalized.includes('apres')) return 'APRES_MIDI';
+    if (normalized.includes('journee') || normalized.includes('complet')) return 'JOURNEE_COMPLETE';
 
-    return (this.types.find(type => type.value === value)?.value as TypeTeletravail | undefined) ?? null;
+    // Try exact match against available types
+    const match = this.availableTypes().find(t => t.periode === value);
+    return match?.periode ?? null;
   }
 }

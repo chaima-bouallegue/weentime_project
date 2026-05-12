@@ -49,6 +49,10 @@ export class AutorisationService {
     return this.http.get<StatsAutorisation>(`${this.baseUrl}/kpis/rh`).pipe(map(response => this.unwrap(response)));
   }
 
+  getTypesAutorisation(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiConfig.buildUrl('/rh')}/parametres/types-autorisations`);
+  }
+
   soumettreDemande(request: any): Observable<Autorisation> {
     const body = {
       ...request,

@@ -33,7 +33,7 @@ export class EquipeFormComponent implements OnInit {
       nom: [this.equipe?.nom ?? '', [Validators.required, Validators.minLength(2)]],
       description: [this.equipe?.description ?? ''],
       departementId: [this.equipe?.departementId ?? null, [Validators.required]],
-      managerId: [this.equipe?.managerId ?? null, this.equipe ? [] : [Validators.required]]
+      managerId: [this.equipe?.managerId ?? null, []]
     });
   }
 

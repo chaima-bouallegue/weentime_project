@@ -4,7 +4,8 @@ import { Observable, of, catchError, map, tap, throwError } from 'rxjs';
 import {
   QuotaTeletravail,
   DemandeTeletravail,
-  NouvelleDemandeTeletravailRequest
+  NouvelleDemandeTeletravailRequest,
+  TypeTeletravailConfig
 } from './models/teletravail.model';
 import { StatsWorkflow, StatsRH, DemandeTeletravailWorkflow } from '../../shared/models/workflow-teletravail.model';
 import { ToastService } from '../../../core/services/toast.service';
@@ -19,35 +20,17 @@ export class TeletravailService {
   private readonly apiConfig = inject(ApiConfigService);
   private readonly API = this.apiConfig.RH.GET_TELETRAVAILS;
 
+  getTypes(): Observable<TypeTeletravailConfig[]> {
+    return this.http.get<TypeTeletravailConfig[]>(this.apiConfig.RH.GET_TELETRAVAIL_TYPES).pipe(
+      map(res => this.unwrapCollection(res)),
+      catchError(err => this.handleError('Erreur lors de la recuperation des types', err))
+    );
+  }
+
   getQuota(): Observable<QuotaTeletravail> {
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-
-    return this.getHistorique().pipe(
-      map(items => {
-        const inMonth = items.filter(item => {
-          const date = new Date(item.dateDebut);
-          return date >= monthStart && date <= monthEnd;
-        });
-        const joursUtilises = inMonth
-          .filter(item => item.statut === 'APPROUVE')
-          .reduce((sum, item) => sum + Number(item.nombreJours || 0), 0);
-        const joursEnAttente = inMonth
-          .filter(item => item.statut === 'EN_ATTENTE_MANAGER' || item.statut === 'EN_ATTENTE_RH')
-          .reduce((sum, item) => sum + Number(item.nombreJours || 0), 0);
-        const joursAutorises = 10;
-
-        return {
-          joursAutorises,
-          joursUtilises,
-          joursEnAttente,
-          joursRestants: Math.max(joursAutorises - joursUtilises - joursEnAttente, 0),
-          periodeDebut: monthStart.toISOString().slice(0, 10),
-          periodeFin: monthEnd.toISOString().slice(0, 10)
-        };
-      })
+    return this.http.get<unknown>(this.apiConfig.RH.GET_TELETRAVAIL_QUOTA).pipe(
+      map(res => this.unwrapItem(res) as QuotaTeletravail),
+      catchError(err => this.handleError('Erreur lors de la recuperation du quota', err))
     );
   }
 
@@ -67,14 +50,17 @@ export class TeletravailService {
   }
 
   annulerDemande(id: number): Observable<any> {
-    return this.http.put(`${this.API}/${id}/annuler`, {}).pipe(
+    return this.http.put(`${this.apiConfig.RH.GET_TELETRAVAILS}/${id}/annuler`, {}).pipe(
       tap(() => this.toastService.success('Demande annulee')),
       catchError(err => this.handleError('Erreur lors de l annulation', err))
     );
   }
 
   getJoursFeries(): Observable<string[]> {
-    return of([]);
+    return this.http.get<unknown>(this.apiConfig.RH.GET_JOURS_FERIES).pipe(
+      map(res => this.unwrapCollection(res).map(h => h.date || h)),
+      catchError(() => of([]))
+    );
   }
 
   getDemandesEquipe(): Observable<DemandeTeletravailWorkflow[]> {

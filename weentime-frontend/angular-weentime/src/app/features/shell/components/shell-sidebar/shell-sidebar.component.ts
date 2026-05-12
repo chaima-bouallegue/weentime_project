@@ -110,7 +110,8 @@ export class ShellSidebarComponent {
     const role = this.userRole();
     const items: NavItem[] = [
       { id: 'dashboard', label: 'Tableau de bord', icon: 'layout-dashboard', route: `${base}/dashboard` },
-      { id: 'messages', label: 'Messages', icon: 'message-square', route: '/app/messages' }
+      { id: 'messages', label: 'Messages', icon: 'message-square', route: '/app/messages' },
+      { id: 'reunions', label: 'Réunions', icon: 'calendar-check', route: '/app/reunions' }
     ];
 
     if (role === 'EMPLOYEE') {
@@ -139,6 +140,7 @@ export class ShellSidebarComponent {
     if (role === 'RH') {
       items.push(
         { id: 'rh-analytics', label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
+        { id: 'rh-planning', label: 'Calendrier Global', icon: 'calendar', route: `${base}/planning` },
         { id: 'rh-structure', label: 'Structure', icon: 'network', route: `${base}/structure` },
         { id: 'rh-employes', label: 'Employes', icon: 'briefcase', route: `${base}/employes` },
         { id: 'rh-conges', label: 'Conges', icon: 'calendar-check', route: `${base}/conges` },

@@ -9,6 +9,9 @@ import {
   Bell,
   Building2,
   Calendar,
+  CalendarCheck,
+  CalendarRange,
+  CalendarX2,
   CalendarPlus,
   CheckCircle,
   ChevronRight,
@@ -16,6 +19,7 @@ import {
   ClipboardCheck,
   Clock3,
   FileText,
+  Hourglass,
   House,
   Inbox,
   LayoutGrid,
@@ -30,7 +34,11 @@ import {
   TrendingUp,
   UserX,
   Users,
-  Wallet
+  Wallet,
+  Pencil,
+  X,
+  Plus,
+  Search
 } from 'lucide-angular';
 
 const ICON_REGISTRY: Record<string, any> = {
@@ -64,7 +72,16 @@ const ICON_REGISTRY: Record<string, any> = {
   'trending-down': TrendingDown,
   'user-x': UserX,
   users: Users,
-  wallet: Wallet
+  wallet: Wallet,
+  'calendar-check': CalendarCheck,
+  'calendar-range': CalendarRange,
+  hourglass: Hourglass,
+  'calendar-x-2': CalendarX2,
+  pencil: Pencil,
+  x: X,
+  plus: Plus,
+  search: Search,
+  'refresh-cw': RefreshCw
 };
 
 @Component({

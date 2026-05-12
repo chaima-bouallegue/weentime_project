@@ -22,19 +22,24 @@ import { ChannelModel } from '../../models/communication.models';
     .comm-nav-item {
       display: grid;
       grid-template-columns: 24px 1fr auto;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
-      padding: 12px 14px;
+      padding: 10px 14px;
       border-radius: 16px;
-      color: #314158;
+      color: #475569;
       text-decoration: none;
-      transition: background-color 0.18s ease, transform 0.18s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .comm-nav-item:hover,
+    .comm-nav-item:hover {
+      background: rgba(83, 74, 183, 0.05);
+      color: #534AB7;
+    }
+
     .comm-nav-item.active {
-      background: rgba(15, 118, 110, 0.12);
-      transform: translateX(2px);
+      background: #EEEDFE;
+      color: #3C3489;
+      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.08);
     }
 
     .comm-nav-icon {
@@ -44,9 +49,15 @@ import { ChannelModel } from '../../models/communication.models';
       width: 24px;
       height: 24px;
       border-radius: 8px;
-      background: #e2f3ef;
-      color: #0f766e;
-      font-weight: 700;
+      background: #EEEDFE;
+      color: #534AB7;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .comm-nav-item.active .comm-nav-icon {
+      background: #534AB7;
+      color: white;
     }
 
     .comm-nav-text {
@@ -54,28 +65,40 @@ import { ChannelModel } from '../../models/communication.models';
       min-width: 0;
     }
 
-    .comm-nav-text strong,
-    .comm-nav-text small {
+    .comm-nav-text strong {
+      font-size: 14px;
+      font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .comm-nav-text small {
-      color: #64748b;
+      font-size: 12px;
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .comm-nav-item.active .comm-nav-text small {
+      color: #534AB7;
+      opacity: 0.7;
     }
 
     .comm-nav-unread {
-      min-width: 24px;
-      height: 24px;
-      padding: 0 8px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
       border-radius: 999px;
-      background: #0f766e;
+      background: #ef4444;
       color: white;
-      font-size: 12px;
+      font-size: 11px;
+      font-weight: 700;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
     }
   `]
 })

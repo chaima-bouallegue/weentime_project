@@ -163,10 +163,10 @@ export class ApiConfigService {
     GET_ADMIN_DEMANDS: `${this.API_BASE}/rh/demandes/admin`,
     GET_ALL_DEMANDS: `${this.API_BASE}/rh/demandes`,
     GET_RH_REQUESTS: `${this.API_BASE}/rh/demandes`,
-    GET_MANAGER_DEMANDS: `${this.API_BASE}/demandes/manager`,
-    GET_MANAGER_ALL_DEMANDS: `${this.API_BASE}/demandes/manager/all`,
-    GET_MANAGER_PENDING_DEMANDS: `${this.API_BASE}/requests/manager/pending`,
-    GET_RH_PENDING_DEMANDS: `${this.API_BASE}/rh/conges/rh/pending`,
+    GET_MANAGER_DEMANDS: (id: number) => `${this.API_BASE}/rh/demandes/manager/${id}`,
+    GET_MANAGER_ALL_DEMANDS: (id: number) => `${this.API_BASE}/rh/demandes/manager/${id}/all`,
+    GET_MANAGER_PENDING_DEMANDS: `${this.API_BASE}/rh/demandes/manager/pending`,
+    GET_RH_PENDING_DEMANDS: `${this.API_BASE}/rh/demandes/rh/pending`,
     GET_RH_STATS: `${this.API_BASE}/rh/stats`,
 
     // Congés (Leave)
@@ -181,7 +181,7 @@ export class ApiConfigService {
     REJECT_CONGE_RH: (id: number) => `${this.API_BASE}/rh/conges/${id}/refuser-rh`,
     CANCEL_CONGE: (id: number) => `${this.API_BASE}/rh/conges/${id}/cancel`,
 
-    // Absences
+    // Absences (OBSOLETE - To be removed)
     GET_ABSENCES: `${this.API_BASE}/rh/absences`,
     GET_MY_ABSENCES: `${this.API_BASE}/rh/absences/mes-absences`,
     GET_MANAGER_ABSENCES: `${this.API_BASE}/rh/absences/entreprise`,
@@ -200,6 +200,9 @@ export class ApiConfigService {
     REJECT_TELETRAVAIL_MANAGER: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/rejeter-manager`,
     VALIDATE_TELETRAVAIL_RH: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/valider-rh`,
     REJECT_TELETRAVAIL_RH: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/rejeter-rh`,
+    GET_TELETRAVAIL_QUOTA: `${this.API_BASE}/rh/teletravails/quota`,
+    GET_USER_TELETRAVAIL_QUOTA: (id: number) => `${this.API_BASE}/rh/teletravails/quota/utilisateur/${id}`,
+    GET_TELETRAVAIL_TYPES: `${this.API_BASE}/rh/type-teletravail`,
 
     // Authorisations
     GET_AUTORISATIONS: `${this.API_BASE}/rh/autorisations`,
@@ -233,10 +236,7 @@ export class ApiConfigService {
     UPDATE_TYPE_CONGE: (id: number) => `${this.API_BASE}/rh/type-conges/${id}`,
     DELETE_TYPE_CONGE: (id: number) => `${this.API_BASE}/rh/type-conges/${id}`,
 
-    GET_TYPE_ABSENCES: `${this.API_BASE}/rh/type-absences`,
-    CREATE_TYPE_ABSENCE: `${this.API_BASE}/rh/type-absences`,
-    UPDATE_TYPE_ABSENCE: (id: number) => `${this.API_BASE}/rh/type-absences/${id}`,
-    DELETE_TYPE_ABSENCE: (id: number) => `${this.API_BASE}/rh/type-absences/${id}`,
+    GET_TYPE_ABSENCES: `${this.API_BASE}/rh/type-absences`, // OBSOLETE
 
     GET_SOLDE_CONGES: (annee: number) => `${this.API_BASE}/rh/solde-conges/me/all?annee=${annee}`,
     GET_SOLDE_CONGE_BY_ID: (id: number, annee: number) => `${this.API_BASE}/rh/solde-conges/me?typeCongeId=${id}&annee=${annee}`,

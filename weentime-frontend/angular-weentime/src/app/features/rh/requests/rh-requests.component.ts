@@ -11,6 +11,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
 import { AdminStatCardComponent } from '../../../shared/components/admin-stat-card/admin-stat-card.component';
 import { RhDashboardService } from '../dashboard/rh-dashboard.service';
 import { RhApiService, RhRequest } from '../rh-api.service';
+import { ValidationStore } from '../../../core/services/validation.store';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 
 type RequestAction = 'approve' | 'reject';
@@ -233,6 +234,7 @@ type StatusTab = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
 })
 export class RhRequestsComponent {
   private readonly api = inject(RhApiService);
+  private readonly validationStore = inject(ValidationStore);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly dashboardService = inject(RhDashboardService);
@@ -247,7 +249,7 @@ export class RhRequestsComponent {
   ];
   readonly requestTypes: RhRequest['type'][] = ['CONGE', 'ABSENCE', 'TELETRAVAIL', 'AUTORISATION', 'DOCUMENT'];
 
-  readonly isLoading = signal(true);
+  readonly isLoading = this.validationStore.isLoading;
   readonly submitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly requests = signal<RhRequest[]>([]);
@@ -271,7 +273,14 @@ export class RhRequestsComponent {
   readonly pendingDelta = computed(() => `${this.requests().filter(request => request.type === 'CONGE').length} leave`);
 
   constructor() {
-    this.load();
+    // Sync from store
+    effect(() => {
+      const initialRequests = this.validationStore.rhRequests();
+      if (initialRequests.length > 0 && this.requests().length === 0) {
+        this.requests.set(initialRequests);
+      }
+    }, { allowSignalWrites: true });
+
     this.assistantSync.events$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
@@ -288,11 +297,10 @@ export class RhRequestsComponent {
       this.dateTo();
       this.page.set(0);
       queueMicrotask(() => this.load());
-    });
+    }, { allowSignalWrites: true });
   }
 
   load(): void {
-    this.isLoading.set(true);
     this.errorMessage.set(null);
 
     this.api.getRequests(this.page(), this.size(), {
@@ -302,10 +310,7 @@ export class RhRequestsComponent {
       dateFrom: this.dateFrom() || undefined,
       dateTo: this.dateTo() || undefined
     })
-      .pipe(
-        finalize(() => this.isLoading.set(false)),
-        takeUntilDestroyed(this.destroyRef)
-      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: page => {
           this.requests.set(page.content);

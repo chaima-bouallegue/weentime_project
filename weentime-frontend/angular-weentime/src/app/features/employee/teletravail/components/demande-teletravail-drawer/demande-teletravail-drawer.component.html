@@ -51,11 +51,11 @@
           <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">Choisissez la modalité qui vous convient le mieux.</p>
 
           <div class="grid grid-cols-1 gap-4">
-            @for (type of types; track type.value) {
+            @for (type of availableTypes(); track type.id) {
               <div
-                (click)="selectType(type.value)"
+                (click)="selectType(type)"
                 class="selection-card group"
-                [class.active]="selectedType() === type.value"
+                [class.active]="selectedType()?.id === type.id"
                 [class.disabled]="joursRestants === 0"
               >
                 <div class="icon-wrapper" [class]="type.color">
@@ -63,8 +63,8 @@
                 </div>
                 <div class="flex-1">
                   <div class="flex items-center justify-between mb-1">
-                    <span class="font-black text-slate-900 dark:text-white">{{ type.label }}</span>
-                    <lucide-angular [img]="iconCheck" size="18" class="text-indigo-500 transition-opacity" [class.opacity-0]="selectedType() !== type.value"></lucide-angular>
+                    <span class="font-black text-slate-900 dark:text-white">{{ type.libelle }}</span>
+                    <lucide-angular [img]="iconCheck" size="18" class="text-indigo-500 transition-opacity" [class.opacity-0]="selectedType()?.id !== type.id"></lucide-angular>
                   </div>
                   <p class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{{ type.desc }}</p>
                 </div>
@@ -89,7 +89,7 @@
         <div class="animate-in slide-in-from-right-4 duration-300">
           <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2">Sélectionnez les dates</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">
-            {{ selectedType() === 'SEMAINE_COMPLETE' ? 'Choisissez une semaine (Lundi au Vendredi).' : 'Cliquez sur les jours souhaités.' }}
+            Cliquez sur les jours souhaités.
           </p>
 
           <div class="bento-card p-6 mb-8">
@@ -125,7 +125,7 @@
             </div>
           </div>
 
-          @if (selectedType()?.startsWith('DEMI_JOURNEE')) {
+          @if (selectedType()?.periode === 'MATIN' || selectedType()?.periode === 'APRES_MIDI') {
             <div class="space-y-4">
               <h4 class="text-sm font-black text-slate-900 dark:text-white mb-3">Quelle période ?</h4>
               <div class="grid grid-cols-2 gap-4">
@@ -168,8 +168,8 @@
                 class="w-full h-32 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none"
               ></textarea>
               <div class="flex items-center justify-between mt-2 px-1 text-[10px]">
-                <span class="font-bold" [class.text-rose-500]="motif().length < (selectedType() === 'SEMAINE_COMPLETE' ? 20 : 10)">
-                  Min. {{ selectedType() === 'SEMAINE_COMPLETE' ? '20' : '10' }} caractères
+                <span class="font-bold" [class.text-rose-500]="motif().length < 10">
+                  Min. 10 caractères
                 </span>
                 <span class="text-slate-400">{{ motif().length }} caractères</span>
               </div>
@@ -180,7 +180,7 @@
               <div class="space-y-3">
                 <div class="flex items-center justify-between">
                   <span class="text-xs text-slate-500 font-medium">Type</span>
-                  <span class="text-xs font-bold text-slate-900 dark:text-white">{{ selectedType() }}</span>
+                  <span class="text-xs font-bold text-slate-900 dark:text-white">{{ selectedType()?.libelle }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-xs text-slate-500 font-medium">Dates</span>

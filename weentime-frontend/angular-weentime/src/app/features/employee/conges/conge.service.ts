@@ -163,13 +163,17 @@ export class CongeService {
     return of([...this.joursFeries]).pipe(delay(300));
   }
 
+  getTypesConge(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/type-conges`);
+  }
+
   soumettreDemande(request: NouvelleDemandeRequest): Observable<DemandeConge> {
     const payload = {
       dateDebut: request.dateDebut,
       dateFin: request.dateFin,
       motif: request.motif,
-      typeCongeId: request.typeCongeId ?? this.typeToId(request.type),
-      typeCongeNom: this.getLabelForType(request.type),
+      typeCongeId: request.typeCongeId,
+      typeCongeNom: request['label'] as string,
       typeDemande: 'CONGE'
     };
     return this.http.post<unknown>(`${this.apiUrl}/conges`, payload).pipe(

@@ -1,0 +1,262 @@
+<div class="immersive-create-container">
+  <div class="glass-sidebar">
+    <div class="sidebar-header">
+      <div class="icon-circle">
+        <lucide-icon [img]="iconCalendar" size="24"></lucide-icon>
+      </div>
+      <h2>Nouvelle Réunion</h2>
+    </div>
+
+    <div class="stepper-vertical">
+      <div class="step-item" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
+        <div class="step-dot">
+          @if (currentStep() <= 1) {
+            <span>1</span>
+          } @else {
+            <lucide-icon [img]="iconCheck" size="14"></lucide-icon>
+          }
+        </div>
+        <div class="step-info">
+          <span class="label">Informations</span>
+          <span class="desc">Titre & Détails</span>
+        </div>
+      </div>
+      
+      <div class="step-line-v"></div>
+
+      <div class="step-item" [class.active]="currentStep() === 2" [class.done]="currentStep() > 2">
+        <div class="step-dot">
+          @if (currentStep() <= 2) {
+            <span>2</span>
+          } @else {
+            <lucide-icon [img]="iconCheck" size="14"></lucide-icon>
+          }
+        </div>
+        <div class="step-info">
+          <span class="label">Participants</span>
+          <span class="desc">Inviter l'équipe</span>
+        </div>
+      </div>
+
+      <div class="step-line-v"></div>
+
+      <div class="step-item" [class.active]="currentStep() === 3">
+        <div class="step-dot">3</div>
+        <div class="step-info">
+          <span class="label">Configuration</span>
+          <span class="desc">Type & Lieu</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-cancel" routerLink="..">
+        <lucide-icon [img]="iconX" size="18"></lucide-icon>
+        Abandonner
+      </button>
+    </div>
+  </div>
+
+  <div class="main-form-area">
+    <div class="form-glass-card">
+      
+      <!-- Step 1: Basic Info -->
+      @if (currentStep() === 1) {
+        <div class="step-view">
+          <div class="view-header">
+            <h1>Parlez-nous de cette réunion</h1>
+            <p>Définissez l'objectif et le créneau horaire.</p>
+          </div>
+
+          <form [formGroup]="basicForm" class="bento-form-grid">
+            <div class="form-group col-span-2">
+              <label>Titre de la réunion</label>
+              <input type="text" formControlName="titre" placeholder="Ex: Sprint Planning Q2">
+            </div>
+            
+            <div class="form-group col-span-2">
+              <label>Objectif & Description</label>
+              <textarea formControlName="description" rows="3" placeholder="Quel est le but de cet échange ?"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Date de l'événement</label>
+              <div class="input-glass">
+                <lucide-icon [img]="iconCalendar" size="18"></lucide-icon>
+                <input type="date" formControlName="dateReunion">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Récurrence</label>
+              <select formControlName="recurrence">
+                <option value="AUCUNE">Une seule fois</option>
+                <option value="QUOTIDIEN">Quotidienne</option>
+                <option value="HEBDOMADAIRE">Hebdomadaire</option>
+                <option value="MENSUEL">Mensuelle</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Heure de début</label>
+              <div class="input-glass">
+                <lucide-icon [img]="iconClock" size="18"></lucide-icon>
+                <input type="time" formControlName="heureDebut">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Heure de fin</label>
+              <div class="input-glass">
+                <lucide-icon [img]="iconClock" size="18"></lucide-icon>
+                <input type="time" formControlName="heureFin">
+              </div>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label>Ordre du jour (Agenda)</label>
+              <textarea formControlName="agenda" rows="4" placeholder="1. Point A&#10;2. Point B..."></textarea>
+            </div>
+          </form>
+        </div>
+      }
+
+      <!-- Step 2: Participants -->
+      @if (currentStep() === 2) {
+        <div class="step-view">
+          <div class="view-header">
+            <h1>Qui doit être présent ?</h1>
+            <p>Recherchez et sélectionnez vos collaborateurs.</p>
+          </div>
+
+          <div class="participants-container-glass">
+            <div class="search-bar-glass">
+              <lucide-icon [img]="iconSearch" size="20"></lucide-icon>
+              <input type="text" placeholder="Rechercher par nom, poste ou équipe...">
+              <span class="selection-pill">{{ selectedUsers().length }} sélectionnés</span>
+            </div>
+
+            <div class="users-bento-grid">
+              @for (user of allUsers(); track user.id) {
+                <div class="user-glass-card" 
+                     [class.selected]="selectedUsers().includes(user)"
+                     (click)="toggleUser(user)">
+                  <div class="user-avatar">
+                    @if (user.photo) {
+                      <img [src]="user.photo">
+                    } @else {
+                      <div class="initials">{{ user.nom?.[0] }}</div>
+                    }
+                    @if (selectedUsers().includes(user)) {
+                      <div class="check-overlay">
+                        <lucide-icon [img]="iconCheck" size="16"></lucide-icon>
+                      </div>
+                    }
+                  </div>
+                  <div class="user-meta">
+                    <span class="name">{{ user.prenom }} {{ user.nom }}</span>
+                    <span class="role">{{ user.poste || 'Collaborateur' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Step 3: Logistics -->
+      @if (currentStep() === 3) {
+        <div class="step-view">
+          <div class="view-header">
+            <h1>Derniers réglages</h1>
+            <p>Vérifiez la disponibilité et choisissez le lieu.</p>
+          </div>
+
+          <div class="logistics-split">
+            <!-- Conflict Check -->
+            <div class="status-panel-glass" [class.success]="conflicts().length === 0">
+              <div class="panel-header">
+                <lucide-icon [img]="conflicts().length > 0 ? iconAlert : iconCheck" size="24"></lucide-icon>
+                <h3>{{ conflicts().length > 0 ? 'Conflits d\'agenda' : 'Tout est prêt' }}</h3>
+              </div>
+              @if (conflicts().length > 0) {
+                <div class="conflicts-list">
+                  @for (c of conflicts(); track c.userId) {
+                    <div class="conflict-row">
+                      <span class="c-name">{{ c.nom }}</span>
+                      <span class="c-reason">{{ c.raison }}</span>
+                    </div>
+                  }
+                </div>
+              }
+              <p class="panel-desc">
+                {{ conflicts().length > 0 ? 'Certains participants ont déjà une réunion.' : 'Tous les participants sont disponibles.' }}
+              </p>
+            </div>
+
+            <form [formGroup]="typeForm" class="logistics-form">
+              <div class="type-cards-grid">
+                <label class="type-glass-card" [class.active]="typeForm.get('type')?.value === 'PRESENTIEL'">
+                  <input type="radio" formControlName="type" value="PRESENTIEL">
+                  <lucide-icon [img]="iconMapPin" size="32"></lucide-icon>
+                  <span>Présentiel</span>
+                </label>
+                <label class="type-glass-card" [class.active]="typeForm.get('type')?.value === 'EN_LIGNE'">
+                  <input type="radio" formControlName="type" value="EN_LIGNE">
+                  <lucide-icon [img]="iconVideo" size="32"></lucide-icon>
+                  <span>Visioconférence</span>
+                </label>
+              </div>
+
+              @if (typeForm.get('type')?.value === 'PRESENTIEL') {
+                <div class="form-group anim-fade">
+                  <label>Salle ou Lieu</label>
+                  <div class="input-glass">
+                    <lucide-icon [img]="iconMapPin" size="18"></lucide-icon>
+                    <input type="text" formControlName="lieu" placeholder="Ex: Salle de réunion Alpha">
+                  </div>
+                </div>
+              }
+
+              @if (typeForm.get('type')?.value === 'EN_LIGNE') {
+                <div class="form-group anim-fade">
+                  <label>Lien de réunion</label>
+                  <div class="input-glass">
+                    <lucide-icon [img]="iconVideo" size="18"></lucide-icon>
+                    <input type="text" formControlName="lienVisio" placeholder="https://meet.google.com/...">
+                  </div>
+                </div>
+              }
+            </form>
+          </div>
+        </div>
+      }
+
+      <div class="form-footer">
+        @if (currentStep() > 1) {
+          <button class="action-btn back" (click)="prevStep()">
+            <lucide-icon [img]="iconLeft"></lucide-icon>
+            Précédent
+          </button>
+        }
+        <div class="spacer"></div>
+        @if (currentStep() < 3) {
+          <button class="action-btn next" (click)="nextStep()" [disabled]="isCheckingConflicts()">
+            <span>{{ isCheckingConflicts() ? 'Vérification...' : 'Continuer' }}</span>
+            @if (!isCheckingConflicts()) {
+              <lucide-icon [img]="iconRight"></lucide-icon>
+            }
+          </button>
+        }
+        @if (currentStep() === 3) {
+          <button class="action-btn finish" (click)="onSubmit()" [disabled]="isLoading()">
+            @if (!isLoading()) {
+              <lucide-icon [img]="iconCheck"></lucide-icon>
+            }
+            <span>{{ isLoading() ? 'Création...' : 'Planifier maintenant' }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>

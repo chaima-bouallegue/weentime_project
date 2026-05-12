@@ -425,14 +425,39 @@
 .summary-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
+  align-items: center;
+  margin-bottom: 16px;
   
-  .label { font-size: 13px; color: #64748b; font-weight: 600; }
-  .value { font-size: 14px; color: #1e293b; font-weight: 700; }
+  .label { 
+    font-size: 13px; 
+    color: #64748b; 
+    font-weight: 600;
+    margin-right: 12px;
+  }
+  .value { 
+    font-size: 14px; 
+    color: #1e293b; 
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .badge {
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    background: #f1f5f9;
+    color: #64748b;
+
+    &.annuel { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+    &.maladie { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+    &.rtt { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+    &.exceptionnel { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+  }
   
   &.total {
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: 20px;
+    padding-top: 20px;
     border-top: 1px dashed #e2e8f0;
     .label { font-size: 14px; font-weight: 800; color: #1e293b; }
     .value { font-size: 18px; font-weight: 900; color: #6366f1; }
@@ -441,6 +466,7 @@
 
 .dark .summary-row {
   .value { color: #f8fafc; }
+  .badge { background: #1e293b; color: #94a3b8; }
   &.total { border-top-color: #2d3748; .label { color: #f8fafc; } }
 }
 

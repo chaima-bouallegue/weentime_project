@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, forkJoin, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { ApiConfigService } from '@app/core/services/api-config.service';
+import { AuthService } from '@app/core/services/auth.service';
 import { ToastService } from '@app/core/services/toast.service';
 
 export interface Demande {
@@ -98,6 +99,7 @@ interface ApprobationResponse {
 export class ApprobationService {
   private readonly httpClient = inject(HttpClient);
   private readonly apiConfig = inject(ApiConfigService);
+  private readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -147,7 +149,7 @@ export class ApprobationService {
     this.loadingSignal.set(true);
     const params = this.buildPageParams(0, 100).set('sort', 'dateCreation,desc');
 
-    this.httpClient.get<ApiResponse<ApiPage<BaseDemandeDto>>>(this.apiConfig.RH.GET_MANAGER_ALL_DEMANDS, { params })
+    this.httpClient.get<ApiResponse<ApiPage<BaseDemandeDto>>>(this.apiConfig.RH.GET_MANAGER_ALL_DEMANDS(this.authService.currentUser()?.id || 0), { params })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
@@ -499,7 +501,10 @@ export class ApprobationService {
       utilisateurId: dto.utilisateurId,
       type: 'AUTORISATION',
       statut: dto.statut,
-      dateCreation: dto.createdAt || '',
+      dateCreation: dto.createdAt || dto.dateCreation || '',
+      dateDebut: dto.dateDebut,
+      dateFin: dto.dateFin,
+      nombreJours: dto.duree ? dto.duree / 60 : 0,
       description: dto.typeAutorisation || dto.motif,
       raison: dto.motif,
       utilisateur: this.mapUtilisateur(dto.utilisateur, dto.utilisateurId)

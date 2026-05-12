@@ -1,10 +1,11 @@
-﻿import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { interval, take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { DashboardService } from '@app/features/dashboard/dashboard.service';
+import { DashboardStore } from '@app/core/services/dashboard.store';
 import { UiButtonComponent } from '../../atoms/button/button.component';
 import { UiIconComponent } from '../../atoms/icon/icon.component';
 import { UiSpinnerComponent } from '../../atoms/spinner/spinner.component';
@@ -739,12 +740,12 @@ interface ChartEntry {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminDashboardPageComponent {
-  private readonly service = inject(DashboardService);
+  private readonly store = inject(DashboardStore);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly data = signal<DashboardPayload | null>(null);
-  readonly loading = signal(true);
-  readonly error = signal<string | null>(null);
+  readonly data = this.store.adminData;
+  readonly loading = this.store.isLoading('ADMIN');
+  readonly error = this.store.getError('ADMIN');
 
   readonly warnings = computed<DashboardWidgetWarning[]>(() => this.data()?.warnings ?? []);
   readonly hasPartialData = computed(() => this.warnings().length > 0);
@@ -761,7 +762,6 @@ export class AdminDashboardPageComponent {
   });
 
   constructor() {
-    this.loadData(true, false);
     interval(60_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadData(false, true));
@@ -769,6 +769,10 @@ export class AdminDashboardPageComponent {
 
   manualRefresh(): void {
     this.loadData(true, true);
+  }
+
+  private loadData(showLoader: boolean, forceRefresh: boolean): void {
+    this.store.loadDashboard('ADMIN', forceRefresh).pipe(take(1)).subscribe();
   }
 
   isUnavailableStat(stat: DashboardStat): boolean {
@@ -801,26 +805,6 @@ export class AdminDashboardPageComponent {
     return entries;
   }
 
-  private loadData(showLoader: boolean, forceRefresh: boolean): void {
-    if (showLoader) {
-      this.loading.set(true);
-    }
-    this.error.set(null);
-
-    this.service.getAdminDashboard(forceRefresh)
-      .pipe(take(1))
-      .subscribe({
-        next: payload => {
-          this.data.set(payload);
-          this.loading.set(false);
-        },
-        error: err => {
-          this.loading.set(false);
-          const message = err instanceof Error ? err.message : 'Erreur lors du chargement des donnees.';
-          this.error.set(message);
-        }
-      });
-  }
 
   private findChart(id: string): DashboardChartSeries | null {
     return (this.data()?.charts ?? []).find(chart => chart.id === id) ?? null;

@@ -1,95 +1,123 @@
-<div class="page-container">
-  <div class="page-header">
-    <button class="btn-back" (click)="goBack()">
-      <lucide-icon name="arrow-left" size="20"></lucide-icon>
-    </button>
-    <div>
-      <h1 class="page-title">Affectation d'un horaire</h1>
-      <p class="page-subtitle">Attribuez un modele d'horaire a une equipe ou un collaborateur.</p>
+<div class="form-container fade-in">
+  <!-- Modern Header -->
+  <header class="form-header">
+    <div class="header-left">
+      <button class="btn-back-modern" (click)="goBack()" title="Retour">
+        <lucide-icon name="arrow-left" size="20"></lucide-icon>
+      </button>
+      <div class="header-titles">
+        <h1 class="page-title">Affectation d'un horaire</h1>
+        <p class="page-subtitle">Configurez et attribuez un modèle d'horaire à vos collaborateurs ou équipes.</p>
+      </div>
     </div>
-  </div>
+    
+    <div class="header-actions">
+       <!-- Option for secondary actions if needed -->
+    </div>
+  </header>
 
-  <form [formGroup]="assignForm" (ngSubmit)="verifierAvantSoumission()" class="form-layout">
-    <div class="card section-card">
-      <div class="section-header">
-        <lucide-icon name="clock-10" class="section-icon"></lucide-icon>
-        <h2>Modele d'horaire</h2>
+  <form [formGroup]="assignForm" (ngSubmit)="verifierAvantSoumission()" class="modern-form-layout">
+    
+    <!-- Section: Modèle Horaire -->
+    <section class="section-card">
+      <div class="section-info">
+        <div class="icon-box primary">
+          <lucide-icon name="clock-10" size="22"></lucide-icon>
+        </div>
+        <div class="text-group">
+          <h2 class="section-title">Modèle d'horaire</h2>
+          <p class="section-subtitle">Choisissez le modèle de temps de travail à appliquer.</p>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Selectionnez le modele</label>
-        <select formControlName="horaireId" class="form-control">
-          <option [ngValue]="null" disabled>--- Choisir un modele ---</option>
-          @for (h of horaires(); track h.id) {
-            <option [ngValue]="h.id">{{ h.nom }} ({{ h.heuresHebdo }}h)</option>
-          }
-        </select>
+      <div class="form-group mt-6">
+        <label class="input-label">Modèle à appliquer</label>
+        <div class="select-wrapper">
+          <select formControlName="horaireId" class="modern-input">
+            <option [ngValue]="null" disabled>--- Sélectionner un modèle ---</option>
+            @for (h of horaires(); track h.id) {
+              <option [ngValue]="h.id">{{ h.nom }} ({{ h.heuresHebdo }}h/semaine)</option>
+            }
+          </select>
+        </div>
         @if (assignForm.get('horaireId')?.invalid && assignForm.get('horaireId')?.touched) {
-          <p class="mt-2 text-sm text-red-600">La selection d'un modele d'horaire est obligatoire.</p>
+          <p class="error-text">La sélection d'un modèle d'horaire est obligatoire.</p>
         }
       </div>
-    </div>
+    </section>
 
-    <div class="card section-card">
-      <div class="section-header">
-        <lucide-icon name="target" class="section-icon"></lucide-icon>
-        <h2>Cible de l'affectation</h2>
+    <!-- Section: Cible de l'affectation -->
+    <section class="section-card">
+      <div class="section-info">
+        <div class="icon-box success">
+          <lucide-icon name="target" size="22"></lucide-icon>
+        </div>
+        <div class="text-group">
+          <h2 class="section-title">Cible de l'affectation</h2>
+          <p class="section-subtitle">Déterminez qui sera soumis à cet horaire.</p>
+        </div>
       </div>
 
-      <div class="target-grid">
+      <div class="assignment-grid mt-8">
         @for (type of cibleTypes; track type.value) {
-          <label class="target-card" [class.active]="assignForm.get('cibleType')?.value === type.value">
+          <label class="assignment-card" [class.active]="assignForm.get('cibleType')?.value === type.value">
             <input type="radio" formControlName="cibleType" [value]="type.value" class="hidden-radio">
-            <lucide-icon [name]="type.icon" size="24"></lucide-icon>
-            <span class="target-label">{{ type.label }}</span>
+            <div class="card-icon-circle">
+              <lucide-icon [name]="type.icon" size="24"></lucide-icon>
+            </div>
+            <span class="card-label">{{ type.label }}</span>
           </label>
         }
       </div>
 
       @if (assignForm.get('cibleType')?.value !== 'ENTREPRISE') {
-        <div class="mt-8">
-          <div class="flex items-center justify-between mb-4">
-            <label class="text-sm font-black uppercase text-slate-500 tracking-wider">
-              {{ assignForm.get('cibleType')?.value === 'EQUIPE' ? 'Selectionner les equipes' : 'Selectionner les collaborateurs' }}
-              <span class="ml-2 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]">{{ selectedIds().length }} selectionnes</span>
+        <div class="selection-area mt-10">
+          <div class="selection-header">
+            <label class="selection-title-label">
+              {{ assignForm.get('cibleType')?.value === 'EQUIPE' ? 'Sélectionner les équipes' : 'Sélectionner les collaborateurs' }}
+              <span class="count-badge">{{ selectedIds().length }} sélectionnés</span>
             </label>
-            <div class="flex gap-2">
+            <div class="quick-actions">
               <button type="button" (click)="selectAllFiltered()" class="btn-text">Tout cocher</button>
-              <button type="button" (click)="deselectAllFiltered()" class="btn-text">Tout decocher</button>
+              <div class="separator"></div>
+              <button type="button" (click)="deselectAllFiltered()" class="btn-text">Tout décocher</button>
             </div>
           </div>
 
-          <div class="relative mb-4">
-            <lucide-icon name="search" size="18" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+          <div class="search-container-modern">
+            <lucide-icon name="search" size="18" class="search-icon-inside"></lucide-icon>
             <input
               type="text"
-              class="form-control pl-12"
-              [placeholder]="assignForm.get('cibleType')?.value === 'EQUIPE' ? 'Rechercher une equipe...' : 'Rechercher un collaborateur...'"
+              class="modern-search-input"
+              [placeholder]="assignForm.get('cibleType')?.value === 'EQUIPE' ? 'Rechercher une équipe...' : 'Rechercher un collaborateur...'"
               [value]="searchTerm()"
               (input)="searchTerm.set($any($event.target).value)">
           </div>
 
-          <div class="selection-list custom-scrollbar">
+          <div class="selection-list-modern custom-scrollbar">
             @if (getFilteredItems().length === 0) {
-              <div class="p-8 text-center text-slate-400 italic">Aucun resultat trouve pour votre recherche.</div>
+              <div class="empty-state-small">
+                <lucide-icon name="search" size="32" class="opacity-20"></lucide-icon>
+                <p>Aucun résultat trouvé pour votre recherche.</p>
+              </div>
             } @else {
-              <div class="selection-grid">
+              <div class="selection-grid-modern">
                 @for (item of getFilteredItems(); track item.id) {
                   <div
-                    class="selection-item"
+                    class="selection-item-modern"
                     [class.selected]="selectedIds().includes(item.id)"
                     (click)="toggleSelection(item.id)">
-                    <div class="check-box">
+                    <div class="check-box-modern">
                       <lucide-icon *ngIf="selectedIds().includes(item.id)" name="check" size="14"></lucide-icon>
                     </div>
-                    <div class="item-info">
-                      <span class="item-name">{{ getItemLabel(item) }}</span>
+                    <div class="item-content">
+                      <span class="item-name-bold">{{ getItemLabel(item) }}</span>
                       @if (getItemMeta(item)) {
-                        <span class="item-meta">{{ getItemMeta(item) }}</span>
+                        <span class="item-email-light">{{ getItemMeta(item) }}</span>
                       }
                     </div>
                     @if (getItemMemberCount(item)) {
-                      <span class="membres-count">{{ getItemMemberCount(item) }} membres</span>
+                      <span class="member-tag">{{ getItemMemberCount(item) }} membres</span>
                     }
                   </div>
                 }
@@ -98,63 +126,89 @@
           </div>
         </div>
       }
-    </div>
+    </section>
 
-    <div class="card section-card">
-      <div class="section-header">
-        <lucide-icon name="calendar-days" class="section-icon"></lucide-icon>
-        <h2>Periode de validite</h2>
-      </div>
-
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Date de debut</label>
-          <input type="date" formControlName="dateDebut" class="form-control">
+    <!-- Section: Période et Validité -->
+    <section class="section-card">
+      <div class="section-info">
+        <div class="icon-box warning">
+          <lucide-icon name="calendar-days" size="22"></lucide-icon>
         </div>
-        <div class="form-group">
-          <label>Date de fin (facultatif)</label>
-          <input type="date" formControlName="dateFin" class="form-control">
+        <div class="text-group">
+          <h2 class="section-title">Période et Validité</h2>
+          <p class="section-subtitle">Définit quand cet horaire devient effectif.</p>
         </div>
       </div>
 
-      <p class="info-text mb-4">Sans date de fin, l'horaire reste actif jusqu'a nouvelle affectation.</p>
-
-      <div class="form-group mb-4">
-        <label>Motif de cette affectation</label>
-        <input type="text" formControlName="motif" class="form-control" placeholder="Motif facultatif">
+      <div class="form-grid-modern mt-8">
+        <div class="form-group">
+          <label class="input-label">Date de début</label>
+          <input type="date" formControlName="dateDebut" class="modern-input">
+        </div>
+        <div class="form-group">
+          <label class="input-label">Date de fin (facultatif)</label>
+          <input type="date" formControlName="dateFin" class="modern-input">
+        </div>
       </div>
 
-      <div class="priority-banner p-3 bg-blue-50 text-blue-800 rounded-md border border-blue-200 text-sm mt-4">
-        <strong>Information priorite :</strong> {{ selectedPriority }}
+      <div class="info-alert mt-6">
+        <lucide-icon name="info" size="16"></lucide-icon>
+        <p>Sans date de fin, l'horaire reste actif jusqu'à une nouvelle affectation.</p>
       </div>
-    </div>
 
+      <div class="form-group mt-8">
+        <label class="input-label">Motif de l'affectation</label>
+        <textarea formControlName="motif" class="modern-input textarea" placeholder="Ex: Changement d'équipe, période estivale..."></textarea>
+      </div>
+
+      <div class="priority-info-box mt-6">
+        <div class="priority-dot"></div>
+        <p><strong>Niveau de priorité :</strong> {{ selectedPriority }}</p>
+      </div>
+    </section>
+
+    <!-- Conflict Warning Banner -->
     @if (confirmationEnAttente()) {
-      <div class="banner-avertissement">
-        <span class="banner-icon">!</span>
-        <div class="banner-contenu">
-          <strong>Chevauchement detecte</strong>
-          <p>Une affectation active existe deja pour cette cible sur cette periode.</p>
+      <div class="conflict-banner bounce-in">
+        <div class="banner-icon-circle">
+          <lucide-icon name="alert-triangle" size="24"></lucide-icon>
         </div>
-        <div class="banner-actions">
-          <button type="button" class="btn-annuler" (click)="annulerSoumission()">Annuler</button>
-          <button type="button" class="btn-confirmer" (click)="confirmerEtSoumettre()">Confirmer quand meme</button>
+        <div class="banner-body">
+          <h3>Chevauchement détecté</h3>
+          <p>Une affectation active existe déjà pour cette cible sur cette période. Voulez-vous continuer ?</p>
+        </div>
+        <div class="banner-footer">
+          <button type="button" class="btn-ghost-danger" (click)="annulerSoumission()">Annuler</button>
+          <button type="button" class="btn-warning-solid" (click)="confirmerEtSoumettre()">Confirmer quand même</button>
         </div>
       </div>
     }
 
+    <!-- Error Summary -->
     @if (errorMessage) {
-      <div class="error-banner p-3 mb-4 bg-red-50 text-red-700 rounded-md border border-red-200">
-        {{ errorMessage }}
+      <div class="error-summary-modern shake">
+        <lucide-icon name="x-circle" size="18"></lucide-icon>
+        <span>{{ errorMessage }}</span>
       </div>
     }
 
-    <div class="form-actions">
-      <button type="button" class="btn-cancel" (click)="goBack()">Annuler</button>
-      <button type="submit" class="btn-primary" [disabled]="isSubmitting">
-        <lucide-icon *ngIf="isSubmitting" name="loader" class="animate-spin"></lucide-icon>
-        {{ isSubmitting ? 'Affectation en cours...' : 'Affecter cet horaire' }}
+    <!-- Form Actions Footer -->
+    <footer class="form-footer-actions">
+      <button type="button" class="btn-modern-ghost" (click)="goBack()">Annuler</button>
+      <button type="submit" class="btn-modern-primary" [disabled]="isSubmitting">
+        @if (isSubmitting) {
+          <lucide-icon name="loader" size="18" class="animate-spin"></lucide-icon>
+          <span>Enregistrement...</span>
+        } @else {
+          <lucide-icon name="check" size="18"></lucide-icon>
+          <span>Confirmer l'affectation</span>
+        }
       </button>
+    </footer>
+
+    <!-- Discreet Footer -->
+    <div class="discreet-footer">
+      <p>&copy; 2026 WeenTime HR • Intelligence Opérationnelle • Aide & Support</p>
     </div>
   </form>
 </div>

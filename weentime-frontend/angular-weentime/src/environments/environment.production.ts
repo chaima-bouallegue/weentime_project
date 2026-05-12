@@ -4,6 +4,8 @@ export const environment = {
   gatewayUrl: 'http://localhost:8222',
   aiUrl: 'http://localhost:8000',
   aiServiceUrl: 'http://localhost:8000',
+  
+  // WebSockets base URL (utilisé par default si pas spécifié)
   wsUrl: 'http://localhost:8222',
   websocket: {
     notifications: 'http://localhost:8222/ws/notifications',

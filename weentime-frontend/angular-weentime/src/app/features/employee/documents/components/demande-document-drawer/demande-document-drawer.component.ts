@@ -144,8 +144,13 @@ export class DemandeDocumentDrawerComponent implements OnInit {
   }
 
   private resolveDraftType(value: string): TypeDocument | null {
-    const normalized = value.trim().toUpperCase() as TypeDocument;
-    return this.types.some(type => type.type === normalized) ? normalized : null;
+    const normalized = value.trim().toUpperCase();
+    const found = this.types.find(type => 
+      type.type === normalized || 
+      type.label.toUpperCase().includes(normalized) ||
+      normalized.includes(type.label.toUpperCase())
+    );
+    return found ? found.type : null;
   }
 
   private resolveMonthLabel(value: string): string {

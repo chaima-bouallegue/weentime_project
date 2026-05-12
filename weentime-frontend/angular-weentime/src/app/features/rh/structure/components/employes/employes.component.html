@@ -1,110 +1,250 @@
 <div class="employes-wrapper">
+  <!-- Section Header -->
   <div class="section-header">
-    <h2 class="section-title-text">Employés</h2>
+    <div class="space-y-1">
+      <h2 class="section-title-text">Annuaire <span class="text-indigo-600 italic">Collaborateurs</span></h2>
+      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gérer et visualiser la structure de
+        l'entreprise</p>
+    </div>
     <button class="btn-primary" (click)="showDrawer.set(true)">
-      <lucide-icon name="user-plus" size="16"></lucide-icon>
-      <span>Nouvel employé</span>
+      <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+        <lucide-icon name="user-plus" size="16"></lucide-icon>
+      </div>
+      <span>Inviter un collaborateur</span>
     </button>
   </div>
 
-  <!-- Filters -->
+  <!-- Pending Users Section -->
+  @if (pendingEmployes().length > 0) {
+  <div class="mb-8 p-6 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-3xl animate-in fade-in zoom-in-95 duration-300">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600">
+        <lucide-icon [img]="ClockIcon" size="20"></lucide-icon>
+      </div>
+      <div>
+        <h3 class="text-sm font-black text-amber-900 dark:text-amber-100">Inscriptions en attente</h3>
+        <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{{ pendingEmployes().length }} collaborateur(s) à valider</p>
+      </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (emp of pendingEmployes(); track emp.id) {
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-4 relative overflow-hidden group">
+        <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="flex items-center gap-3 relative z-10">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
+            {{ getInitials(emp.prenom, emp.nom) }}
+          </div>
+          <div>
+            <div class="text-sm font-bold text-slate-800 dark:text-white">{{ emp.prenom }} {{ emp.nom }}</div>
+            <div class="text-xs text-slate-500">{{ emp.email }}</div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-auto relative z-10">
+          <button type="button" (click)="onOpenValidation(emp)" class="flex-1 py-2 px-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
+            <lucide-icon [img]="CheckIcon" size="14"></lucide-icon> Confirmer
+          </button>
+          <button (click)="onOpenReject(emp)" class="flex-1 py-2 px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
+            <lucide-icon [img]="XIcon" size="14"></lucide-icon> Rejeter
+          </button>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  }
+
+  <!-- Filters & Search Toolbar -->
   <div class="filters-bar">
     <div class="search-wrapper">
-      <lucide-icon name="search" size="16" class="search-icon"></lucide-icon>
-      <input type="text" (input)="onSearchInput($any($event.target).value)" placeholder="Rechercher un employé..." class="search-input">
+      <lucide-icon name="search" size="18" class="search-icon"></lucide-icon>
+      <input type="text" [ngModel]="searchQuery()" (input)="onSearchInput($any($event.target).value)"
+        placeholder="Rechercher par nom, email, poste..." class="search-input">
     </div>
+
     <div class="filter-group">
-      <select class="filter-select" (change)="setDeptFilter($any($event.target).value ? +$any($event.target).value : null)">
-        <option value="">Tous les départements</option>
-        @for (d of departements(); track d.id) {
+      <div class="relative">
+        <select class="filter-select pr-10"
+          (change)="setDeptFilter($any($event.target).value ? +$any($event.target).value : null)">
+          <option value="">Tous les départements</option>
+          @for (d of departements(); track d.id) {
           <option [value]="d.id">{{ d.nom }}</option>
-        }
-      </select>
-      <select class="filter-select" (change)="setStatutFilter($any($event.target).value)">
-        <option value="ALL">Tous les statuts</option>
-        <option value="ACTIF">Actifs</option>
-        <option value="INACTIF">Inactifs</option>
-      </select>
+          }
+        </select>
+        <lucide-icon name="chevron-down" size="14"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
+      </div>
+
+      <div class="relative">
+        <select class="filter-select pr-10" (change)="setStatutFilter($any($event.target).value)">
+          <option value="ALL">Tous les statuts</option>
+          <option value="ACTIF">Collaborateurs Actifs</option>
+          <option value="INACTIF">Désactivés</option>
+        </select>
+        <lucide-icon name="chevron-down" size="14"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
+      </div>
     </div>
   </div>
 
-  <!-- Table -->
+  <!-- Employee Grid (Main View) -->
   @if (isLoading()) {
-    <div class="skeleton-table">
-      @for (i of [1,2,3,4,5]; track i) { <div class="skeleton-row"></div> }
-    </div>
+  <div class="skeleton-grid">
+    @for (i of [1,2,3,4,5,6,7,8]; track i) { <div class="skeleton-card"></div> }
+  </div>
   } @else if (filteredEmployes().length === 0) {
-    <div class="empty-state">
-      <lucide-icon name="users" size="48"></lucide-icon>
-      <p>Aucun employé trouvé</p>
+  <div class="empty-state">
+    <div class="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+      <lucide-icon name="users" size="40" class="empty-icon"></lucide-icon>
     </div>
+    <p class="empty-text">Aucun collaborateur trouvé</p>
+    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Essayez de modifier vos filtres de
+      recherche</p>
+  </div>
   } @else {
-    <div class="table-wrapper">
-      <table class="employee-table">
-        <thead>
-          <tr>
-            <th>Employé</th>
-            <th>Email</th>
-            <th>Poste</th>
-            <th>Département</th>
-            <th>Équipe</th>
-            <th>Statut</th>
-            <th>Date d'entrée</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (emp of paginatedEmployes(); track emp.id) {
-            <tr>
-              <td>
-                <div class="emp-cell">
-                  <div class="emp-avatar" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
-                    {{ getInitials(emp.prenom, emp.nom) }}
-                  </div>
-                  <span class="emp-name">{{ emp.prenom }} {{ emp.nom }}</span>
-                </div>
-              </td>
-              <td class="text-muted">{{ emp.email }}</td>
-              <td>{{ emp.poste }}</td>
-              <td>{{ emp.departementNom }}</td>
-              <td class="text-muted">{{ emp.equipeNom ?? '—' }}</td>
-              <td>
-                <span class="status-badge" [class]="emp.statut.toLowerCase()">
-                  {{ emp.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
-                </span>
-              </td>
-              <td class="text-muted">{{ formatDate(emp.dateCreation) }}</td>
-              <td>
-                <button class="icon-btn" (click)="onToggleStatus(emp.id)" [title]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'">
-                  <lucide-icon [name]="emp.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="14"></lucide-icon>
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+  <div class="employee-grid">
+    @for (emp of paginatedEmployes(); track emp.id) {
+    <div class="employee-card group animate-in fade-in zoom-in-95 duration-300">
+      <!-- Status Indicator -->
+      <div class="status-dot shadow-sm" [class.actif]="emp.statut === 'ACTIF'" [class.inactif]="emp.statut !== 'ACTIF'">
+      </div>
 
-    <!-- Pagination -->
-    <div class="pagination">
-      <span class="page-info">Page {{ currentPage() }} sur {{ totalPages() }} — {{ filteredEmployes().length }} résultats</span>
-      <div class="page-controls">
-        <button class="page-btn" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
-          <lucide-icon name="chevron-left" size="16"></lucide-icon>
-        </button>
-        <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
-          <lucide-icon name="chevron-right" size="16"></lucide-icon>
-        </button>
+      <!-- Avatar -->
+      <div class="avatar-container">
+        <div class="avatar-bg" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)"></div>
+        <div class="avatar-main">
+          @if (emp['photo']) {
+          <img [src]="emp['photo']" class="avatar-img shadow-lg">
+          } @else {
+          <div class="avatar-initials" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
+            {{ getInitials(emp.prenom, emp.nom) }}
+          </div>
+          }
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="info-main">
+        <h3 class="name">{{ emp.prenom }} {{ emp.nom }}</h3>
+        <p class="poste">{{ emp.poste }}</p>
+      </div>
+
+      <!-- Meta Pills -->
+      <div class="meta-pills">
+        <span class="pill">{{ emp.departementNom }}</span>
+        @if (emp.equipeNom) {
+        <span class="pill">{{ emp.equipeNom }}</span>
+        }
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="card-footer">
+        <span class="date-joined">Depuis {{ formatDate(emp.dateCreation) }}</span>
+        <div class="card-actions">
+          <button class="action-btn" (click)="onToggleStatus(emp.id)"
+            [title]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'">
+            <lucide-icon [name]="emp.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="16"></lucide-icon>
+          </button>
+          <button class="action-btn" title="Voir le profil">
+            <lucide-icon name="external-link" size="16"></lucide-icon>
+          </button>
+        </div>
       </div>
     </div>
+    }
+  </div>
+
+  <!-- Enhanced Pagination -->
+  <div class="pagination">
+    <p class="page-info">
+      Affichage de <span class="text-indigo-600 font-black">{{ (currentPage() - 1) * pageSize + 1 }}-{{
+        Math.min(currentPage() * pageSize, filteredEmployes().length) }}</span> sur <span
+        class="text-slate-800 dark:text-white font-black">{{ filteredEmployes().length }}</span> collaborateurs
+    </p>
+
+    <div class="page-controls">
+      <button class="page-btn shadow-sm" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+        <lucide-icon name="chevron-left" size="18"></lucide-icon>
+      </button>
+
+      <div class="flex items-center gap-1 px-4">
+        @for (page of [].constructor(Math.min(totalPages(), 5)); track $index) {
+        <button class="w-8 h-8 rounded-lg text-[10px] font-black transition-all"
+          [class.bg-indigo-600]="currentPage() === ($index + 1)" [class.text-white]="currentPage() === ($index + 1)"
+          [class.text-slate-400]="$index + 1 !== currentPage()" (click)="goToPage($index + 1)">
+          {{ $index + 1 }}
+        </button>
+        }
+      </div>
+
+      <button class="page-btn shadow-sm" [disabled]="currentPage() === totalPages()"
+        (click)="goToPage(currentPage() + 1)">
+        <lucide-icon name="chevron-right" size="18"></lucide-icon>
+      </button>
+    </div>
+  </div>
   }
 
+  <!-- Form Drawer -->
   @if (showDrawer()) {
-    <app-employe-form
-      [departements]="departements()"
-      [equipes]="equipes()"
-      (close)="showDrawer.set(false)"
-      (saved)="onFormSaved()"
-    />
+  <app-employe-form 
+    [departements]="departements()" 
+    [equipes]="equipes()" 
+    [managers]="getManagersForForm()"
+    [pendingUser]="selectedPendingUser()"
+    [isValidationMode]="isValidationMode()"
+    (close)="onCloseDrawer()"
+    (saved)="onFormSaved()" 
+    (validate)="onValidate($any($event).id, $any($event).request)" />
+  }
+
+  <!-- Rejection Modal -->
+  @if (selectedRejectUser()) {
+    <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <!-- Overlay -->
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" (click)="onCancelReject()"></div>
+
+      <!-- Modal card -->
+      <div class="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 max-w-md w-full p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        
+        <!-- Icon -->
+        <div class="w-16 h-16 bg-rose-100 dark:bg-rose-500/20 rounded-2xl flex items-center justify-center text-rose-500 mx-auto shadow-inner">
+          <lucide-icon [img]="XIcon" size="32"></lucide-icon>
+        </div>
+
+        <!-- Title & Content -->
+        <div class="space-y-3">
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">
+            Rejeter la demande ?
+          </h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+            Êtes-vous sûr de vouloir rejeter l'inscription de <span class="font-black text-slate-700 dark:text-slate-200">{{ selectedRejectUser()?.prenom }} {{ selectedRejectUser()?.nom }}</span> ? 
+          </p>
+          <p class="text-xs text-rose-500/80 font-bold bg-rose-50 dark:bg-rose-500/10 p-3 rounded-xl">
+            Cette action est irréversible et supprimera définitivement le compte en attente.
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-4">
+          <button
+            (click)="onCancelReject()"
+            [disabled]="isRejecting()"
+            class="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50">
+            Annuler
+          </button>
+          <button
+            (click)="confirmReject()"
+            [disabled]="isRejecting()"
+            class="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-sm shadow-lg shadow-rose-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            @if (isRejecting()) {
+              <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
+            } @else {
+              Confirmer
+            }
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

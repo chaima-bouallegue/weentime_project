@@ -17,11 +17,11 @@ export class ToastService {
 
   toasts = computed(() => this._toasts().slice(-3));
 
-  show(message: string, type: ToastType = 'info'): void {
+  show(message: string, type: ToastType = 'info', durationMs = 8000): void {
     const id = this.nextId++;
     this._toasts.update(list => [...list, { id, message, type }]);
 
-    setTimeout(() => this.dismiss(id), 4000);
+    setTimeout(() => this.dismiss(id), durationMs);
   }
 
   success(message: string): void {

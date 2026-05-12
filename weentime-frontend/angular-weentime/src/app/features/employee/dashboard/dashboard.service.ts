@@ -3,6 +3,7 @@ import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiConfigService } from '@app/core/services/api-config.service';
+import { AuthService } from '@app/core/services/auth.service';
 import { SKIP_ERROR_TOAST } from '@app/core/http/request-context.tokens';
 import { ToastService } from '@app/core/services/toast.service';
 
@@ -43,6 +44,7 @@ export interface DashboardStats {
 export class DashboardService {
   private httpClient = inject(HttpClient);
   private apiConfig = inject(ApiConfigService);
+  private authService = inject(AuthService);
   private toastService = inject(ToastService);
   private readonly optionalRequestContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
@@ -136,7 +138,7 @@ export class DashboardService {
       teamPresence: this.httpClient.get<any>(this.apiConfig.PRESENCE.GET_TEAM_PRESENCE).pipe(
         catchError(() => of({ __error: true, data: { members: [] } }))
       ),
-      managerDemands: this.httpClient.get<any>(this.apiConfig.RH.GET_MANAGER_DEMANDS).pipe(
+      managerDemands: this.httpClient.get<any>(this.apiConfig.RH.GET_MANAGER_DEMANDS(this.authService.currentUser()?.id || 0)).pipe(
         catchError(() => of({ __error: true, data: { content: [] } }))
       )
     }).pipe(

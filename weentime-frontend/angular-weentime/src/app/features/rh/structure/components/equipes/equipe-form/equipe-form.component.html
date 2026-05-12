@@ -48,7 +48,7 @@
           <label for="eq-manager">Manager (optionnel)</label>
           <div class="input-wrapper">
             <lucide-icon name="user-cog" size="18" class="field-icon"></lucide-icon>
-            <select id="eq-manager" formControlName="responsableId">
+            <select id="eq-manager" formControlName="managerId">
               <option [ngValue]="null">Aucun manager</option>
               @for (m of managers; track m.id) {
                 <option [ngValue]="m.id">{{ m.prenom }} {{ m.nom }} — {{ m.poste }}</option>

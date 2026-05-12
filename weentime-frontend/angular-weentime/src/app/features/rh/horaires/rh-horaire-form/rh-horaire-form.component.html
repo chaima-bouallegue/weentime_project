@@ -1,164 +1,216 @@
-<div class="page-container">
-  <div class="page-header">
-    <button class="btn-back" (click)="goBack()">
-      <lucide-icon name="arrow-left" size="20"></lucide-icon>
-    </button>
-    <div>
-      <h1 class="page-title">{{ isEditMode ? "Modifier l'horaire" : 'Nouvel horaire' }}</h1>
-      <p class="page-subtitle">
-        {{ isEditMode ? 'Mettez a jour ce modele de travail.' : 'Configurez un nouveau modele de semaine de travail.' }}
-      </p>
+<div class="form-container fade-in">
+  <!-- Modern Header -->
+  <header class="form-header">
+    <div class="header-left">
+      <button class="btn-back-modern" (click)="goBack()" title="Retour">
+        <lucide-icon name="arrow-left" size="20"></lucide-icon>
+      </button>
+      <div class="header-titles">
+        <h1 class="page-title">{{ isEditMode ? "Modifier l'horaire" : 'Nouvel horaire' }}</h1>
+        <p class="page-subtitle">
+          {{ isEditMode ? 'Mettez à jour les paramètres de ce modèle de travail.' : 'Configurez un nouveau modèle de semaine de travail pour votre entreprise.' }}
+        </p>
+      </div>
     </div>
-  </div>
+    
+    <div class="header-actions">
+       <div class="status-indicator" [class.active]="horaireForm.get('statut')?.value === 'ACTIF'">
+          <div class="dot"></div>
+          <span>{{ horaireForm.get('statut')?.value }}</span>
+       </div>
+    </div>
+  </header>
 
-  <form [formGroup]="horaireForm" (ngSubmit)="onSubmit()" class="form-layout">
-    <div class="card card-section">
-      <div class="section-header">
-        <lucide-icon name="settings-2" class="section-icon"></lucide-icon>
-        <h2>Informations generales</h2>
+  <form [formGroup]="horaireForm" (ngSubmit)="onSubmit()" class="modern-form-layout">
+    
+    <!-- Section: Informations Générales -->
+    <section class="section-card">
+      <div class="section-info">
+        <div class="icon-box primary">
+          <lucide-icon name="settings-2" size="22"></lucide-icon>
+        </div>
+        <div class="text-group">
+          <h2 class="section-title">Informations générales</h2>
+          <p class="section-subtitle">Définissez les paramètres de base de votre modèle d'horaire.</p>
+        </div>
       </div>
 
-      <div class="form-grid">
+      <div class="form-grid-modern mt-8">
         <div class="form-group">
-          <label>Nom de l'horaire</label>
+          <label class="input-label">Nom de l'horaire</label>
           <input
             type="text"
             formControlName="nom"
-            placeholder="Ex: Matin seulement 25h"
-            class="form-control"
+            placeholder="Ex: Équipe Matin - 35h"
+            class="modern-input"
             [class.is-invalid]="horaireForm.get('nom')?.invalid && horaireForm.get('nom')?.touched">
           @if (horaireForm.get('nom')?.hasError('required') && horaireForm.get('nom')?.touched) {
-            <small class="text-sm text-red-600 mt-2 block">Le nom de l'horaire est obligatoire.</small>
+            <p class="error-text">Le nom de l'horaire est obligatoire.</p>
           } @else if (horaireForm.get('nom')?.hasError('minlength') && horaireForm.get('nom')?.touched) {
-            <small class="text-sm text-red-600 mt-2 block">Le nom doit contenir au moins 3 caracteres.</small>
+            <p class="error-text">Le nom doit contenir au moins 3 caractères.</p>
           }
         </div>
 
         <div class="form-group">
-          <label>Type d'horaire</label>
-          <select formControlName="type" class="form-control">
-            <option value="FIXE">Fixe</option>
-            <option value="FLEXIBLE">Flexible</option>
-            <option value="POSTE">Travail poste</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Total heures / semaine</label>
-          <div class="input-icon-wrapper">
-            <input type="number" formControlName="heuresHebdo" class="form-control" min="1">
-            <span class="input-suffix">hrs</span>
+          <label class="input-label">Type d'horaire</label>
+          <div class="select-wrapper">
+            <select formControlName="type" class="modern-input">
+              <option value="FIXE">Standard / Fixe</option>
+              <option value="FLEXIBLE">Flexible / Variable</option>
+              <option value="POSTE">Équipes successives (Posté)</option>
+            </select>
           </div>
-          <small class="text-gray-500 mt-1 block">Heures calculees : <b>{{ totalHeuresCalculees | number:'1.2-2' }} hrs</b></small>
+        </div>
+
+        <div class="form-group">
+          <label class="input-label">Volume horaire hebdomadaire</label>
+          <div class="input-with-suffix">
+            <input type="number" formControlName="heuresHebdo" class="modern-input" min="1">
+            <span class="suffix-label">Hrs / semaine</span>
+          </div>
+          <div class="calc-box mt-2">
+            <lucide-icon name="info" size="14"></lucide-icon>
+            <span>Somme calculée des plages : <strong>{{ totalHeuresCalculees | number:'1.2-2' }}h</strong></span>
+          </div>
           @if (horaireForm.get('heuresHebdo')?.invalid && horaireForm.get('heuresHebdo')?.touched) {
-            <small class="text-sm text-red-600 mt-2 block">Le total d'heures declare doit etre superieur a 0.</small>
+            <p class="error-text">Le total d'heures doit être supérieur à 0.</p>
           }
         </div>
 
         <div class="form-group">
-          <label>Statut</label>
-          <select formControlName="statut" class="form-control">
-            <option value="ACTIF">Actif</option>
-            <option value="INACTIF">Inactif</option>
-          </select>
+          <label class="input-label">Statut du modèle</label>
+          <div class="select-wrapper">
+            <select formControlName="statut" class="modern-input">
+              <option value="ACTIF">Opérationnel (Actif)</option>
+              <option value="INACTIF">Archive (Inactif)</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div class="toggle-group mt-4">
-        <label class="toggle-switch">
+      <div class="modern-toggle-box mt-6">
+        <label class="premium-switch">
           <input type="checkbox" formControlName="isDefaut">
-          <span class="slider"></span>
+          <span class="switch-slider"></span>
         </label>
-        <div class="toggle-text">
-          <span class="toggle-title">Definir comme horaire par defaut</span>
-          <span class="toggle-desc">Cet horaire servira de base si aucune affectation specifique n'existe.</span>
+        <div class="toggle-content">
+          <p class="toggle-title">Définir comme horaire par défaut</p>
+          <p class="toggle-desc">Cet horaire sera automatiquement appliqué aux nouveaux collaborateurs sans affectation spécifique.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card card-section">
-      <div class="section-header flex-between">
-        <div class="flex items-center gap-2">
-          <lucide-icon name="calendar-clock" class="section-icon"></lucide-icon>
-          <h2>Semainier</h2>
+    <!-- Section: Semainier -->
+    <section class="section-card">
+      <div class="section-info flex-between w-full">
+        <div class="flex items-start gap-4">
+          <div class="icon-box success">
+            <lucide-icon name="calendar-clock" size="22"></lucide-icon>
+          </div>
+          <div class="text-group">
+            <h2 class="section-title">Semainier & Plages Horaires</h2>
+            <p class="section-subtitle">Détaillez les heures de travail et de pause pour chaque jour.</p>
+          </div>
         </div>
-        <button type="button" class="btn-secondary" (click)="applyToAll()">
-          <lucide-icon name="copy" size="14"></lucide-icon>
-          Appliquer lundi a vendredi
+        <button type="button" class="btn-action-outline" (click)="applyToAll()">
+          <lucide-icon name="copy" size="16"></lucide-icon>
+          <span>Dupliquer Lundi à Vendredi</span>
         </button>
       </div>
 
-      <div class="semainier-list" formArrayName="jours">
+      <div class="semainier-grid-modern mt-10" formArrayName="jours">
         @for (jourCtrl of joursArray.controls; track $index; let i = $index) {
-          <div class="jour-row" [formGroupName]="i" [class.is-active]="jourCtrl.get('estTravaille')?.value">
-            <div class="jour-toggle" (click)="toggleJour(i)">
-              <div class="checkbox-circle" [class.checked]="jourCtrl.get('estTravaille')?.value">
-                @if (jourCtrl.get('estTravaille')?.value) {
-                  <lucide-icon name="check" size="14"></lucide-icon>
-                }
+          <div class="jour-row-modern" [formGroupName]="i" [class.day-off]="!jourCtrl.get('estTravaille')?.value">
+            <div class="jour-header-modern" (click)="toggleJour(i)">
+              <div class="checkbox-box-modern" [class.active]="jourCtrl.get('estTravaille')?.value">
+                <lucide-icon *ngIf="jourCtrl.get('estTravaille')?.value" name="check" size="14"></lucide-icon>
               </div>
-              <span class="jour-name">{{ jourCtrl.get('jourSemaine')?.value }}</span>
+              <span class="jour-label">{{ jourCtrl.get('jourSemaine')?.value }}</span>
             </div>
 
-            @if (jourCtrl.get('estTravaille')?.value) {
-              <div class="plages-container" formArrayName="plages">
-                @for (plageCtrl of getPlagesArray(i).controls; track $index; let idx = $index) {
-                  <div class="plage-row" [formGroupName]="idx">
-                    <select formControlName="type" class="time-control type-select">
-                      <option value="TRAVAIL">Travail</option>
-                      <option value="PAUSE">Pause</option>
-                      <option value="REPOS">Repos</option>
-                    </select>
+            <div class="jour-body-modern">
+              @if (jourCtrl.get('estTravaille')?.value) {
+                <div class="plages-stack" formArrayName="plages">
+                  @for (plageCtrl of getPlagesArray(i).controls; track $index; let idx = $index) {
+                    <div class="plage-item-modern" [formGroupName]="idx">
+                      <select formControlName="type" class="type-badge-select">
+                        <option value="TRAVAIL">Travail</option>
+                        <option value="PAUSE">Pause</option>
+                        <option value="REPOS">Repos</option>
+                      </select>
 
-                    <div class="time-field">
-                      <span class="time-label">De</span>
-                      <input type="time" formControlName="heureDebut" class="time-control">
+                      <div class="time-range-group">
+                        <div class="time-input-box">
+                          <span class="label">Début</span>
+                          <input type="time" formControlName="heureDebut" class="mini-time-input">
+                        </div>
+                        <div class="time-divider">
+                          <lucide-icon name="arrow-right" size="14"></lucide-icon>
+                        </div>
+                        <div class="time-input-box">
+                          <span class="label">Fin</span>
+                          <input type="time" formControlName="heureFin" class="mini-time-input">
+                        </div>
+                      </div>
+
+                      <button type="button" class="btn-remove-plage" (click)="removePlage(i, idx)" title="Supprimer">
+                        <lucide-icon name="trash-2" size="16"></lucide-icon>
+                      </button>
                     </div>
-                    <span class="time-separator">a</span>
-                    <div class="time-field">
-                      <input type="time" formControlName="heureFin" class="time-control">
+                  }
+
+                  @if (jourCtrl.errors?.['chevauchement']; as error) {
+                    <div class="conflict-inline-alert">
+                      <lucide-icon name="alert-triangle" size="14"></lucide-icon>
+                      <span>Conflit : {{ error.plage1 }} chevauche {{ error.plage2 }}</span>
                     </div>
+                  }
 
-                    <button type="button" class="btn-icon text-red-500 hover:bg-red-50" (click)="removePlage(i, idx)">
-                      <lucide-icon name="trash-2" size="16"></lucide-icon>
-                    </button>
-                  </div>
-                }
-
-                @if (jourCtrl.errors?.['chevauchement']; as error) {
-                  <p class="plage-erreur">
-                    Conflit : {{ error.plage1 }} chevauche {{ error.plage2 }}
-                  </p>
-                }
-
-                <button
-                  type="button"
-                  class="btn-add text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 mt-2"
-                  (click)="addPlage(i)">
-                  <lucide-icon name="plus" size="14"></lucide-icon>
-                  Ajouter une plage
-                </button>
-              </div>
-            } @else {
-              <div class="repos-badge">Repos</div>
-            }
+                  <button
+                    type="button"
+                    class="btn-add-plage-modern"
+                    (click)="addPlage(i)">
+                    <lucide-icon name="plus" size="16"></lucide-icon>
+                    <span>Ajouter une plage</span>
+                  </button>
+                </div>
+              } @else {
+                <div class="day-off-placeholder">
+                  <lucide-icon name="sunset" size="20" class="opacity-30"></lucide-icon>
+                  <span>Journée de repos</span>
+                </div>
+              }
+            </div>
           </div>
         }
       </div>
-    </div>
+    </section>
 
+    <!-- Error Summary -->
     @if (saveError) {
-      <div class="p-3 rounded-md border border-red-200 bg-red-50 text-red-700">
-        {{ saveError }}
+      <div class="error-summary-modern shake">
+        <lucide-icon name="x-circle" size="18"></lucide-icon>
+        <span>{{ saveError }}</span>
       </div>
     }
 
-    <div class="form-actions">
-      <button type="button" class="btn-cancel" (click)="goBack()">Annuler</button>
-      <button type="submit" class="btn-primary" [disabled]="isSubmitting">
-        <lucide-icon *ngIf="isSubmitting" name="loader" class="animate-spin mr-2"></lucide-icon>
-        {{ isSubmitting ? 'Enregistrement...' : (isEditMode ? 'Enregistrer les modifications' : "Creer l'horaire") }}
+    <!-- Form Actions Footer -->
+    <footer class="form-footer-actions">
+      <button type="button" class="btn-modern-ghost" (click)="goBack()">Annuler</button>
+      <button type="submit" class="btn-modern-primary" [disabled]="isSubmitting">
+        @if (isSubmitting) {
+          <lucide-icon name="loader" size="18" class="animate-spin"></lucide-icon>
+          <span>Traitement...</span>
+        } @else {
+          <lucide-icon name="check" size="18"></lucide-icon>
+          <span>{{ isEditMode ? 'Enregistrer les modifications' : "Créer le modèle d'horaire" }}</span>
+        }
       </button>
+    </footer>
+
+    <!-- Discreet Footer -->
+    <div class="discreet-footer">
+      <p>&copy; 2026 WeenTime HR • Intelligence Opérationnelle • Aide & Support</p>
     </div>
   </form>
 </div>

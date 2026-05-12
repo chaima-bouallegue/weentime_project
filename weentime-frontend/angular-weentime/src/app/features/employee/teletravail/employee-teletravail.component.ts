@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Laptop, Clock, CheckCircle, Info, Calendar, Monitor, Home, Plus, Search, Filter, Sparkles, AlertCircle } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TeletravailService } from './teletravail.service';
+import { TeletravailStore } from './teletravail.store';
 import {
   QuotaTeletravail,
   DemandeTeletravail,
@@ -37,6 +38,7 @@ import { ToastService } from '../../../core/services/toast.service';
 })
 export class EmployeeTeletravailComponent implements OnInit {
   private teletravailService = inject(TeletravailService);
+  public store = inject(TeletravailStore);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
   private assistantWorkflow = inject(AssistantWorkflowService);
@@ -56,10 +58,10 @@ export class EmployeeTeletravailComponent implements OnInit {
   readonly iconSparkles = Sparkles;
   readonly iconAlert = AlertCircle;
 
-  quota = signal<QuotaTeletravail | null>(null);
-  historique = signal<DemandeTeletravail[]>([]);
-  holidayDates = signal<string[]>([]);
-  isLoading = signal(true);
+  quota = this.store.quota;
+  historique = this.store.historique;
+  holidayDates = this.store.holidayDates;
+  isLoading = this.store.isLoading;
   showDrawer = signal(false);
   demandeAnnuler = signal<DemandeTeletravail | null>(null);
   filtreStatut = signal<StatutTeletravail | 'TOUS'>('TOUS');
@@ -97,7 +99,6 @@ export class EmployeeTeletravailComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDate();
-    this.loadData();
     this.assistantSync.events$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
@@ -112,22 +113,8 @@ export class EmployeeTeletravailComponent implements OnInit {
     this.currentDate.set(now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
   }
 
-  loadData(): void {
-    this.isLoading.set(true);
-    this.teletravailService.getQuota()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.quota.set(res));
-
-    this.teletravailService.getJoursFeries()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.holidayDates.set(res));
-
-    this.teletravailService.getHistorique()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => {
-        this.historique.set(res);
-        this.isLoading.set(false);
-      });
+  manualRefresh(): void {
+    this.refreshData();
   }
 
   onFilterChange(filter: StatutTeletravail | 'TOUS'): void {
@@ -166,7 +153,6 @@ export class EmployeeTeletravailComponent implements OnInit {
   }
 
   private refreshData(): void {
-    this.teletravailService.getQuota().subscribe(res => this.quota.set(res));
-    this.teletravailService.getHistorique().subscribe(res => this.historique.set(res));
+    this.store.refresh().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
   }
 }

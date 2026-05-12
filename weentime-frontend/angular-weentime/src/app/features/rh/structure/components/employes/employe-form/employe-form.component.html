@@ -2,7 +2,7 @@
   <div class="drawer-content" (click)="$event.stopPropagation()">
     <header class="drawer-header">
       <div class="header-info">
-        <h2 class="drawer-title">{{ title }}</h2>
+        <h2 class="drawer-title">{{ isValidationMode ? 'Validation d\'inscription' : title }}</h2>
         <p class="drawer-subtitle">Etape {{ step() }}/2 - {{ step() === 1 ? 'Informations personnelles' : 'Affectation' }}</p>
       </div>
       <button class="close-btn" (click)="close.emit()">
@@ -154,20 +154,22 @@
             }
           </section>
 
-          <section class="form-section">
-            <h3 class="section-title">Mot de passe temporaire</h3>
-            <div class="readonly-password">
-              <lucide-icon name="key-round" size="16" class="pwd-key-icon"></lucide-icon>
-              <code>{{ generatedPassword() }}</code>
-              <button type="button" class="pwd-icon-btn" (click)="copyPassword()" title="Copier">
-                <lucide-icon name="copy" size="16"></lucide-icon>
-              </button>
-              <button type="button" class="pwd-icon-btn" (click)="generatePassword()" title="Regenerer">
-                <lucide-icon name="zap" size="16"></lucide-icon>
-              </button>
-            </div>
-            <p class="pwd-hint">Conservez ce mot de passe pour la premiere connexion.</p>
-          </section>
+          @if (!isValidationMode) {
+            <section class="form-section">
+              <h3 class="section-title">Mot de passe temporaire</h3>
+              <div class="readonly-password">
+                <lucide-icon name="key-round" size="16" class="pwd-key-icon"></lucide-icon>
+                <code>{{ generatedPassword() }}</code>
+                <button type="button" class="pwd-icon-btn" (click)="copyPassword()" title="Copier">
+                  <lucide-icon name="copy" size="16"></lucide-icon>
+                </button>
+                <button type="button" class="pwd-icon-btn" (click)="generatePassword()" title="Regenerer">
+                  <lucide-icon name="zap" size="16"></lucide-icon>
+                </button>
+              </div>
+              <p class="pwd-hint">Conservez ce mot de passe pour la premiere connexion.</p>
+            </section>
+          }
 
           <div class="step-nav">
             <button type="button" class="btn-outline" (click)="step.set(1)">
@@ -176,7 +178,7 @@
             </button>
             <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
               <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20" [class.animate-spin]="isSubmitting()"></lucide-icon>
-              <span>{{ submitLabel }}</span>
+              <span>{{ isValidationMode ? 'Valider le compte' : submitLabel }}</span>
             </button>
           </div>
         }
