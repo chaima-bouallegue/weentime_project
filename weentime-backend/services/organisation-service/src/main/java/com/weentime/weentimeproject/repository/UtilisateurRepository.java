@@ -76,4 +76,15 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
 
     @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
     List<Utilisateur> findByStatut(StatutUtilisateurEnum statut);
+
+    @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
+    @Query(
+            value = "select distinct u from Utilisateur u where u.entrepriseId = :entrepriseId and u.statut = :statut",
+            countQuery = "select count(distinct u.id) from Utilisateur u where u.entrepriseId = :entrepriseId and u.statut = :statut"
+    )
+    org.springframework.data.domain.Page<Utilisateur> findByEntreprise_IdAndStatut(
+            @Param("entrepriseId") Long entrepriseId,
+            @Param("statut") StatutUtilisateurEnum statut,
+            org.springframework.data.domain.Pageable pageable
+    );
 }

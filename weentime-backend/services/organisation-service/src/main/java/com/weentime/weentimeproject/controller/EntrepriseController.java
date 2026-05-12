@@ -63,11 +63,12 @@ public class EntrepriseController {
     }
 
     @GetMapping("/validate-code/{code}")
-    public ResponseEntity<com.weentime.weentimeproject.dto.EntrepriseValidationDTO> validateCode(@PathVariable String code) {
+    public ResponseEntity<?> validateCode(@PathVariable String code) {
         try {
             return ResponseEntity.ok(entrepriseService.validateCode(code));
-        } catch (jakarta.persistence.EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (jakarta.persistence.EntityNotFoundException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(java.util.Map.of("message", e.getMessage()));
         }
     }
 

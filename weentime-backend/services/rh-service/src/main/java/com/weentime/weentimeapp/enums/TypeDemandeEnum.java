@@ -4,6 +4,5 @@ public enum TypeDemandeEnum {
     CONGE,
     AUTORISATION,
     DOCUMENT,
-    TELETRAVAIL,
-    ABSENCE
+    TELETRAVAIL
 }

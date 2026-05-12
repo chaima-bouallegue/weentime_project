@@ -11,4 +11,6 @@ import java.util.List;
 public interface DemandeRepository extends JpaRepository<Demande, Long> {
     List<Demande> findByEntrepriseIdOrderByDateCreationDesc(Long entrepriseId);
     List<Demande> findByEntrepriseIdAndDateCreationBetweenOrderByDateCreationDesc(Long entrepriseId, LocalDateTime start, LocalDateTime end);
+    List<Demande> findByUtilisateurIdInOrderByDateCreationDesc(List<Long> utilisateurIds);
+    List<Demande> findByManagerIdOrderByDateCreationDesc(Long managerId);
 }

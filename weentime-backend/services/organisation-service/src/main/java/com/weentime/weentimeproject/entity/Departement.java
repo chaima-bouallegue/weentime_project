@@ -26,10 +26,12 @@ public class Departement {
     @Column(name = "code_interne", unique = true)
     private String codeInterne;
 
-    @OneToMany(mappedBy = "departement", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "departement")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Equipe> equipes;
 
-    @OneToMany(mappedBy = "departement", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "departement")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Utilisateur> utilisateurs;
 
     @ManyToOne(fetch = FetchType.LAZY)

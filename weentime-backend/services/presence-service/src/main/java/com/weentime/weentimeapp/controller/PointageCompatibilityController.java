@@ -5,6 +5,7 @@ import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
 import com.weentime.weentimeapp.dto.CheckInRequest;
 import com.weentime.weentimeapp.dto.CheckOutRequest;
 import com.weentime.weentimeapp.dto.PresenceStatsDTO;
+import com.weentime.weentimeapp.dto.TeamStatusResponse;
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import com.weentime.weentimeapp.security.SecurityUtils;
@@ -74,6 +75,15 @@ public class PointageCompatibilityController {
                 .map(this::toPointageEntry)
                 .toList();
         return ResponseEntity.ok(payload);
+    }
+
+    @GetMapping("/enterprise/status-range")
+    public ResponseEntity<Map<LocalDate, TeamStatusResponse>> getStatusRange(
+            @org.springframework.web.bind.annotation.RequestParam("entrepriseId") Long entrepriseId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "equipeId", required = false) Long equipeId,
+            @org.springframework.web.bind.annotation.RequestParam("start") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate start,
+            @org.springframework.web.bind.annotation.RequestParam("end") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(presenceService.getStatusRange(entrepriseId, equipeId, start, end));
     }
 
     @GetMapping("/week")

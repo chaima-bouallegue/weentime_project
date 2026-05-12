@@ -20,4 +20,6 @@ public interface SoldeCongeRepository extends JpaRepository<SoldeConge, Long> {
     Optional<SoldeConge> findWithLockByUtilisateurIdAndTypeCongeIdAndAnnee(Long utilisateurId, Long typeCongeId, Integer annee);
 
     boolean existsByAnnee(Integer annee);
+    List<SoldeConge> findAllByEntrepriseId(Long entrepriseId);
+    List<SoldeConge> findAllByEntrepriseIdAndAnnee(Long entrepriseId, Integer annee);
 }

@@ -25,6 +25,9 @@ public class SoldeConge {
     @Column(name = "utilisateur_id", nullable = false)
     private Long utilisateurId;
 
+    @Column(nullable = false)
+    private Long entrepriseId;
+
     @Column(name = "type_conge_id", nullable = false)
     private Long typeCongeId;
 

@@ -1,11 +1,11 @@
 server:
-  port: 8094
+  port: 8194
 
 spring:
   application:
     name: communication-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/communication_db?currentSchema=communication
+    url: jdbc:postgresql://localhost:5435/communication_db?currentSchema=communication
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -15,7 +15,7 @@ spring:
       maximum-pool-size: 10
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
     properties:
       hibernate:
@@ -31,11 +31,11 @@ spring:
     config:
       enabled: false
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8988
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6380
 
 eureka:
   client:
@@ -53,7 +53,7 @@ jwt:
 
 integration:
   organisation-service:
-    url: http://localhost:8090
+    url: http://localhost:8190
     internal-api-key: communication-service-local
 
 cors:

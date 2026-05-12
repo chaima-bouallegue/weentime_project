@@ -16,6 +16,7 @@ import com.weentime.communication.entity.CommDirectChannelParticipant;
 import com.weentime.communication.entity.CommMessage;
 import com.weentime.communication.exception.CommunicationException;
 import com.weentime.communication.mapper.CommunicationMapper;
+import com.weentime.communication.repository.CommAttachmentRepository;
 import com.weentime.communication.repository.CommChannelMemberRepository;
 import com.weentime.communication.repository.CommChannelRepository;
 import com.weentime.communication.repository.CommDirectChannelParticipantRepository;
@@ -58,6 +59,7 @@ public class ChannelService {
     private final CommThreadRepository threadRepository;
     private final MembershipService membershipService;
     private final UserDirectoryService userDirectoryService;
+    private final CommAttachmentRepository attachmentRepository;
     private final CommunicationProvisioningService provisioningService;
     private final CommunicationMapper mapper;
     private final AuditService auditService;
@@ -298,6 +300,7 @@ public class ChannelService {
                 lastMessageEntity,
                 userSummaries.get(lastMessageEntity.getSenderId()),
                 reactionRepository.findById_MessageId(lastMessageEntity.getId()),
+                attachmentRepository.findByMessageId(lastMessageEntity.getId()),
                 threadRepository.findByRootMessageIdAndEntrepriseId(lastMessageEntity.getId(), channel.getEntrepriseId()).orElse(null),
                 currentUser.userId()
         );

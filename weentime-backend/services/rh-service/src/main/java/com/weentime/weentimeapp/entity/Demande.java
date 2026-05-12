@@ -61,7 +61,7 @@ public abstract class Demande {
         this.dateCreation = LocalDateTime.now();
 
         if (this.statut == null) {
-            if (this instanceof Document || this instanceof Absence) {
+            if (this instanceof Document) {
                 this.statut = StatutDemandeEnum.EN_ATTENTE_RH;
             } else {
                 this.statut = StatutDemandeEnum.EN_ATTENTE_MANAGER;
@@ -78,8 +78,6 @@ public abstract class Demande {
                 this.typeDemande = TypeDemandeEnum.TELETRAVAIL;
             } else if (this instanceof Document) {
                 this.typeDemande = TypeDemandeEnum.DOCUMENT;
-            } else if (this instanceof Absence) {
-                this.typeDemande = TypeDemandeEnum.ABSENCE;
             }
         }
     }

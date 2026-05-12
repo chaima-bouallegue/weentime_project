@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/api/v1/rh/teletravails",
                                 "/api/v1/rh/teletravails/**"
                         ).authenticated()
+                        .requestMatchers("/api/demandes/**").permitAll()
                         .anyRequest().authenticated());
 
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);

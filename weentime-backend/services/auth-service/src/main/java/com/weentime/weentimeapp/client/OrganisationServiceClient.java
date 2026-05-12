@@ -22,7 +22,7 @@ public interface OrganisationServiceClient {
     ResponseEntity<UtilisateurAuthDTO> getUserByEmail(@RequestParam("email") String email);
 
     @PostMapping("/api/v1/organisations/users/register")
-    ResponseEntity<Void> registerUser(@RequestBody RegisterRequest request);
+    ResponseEntity<com.weentime.weentimeapp.dto.UtilisateurAuthDTO> registerUser(@RequestBody RegisterRequest request);
 
     @PostMapping("/api/v1/organisations/users/2fa/update")
     ResponseEntity<Void> update2faSettings(@RequestParam("email") String email, 

@@ -43,6 +43,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -194,7 +195,12 @@ public class PresenceServiceImpl implements PresenceService {
     @Override
     public AttendanceSummaryDTO getTodayAttendance(Long utilisateurId) {
         if (utilisateurId == null) {
-            throw new IllegalStateException("Authenticated user not found");
+            return AttendanceSummaryDTO.builder()
+                    .utilisateurId(null)
+                    .date(currentDate())
+                    .status(AttendanceDayStatus.ABSENT)
+                    .sessions(List.of())
+                    .build();
         }
 
         LocalDate today = currentDate();
@@ -366,7 +372,7 @@ public class PresenceServiceImpl implements PresenceService {
     @Override
     public PresenceStatsDTO getMyStats(Long utilisateurId) {
         if (utilisateurId == null) {
-            throw new IllegalStateException("Authenticated user not found");
+            return emptyStats(currentDate(), currentDate());
         }
 
         LocalDate weekStart = currentDate().minusDays(currentDate().getDayOfWeek().getValue() - 1L);
@@ -1124,5 +1130,57 @@ public class PresenceServiceImpl implements PresenceService {
 
     private ZoneId zoneId() {
         return ZoneId.of(presenceProperties.getTimezone());
+    }
+
+    @Override
+    public Map<LocalDate, TeamStatusResponse> getStatusRange(Long entrepriseId, Long teamId, LocalDate start, LocalDate end) {
+        log.info("Fetching status range for enterprise {} team {} from {} to {}", entrepriseId, teamId, start, end);
+        
+        List<UserSummaryDTO> users = filterUsersByEntreprise(fetchActiveUsers(), entrepriseId);
+        if (teamId != null) {
+            users = filterUsersByTeam(users, teamId);
+        }
+        
+        if (users.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        List<Long> userIds = users.stream().map(UserSummaryDTO::getId).toList();
+        List<AttendanceSession> sessions = attendanceSessionRepository.findByUtilisateurIdInAndDateBetween(userIds, start, end);
+        Map<LocalDate, Map<Long, List<AttendanceSession>>> sessionsByDateAndUser = sessions.stream()
+                .collect(Collectors.groupingBy(AttendanceSession::getDate, 
+                        Collectors.groupingBy(AttendanceSession::getUtilisateurId)));
+        
+        Map<LocalDate, TeamStatusResponse> result = new LinkedHashMap<>();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            final LocalDate currentDate = date;
+            Map<Long, List<AttendanceSession>> daySessionsByUser = sessionsByDateAndUser.getOrDefault(date, Collections.emptyMap());
+            
+            List<TeamStatusResponse.MemberStatus> members = users.stream()
+                    .map(user -> {
+                        AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()));
+                        return toMemberStatus(user, summary);
+                    })
+                    .toList();
+            
+            long presentMembers = members.stream().filter(m -> m.getStatus() != PresenceStatus.ABSENT).count();
+            long workingMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.PRESENT && m.getHeureSortie() == null).count();
+            long lateMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.LATE).count();
+            long absentMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.ABSENT).count();
+            
+            result.put(date, TeamStatusResponse.builder()
+                    .scope(teamId != null ? "TEAM" : "COMPANY")
+                    .teamId(teamId)
+                    .entrepriseId(entrepriseId)
+                    .totalMembers(users.size())
+                    .presentMembers(presentMembers)
+                    .workingMembers(workingMembers)
+                    .lateMembers(lateMembers)
+                    .absentMembers(absentMembers)
+                    .members(members)
+                    .build());
+        }
+        
+        return result;
     }
 }

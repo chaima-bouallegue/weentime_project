@@ -10,9 +10,11 @@ import com.weentime.communication.dto.SenderSummary;
 import com.weentime.communication.entity.ChannelType;
 import com.weentime.communication.entity.CommChannel;
 import com.weentime.communication.entity.CommChannelMember;
+import com.weentime.communication.entity.CommAttachment;
 import com.weentime.communication.entity.CommMessage;
 import com.weentime.communication.entity.CommReaction;
 import com.weentime.communication.entity.CommThread;
+import com.weentime.communication.dto.AttachmentResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -50,6 +52,7 @@ public class CommunicationMapper {
                 .isPrivate(channel.isPrivate())
                 .isArchived(channel.isArchived())
                 .memberCount(activeMembers.size())
+                .members(mapMembers(activeMembers, userSummaries))
                 .unreadCount(unreadCount)
                 .lastMessage(lastMessage)
                 .permissions(permissions)
@@ -62,6 +65,7 @@ public class CommunicationMapper {
             CommMessage message,
             OrganisationUserSummary sender,
             List<CommReaction> reactions,
+            List<CommAttachment> attachments,
             CommThread thread,
             Long currentUserId
     ) {
@@ -76,6 +80,7 @@ public class CommunicationMapper {
                 .parentMessageId(message.getParentMessageId())
                 .thread(toThreadSummary(thread))
                 .reactions(toReactionSummaries(reactions, currentUserId))
+                .attachments(toAttachmentResponses(attachments))
                 .status(message.getStatus().name())
                 .clientMessageId(message.getClientMessageId())
                 .createdAt(message.getCreatedAt())
@@ -128,8 +133,34 @@ public class CommunicationMapper {
         return summaries.stream().sorted(Comparator.comparing(ReactionSummary::emoji)).toList();
     }
 
+    public List<AttachmentResponse> toAttachmentResponses(List<CommAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return List.of();
+        }
+        return attachments.stream()
+                .map(attachment -> AttachmentResponse.builder()
+                        .id(attachment.getId())
+                        .fileName(attachment.getFileName())
+                        .originalName(attachment.getOriginalName())
+                        .contentType(attachment.getContentType())
+                        .fileSize(attachment.getFileSize())
+                        .url("/api/v1/communication/attachments/" + attachment.getId() + "/download")
+                        .createdAt(attachment.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
     private boolean isDeleted(CommMessage message) {
         return message.getDeletedAt() != null || "DELETED".equals(message.getStatus().name());
+    }
+
+    private List<SenderSummary> mapMembers(List<CommChannelMember> members, Map<Long, OrganisationUserSummary> userSummaries) {
+        if (members == null || members.isEmpty()) {
+            return List.of();
+        }
+        return members.stream()
+                .map(member -> toSenderSummary(userSummaries.get(member.getId().getUserId()), member.getId().getUserId()))
+                .toList();
     }
 
     private String resolveChannelName(

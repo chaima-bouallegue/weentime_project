@@ -47,6 +47,9 @@ public interface UtilisateurService {
     java.util.List<ActivityItemResponse> getActivityHistory();
     Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable);
     Page<UtilisateurResponse> getAllUtilisateurs(Pageable pageable, Long entrepriseId);
+    java.util.List<UtilisateurResponse> getUtilisateursParStatut(com.weentime.weentimeproject.enums.StatutUtilisateurEnum statut);
+    UtilisateurResponse validerUtilisateur(Long id, com.weentime.weentimeproject.dto.request.ValidationRequest request);
+    UtilisateurResponse rejeterUtilisateur(Long id);
     UtilisateurResponse updateUtilisateur(Long id, UtilisateurRequest request);
     void deleteUtilisateur(Long id);
     UtilisateurResponse toggleUtilisateurStatut(Long id);

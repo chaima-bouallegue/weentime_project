@@ -17,26 +17,26 @@ public interface NotificationService {
             String actionUrl,
             Map<String, Object> metadata
     );
-    NotificationResponse notifyUser(Long userId, NotificationDispatchRequest payload);
-    List<NotificationResponse> notifyRole(String roleName, NotificationDispatchRequest payload);
+    void notifyUser(Long userId, NotificationDispatchRequest payload);
+    void notifyRole(String roleName, NotificationDispatchRequest payload);
     NotificationResponse markAsRead(Long notificationId);
     List<NotificationResponse> getUserNotifications(Long userId);
     long getUnreadCount(Long userId);
 
-    default NotificationResponse sendToUser(Long userId, NotificationDispatchRequest request) {
-        return notifyUser(userId, request);
+    default void sendToUser(Long userId, NotificationDispatchRequest request) {
+        notifyUser(userId, request);
     }
 
-    default List<NotificationResponse> sendToRole(String role, NotificationDispatchRequest request) {
-        return notifyRole(role, request);
+    default void sendToRole(String role, NotificationDispatchRequest request) {
+        notifyRole(role, request);
     }
 
-    default NotificationResponse sendToManager(Long managerId, NotificationDispatchRequest request) {
-        return notifyUser(managerId, request);
+    default void sendToManager(Long managerId, NotificationDispatchRequest request) {
+        notifyUser(managerId, request);
     }
 
-    default List<NotificationResponse> sendToRH(NotificationDispatchRequest request) {
-        return notifyRole("ROLE_RH", request);
+    default void sendToRH(NotificationDispatchRequest request) {
+        notifyRole("ROLE_RH", request);
     }
 
     List<NotificationResponse> markAllAsRead();

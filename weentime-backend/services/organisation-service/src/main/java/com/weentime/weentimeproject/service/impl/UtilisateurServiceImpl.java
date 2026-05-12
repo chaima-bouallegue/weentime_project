@@ -7,6 +7,7 @@ import com.weentime.weentimeproject.dto.request.RhOwnerUpdateRequest;
 import com.weentime.weentimeproject.dto.request.RegisterRequest;
 import com.weentime.weentimeproject.dto.request.UserProfileUpdateRequest;
 import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
+import com.weentime.weentimeproject.dto.request.ValidationRequest;
 import com.weentime.weentimeproject.dto.response.ActivityItemResponse;
 import com.weentime.weentimeproject.dto.response.CreateRhResponse;
 import com.weentime.weentimeproject.dto.response.RhOwnerResponse;
@@ -31,11 +32,13 @@ import com.weentime.weentimeproject.repository.EquipeRepository;
 import com.weentime.weentimeproject.repository.RoleRepository;
 import com.weentime.weentimeproject.repository.UserAuditLogRepository;
 import com.weentime.weentimeproject.repository.UtilisateurRepository;
+import com.weentime.weentimeproject.service.AuditService;
 import com.weentime.weentimeproject.service.AvatarStorageService;
 import com.weentime.weentimeproject.service.NotificationService;
 import com.weentime.weentimeproject.service.UtilisateurService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -57,6 +60,7 @@ import java.util.stream.Collectors;
 @Service("utilisateurService")
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class UtilisateurServiceImpl implements UtilisateurService {
 
     private static final String USER_NOT_FOUND_ID = "Utilisateur non trouve avec l'id : ";
@@ -72,6 +76,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     private final UtilisateurMapper utilisateurMapper;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final AuditService auditService;
     private final AvatarStorageService avatarStorageService;
 
     private String getCurrentUser() {
@@ -81,12 +86,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     private void logAudit(String action, String targetUser, String details) {
-        auditLogRepository.save(com.weentime.weentimeproject.entity.UserAuditLog.builder()
-                .action(action)
-                .performedBy(getCurrentUser())
-                .targetUser(targetUser)
-                .details(details)
-                .build());
+        auditService.logAudit(action, targetUser, details, getCurrentUser());
     }
 
     @Override
@@ -276,40 +276,99 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     }
 
     @Override
+    @Transactional
     public UtilisateurResponse registerUtilisateur(RegisterRequest request) {
-        if (utilisateurRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email deja utilise : " + request.getEmail());
+        validateRegistrationRequest(request);
+
+        String email = request.getEmail().trim().toLowerCase();
+        if (utilisateurRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Un compte existe déjà avec l'adresse : " + email);
         }
 
-        Utilisateur utilisateur = Utilisateur.builder()
-                .nom(request.getNom())
-                .prenom(request.getPrenom())
-                .email(request.getEmail())
-                .motDePasse(passwordEncoder.encode(request.getMotDePasse()))
-                .statut(StatutUtilisateurEnum.ACTIF)
-                .build();
-        utilisateur.setRoles(resolveRoles(null, null));
+        Entreprise entreprise;
+        if (request.getEntrepriseId() != null) {
+            entreprise = entrepriseRepository.findById(request.getEntrepriseId())
+                    .orElseThrow(() -> new EntityNotFoundException("Entreprise non trouvée avec l'ID: " + request.getEntrepriseId()));
+        } else {
+            String entrepriseName = extractEntrepriseNameFromEmail(email);
+            entreprise = entrepriseRepository.findByNomIgnoreCase(entrepriseName)
+                    .orElseGet(() -> createDefaultEntreprise(entrepriseName));
+        }
 
-        String domain = request.getEmail().substring(request.getEmail().indexOf("@") + 1);
-        String namePart = domain.contains(".") ? domain.substring(0, domain.indexOf(".")) : domain;
-        String entrepriseName = namePart.substring(0, 1).toUpperCase() + namePart.substring(1).toLowerCase();
-
-        Entreprise entreprise = entrepriseRepository.findByNomIgnoreCase(entrepriseName)
-                .orElseGet(() -> entrepriseRepository.save(Entreprise.builder()
-                        .nom(entrepriseName)
-                        .siret(java.util.UUID.randomUUID().toString().substring(0, 14))
-                        .estActive(Boolean.TRUE)
-                        .build()));
         assertEntrepriseCapacity(entreprise);
 
-        utilisateur.setEntrepriseId(entreprise.getId());
-        utilisateur.setEntreprise(entreprise);
+        Utilisateur utilisateur = Utilisateur.builder()
+                .nom(request.getNom().trim())
+                .prenom(request.getPrenom().trim())
+                .email(email)
+                .motDePasse(passwordEncoder.encode(request.getMotDePasse()))
+                .poste(request.getPoste())
+                .statut(StatutUtilisateurEnum.PENDING)
+                .entrepriseId(entreprise.getId())
+                .entreprise(entreprise)
+                .roles(resolveRoles(null, null)) // Defaults to ROLE_EMPLOYEE
+                .build();
 
         Utilisateur saved = utilisateurRepository.save(utilisateur);
         incrementEntrepriseUsers(entreprise);
-        logAudit("REGISTER_USER", saved.getEmail(), "Utilisateur auto-inscrit avec succes.");
-        notifyUser(saved.getId(), "Bienvenue sur WeenTime", "Votre compte a bien ete initialise.", "/app/" + resolveAppScope(saved) + "/profil");
+
+        // Notify RH users asynchronously or efficiently
+        List<Utilisateur> rhUsers = utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(
+                entreprise.getId(), RoleNom.ROLE_RH);
+        
+        for (Utilisateur rh : rhUsers) {
+            try {
+                notificationService.sendToUser(rh.getId(), NotificationDispatchRequest.builder()
+                        .title("Nouvelle inscription")
+                        .message(saved.getPrenom() + " " + saved.getNom() + " attend votre validation.")
+                        .type(NotificationType.USER_PENDING)
+                        .actionUrl("/app/rh/structure")
+                        .build());
+            } catch (Exception e) {
+                log.error("Failed to send notification to RH {}: {}", rh.getEmail(), e.getMessage());
+                logAudit("NOTIFICATION_FAILURE", String.valueOf(rh.getId()), "Echec notification RH : " + e.getMessage());
+            }
+        }
+
+        logAudit("REGISTER_USER", saved.getEmail(), "Nouvel utilisateur inscrit (En attente) : " + entreprise.getNom());
+        notifyUser(saved.getId(), "Inscription reçue",
+                "Votre demande d'inscription pour " + entreprise.getNom() + " est en cours de validation par les RH.",
+                "/app/welcome");
+
         return utilisateurMapper.toResponse(saved);
+    }
+
+    private void validateRegistrationRequest(RegisterRequest request) {
+        if (request == null) throw new IllegalArgumentException("La requête est vide.");
+        if (request.getEmail() == null || !request.getEmail().contains("@")) {
+            throw new IllegalArgumentException("Email invalide.");
+        }
+    }
+
+    private String extractEntrepriseNameFromEmail(String email) {
+        String domain = email.substring(email.indexOf("@") + 1).toLowerCase();
+        
+        // List of common public providers to avoid creating "Gmail" or "Outlook" companies
+        Set<String> publicProviders = Set.of("gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com");
+        
+        if (publicProviders.contains(domain)) {
+            return "Particulier"; // Or handle differently
+        }
+
+        String namePart = domain.contains(".") ? domain.substring(0, domain.indexOf(".")) : domain;
+        if (namePart.isBlank()) return "Nouvelle Entreprise";
+        
+        return namePart.substring(0, 1).toUpperCase() + namePart.substring(1);
+    }
+
+    private Entreprise createDefaultEntreprise(String name) {
+        return entrepriseRepository.save(Entreprise.builder()
+                .nom(name)
+                .siret("TEMP-" + java.util.UUID.randomUUID().toString().substring(0, 8))
+                .estActive(Boolean.TRUE)
+                .currentUsers(0)
+                .maxUsers(10) // Default limit for self-registered companies
+                .build());
     }
 
     @Override
@@ -623,6 +682,74 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         utilisateur.setStatut(nouveauStatut);
         Utilisateur saved = utilisateurRepository.save(utilisateur);
         logAudit("TOGGLE_USER_STATUS", saved.getEmail(), "Statut utilisateur modifie vers : " + nouveauStatut);
+        return utilisateurMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<UtilisateurResponse> getUtilisateursParStatut(StatutUtilisateurEnum statut) {
+        String email = getCurrentUser();
+        Utilisateur currentUser = utilisateurRepository.findByEmail(email).orElseThrow();
+        
+        return utilisateurRepository.findByStatut(statut).stream()
+                .filter(u -> currentUser.getEntrepriseId() != null && currentUser.getEntrepriseId().equals(u.getEntrepriseId()))
+                .map(this::enforceSingleBusinessRole)
+                .map(utilisateurMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public UtilisateurResponse validerUtilisateur(Long id, ValidationRequest request) {
+        String email = getCurrentUser();
+        Utilisateur currentUser = utilisateurRepository.findByEmail(email).orElseThrow();
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
+
+        if (currentUser.getEntrepriseId() != null && !currentUser.getEntrepriseId().equals(utilisateur.getEntrepriseId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Accès refusé");
+        }
+
+        // Administrative assignments
+        if (request.getDepartementId() != null) {
+            Departement dept = departementRepository.findById(request.getDepartementId())
+                    .orElseThrow(() -> new EntityNotFoundException("Département non trouvé"));
+            utilisateur.setDepartement(dept);
+        }
+
+        if (request.getEquipeId() != null) {
+            Equipe equipe = equipeRepository.findById(request.getEquipeId())
+                    .orElseThrow(() -> new EntityNotFoundException("Équipe non trouvée"));
+            utilisateur.setEquipe(equipe);
+        }
+
+        utilisateur.setStatut(StatutUtilisateurEnum.ACTIF);
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        
+        logAudit("VALIDATE_USER", saved.getEmail(), "Compte utilisateur validé et configuré par le RH.");
+        
+        notifyUser(saved.getId(), "Bienvenue !", 
+                "Votre compte a été validé. Vous pouvez maintenant accéder à WeenTime.", 
+                "/app/profil");
+
+        return utilisateurMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public UtilisateurResponse rejeterUtilisateur(Long id) {
+        String email = getCurrentUser();
+        Utilisateur currentUser = utilisateurRepository.findByEmail(email).orElseThrow();
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
+
+        if (currentUser.getEntrepriseId() != null && !currentUser.getEntrepriseId().equals(utilisateur.getEntrepriseId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Accès refusé");
+        }
+
+        utilisateur.setStatut(com.weentime.weentimeproject.enums.StatutUtilisateurEnum.INACTIF);
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        logAudit("REJECT_USER", saved.getEmail(), "Compte utilisateur rejeté par le RH.");
         return utilisateurMapper.toResponse(saved);
     }
 

@@ -58,4 +58,26 @@ public interface TeletravailRepository extends JpaRepository<Teletravail, Long> 
     long countByManagerIdAndStatut(
             @Param("managerId") Long managerId,
             @Param("statut") StatutDemandeEnum statut);
+
+    @Query("SELECT t FROM Teletravail t WHERE t.entrepriseId = :entrepriseId AND t.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND NOT (t.dateFin < :debut OR t.dateDebut > :fin)")
+    List<Teletravail> findApprovedForDateRange(@Param("entrepriseId") Long entrepriseId, @Param("debut") LocalDate debut, @Param("fin") LocalDate fin);
+
+    @Query("SELECT t FROM Teletravail t WHERE t.utilisateurId = :userId AND t.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND t.dateDebut <= :date AND t.dateFin >= :date")
+    java.util.Optional<Teletravail> findApprovedForUserAndDate(@Param("userId") Long userId, @Param("date") LocalDate date);
+
+    @Query("SELECT t FROM Teletravail t WHERE t.entrepriseId = :entrepriseId AND t.utilisateurId IN :ids AND t.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND NOT (t.dateFin < :debut OR t.dateDebut > :fin)")
+    List<Teletravail> findApprovedForUsersAndDateRange(@Param("entrepriseId") Long entrepriseId, @Param("ids") List<Long> ids, @Param("debut") LocalDate debut, @Param("fin") LocalDate fin);
+
+    @Query("SELECT COALESCE(SUM(t.nombreJours), 0.0) FROM Teletravail t " +
+           "WHERE t.utilisateurId = :userId " +
+           "AND MONTH(t.dateDebut) = :month AND YEAR(t.dateDebut) = :year " +
+           "AND t.statut IN :statuts")
+    Double sumNombreJoursByUtilisateurIdAndMonth(
+            @Param("userId") Long userId,
+            @Param("month") int month,
+            @Param("year") int year,
+            @Param("statuts") List<StatutDemandeEnum> statuts);
 }

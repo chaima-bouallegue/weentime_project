@@ -5,6 +5,7 @@ import com.weentime.weentimeapp.service.TypeAutorisationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,11 +23,13 @@ public class TypeAutorisationController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER') or hasRole('EMPLOYEE')")
     public ResponseEntity<TypeAutorisationDTO> getTypeAutorisationById(@PathVariable Long id) {
         return ResponseEntity.ok(typeAutorisationService.getById(id));
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER') or hasRole('EMPLOYEE')")
     public ResponseEntity<List<TypeAutorisationDTO>> getAllTypeAutorisations() {
         return ResponseEntity.ok(typeAutorisationService.getAll());
     }

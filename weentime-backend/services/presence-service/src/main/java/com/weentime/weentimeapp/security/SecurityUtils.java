@@ -15,9 +15,10 @@ public class SecurityUtils {
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
-            throw new IllegalStateException("No authenticated user found");
+            return null;
         }
 
+        // Try principal first
         Object principal = authentication.getPrincipal();
         if (principal instanceof Long userId) {
             return userId;
@@ -30,6 +31,7 @@ public class SecurityUtils {
             }
         }
 
+        // Try details
         Object details = authentication.getDetails();
         if (details instanceof Map<?, ?> map) {
             Object userId = map.get("userId");
@@ -45,6 +47,29 @@ public class SecurityUtils {
             }
         }
 
-        throw new IllegalStateException("Unable to extract userId from JWT context");
+        return null;
+    }
+
+    public Long getCurrentEntrepriseId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object details = authentication.getDetails();
+        if (details instanceof Map<?, ?> map) {
+            Object entrepriseId = map.get("entrepriseId");
+            if (entrepriseId instanceof Number number) {
+                return number.longValue();
+            }
+            if (entrepriseId instanceof String text) {
+                try {
+                    return Long.parseLong(text);
+                } catch (NumberFormatException ignored) {
+                    // no-op
+                }
+            }
+        }
+        return null;
     }
 }

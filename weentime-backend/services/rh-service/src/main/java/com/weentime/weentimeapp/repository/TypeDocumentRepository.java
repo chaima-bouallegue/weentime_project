@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface TypeDocumentRepository extends JpaRepository<TypeDocument, Long> {
     Optional<TypeDocument> findByCode(String code);
+    java.util.List<TypeDocument> findAllByEntrepriseId(Long entrepriseId);
 }

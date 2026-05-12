@@ -186,7 +186,7 @@ public class CommunicationProvisioningService {
                 context.entrepriseId(),
                 currentUser.userId(),
                 DEFAULT_GENERAL_SLUG,
-                "general",
+                "général",
                 "Canal principal de l'entreprise",
                 accumulator
         );
@@ -212,26 +212,26 @@ public class CommunicationProvisioningService {
         );
         syncMemberships(supportChannel, context.activeUsers().values(), user -> ChannelMemberRole.MEMBER, accumulator);
 
+        // #rh -> RH + ADMIN + MANAGER (as per request)
         CommChannel rhChannel = upsertDefaultChannel(
                 context.entrepriseId(),
                 currentUser.userId(),
                 DEFAULT_RH_SLUG,
                 "rh",
-                "Echanges reserves aux RH et administrateurs",
+                "Echanges réservés aux RH et managers",
                 accumulator
         );
-        syncMemberships(rhChannel, selectUsersByRoles(context.activeUsers().values(), Set.of("RH", "ADMIN")), this::resolveAdministrativeRole, accumulator);
+        syncMemberships(rhChannel, selectRhAndManagers(context.activeUsers().values()), this::resolveAdministrativeRole, accumulator);
 
         CommChannel managersChannel = upsertDefaultChannel(
                 context.entrepriseId(),
                 currentUser.userId(),
                 DEFAULT_MANAGERS_SLUG,
                 "managers",
-                "Coordination management et relais d'equipe",
+                "Coordination management et relais d'équipe",
                 accumulator
         );
         syncMemberships(managersChannel, selectUsersByRoles(context.activeUsers().values(), Set.of("MANAGER", "ADMIN")), this::resolveAdministrativeRole, accumulator);
-
     }
 
     private void syncCompanyAndSmartChannels(
@@ -242,18 +242,17 @@ public class CommunicationProvisioningService {
         CommChannel companyChannel = upsertCompanyChannel(context.snapshot(), currentUser, accumulator);
         syncMemberships(companyChannel, context.activeUsers().values(), this::resolveCompanyRole, accumulator);
 
-        CommChannel congesChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_CONGES, "conges", "Canal RH pour les conges", accumulator);
-        syncMemberships(congesChannel, selectRhAndManagers(context.activeUsers().values()), this::resolveSmartRole, accumulator);
+        CommChannel congesChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_CONGES, "congés", "Canal RH pour les congés", accumulator);
+        syncMemberships(congesChannel, context.activeUsers().values(), user -> ChannelMemberRole.MEMBER, accumulator);
 
-        CommChannel teletravailChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_TELETRAVAIL, "teletravail", "Canal RH pour le teletravail", accumulator);
-        syncMemberships(teletravailChannel, selectRhAndManagers(context.activeUsers().values()), this::resolveSmartRole, accumulator);
+        CommChannel teletravailChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_TELETRAVAIL, "télétravail", "Canal RH pour le télétravail", accumulator);
+        syncMemberships(teletravailChannel, context.activeUsers().values(), user -> ChannelMemberRole.MEMBER, accumulator);
 
         CommChannel documentsChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_DOCUMENTS, "documents", "Canal RH pour les documents", accumulator);
         syncMemberships(documentsChannel, selectRhAndManagers(context.activeUsers().values()), this::resolveSmartRole, accumulator);
 
         CommChannel supportRhChannel = upsertSmartChannel(context.snapshot(), currentUser, WORKFLOW_SUPPORT_RH, "support-rh", "Support RH et suivi des demandes", accumulator);
         syncSupportRhMemberships(supportRhChannel, context.activeUsers().values(), accumulator);
-        accumulator.warnings.add("Le canal #support-rh synchronise uniquement les RH et conserve les participants existants; l'ajout automatique des employes se fera lors du flux support dedie.");
     }
 
     private void syncTeamChannels(

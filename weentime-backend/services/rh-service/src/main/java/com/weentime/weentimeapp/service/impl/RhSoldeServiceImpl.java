@@ -18,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.weentime.weentimeapp.security.SecurityUtils;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,14 +36,12 @@ public class RhSoldeServiceImpl implements RhSoldeService {
     private final OrganisationServiceClient organisationServiceClient;
 
     private Long getEntrepriseId() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getDetails() instanceof Map) {
-            Map<?, ?> details = (Map<?, ?>) auth.getDetails();
-            Object eid = details.get("entrepriseId");
-            if (eid instanceof Number)
-                return ((Number) eid).longValue();
+        Long eid = SecurityUtils.getCurrentEntrepriseId();
+        if (eid == null) {
+            log.error(">>> [getEntrepriseId] FAILED: Entreprise ID not found in SecurityContext");
+            throw new IllegalStateException("Entreprise ID non trouve dans le contexte de securite");
         }
-        throw new IllegalStateException("Entreprise ID not found in security context");
+        return eid;
     }
 
     private String getCurrentUserEmail() {
@@ -63,7 +62,13 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         // Let's assume we use findUsersByEntreprise and paginate here for simplicity,
         // or check if organisationServiceClient.getAllUtilisateurs can be used.
 
+        log.info(">>> [getGlobalSoldes] Fetching users for enterprise {}", eid);
         List<UserResponse> allUsers = organisationServiceClient.findUsersByEntreprise(eid);
+        if (allUsers == null) {
+            log.error(">>> [getGlobalSoldes] organisationServiceClient.findUsersByEntreprise returned NULL for eid {}", eid);
+            allUsers = Collections.emptyList();
+        }
+        log.info(">>> [getGlobalSoldes] Found {} users", allUsers.size());
 
         // Filter by query if provided
         List<UserResponse> filteredUsers = allUsers.stream()
@@ -82,12 +87,17 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         List<Long> userIds = pagedUsers.stream().map(UserResponse::getId).collect(Collectors.toList());
 
         // 2. Fetch balances for these users for the year
-        List<SoldeConge> soldes = soldeCongeRepository.findByUtilisateurIdInAndAnnee(userIds, targetAnnee);
+        log.info(">>> [getGlobalSoldes] Fetching balances for {} user IDs for year {}", userIds.size(), targetAnnee);
+        List<SoldeConge> soldes = userIds.isEmpty() ? Collections.emptyList() : soldeCongeRepository.findByUtilisateurIdInAndAnnee(userIds, targetAnnee);
+        if (soldes == null) {
+            log.warn(">>> [getGlobalSoldes] soldeCongeRepository.findByUtilisateurIdInAndAnnee returned NULL");
+            soldes = Collections.emptyList();
+        }
         Map<Long, List<SoldeConge>> soldeMap = soldes.stream()
                 .collect(Collectors.groupingBy(SoldeConge::getUtilisateurId));
 
-        // 3. Fetch active leave types
-        List<TypeConge> activeTypes = typeCongeRepository.findAll(); // Assuming all are active for now
+        // 3. Fetch active leave types for this enterprise
+        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(eid);
 
         // 4. Merge
         List<EmployeeSoldeResponse> content = pagedUsers.stream().map(u -> {
@@ -132,7 +142,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
             targetIds = organisationServiceClient.findUserIdsByEntrepriseId(eid);
         }
 
-        List<TypeConge> types = typeCongeRepository.findAll();
+        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
 
         for (Long uid : targetIds) {
             for (TypeConge type : types) {
@@ -141,6 +151,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                 if (existing.isEmpty()) {
                     SoldeConge solde = SoldeConge.builder()
                             .utilisateurId(uid)
+                            .entrepriseId(eid)
                             .typeCongeId(type.getId())
                             .annee(currentYear)
                             .joursAcquis((double) type.getNombreJoursMax())
@@ -171,7 +182,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         // enterprise
         // For simplicity, we just proceed but we could check the AuditLog
 
-        List<TypeConge> types = typeCongeRepository.findAll();
+        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
         Map<Long, TypeConge> typeMap = types.stream().collect(Collectors.toMap(TypeConge::getId, t -> t));
 
         for (Long uid : targetIds) {
@@ -180,6 +191,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                         .findByUtilisateurIdAndTypeCongeIdAndAnnee(uid, type.getId(), annee)
                         .orElse(SoldeConge.builder()
                                 .utilisateurId(uid)
+                                .entrepriseId(eid)
                                 .typeCongeId(type.getId())
                                 .annee(annee)
                                 .build());
@@ -261,7 +273,8 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         int targetAnnee = LocalDate.now().getYear();
         List<SoldeConge> userSoldes = soldeCongeRepository
                 .findByUtilisateurIdInAndAnnee(Collections.singletonList(utilisateurId), targetAnnee);
-        List<TypeConge> activeTypes = typeCongeRepository.findAll();
+        Long eid = getEntrepriseId();
+        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(eid);
 
         return activeTypes.stream().map(t -> {
             Optional<SoldeConge> sc = userSoldes.stream().filter(s -> s.getTypeCongeId().equals(t.getId())).findFirst();

@@ -26,6 +26,6 @@ public class Role {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
     @Column(name = "permission", nullable = false)
-    @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private java.util.Set<String> permissions = new java.util.LinkedHashSet<>();
 }

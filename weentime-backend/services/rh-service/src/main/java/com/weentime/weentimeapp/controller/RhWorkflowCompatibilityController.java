@@ -6,7 +6,7 @@ import com.weentime.weentimeapp.dto.WorkflowStatusUpdateRequest;
 import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.enums.StatutDocument;
 import com.weentime.weentimeapp.security.SecurityUtils;
-import com.weentime.weentimeapp.service.AbsenceService;
+
 import com.weentime.weentimeapp.service.AutorisationService;
 import com.weentime.weentimeapp.service.CongeService;
 import com.weentime.weentimeapp.service.DocumentService;
@@ -32,7 +32,6 @@ public class RhWorkflowCompatibilityController {
     private final AutorisationService autorisationService;
     private final TeletravailService teletravailService;
     private final DocumentService documentService;
-    private final AbsenceService absenceService;
 
     @PutMapping("/demandes/{id}/statut")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
@@ -59,11 +58,7 @@ public class RhWorkflowCompatibilityController {
             case DOCUMENT -> approve
                     ? documentService.updateStatut(id, buildDocumentApproval(request.getCommentaire()))
                     : documentService.refuser(id, request.getCommentaire());
-            case ABSENCE -> approve
-                    ? absenceService.valider(id, currentUserEmail())
-                    : absenceService.rejeter(id, currentUserEmail(), request.getCommentaire() == null || request.getCommentaire().isBlank()
-                            ? "Refus via assistant RH"
-                            : request.getCommentaire());
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de demande non supporté ou supprimé.");
         };
 
         return ResponseEntity.ok(ApiResponse.success(response));

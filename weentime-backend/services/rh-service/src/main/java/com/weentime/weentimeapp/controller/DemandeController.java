@@ -93,6 +93,30 @@ public class DemandeController {
         return ResponseEntity.ok(service.getByManager(id));
     }
 
+    @GetMapping("/manager/{id}/all")
+    @PreAuthorize("hasAnyRole('RH','MANAGER')")
+    public ResponseEntity<ApiResponse<PageResponse<DemandeDTO>>> getByManagerPaged(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String employee,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(filterAndPage(
+                service.getByManager(id),
+                page,
+                size,
+                statut,
+                type,
+                employee,
+                dateFrom,
+                dateTo
+        )));
+    }
+
     private PageResponse<DemandeDTO> filterAndPage(
             List<DemandeDTO> source,
             int page,

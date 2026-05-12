@@ -1,11 +1,11 @@
 server:
-  port: 8093
+  port: 8193
 
 spring:
   application:
     name: presence-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/presence_db
+    url: jdbc:postgresql://localhost:5435/presence_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -35,9 +35,9 @@ spring:
 
   cloud:
     config:
-      enabled: false
+      enabled: true
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8988
 
 
 eureka:
@@ -72,11 +72,11 @@ presence:
 
 integration:
   user-service:
-    url: http://localhost:8090
+    url: http://localhost:8190
   leave-service:
-    url: http://localhost:8092
+    url: http://localhost:8192
   telework-service:
-    url: http://localhost:8092
+    url: http://localhost:8192
 
 spring.cloud.openfeign.client.config:
   default:

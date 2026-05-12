@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${PRESENCE_DB_NAME:${DB_NAME:presence_db}}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${PRESENCE_DB_NAME:${DB_NAME:presence_db}}
     username: ${PRESENCE_DB_USERNAME:${DB_USERNAME:weentime}}
     password: ${PRESENCE_DB_PASSWORD:${DB_PASSWORD:170502}}
     driver-class-name: org.postgresql.Driver
@@ -49,13 +49,13 @@ presence:
 
 integration:
   organisation-service:
-    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8090}}
+    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}
   user-service:
     url: ${USER_SERVICE_URL:${integration.organisation-service.url}}
   leave-service:
-    url: ${LEAVE_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}}
+    url: ${LEAVE_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}}
   telework-service:
-    url: ${TELEWORK_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}}
+    url: ${TELEWORK_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}}
 
 resilience4j:
   circuitbreaker:

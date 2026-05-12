@@ -35,17 +35,24 @@ public class GlobalExceptionHandler {
         return buildErrorResponse("STATE_CONFLICT", ex.getMessage(), HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        return buildErrorResponse("INVALID_ARGUMENT", ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<Void>> handleRuntimeException(RuntimeException ex) {
-        log.warn("Organisation-service request rejected: {}", ex.getMessage(), ex);
+    public ResponseEntity<ApiResponse<Void>> handleRuntimeException(RuntimeException ex, jakarta.servlet.http.HttpServletRequest request) {
+        log.error("Organisation-service request REJECTED on {}: {} - {}", 
+                  request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
         return buildErrorResponse("BAD_REQUEST", ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleValidationExceptions(MethodArgumentNotValidException ex, jakarta.servlet.http.HttpServletRequest request) {
         String errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
+        log.error("VALIDATION ERROR on {}: {}", request.getRequestURI(), errors);
         return buildErrorResponse("VALIDATION_ERROR", errors, HttpStatus.BAD_REQUEST);
     }
 

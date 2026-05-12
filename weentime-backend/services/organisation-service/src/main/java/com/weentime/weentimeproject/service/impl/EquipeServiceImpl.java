@@ -42,9 +42,7 @@ public class EquipeServiceImpl implements EquipeService {
         Equipe equipe = equipeMapper.toEntity(request);
         equipe.setDepartement(departement);
 
-        if (request.getResponsableId() == null) {
-            throw new IllegalArgumentException("Le responsable de l'équipe est obligatoire");
-        } {
+        if (request.getResponsableId() != null) {
             Utilisateur responsable = utilisateurRepository.findById(request.getResponsableId())
                     .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'id : " + request.getResponsableId()));
 

@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface TypeAutorisationRepository extends JpaRepository<TypeAutorisation, Long> {
     Optional<TypeAutorisation> findByLibelle(String libelle);
+    java.util.List<TypeAutorisation> findAllByEntrepriseId(Long entrepriseId);
 }

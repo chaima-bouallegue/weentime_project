@@ -65,10 +65,16 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(email, null, authorities);
 
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    // Extract all claims to put in details (for easy access to entrepriseId/userId)
+                    java.util.Map<String, Object> claims = new java.util.HashMap<>();
+                    claims.put("entrepriseId", jwtUtils.getEntrepriseIdFromJwtToken(jwt));
+                    claims.put("userId", jwtUtils.getUserIdFromJwtToken(jwt));
+                    claims.put("roles", roles);
+                    
+                    authentication.setDetails(claims);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     
-                    log.debug("Authentication context updated with {} role(s).", roles.size());
+                    log.debug("Authentication context updated for user: {} with entrepriseId: {}", email, claims.get("entrepriseId"));
                 } else {
                     log.warn("JWT token validation failed for request: {}", request.getRequestURI());
                 }

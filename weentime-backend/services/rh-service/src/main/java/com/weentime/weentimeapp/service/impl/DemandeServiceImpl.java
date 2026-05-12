@@ -3,8 +3,11 @@ package com.weentime.weentimeapp.service.impl;
 import com.weentime.weentimeapp.client.OrganisationServiceClient;
 import com.weentime.weentimeapp.dto.DemandeDTO;
 import com.weentime.weentimeapp.dto.UserResponse;
+import com.weentime.weentimeapp.entity.*;
 import com.weentime.weentimeapp.mapper.DemandeMapper;
 import com.weentime.weentimeapp.repository.DemandeRepository;
+import com.weentime.weentimeapp.repository.TypeCongeRepository;
+import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.DemandeService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final DemandeRepository demandeRepository;
     private final DemandeMapper demandeMapper;
     private final OrganisationServiceClient organisationServiceClient;
+    private final TypeCongeRepository typeCongeRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -38,21 +42,41 @@ public class DemandeServiceImpl implements DemandeService {
 
     @Override
     public List<DemandeDTO> getAllByUtilisateur(Long utilisateurId) {
-        return enrich(demandeMapper.toDtoList(demandeRepository.findAll().stream()
-                .filter(demande -> Objects.equals(demande.getUtilisateurId(), utilisateurId))
-                .toList()));
+        List<Demande> entities = demandeRepository.findByUtilisateurIdInOrderByDateCreationDesc(List.of(utilisateurId));
+        return enrich(demandeMapper.toDtoList(entities), entities);
     }
 
     @Override
     public List<DemandeDTO> getByManager(Long managerId) {
-        return enrich(demandeMapper.toDtoList(demandeRepository.findAll().stream()
-                .filter(demande -> Objects.equals(demande.getManagerId(), managerId))
-                .toList()));
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        if (entrepriseId == null) {
+            UserResponse manager = safeGetUser(managerId);
+            if (manager != null) entrepriseId = manager.getEntrepriseId();
+        }
+
+        if (entrepriseId == null) {
+            return enrich(demandeMapper.toDtoList(demandeRepository.findByManagerIdOrderByDateCreationDesc(managerId)));
+        }
+
+        List<UserResponse> users = organisationServiceClient.findUsersByEntreprise(entrepriseId);
+        List<Long> teamMemberIds = (users == null) ? List.of() : users.stream()
+                .filter(user -> managerId.equals(user.getManagerId()))
+                .map(UserResponse::getId)
+                .toList();
+
+        if (teamMemberIds.isEmpty()) {
+            List<Demande> entities = demandeRepository.findByManagerIdOrderByDateCreationDesc(managerId);
+            return enrich(demandeMapper.toDtoList(entities), entities);
+        }
+
+        List<Demande> entities = demandeRepository.findByUtilisateurIdInOrderByDateCreationDesc(teamMemberIds);
+        return enrich(demandeMapper.toDtoList(entities), entities);
     }
 
     @Override
     public List<DemandeDTO> getAll() {
-        return enrich(demandeMapper.toDtoList(demandeRepository.findAll()));
+        List<Demande> entities = demandeRepository.findAll();
+        return enrich(demandeMapper.toDtoList(entities), entities);
     }
 
     @Override
@@ -60,7 +84,43 @@ public class DemandeServiceImpl implements DemandeService {
         if (entrepriseId == null) {
             return List.of();
         }
-        return enrich(demandeMapper.toDtoList(demandeRepository.findByEntrepriseIdOrderByDateCreationDesc(entrepriseId)));
+        List<Demande> entities = demandeRepository.findByEntrepriseIdOrderByDateCreationDesc(entrepriseId);
+        return enrich(demandeMapper.toDtoList(entities), entities);
+    }
+
+    private List<DemandeDTO> enrich(List<DemandeDTO> demandes, List<Demande> entities) {
+        if (demandes.size() != entities.size()) {
+             return enrich(demandes); // Fallback if count mismatch
+        }
+        
+        for (int i = 0; i < demandes.size(); i++) {
+            DemandeDTO dto = demandes.get(i);
+            Demande entity = entities.get(i);
+            
+            if (entity instanceof Conge c) {
+                dto.setDateDebut(c.getDateDebut() != null ? c.getDateDebut().atStartOfDay() : null);
+                dto.setDateFin(c.getDateFin() != null ? c.getDateFin().atStartOfDay() : null);
+                dto.setNombreJours(c.getNombreJours() != null ? c.getNombreJours().doubleValue() : 0.0);
+                if (c.getTypeCongeId() != null) {
+                    typeCongeRepository.findById(c.getTypeCongeId()).ifPresent(t -> dto.setTypeCongeNom(t.getLibelle()));
+                }
+            } else if (entity instanceof Teletravail t) {
+                dto.setDateDebut(t.getDateDebut() != null ? t.getDateDebut().atStartOfDay() : null);
+                dto.setDateFin(t.getDateFin() != null ? t.getDateFin().atStartOfDay() : null);
+                dto.setNombreJours(t.getNombreJours());
+            } else if (entity instanceof Autorisation a) {
+                dto.setDateDebut(a.getDateAutorisation() != null && a.getHeureDebut() != null ? 
+                                 a.getDateAutorisation().atTime(a.getHeureDebut()) : null);
+                dto.setDateFin(a.getDateAutorisation() != null && a.getHeureFin() != null ? 
+                                 a.getDateAutorisation().atTime(a.getHeureFin()) : null);
+                dto.setNombreJours(a.getDuree() != null ? a.getDuree() / 60.0 : 0.0);
+                if (a.getTypeAutorisation() != null) {
+                    dto.setTypeAutorisation(a.getTypeAutorisation().getLibelle());
+                }
+            }
+        }
+        
+        return enrich(demandes);
     }
 
     private List<DemandeDTO> enrich(List<DemandeDTO> demandes) {

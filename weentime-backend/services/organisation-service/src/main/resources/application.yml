@@ -1,15 +1,15 @@
 server:
-  port: 8090
+  port: 8190
 
 spring:
   application:
     name: organisation-service
 
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8988
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/organisation_db
+    url: jdbc:postgresql://localhost:5435/organisation_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -22,14 +22,14 @@ spring:
 
   cloud:
     config:
-      enabled: false
+      enabled: true
   flyway:
     # Run all migrations from V1; do not baseline an empty schema, otherwise V1__init.sql is skipped
     baseline-on-migrate: false
     validate-on-migrate: false
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
     show-sql: true
     properties:
@@ -64,7 +64,7 @@ management:
 
 application:
   config:
-    rh-service: ${RH_SERVICE_URL:http://rh-service/api/v1/rh}
+    rh-service: ${RH_SERVICE_URL:http://localhost:8192}
 
 integration:
   internal-api-key: communication-service-local

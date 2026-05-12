@@ -5,6 +5,7 @@ import com.weentime.weentimeapp.service.TypeDocumentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,11 +23,13 @@ public class TypeDocumentController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER') or hasRole('EMPLOYEE')")
     public ResponseEntity<TypeDocumentDTO> getTypeDocumentById(@PathVariable Long id) {
         return ResponseEntity.ok(typeDocumentService.getById(id));
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER') or hasRole('EMPLOYEE')")
     public ResponseEntity<List<TypeDocumentDTO>> getAllTypeDocuments() {
         return ResponseEntity.ok(typeDocumentService.getAll());
     }

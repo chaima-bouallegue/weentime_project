@@ -21,10 +21,11 @@ public record ChannelResponse(
         boolean isPrivate,
         boolean isArchived,
         long memberCount,
+        java.util.List<SenderSummary> members,
         long unreadCount,
         MessageResponse lastMessage,
         ChannelPermissionResponse permissions,
-        Instant createdAt,
-        Instant updatedAt
+        java.time.Instant createdAt,
+        java.time.Instant updatedAt
 ) {
 }

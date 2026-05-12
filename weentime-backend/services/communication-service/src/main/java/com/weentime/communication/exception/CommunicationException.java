@@ -12,6 +12,10 @@ public class CommunicationException extends RuntimeException {
     private final String code;
     private final Map<String, Object> details;
 
+    public CommunicationException(HttpStatus status, String code, String message) {
+        this(status, code, message, Map.of());
+    }
+
     public CommunicationException(HttpStatus status, String code, String message, Map<String, Object> details) {
         super(message);
         this.status = status;

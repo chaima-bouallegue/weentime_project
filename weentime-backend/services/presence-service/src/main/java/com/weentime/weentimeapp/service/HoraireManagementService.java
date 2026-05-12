@@ -25,6 +25,7 @@ import com.weentime.weentimeapp.repository.HoraireModeleRepository;
 import com.weentime.weentimeapp.repository.WorkScheduleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class HoraireManagementService {
 
     private final HoraireModeleRepository horaireModeleRepository;
@@ -52,32 +54,55 @@ public class HoraireManagementService {
     private final WorkScheduleRepository workScheduleRepository;
     private final UserServiceClient userServiceClient;
     private final PresenceProperties presenceProperties;
+    private final com.weentime.weentimeapp.security.SecurityUtils securityUtils;
+    private final NotificationService notificationService;
 
     public Page<HoraireDto> getHoraires(Long currentUserId, Pageable pageable) {
-        Long entrepriseId = requireEntrepriseId(currentUserId);
+        Long entrepriseId = getSafeEntrepriseId(currentUserId);
         Pageable safePageable = pageable == null ? Pageable.unpaged() : pageable;
+        
+        if (entrepriseId == null) {
+            return Page.empty(safePageable);
+        }
+        
         return horaireModeleRepository.findByEntrepriseIdOrderByUpdatedAtDesc(entrepriseId, safePageable)
                 .map(this::toHoraireDto);
     }
 
     public HoraireDto getHoraireById(Long currentUserId, Long id) {
-        Long entrepriseId = requireEntrepriseId(currentUserId);
+        Long entrepriseId = currentUserId == null ? null : getSafeEntrepriseId(currentUserId);
+        if (entrepriseId == null || id == null) {
+            return null;
+        }
         return toHoraireDto(requireHoraire(id, entrepriseId));
     }
 
     public HoraireDto createHoraire(Long currentUserId, HoraireDto request) {
-        Long entrepriseId = requireEntrepriseId(currentUserId);
+        Long entrepriseId = currentUserId == null ? null : getSafeEntrepriseId(currentUserId);
+        if (entrepriseId == null) {
+            throw new IllegalStateException("Une entreprise est obligatoire pour creer un horaire.");
+        }
         HoraireModele entity = new HoraireModele();
         applyHorairePayload(entity, request, entrepriseId);
         entity.setId(null);
-        return toHoraireDto(horaireModeleRepository.save(entity));
+        HoraireModele saved = horaireModeleRepository.save(entity);
+        
+        // Notify HR/Admin (Optional, but good for logs)
+        log.info("Nouveau modele d'horaire cree: {} (ID: {})", saved.getNom(), saved.getId());
+        
+        return toHoraireDto(saved);
     }
 
     public HoraireDto updateHoraire(Long currentUserId, Long id, HoraireDto request) {
         Long entrepriseId = requireEntrepriseId(currentUserId);
         HoraireModele entity = requireHoraire(id, entrepriseId);
         applyHorairePayload(entity, request, entrepriseId);
-        return toHoraireDto(horaireModeleRepository.save(entity));
+        HoraireModele saved = horaireModeleRepository.save(entity);
+        
+        // [WEENTIME - NOTIFICATION] Notify everyone affected by this model update
+        notifyModelUpdate(saved);
+        
+        return toHoraireDto(saved);
     }
 
     public void deleteHoraire(Long currentUserId, Long id) {
@@ -86,7 +111,10 @@ public class HoraireManagementService {
     }
 
     public AffectationHoraireDto assignHoraire(Long currentUserId, AssignHoraireRequestDto request) {
-        Long entrepriseId = requireEntrepriseId(currentUserId);
+        Long entrepriseId = currentUserId == null ? null : getSafeEntrepriseId(currentUserId);
+        if (entrepriseId == null) {
+            throw new IllegalStateException("Une entreprise est obligatoire pour assigner un horaire.");
+        }
         HoraireModele horaire = requireHoraire(request.getHoraireId(), entrepriseId);
         Long cibleId = resolveScopedTargetId(currentUserId, request.getCibleType(), request.getCibleId());
 
@@ -100,6 +128,9 @@ public class HoraireManagementService {
                 .priorite(priorityFor(request.getCibleType()))
                 .entrepriseId(entrepriseId)
                 .build());
+
+        // [WEENTIME - NOTIFICATION] Notify target(s)
+        notifyAssignment(saved);
 
         return toAffectationDto(saved);
     }
@@ -127,8 +158,13 @@ public class HoraireManagementService {
     }
 
     public Page<AffectationHoraireDto> getAffectations(Long currentUserId, Pageable pageable) {
-        Long entrepriseId = requireEntrepriseId(currentUserId);
+        Long entrepriseId = getSafeEntrepriseId(currentUserId);
         Pageable safePageable = pageable == null ? Pageable.unpaged() : pageable;
+        
+        if (entrepriseId == null) {
+            return Page.empty(safePageable);
+        }
+        
         return affectationHoraireRepository.findByEntrepriseIdOrderByCreatedAtDesc(entrepriseId, safePageable)
                 .map(this::toAffectationDto);
     }
@@ -266,12 +302,22 @@ public class HoraireManagementService {
         return horaire;
     }
 
+    private Long getSafeEntrepriseId(Long userId) {
+        // [WEENTIME - OPTIMIZATION] Try to get from JWT context first (no network call)
+        Long fromContext = securityUtils.getCurrentEntrepriseId();
+        if (fromContext != null) return fromContext;
+
+        if (userId == null) return null;
+        UserSummaryDTO user = safeUser(userId);
+        return user != null ? user.getEntrepriseId() : null;
+    }
+
     private Long requireEntrepriseId(Long currentUserId) {
-        UserSummaryDTO user = safeUser(currentUserId);
-        if (user == null || user.getEntrepriseId() == null) {
+        Long id = getSafeEntrepriseId(currentUserId);
+        if (id == null) {
             throw new IllegalStateException("Impossible de determiner l'entreprise courante.");
         }
-        return user.getEntrepriseId();
+        return id;
     }
 
     private UserSummaryDTO resolveTargetUser(Long currentUserId, String email) {
@@ -538,7 +584,57 @@ public class HoraireManagementService {
                 .max(LocalTime::compareTo);
     }
 
+    private void notifyModelUpdate(HoraireModele modele) {
+        try {
+            List<AffectationHoraire> affectations = affectationHoraireRepository.findByHoraireId(modele.getId());
+            for (AffectationHoraire ah : affectations) {
+                notifyAssignment(ah);
+            }
+        } catch (Exception e) {
+            log.warn("Echec notification mise a jour modele horaire: {}", e.getMessage());
+        }
+    }
+
+    private void notifyAssignment(AffectationHoraire ah) {
+        String title = "Planning : Nouvel horaire affecte";
+        String message = String.format("L'horaire '%s' vous a ete affecte a partir du %s.", 
+                ah.getHoraire().getNom(), ah.getDateDebut());
+
+        try {
+            if (ah.getCibleType() == CibleType.UTILISATEUR) {
+                sendIndividuNotification(ah.getCibleId(), title, message, ah.getEntrepriseId());
+            } else if (ah.getCibleType() == CibleType.EQUIPE) {
+                safeTeamMembers(ah.getCibleId()).forEach(member -> 
+                    sendIndividuNotification(member.getId(), title, message, ah.getEntrepriseId()));
+            } else if (ah.getCibleType() == CibleType.ENTREPRISE) {
+                notificationService.notifyUser(null, com.weentime.weentimeapp.dto.PresenceNotificationDTO.builder()
+                        .title(title)
+                        .message(message)
+                        .audience("EMPLOYEE")
+                        .category("HORAIRE")
+                        .entrepriseId(ah.getEntrepriseId())
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("Erreur lors de l'envoi de notification d'affectation: {}", e.getMessage());
+        }
+    }
+
+    private void sendIndividuNotification(Long userId, String title, String message, Long entrepriseId) {
+        UserSummaryDTO user = safeUser(userId);
+        notificationService.notifyUser(userId, com.weentime.weentimeapp.dto.PresenceNotificationDTO.builder()
+                .title(title)
+                .message(message)
+                .audience("EMPLOYEE")
+                .category("HORAIRE")
+                .userId(userId)
+                .entrepriseId(entrepriseId)
+                .fullName(user != null ? user.getFullName() : null)
+                .build());
+    }
+
     private String initialsFor(UserSummaryDTO user) {
+        if (user == null) return "??";
         String seed = blankToDefault(user.getFullName(), blankToDefault(user.getEmail(), "WT"));
         return java.util.Arrays.stream(seed.split("\\s+"))
                 .filter(part -> !part.isBlank())

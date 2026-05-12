@@ -32,7 +32,7 @@ public class AsyncNotificationService {
         try {
             Notification notif = buildNotification(userId, null, payload, entrepriseId);
             notificationRepository.save(notif);
-            log.debug("[Notif] Persistée pour user {} — type={}", userId, payload.type());
+            log.info("[Notif] Persistée pour user {} — type={} (Entreprise {})", userId, payload.type(), entrepriseId);
         } catch (Exception e) {
             log.error("[Notif] Erreur persistance pour user {}: {}", userId, e.getMessage());
         }
@@ -61,7 +61,7 @@ public class AsyncNotificationService {
                 log.error("[Notif] Erreur persistance role {} pour user {}: {}", role, uid, e.getMessage());
             }
         }
-        log.debug("[Notif] Persistée pour {} users du rôle {} — type={}", userIds.size(), role, payload.type());
+        log.info("[Notif] Persistée pour {} users du rôle {} — type={}", userIds.size(), role, payload.type());
 
         // 2. Broadcast WebSocket (best effort)
         try {

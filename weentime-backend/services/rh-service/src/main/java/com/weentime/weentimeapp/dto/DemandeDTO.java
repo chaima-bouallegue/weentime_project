@@ -28,6 +28,14 @@ public class DemandeDTO {
     private LocalDateTime dateDecision;
 
     private String commentaireValidateur;
+    
+    private LocalDateTime dateDebut;
+    private LocalDateTime dateFin;
+    private Double nombreJours;
+    private String typeCongeNom;
+    private String typeAutorisation;
+    private String typeDocument;
+
     private Map<String, Object> utilisateur;
     private Map<String, Object> manager;
 }

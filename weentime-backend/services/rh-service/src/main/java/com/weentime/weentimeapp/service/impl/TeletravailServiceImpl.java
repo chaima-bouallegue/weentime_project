@@ -7,6 +7,7 @@ import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.enums.TypeDemandeEnum;
 import com.weentime.weentimeapp.mapper.TeletravailMapper;
 import com.weentime.weentimeapp.repository.TeletravailRepository;
+import com.weentime.weentimeapp.repository.ConfigTeletravailRepository;
 import com.weentime.weentimeapp.service.TeletravailService;
 import com.weentime.weentimeapp.service.AsyncNotificationService;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 public class TeletravailServiceImpl implements TeletravailService {
 
     private final TeletravailRepository repository;
+    private final ConfigTeletravailRepository configRepository;
     private final TeletravailMapper mapper;
     private final OrganisationServiceClient organisationClient;
     private final AsyncNotificationService asyncNotificationService;
@@ -146,6 +150,63 @@ public class TeletravailServiceImpl implements TeletravailService {
 
     @Override
     @Transactional(readOnly = true)
+    public QuotaTeletravailDTO getQuota(String userEmail) {
+        Long userId = getUserIdByEmail(userEmail);
+        return getQuotaByUserId(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuotaTeletravailDTO getQuota(Long utilisateurId, String requesterEmail) {
+        UserResponse user = organisationClient.getUtilisateurById(utilisateurId);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collaborateur introuvable");
+        }
+
+        Long requesterId = getUserIdByEmail(requesterEmail);
+        UserResponse requester = organisationClient.getUtilisateurById(requesterId);
+        boolean sameEnterprise = user.getEntrepriseId().equals(requester.getEntrepriseId());
+
+        if (!sameEnterprise) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Non autorisé à consulter le quota de ce collaborateur");
+        }
+
+        return getQuotaByUserId(utilisateurId);
+    }
+
+    private QuotaTeletravailDTO getQuotaByUserId(Long userId) {
+        LocalDate now = LocalDate.now();
+        int month = now.getMonthValue();
+        int year = now.getYear();
+
+        Double utilisés = repository.sumNombreJoursByUtilisateurIdAndMonth(
+                userId, month, year, List.of(StatutDemandeEnum.APPROUVE));
+        if (utilisés == null) utilisés = 0.0;
+        
+        Double enAttente = repository.sumNombreJoursByUtilisateurIdAndMonth(
+                userId, month, year, List.of(StatutDemandeEnum.EN_ATTENTE_MANAGER, StatutDemandeEnum.EN_ATTENTE_RH));
+        if (enAttente == null) enAttente = 0.0;
+
+        // Fetch tenant-specific quota
+        UserResponse user = organisationClient.getUtilisateurById(userId);
+        Integer autorisés = configRepository.findByEntrepriseId(user.getEntrepriseId())
+                .map(com.weentime.weentimeapp.entity.ConfigTeletravail::getQuotaMensuel)
+                .orElse(4);
+
+        double restants = autorisés - utilisés - enAttente;
+
+        return QuotaTeletravailDTO.builder()
+                .joursAutorises(autorisés)
+                .joursUtilises(utilisés)
+                .joursEnAttente(enAttente)
+                .joursRestants(Math.max(0, restants))
+                .periodeDebut(now.withDayOfMonth(1))
+                .periodeFin(now.with(TemporalAdjusters.lastDayOfMonth()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<TeletravailResponseDTO> getDemandesEquipe(String userEmail) {
         Long managerId = getUserIdByEmail(userEmail);
         return repository.findByManagerIdAndStatutOrderByDateCreationDesc(managerId, StatutDemandeEnum.EN_ATTENTE_MANAGER).stream()
@@ -243,6 +304,9 @@ public class TeletravailServiceImpl implements TeletravailService {
 
     @Override
     public TeletravailResponseDTO validerManager(Long id, Long managerId, String commentaire) {
+        log.info("[PERF] Début validerManager id={}", id);
+        long start = System.currentTimeMillis();
+        
         Teletravail teletravail = findById(id);
         if (teletravail.getStatut() != StatutDemandeEnum.EN_ATTENTE_MANAGER) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut invalide pour la validation manager");
@@ -253,9 +317,11 @@ public class TeletravailServiceImpl implements TeletravailService {
         teletravail.setCommentaireManager(commentaire);
         teletravail.setManagerId(managerId);
         teletravail.setDateDecision(LocalDateTime.now());
+        
         Teletravail saved = repository.save(teletravail);
+        log.info("[PERF] Repository save took {}ms", System.currentTimeMillis() - start);
 
-        // Notification au RH (async — ne bloque pas le thread HTTP)
+        // Notification au RH
         asyncNotificationService.sendToRole("ROLE_RH", NotificationPayload.of(
             "TELETRAVAIL_VALIDATION_RH",
             "Télétravail en attente RH",
@@ -264,7 +330,12 @@ public class TeletravailServiceImpl implements TeletravailService {
             saved.getId(), "TELETRAVAIL", "/app/rh/teletravail"
         ), teletravail.getEntrepriseId());
 
-        return enrichDto(saved);
+        long mid = System.currentTimeMillis();
+        TeletravailResponseDTO result = enrichDto(saved);
+        log.info("[PERF] enrichDto took {}ms", System.currentTimeMillis() - mid);
+        log.info("[PERF] Total validerManager took {}ms", System.currentTimeMillis() - start);
+        
+        return result;
     }
 
     @Override
@@ -295,6 +366,9 @@ public class TeletravailServiceImpl implements TeletravailService {
 
     @Override
     public TeletravailResponseDTO validerRH(Long id, String commentaire) {
+        log.info("[PERF] Début validerRH id={}", id);
+        long start = System.currentTimeMillis();
+        
         Teletravail teletravail = findById(id);
         if (teletravail.getStatut() != StatutDemandeEnum.EN_ATTENTE_RH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut invalide pour la validation RH");
@@ -304,9 +378,11 @@ public class TeletravailServiceImpl implements TeletravailService {
         teletravail.setEtapeActuelle("TERMINE");
         teletravail.setCommentaireRH(commentaire);
         teletravail.setDateDecision(LocalDateTime.now());
+        
         Teletravail saved = repository.save(teletravail);
+        log.info("[PERF] Repository save took {}ms", System.currentTimeMillis() - start);
 
-        // Notification à l'employé (async)
+        // Notification à l'employé
         asyncNotificationService.sendToUser(saved.getUtilisateurId(), NotificationPayload.of(
             "TELETRAVAIL_APPROUVE",
             "Télétravail Approuvé",
@@ -315,7 +391,12 @@ public class TeletravailServiceImpl implements TeletravailService {
             saved.getId(), "TELETRAVAIL", "/app/employee/teletravail"
         ), teletravail.getEntrepriseId());
 
-        return enrichDto(saved);
+        long mid = System.currentTimeMillis();
+        TeletravailResponseDTO result = enrichDto(saved);
+        log.info("[PERF] enrichDto took {}ms", System.currentTimeMillis() - mid);
+        log.info("[PERF] Total validerRH took {}ms", System.currentTimeMillis() - start);
+        
+        return result;
     }
 
     @Override

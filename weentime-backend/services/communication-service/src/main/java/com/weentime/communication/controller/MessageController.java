@@ -69,4 +69,12 @@ public class MessageController {
     public ApiEnvelope<ReadMarkerResponse> markRead(@PathVariable UUID messageId) {
         return ApiEnvelope.success(messageService.markRead(messageId, SecurityUtils.currentUser()));
     }
+
+    @GetMapping("/messages/{messageId}/replies")
+    public ApiEnvelope<CursorMessagePageResponse> getThreadReplies(
+            @PathVariable UUID messageId,
+            @RequestParam(defaultValue = "50") Integer limit
+    ) {
+        return ApiEnvelope.success(messageService.getThreadReplies(messageId, limit, SecurityUtils.currentUser()));
+    }
 }

@@ -1,11 +1,11 @@
 server:
-  port: 8092
+  port: 8192
 
 spring:
   application:
     name: rh-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/rh_db
+    url: jdbc:postgresql://localhost:5435/rh_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -24,11 +24,11 @@ spring:
       write-dates-as-timestamps: false
   cloud:
     config:
-      enabled: false
+      enabled: true
     discovery:
       enabled: false
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8988
   flyway:
     enabled: false
 
@@ -51,3 +51,7 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   server:
     enable-self-preservation: false
+
+application:
+  config:
+    organisation-service: http://localhost:8190

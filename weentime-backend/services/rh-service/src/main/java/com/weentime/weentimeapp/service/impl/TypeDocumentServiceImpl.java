@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.weentime.weentimeapp.security.SecurityUtils;
 import java.util.List;
 
 @Service
@@ -23,27 +24,33 @@ public class TypeDocumentServiceImpl implements TypeDocumentService {
     @Override
     public TypeDocumentDTO create(TypeDocumentDTO dto) {
         TypeDocument entity = mapper.toEntity(dto);
+        entity.setEntrepriseId(SecurityUtils.getCurrentEntrepriseId());
         return mapper.toDto(repository.save(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public TypeDocumentDTO getById(Long id) {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
         return repository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
                 .map(mapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("TypeDocument not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("TypeDocument not found or access denied"));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TypeDocumentDTO> getAll() {
-        return mapper.toDtoList(repository.findAll());
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        return mapper.toDtoList(repository.findAllByEntrepriseId(entrepriseId));
     }
 
     @Override
     public TypeDocumentDTO update(Long id, TypeDocumentDTO dto) {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
         TypeDocument existingEntity = repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("TypeDocument not found with id: " + id));
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeDocument not found or access denied"));
         
         existingEntity.setLibelle(dto.getLibelle());
         existingEntity.setCode(dto.getCode());
@@ -55,9 +62,10 @@ public class TypeDocumentServiceImpl implements TypeDocumentService {
 
     @Override
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new EntityNotFoundException("TypeDocument not found with id: " + id);
-        }
-        repository.deleteById(id);
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        TypeDocument entity = repository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeDocument not found or access denied"));
+        repository.delete(entity);
     }
 }

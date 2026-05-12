@@ -1,5 +1,5 @@
 server:
-  port: 8090
+  port: 8190
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
     config:
      import:
   datasource:
-    url: jdbc:postgresql://localhost:5433/organisation_db
+    url: jdbc:postgresql://localhost:5435/organisation_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -17,9 +17,9 @@ spring:
       enabled: false
   config:
     import:
-      optional:configserver: configserver:http://localhost:8888
+      optional:configserver: http://localhost:8988
       datasource:
-        url: jdbc:postgresql://localhost:5433/organisation_db
+        url: jdbc:postgresql://localhost:5435/organisation_db
       username: weentime
       password: 170502
       driver-class-name: org.postgresql.Driver
@@ -33,7 +33,7 @@ spring:
     validate-on-migrate: false
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
     show-sql: true
     properties:

@@ -30,7 +30,10 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "notifications")
+@Table(name = "notifications", indexes = {
+    @jakarta.persistence.Index(name = "idx_notifications_user_created", columnList = "user_id, created_at DESC"),
+    @jakarta.persistence.Index(name = "idx_notifications_is_read", columnList = "user_id, is_read")
+})
 public class Notification {
 
     @Id

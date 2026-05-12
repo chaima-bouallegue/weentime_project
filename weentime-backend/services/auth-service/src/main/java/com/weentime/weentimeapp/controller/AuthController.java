@@ -288,30 +288,57 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        organisationServiceClient.registerUser(registerRequest);
+        log.info("REGISTRATION request received for email: {}", registerRequest.getEmail());
+        
+        ResponseEntity<UtilisateurAuthDTO> response = organisationServiceClient.registerUser(registerRequest);
+        UtilisateurAuthDTO user = response.getBody();
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(registerRequest.getEmail(), registerRequest.getMotDePasse())
-        );
+        if (user != null && "PENDING".equals(user.getStatut())) {
+            log.info("Registration successful but status is PENDING for userId={}. Skipping auto-login.", user.getId());
+            RegisterResponse pendingResponse = new RegisterResponse(
+                    null,
+                    user.getId(),
+                    user.getEmail(),
+                    extractRoles(user),
+                    "INSCRIPTION_PENDING"
+            );
+            return new ResponseEntity<>(ApiResponse.success(pendingResponse, "Inscription réussie. Votre compte est en attente de validation par l'administration."), HttpStatus.CREATED);
+        }
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(registerRequest.getEmail(), registerRequest.getMotDePasse())
+            );
 
-        String jwt = jwtUtils.generateJwtToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .toList();
+            String jwt = jwtUtils.generateJwtToken(authentication);
 
-        RegisterResponse response = new RegisterResponse(
-                jwt,
-                userDetails.getId(),
-                userDetails.getEmail(),
-                roles,
-                "Inscription reussie"
-        );
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                    .toList();
 
-        return new ResponseEntity<>(ApiResponse.success(response, "Inscription reussie"), HttpStatus.CREATED);
+            RegisterResponse registerResponse = new RegisterResponse(
+                    jwt,
+                    userDetails.getId(),
+                    userDetails.getEmail(),
+                    roles,
+                    "Inscription reussie"
+            );
+
+            return new ResponseEntity<>(ApiResponse.success(registerResponse, "Inscription reussie"), HttpStatus.CREATED);
+        } catch (AuthenticationException e) {
+            log.warn("Auto-login failed after registration for {}: {}", registerRequest.getEmail(), e.getMessage());
+            RegisterResponse fallbackResponse = new RegisterResponse(
+                    null,
+                    user != null ? user.getId() : null,
+                    registerRequest.getEmail(),
+                    user != null ? extractRoles(user) : null,
+                    "INSCRIPTION_PENDING"
+            );
+            return new ResponseEntity<>(ApiResponse.success(fallbackResponse, "Inscription réussie. Votre compte est en attente de validation."), HttpStatus.CREATED);
+        }
     }
 
     @GetMapping("/validate")

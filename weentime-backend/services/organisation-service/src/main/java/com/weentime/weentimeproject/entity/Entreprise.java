@@ -61,10 +61,12 @@ public class Entreprise {
     @Column(name = "est_active")
     private Boolean estActive;
 
-    @OneToMany(mappedBy = "entreprise", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "entreprise")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Departement> departements;
 
     @OneToMany(mappedBy = "entreprise")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Utilisateur> utilisateurs;
 
     @PrePersist
@@ -96,7 +98,6 @@ public class Entreprise {
     public String regenerateCode() {
         this.codeInvitation = generateCode();
         this.codeExpiration = LocalDateTime.now().plusDays(30);
-        this.currentUsers = 0;
         return this.codeInvitation;
     }
 

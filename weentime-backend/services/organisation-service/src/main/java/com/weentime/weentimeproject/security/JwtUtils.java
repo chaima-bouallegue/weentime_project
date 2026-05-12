@@ -56,6 +56,16 @@ public class JwtUtils {
         return getClaims(token).get(claimName);
     }
 
+    public Long getEntrepriseIdFromJwtToken(String token) {
+        Object claim = getClaim(token, "entrepriseId");
+        return claim instanceof Number ? ((Number) claim).longValue() : null;
+    }
+
+    public Long getUserIdFromJwtToken(String token) {
+        Object claim = getClaim(token, "userId");
+        return claim instanceof Number ? ((Number) claim).longValue() : null;
+    }
+
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);

@@ -71,8 +71,8 @@ class PresenceServiceTest {
     private HoraireManagementService horaireManagementService;
 
     private PresenceServiceImpl presenceService;
-    private CheckInRequest checkInRequest;
-    private CheckOutRequest checkOutRequest;
+    private com.weentime.weentimeapp.dto.CheckInRequest checkInRequest;
+    private com.weentime.weentimeapp.dto.CheckOutRequest checkOutRequest;
     private WorkSchedule workSchedule;
     private List<AttendanceSession> storedSessions;
     private AtomicLong sessionIds;
@@ -105,11 +105,11 @@ class PresenceServiceTest {
                 horaireManagementService
         );
 
-        checkInRequest = CheckInRequest.builder()
+        checkInRequest = com.weentime.weentimeapp.dto.CheckInRequest.builder()
                 .source(PresenceSource.WEB)
                 .localisation("WEB")
                 .build();
-        checkOutRequest = CheckOutRequest.builder()
+        checkOutRequest = com.weentime.weentimeapp.dto.CheckOutRequest.builder()
                 .localisation("WEB")
                 .build();
 
@@ -125,6 +125,7 @@ class PresenceServiceTest {
         sessionIds = new AtomicLong(1L);
 
         when(workScheduleRepository.findByUtilisateurId(anyLong())).thenReturn(Optional.of(workSchedule));
+        when(horaireManagementService.resolveEffectiveWorkSchedule(anyLong(), any(LocalDate.class))).thenReturn(workSchedule);
         when(leaveServiceClient.hasApprovedLeave(anyLong(), any(LocalDate.class))).thenReturn(false);
         when(teletravailServiceClient.hasApprovedTelework(anyLong(), any(LocalDate.class))).thenReturn(false);
         when(attendanceSessionMapper.toDto(any(AttendanceSession.class))).thenAnswer(invocation -> {
@@ -150,6 +151,13 @@ class PresenceServiceTest {
                         .filter(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
                                 && session.getStatus() == invocation.getArgument(1))
                         .max(Comparator.comparing(AttendanceSession::getCheckInTime)));
+
+        when(attendanceSessionRepository.findByUtilisateurIdAndStatusOrderByCheckInTimeDesc(anyLong(), any()))
+                .thenAnswer(invocation -> storedSessions.stream()
+                        .filter(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
+                                && session.getStatus() == invocation.getArgument(1))
+                        .sorted(Comparator.comparing(AttendanceSession::getCheckInTime).reversed())
+                        .toList());
 
         when(attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(anyLong(), any(LocalDate.class)))
                 .thenAnswer(invocation -> storedSessions.stream()

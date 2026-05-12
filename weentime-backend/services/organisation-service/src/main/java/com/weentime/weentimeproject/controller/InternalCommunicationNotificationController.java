@@ -23,12 +23,13 @@ public class InternalCommunicationNotificationController {
     private final InternalServiceKeyValidator internalServiceKeyValidator;
 
     @PostMapping("/users/{userId}")
-    public ResponseEntity<NotificationResponse> sendToUser(
+    public ResponseEntity<Void> sendToUser(
             @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
             @PathVariable Long userId,
             @Valid @RequestBody NotificationDispatchRequest request
     ) {
         internalServiceKeyValidator.assertValid(internalServiceKey);
-        return ResponseEntity.ok(notificationService.sendToUser(userId, request));
+        notificationService.sendToUser(userId, request);
+        return ResponseEntity.accepted().build();
     }
 }

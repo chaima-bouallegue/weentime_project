@@ -22,31 +22,35 @@ public class InternalNotificationController {
     private final NotificationService notificationService;
 
     @PostMapping("/users/{userId}")
-    public ResponseEntity<NotificationResponse> sendToUser(
+    public ResponseEntity<Void> sendToUser(
             @PathVariable Long userId,
             @Valid @RequestBody NotificationDispatchRequest request
     ) {
-        return ResponseEntity.ok(notificationService.sendToUser(userId, request));
+        notificationService.sendToUser(userId, request);
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/roles/{role}")
-    public ResponseEntity<List<NotificationResponse>> sendToRole(
+    public ResponseEntity<Void> sendToRole(
             @PathVariable String role,
             @Valid @RequestBody NotificationDispatchRequest request
     ) {
-        return ResponseEntity.ok(notificationService.sendToRole(role, request));
+        notificationService.sendToRole(role, request);
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/managers/{managerId}")
-    public ResponseEntity<NotificationResponse> sendToManager(
+    public ResponseEntity<Void> sendToManager(
             @PathVariable Long managerId,
             @Valid @RequestBody NotificationDispatchRequest request
     ) {
-        return ResponseEntity.ok(notificationService.sendToManager(managerId, request));
+        notificationService.sendToManager(managerId, request);
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/rh")
-    public ResponseEntity<List<NotificationResponse>> sendToRh(@Valid @RequestBody NotificationDispatchRequest request) {
-        return ResponseEntity.ok(notificationService.sendToRH(request));
+    public ResponseEntity<Void> sendToRh(@Valid @RequestBody NotificationDispatchRequest request) {
+        notificationService.sendToRH(request);
+        return ResponseEntity.accepted().build();
     }
 }

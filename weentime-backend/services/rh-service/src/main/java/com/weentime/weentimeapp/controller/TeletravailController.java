@@ -61,6 +61,18 @@ public class TeletravailController {
         return ResponseEntity.ok(service.getMesDemandes(getUserEmail()));
     }
 
+    @GetMapping("/quota")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
+    public ResponseEntity<com.weentime.weentimeapp.dto.QuotaTeletravailDTO> getQuota() {
+        return ResponseEntity.ok(service.getQuota(getUserEmail()));
+    }
+
+    @GetMapping("/quota/utilisateur/{id}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'RH')")
+    public ResponseEntity<com.weentime.weentimeapp.dto.QuotaTeletravailDTO> getQuotaByCollaborateur(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getQuota(id, getUserEmail()));
+    }
+
     @PutMapping("/{id}/annuler")
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<TeletravailResponseDTO> annuler(@PathVariable Long id) {

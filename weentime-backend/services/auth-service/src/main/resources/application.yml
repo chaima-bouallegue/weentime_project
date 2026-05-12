@@ -1,6 +1,6 @@
 
 server:
-  port: 8081
+  port: 8181
 
 spring:
   application:
@@ -8,7 +8,9 @@ spring:
 
   cloud:
     config:
-      enabled: false
+      enabled: true
+  config:
+    import: optional:configserver:http://localhost:8988
 
   main:
     lazy-initialization: true
@@ -16,11 +18,11 @@ spring:
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6380
 
   mail:
     host: localhost
-    port: 1025
+    port: 1027
 
 eureka:
   client:
@@ -35,3 +37,7 @@ eureka:
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   expirationMs: 86400000
+
+application:
+  config:
+    organisation-service: http://localhost:8190

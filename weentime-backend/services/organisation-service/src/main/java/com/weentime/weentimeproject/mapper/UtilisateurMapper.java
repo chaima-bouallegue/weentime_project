@@ -109,7 +109,7 @@ public interface UtilisateurMapper {
                 .id(role.getId())
                 .nom(role.getNom())
                 .description(role.getDescription())
-                .permissions(role.getPermissions())
+                .permissions(role.getPermissions() == null ? Collections.emptySet() : new java.util.HashSet<>(role.getPermissions()))
                 .build());
     }
 

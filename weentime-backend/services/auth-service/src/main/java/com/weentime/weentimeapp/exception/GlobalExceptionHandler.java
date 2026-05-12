@@ -25,10 +25,29 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ApiResponse<Void>> handleFeignStatusException(FeignException exception) {
         HttpStatus status = HttpStatus.resolve(exception.status());
+        String content = exception.contentUTF8();
+        String details = exception.getMessage();
+
+        // Try to extract the "details" or "message" field from the JSON body if it's an ApiResponse
+        if (content != null && content.contains("{")) {
+            try {
+                // Simple manual parsing to avoid adding new dependencies if not needed
+                if (content.contains("\"details\":\"")) {
+                    details = content.substring(content.indexOf("\"details\":\"") + 11);
+                    details = details.substring(0, details.indexOf("\""));
+                } else if (content.contains("\"message\":\"")) {
+                    details = content.substring(content.indexOf("\"message\":\"") + 11);
+                    details = details.substring(0, details.indexOf("\""));
+                }
+            } catch (Exception e) {
+                // Fallback to original message
+            }
+        }
+
         return build(
                 status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTEGRATION_ERROR",
-                exception.getMessage()
+                details
         );
     }
 

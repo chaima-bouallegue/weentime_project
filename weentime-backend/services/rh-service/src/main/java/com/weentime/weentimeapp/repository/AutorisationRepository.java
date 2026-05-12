@@ -26,4 +26,16 @@ public interface AutorisationRepository extends JpaRepository<Autorisation, Long
     // KPI queries (RH)
     long countByEntrepriseId(Long entrepriseId);
     long countByEntrepriseIdAndStatut(Long entrepriseId, StatutDemandeEnum statut);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Autorisation a WHERE a.entrepriseId = :entrepriseId AND a.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND a.dateAutorisation BETWEEN :debut AND :fin")
+    java.util.List<Autorisation> findApprovedForDateRange(@org.springframework.data.repository.query.Param("entrepriseId") Long entrepriseId, @org.springframework.data.repository.query.Param("debut") java.time.LocalDate debut, @org.springframework.data.repository.query.Param("fin") java.time.LocalDate fin);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Autorisation a WHERE a.utilisateurId = :userId AND a.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND a.dateAutorisation = :date")
+    java.util.Optional<Autorisation> findApprovedForUserAndDate(@org.springframework.data.repository.query.Param("userId") Long userId, @org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Autorisation a WHERE a.entrepriseId = :entrepriseId AND a.utilisateurId IN :ids AND a.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE " +
+           "AND a.dateAutorisation BETWEEN :debut AND :fin")
+    java.util.List<Autorisation> findApprovedForUsersAndDateRange(@org.springframework.data.repository.query.Param("entrepriseId") Long entrepriseId, @org.springframework.data.repository.query.Param("ids") java.util.List<Long> ids, @org.springframework.data.repository.query.Param("debut") java.time.LocalDate debut, @org.springframework.data.repository.query.Param("fin") java.time.LocalDate fin);
 }

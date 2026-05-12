@@ -1,12 +1,12 @@
 server:
-  port: 8092
+  port: 8192
 
 spring:
   application:
     name: rh-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/rh_db
+    url: jdbc:postgresql://localhost:5435/rh_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
@@ -24,7 +24,7 @@ spring:
       enabled: false
   config:
     import:
-      optional:configserver: configserver:http://localhost:8888
+      optional:configserver: http://localhost:8988
 
 eureka:
   client:

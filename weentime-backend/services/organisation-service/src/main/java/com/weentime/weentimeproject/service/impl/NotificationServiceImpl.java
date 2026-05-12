@@ -16,7 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -66,9 +68,11 @@ public class NotificationServiceImpl implements NotificationService {
         return response;
     }
 
+    @Async
     @Override
-    public NotificationResponse notifyUser(Long userId, NotificationDispatchRequest payload) {
-        return createNotification(
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void notifyUser(Long userId, NotificationDispatchRequest payload) {
+        createNotification(
                 userId,
                 payload.getTitle(),
                 payload.getMessage(),
@@ -78,18 +82,19 @@ public class NotificationServiceImpl implements NotificationService {
         );
     }
 
+    @Async
     @Override
-    public List<NotificationResponse> notifyRole(String roleName, NotificationDispatchRequest payload) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void notifyRole(String roleName, NotificationDispatchRequest payload) {
         RoleNom role = RoleNom.valueOf(roleName);
         List<Utilisateur> users = payload.getEntrepriseId() == null
                 ? utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(role)
                 : utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(payload.getEntrepriseId(), role);
 
-        return users.stream()
+        users.stream()
                 .filter(Objects::nonNull)
                 .filter(user -> user.getStatut() == StatutUtilisateurEnum.ACTIF)
-                .map(user -> notifyUser(user.getId(), payload))
-                .toList();
+                .forEach(user -> notifyUser(user.getId(), payload));
     }
 
     @Override

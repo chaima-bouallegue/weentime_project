@@ -5,5 +5,6 @@ public enum NotificationType {
     LEAVE,
     TELEWORK,
     PRESENCE,
-    SYSTEM
+    SYSTEM,
+    USER_PENDING
 }

@@ -29,6 +29,6 @@ public class SecurityUtils {
             Object eid = details.get("entrepriseId");
             if (eid instanceof Number) return ((Number) eid).longValue();
         }
-        throw new IllegalStateException("Entreprise ID not found in security context");
+        return null;
     }
 }

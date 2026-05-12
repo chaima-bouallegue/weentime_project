@@ -40,5 +40,6 @@ public class Equipe {
     private Departement departement;
 
     @OneToMany(mappedBy = "equipe")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Utilisateur> membres;
 }

@@ -18,6 +18,7 @@ public record MessageResponse(
         UUID parentMessageId,
         MessageThreadSummary thread,
         List<ReactionSummary> reactions,
+        List<AttachmentResponse> attachments,
         String status,
         String clientMessageId,
         Instant createdAt,

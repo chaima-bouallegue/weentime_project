@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.weentime.weentimeapp.security.SecurityUtils;
 import java.util.List;
 
 @Service
@@ -23,27 +24,33 @@ public class TypeAutorisationServiceImpl implements TypeAutorisationService {
     @Override
     public TypeAutorisationDTO create(TypeAutorisationDTO dto) {
         TypeAutorisation entity = mapper.toEntity(dto);
+        entity.setEntrepriseId(SecurityUtils.getCurrentEntrepriseId());
         return mapper.toDto(repository.save(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public TypeAutorisationDTO getById(Long id) {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
         return repository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
                 .map(mapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found or access denied"));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TypeAutorisationDTO> getAll() {
-        return mapper.toDtoList(repository.findAll());
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        return mapper.toDtoList(repository.findAllByEntrepriseId(entrepriseId));
     }
 
     @Override
     public TypeAutorisationDTO update(Long id, TypeAutorisationDTO dto) {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
         TypeAutorisation existingEntity = repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found with id: " + id));
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found or access denied"));
         
         existingEntity.setLibelle(dto.getLibelle());
         existingEntity.setMaxHeuresMois(dto.getMaxHeuresMois());
@@ -54,9 +61,10 @@ public class TypeAutorisationServiceImpl implements TypeAutorisationService {
 
     @Override
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new EntityNotFoundException("TypeAutorisation not found with id: " + id);
-        }
-        repository.deleteById(id);
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        TypeAutorisation entity = repository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found or access denied"));
+        repository.delete(entity);
     }
 }

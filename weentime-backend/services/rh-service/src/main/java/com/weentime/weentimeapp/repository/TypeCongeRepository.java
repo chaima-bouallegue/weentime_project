@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TypeCongeRepository extends JpaRepository<TypeConge, Long> {
+    java.util.List<TypeConge> findAllByEntrepriseId(Long entrepriseId);
 }

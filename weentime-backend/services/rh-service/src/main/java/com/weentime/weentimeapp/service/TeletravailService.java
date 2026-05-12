@@ -11,6 +11,8 @@ public interface TeletravailService {
     TeletravailResponseDTO create(TeletravailCreateDTO dto, String userEmail);
     TeletravailResponseDTO getById(Long id);
     List<TeletravailResponseDTO> getMesDemandes(String userEmail);
+    com.weentime.weentimeapp.dto.QuotaTeletravailDTO getQuota(String userEmail);
+    com.weentime.weentimeapp.dto.QuotaTeletravailDTO getQuota(Long utilisateurId, String requesterEmail);
     TeletravailResponseDTO annuler(Long id, String userEmail);
     
     // Manager

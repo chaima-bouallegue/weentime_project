@@ -68,6 +68,7 @@ public class CongeServiceImpl implements CongeService {
                                 : 25.0;
                         SoldeConge newSolde = SoldeConge.builder()
                                 .utilisateurId(userId)
+                                .entrepriseId(entrepriseId)
                                 .typeCongeId(dto.getTypeCongeId())
                                 .annee(annee)
                                 .joursAcquis(initialBalance)
@@ -93,6 +94,15 @@ public class CongeServiceImpl implements CongeService {
         conge.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
         conge.setDateCreation(LocalDateTime.now());
 
+        try {
+            UserResponse user = organisationServiceClient.getUtilisateurById(userId);
+            if (user != null && user.getManagerId() != null) {
+                conge.setManagerId(user.getManagerId());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to resolve user manager: {}", e.getMessage());
+        }
+
         Conge savedConge = congeRepository.save(conge);
         CongeDTO savedDto = congeMapper.toDto(savedConge);
 
@@ -108,7 +118,7 @@ public class CongeServiceImpl implements CongeService {
                 ), entrepriseId);
             }
         } catch (Exception e) {
-            log.warn("Failed to resolve user for notification: {}", e.getMessage());
+            log.warn("Failed to send notification: {}", e.getMessage());
         }
 
         return savedDto;

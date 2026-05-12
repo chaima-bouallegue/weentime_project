@@ -10,6 +10,7 @@ public class CommunicationProperties {
     private final Redis redis = new Redis();
     private final Outbox outbox = new Outbox();
     private final Replay replay = new Replay();
+    private final Storage storage = new Storage();
 
     public String getInternalApiKey() {
         return internalApiKey;
@@ -33,6 +34,10 @@ public class CommunicationProperties {
 
     public Replay getReplay() {
         return replay;
+    }
+
+    public Storage getStorage() {
+        return storage;
     }
 
     public static class WebSocket {
@@ -196,6 +201,35 @@ public class CommunicationProperties {
 
         public void setRetentionDays(int retentionDays) {
             this.retentionDays = retentionDays;
+        }
+    }
+    public static class Storage {
+        private String basePath = "./communication-uploads";
+        private int maxFileSizeMb = 10;
+        private String allowedTypes = "image/jpeg,image/png,image/gif,image/webp,application/pdf,application/x-pdf,application/vnd.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/zip";
+
+        public String getBasePath() {
+            return basePath;
+        }
+
+        public void setBasePath(String basePath) {
+            this.basePath = basePath;
+        }
+
+        public int getMaxFileSizeMb() {
+            return maxFileSizeMb;
+        }
+
+        public void setMaxFileSizeMb(int maxFileSizeMb) {
+            this.maxFileSizeMb = maxFileSizeMb;
+        }
+
+        public String getAllowedTypes() {
+            return allowedTypes;
+        }
+
+        public void setAllowedTypes(String allowedTypes) {
+            this.allowedTypes = allowedTypes;
         }
     }
 }

@@ -9,6 +9,6 @@ import java.util.Optional;
 @Repository
 public interface EntrepriseRepository extends JpaRepository<Entreprise, Long> {
     boolean existsBySiret(String siret);
-    Optional<Entreprise> findByCodeInvitation(String codeInvitation);
+    Optional<Entreprise> findByCodeInvitationIgnoreCase(String codeInvitation);
     Optional<Entreprise> findByNomIgnoreCase(String nom);
 }

@@ -1,61 +1,36 @@
 package com.weentime.communication.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.communication.config.CommunicationProperties;
-import com.weentime.communication.dto.CursorMessagePageResponse;
-import com.weentime.communication.dto.MessageResponse;
-import com.weentime.communication.dto.OrganisationUserSummary;
-import com.weentime.communication.dto.ReadMarkerResponse;
-import com.weentime.communication.dto.SendMessageRequest;
-import com.weentime.communication.dto.UpdateMessageRequest;
-import com.weentime.communication.entity.ChannelMemberRole;
-import com.weentime.communication.entity.CommChannel;
-import com.weentime.communication.entity.CommChannelMember;
-import com.weentime.communication.entity.CommMessage;
-import com.weentime.communication.entity.CommMessageHistory;
-import com.weentime.communication.entity.CommReaction;
-import com.weentime.communication.entity.CommReactionId;
-import com.weentime.communication.entity.CommThread;
-import com.weentime.communication.entity.MessageStatus;
-import com.weentime.communication.entity.MessageType;
+import com.weentime.communication.dto.*;
+import com.weentime.communication.entity.*;
 import com.weentime.communication.exception.CommunicationException;
 import com.weentime.communication.mapper.CommunicationMapper;
-import com.weentime.communication.repository.CommChannelMemberRepository;
-import com.weentime.communication.repository.CommMessageHistoryRepository;
-import com.weentime.communication.repository.CommMessageRepository;
-import com.weentime.communication.repository.CommReactionRepository;
-import com.weentime.communication.repository.CommThreadRepository;
+import com.weentime.communication.repository.*;
 import com.weentime.communication.security.CommunicationUserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MessageService {
-
-    private static final Logger log = LoggerFactory.getLogger(MessageService.class);
 
     private final CommMessageRepository messageRepository;
     private final CommReactionRepository reactionRepository;
     private final CommThreadRepository threadRepository;
+    private final CommAttachmentRepository attachmentRepository;
     private final CommChannelMemberRepository channelMemberRepository;
     private final CommMessageHistoryRepository messageHistoryRepository;
     private final MembershipService membershipService;
@@ -116,6 +91,32 @@ public class MessageService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public CursorMessagePageResponse getThreadReplies(UUID rootMessageId, Integer limit, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        CommMessage rootMessage = messageRepository.findByIdAndEntrepriseId(rootMessageId, currentUser.entrepriseId())
+                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "COMM_MESSAGE_NOT_FOUND",
+                        "The root message for this thread was not found.", Map.of("messageId", rootMessageId)));
+
+        // Verify access to the channel
+        membershipService.assertActiveMember(rootMessage.getChannelId(), currentUser);
+
+        int pageSize = Math.min(Math.max(limit == null ? 50 : limit, 1), 200);
+        List<CommMessage> rows = messageRepository.findReplies(
+                currentUser.entrepriseId(),
+                rootMessageId,
+                PageRequest.of(0, pageSize)
+        );
+
+        List<MessageResponse> items = mapMessages(rows, currentUser);
+
+        return CursorMessagePageResponse.builder()
+                .items(items)
+                .nextCursor(null)
+                .hasMore(false)
+                .build();
+    }
+
     @Transactional
     public MessageResponse sendMessage(UUID channelId, SendMessageRequest request, CommunicationUserPrincipal currentUser) {
         assertTenantContext(currentUser);
@@ -124,7 +125,7 @@ public class MessageService {
         membershipService.assertCanWrite(channel, member);
 
         MessageType type = parseMessageType(request.type());
-        validateMessagePayload(type, request.body(), request.richBody());
+        validateMessagePayload(type, request.body(), request.richBody(), request.metadata());
 
         if (request.clientMessageId() != null && !request.clientMessageId().isBlank()) {
             CommMessage existing = messageRepository.findByEntrepriseIdAndSenderIdAndClientMessageId(
@@ -159,7 +160,25 @@ public class MessageService {
         message.setMetadata(writeMetadata(request.metadata()));
         message.setCreatedAt(now);
         message.setUpdatedAt(now);
-        message = messageRepository.save(message);
+        final CommMessage savedMessage = messageRepository.save(message);
+
+        // Associate attachments if present in metadata
+        if (request.metadata() != null && request.metadata().get("attachments") instanceof List<?> attachmentIds) {
+            log.debug("Found {} attachments in metadata for message {}", attachmentIds.size(), savedMessage.getId());
+            for (Object idObj : attachmentIds) {
+                try {
+                    UUID attachmentId = UUID.fromString(idObj.toString());
+                    attachmentRepository.findByIdAndEntrepriseId(attachmentId, currentUser.entrepriseId())
+                            .ifPresentOrElse(attachment -> {
+                                attachment.setMessageId(savedMessage.getId());
+                                attachmentRepository.save(attachment);
+                                log.debug("Associated attachment {} with message {}", attachmentId, savedMessage.getId());
+                            }, () -> log.warn("Attachment {} not found for enterprise {}", attachmentId, currentUser.entrepriseId()));
+                } catch (IllegalArgumentException e) {
+                    log.error("Invalid attachment ID format in metadata: {}", idObj);
+                }
+            }
+        }
 
         if (parentMessage != null) {
             updateThreadAggregate(parentMessage, message, now);
@@ -183,6 +202,12 @@ public class MessageService {
                         "channelId", channelId,
                         "clientMessageId", message.getClientMessageId()
                 ));
+
+        if (parentMessage != null) {
+            MessageResponse rootUpdate = hydrateMessage(parentMessage, currentUser);
+            realtimeEventService.publishMessageUpdated(currentUser.entrepriseId(), currentUser.userId(), channelId, rootUpdate);
+        }
+
         return response;
     }
 
@@ -200,7 +225,7 @@ public class MessageService {
                     "Deleted messages cannot be edited.", Map.of("messageId", messageId));
         }
 
-        validateMessagePayload(message.getType(), request.body(), request.richBody());
+        validateMessagePayload(message.getType(), request.body(), request.richBody(), readMetadata(message.getMetadata()));
         if (Objects.equals(message.getBody(), request.body()) && Objects.equals(message.getRichBody(), request.richBody())) {
             return hydrateMessage(message, currentUser);
         }
@@ -372,12 +397,15 @@ public class MessageService {
                 .collect(Collectors.groupingBy(reaction -> reaction.getId().getMessageId()));
         Map<UUID, CommThread> threadsByRoot = threadRepository.findByRootMessageIdIn(messageIds).stream()
                 .collect(Collectors.toMap(CommThread::getRootMessageId, thread -> thread));
+        Map<UUID, List<CommAttachment>> attachmentsByMessage = attachmentRepository.findByMessageIdIn(messageIds).stream()
+                .collect(Collectors.groupingBy(CommAttachment::getMessageId));
 
         return messages.stream()
                 .map(message -> mapper.toMessageResponse(
                         message,
                         users.get(message.getSenderId()),
                         reactionsByMessage.getOrDefault(message.getId(), List.of()),
+                        attachmentsByMessage.getOrDefault(message.getId(), List.of()),
                         threadsByRoot.get(message.getId()),
                         currentUser.userId()
                 ))
@@ -392,6 +420,7 @@ public class MessageService {
                 message,
                 users.get(message.getSenderId()),
                 reactionRepository.findById_MessageId(message.getId()),
+                attachmentRepository.findByMessageId(message.getId()),
                 threadRepository.findByRootMessageIdAndEntrepriseId(message.getId(), message.getEntrepriseId()).orElse(null),
                 currentUser.userId()
         );
@@ -464,13 +493,18 @@ public class MessageService {
         }
     }
 
-    private void validateMessagePayload(MessageType type, String body, String richBody) {
+    private void validateMessagePayload(MessageType type, String body, String richBody, Map<String, Object> metadata) {
         if (type == MessageType.TEXT) {
             boolean hasBody = body != null && !body.isBlank();
             boolean hasRichBody = richBody != null && !richBody.isBlank();
-            if (!hasBody && !hasRichBody) {
+            boolean hasAttachments = metadata != null && metadata.containsKey("attachments") 
+                    && metadata.get("attachments") instanceof List<?> list && !list.isEmpty();
+            
+            if (!hasBody && !hasRichBody && !hasAttachments) {
+                log.warn("Message validation failed: TEXT message must have body, richBody, or attachments. body={}, richBody={}, hasAttachments={}", 
+                    hasBody, hasRichBody, hasAttachments);
                 throw new CommunicationException(HttpStatus.BAD_REQUEST, "COMM_MESSAGE_BODY_REQUIRED",
-                        "A text message must include a body.", Map.of());
+                        "A text message must include a body or attachments.", Map.of());
             }
         }
     }
@@ -498,6 +532,18 @@ public class MessageService {
         } catch (JsonProcessingException exception) {
             throw new CommunicationException(HttpStatus.BAD_REQUEST, "COMM_MESSAGE_METADATA_INVALID",
                     "The message metadata could not be serialized.", Map.of());
+        }
+    }
+
+    private Map<String, Object> readMetadata(String json) {
+        try {
+            if (json == null || json.isBlank() || "{}".equals(json)) {
+                return new HashMap<>();
+            }
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (JsonProcessingException exception) {
+            log.error("Failed to parse message metadata: {}", json, exception);
+            return new HashMap<>();
         }
     }
 

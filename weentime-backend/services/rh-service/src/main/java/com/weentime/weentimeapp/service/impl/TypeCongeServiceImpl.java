@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.weentime.weentimeapp.security.SecurityUtils;
 import java.util.List;
 
 @Service
@@ -24,25 +25,34 @@ public class TypeCongeServiceImpl implements TypeCongeService {
     @Override
     public TypeCongeDTO create(TypeCongeDTO dto) {
         TypeConge entity = typeCongeMapper.toEntity(dto);
+        entity.setEntrepriseId(SecurityUtils.getCurrentEntrepriseId());
         return typeCongeMapper.toDto(typeCongeRepository.save(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public TypeCongeDTO getById(Long id) {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
         return typeCongeRepository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
                 .map(typeCongeMapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("TypeConge not found"));
+                .orElseThrow(() -> new EntityNotFoundException("TypeConge not found or access denied"));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TypeCongeDTO> getAll() {
-        return typeCongeMapper.toDtoList(typeCongeRepository.findAll());
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        return typeCongeMapper.toDtoList(typeCongeRepository.findAllByEntrepriseId(entrepriseId));
     }
 
     @Override
     public TypeCongeDTO update(Long id, TypeCongeDTO dto) {
-        TypeConge entity = typeCongeRepository.findById(id).orElseThrow();
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        TypeConge entity = typeCongeRepository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeConge not found or access denied"));
+        
         entity.setLibelle(dto.getLibelle());
         entity.setNombreJoursMax(dto.getNombreJoursMax());
         entity.setDecompteJours(dto.getDecompteJours());
@@ -52,6 +62,10 @@ public class TypeCongeServiceImpl implements TypeCongeService {
 
     @Override
     public void delete(Long id) {
-        typeCongeRepository.deleteById(id);
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        TypeConge entity = typeCongeRepository.findById(id)
+                .filter(t -> t.getEntrepriseId().equals(entrepriseId))
+                .orElseThrow(() -> new EntityNotFoundException("TypeConge not found or access denied"));
+        typeCongeRepository.delete(entity);
     }
 }

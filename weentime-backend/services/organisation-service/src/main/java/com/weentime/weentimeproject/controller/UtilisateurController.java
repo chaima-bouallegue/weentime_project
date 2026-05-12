@@ -2,6 +2,7 @@ package com.weentime.weentimeproject.controller;
 
 import com.weentime.weentimeproject.dto.request.RegisterRequest;
 import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
+import com.weentime.weentimeproject.dto.request.ValidationRequest;
 import com.weentime.weentimeproject.dto.response.UtilisateurResponse;
 import com.weentime.weentimeproject.pagination.PageParams;
 import com.weentime.weentimeproject.service.UtilisateurService;
@@ -79,7 +80,7 @@ public class UtilisateurController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER', 'EMPLOYEE')")
     public ResponseEntity<Page<UtilisateurResponse>> getAllUtilisateurs(
             @Valid PageParams params,
             @RequestParam(required = false) Long entrepriseId) {
@@ -111,6 +112,29 @@ public class UtilisateurController {
     public ResponseEntity<Void> deleteUtilisateur(@PathVariable Long id) {
         utilisateurService.deleteUtilisateur(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
+    public ResponseEntity<java.util.List<UtilisateurResponse>> getPendingUsers() {
+        return ResponseEntity.ok(utilisateurService.getUtilisateursParStatut(com.weentime.weentimeproject.enums.StatutUtilisateurEnum.PENDING));
+    }
+
+    @PatchMapping("/{id}/valider")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
+    public ResponseEntity<UtilisateurResponse> validerUtilisateur(
+            @PathVariable Long id,
+            @RequestBody(required = false) ValidationRequest request) {
+        if (request == null) {
+            request = new ValidationRequest();
+        }
+        return ResponseEntity.ok(utilisateurService.validerUtilisateur(id, request));
+    }
+
+    @PatchMapping("/{id}/rejeter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
+    public ResponseEntity<UtilisateurResponse> rejeterUtilisateur(@PathVariable Long id) {
+        return ResponseEntity.ok(utilisateurService.rejeterUtilisateur(id));
     }
 
     @PutMapping("/{id}/toggle-status")

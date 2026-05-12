@@ -2,5 +2,6 @@ package com.weentime.weentimeapp.enums;
 
 public enum PeriodeTeletravailEnum {
     MATIN,
-    APRES_MIDI
+    APRES_MIDI,
+    JOURNEE_COMPLETE
 }

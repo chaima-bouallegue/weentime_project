@@ -15,4 +15,6 @@ public interface AffectationHoraireRepository extends JpaRepository<AffectationH
     List<AffectationHoraire> findByEntrepriseId(Long entrepriseId);
 
     List<AffectationHoraire> findByEntrepriseIdAndCibleTypeAndCibleId(Long entrepriseId, CibleType cibleType, Long cibleId);
+
+    List<AffectationHoraire> findByHoraireId(Long horaireId);
 }

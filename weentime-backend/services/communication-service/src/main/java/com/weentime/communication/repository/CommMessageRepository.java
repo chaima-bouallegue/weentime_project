@@ -107,4 +107,16 @@ public interface CommMessageRepository extends JpaRepository<CommMessage, UUID> 
             @Param("lastReadAt") Instant lastReadAt,
             @Param("lastReadMessageId") UUID lastReadMessageId
     );
+    @Query("""
+            select m
+            from CommMessage m
+            where m.entrepriseId = :entrepriseId
+              and m.parentMessageId = :parentMessageId
+            order by m.createdAt asc, m.id asc
+            """)
+    List<CommMessage> findReplies(
+            @Param("entrepriseId") Long entrepriseId,
+            @Param("parentMessageId") UUID parentMessageId,
+            Pageable pageable
+    );
 }

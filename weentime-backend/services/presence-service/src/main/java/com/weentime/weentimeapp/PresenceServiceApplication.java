@@ -9,9 +9,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableFeignClients
-@EnableJpaRepositories(basePackages = "com.weentime.weentimeapp.repository")
-@EntityScan(basePackages = "com.weentime.weentimeapp.entity")
+@EnableFeignClients(basePackages = "com.weentime.weentimeapp.client")
+@EnableJpaRepositories
+@EntityScan
 public class PresenceServiceApplication {
 
     public static void main(String[] args) {
