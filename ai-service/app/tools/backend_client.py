@@ -10,7 +10,7 @@ from app.observability.request_context import get_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from .result import ToolResult
 
-DEFAULT_BACKEND_BASE_URL = "http://localhost:8222/api/v1"
+DEFAULT_BACKEND_BASE_URL = "http://localhost:8322/api/v1"
 
 
 class BackendClient:

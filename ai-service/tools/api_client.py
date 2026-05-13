@@ -60,7 +60,7 @@ class ApiClient:
         params: dict[str, Any] | None = None,
     ) -> ToolResult:
         expected = expected_statuses or {200, 201, 204}
-        resolved_path = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+        resolved_path = self._normalize_endpoint(endpoint)
         last_error: str | None = None
         last_payload: Any = None
         last_status: int | None = None
@@ -197,7 +197,7 @@ class ApiClient:
         expected_statuses: set[int] | None = None,
     ) -> BinaryResult:
         expected = expected_statuses or {200}
-        resolved_path = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+        resolved_path = self._normalize_endpoint(endpoint)
 
         try:
             response = await self._client.get(
@@ -237,6 +237,26 @@ class ApiClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         return headers
+
+    def _normalize_endpoint(self, endpoint: str) -> str:
+        resolved = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+        base_url = self.settings.backend_base_url.rstrip("/").lower()
+        lowered = resolved.lower()
+
+        if base_url.endswith("/api/v1"):
+            if lowered.startswith("/api/v1/"):
+                return resolved[len("/api/v1") :]
+            if lowered == "/api/v1":
+                return ""
+            if lowered.startswith("/v1/"):
+                return resolved[len("/v1") :]
+            if lowered == "/v1":
+                return ""
+
+        if base_url.endswith("/api") and lowered.startswith("/api/"):
+            return resolved[len("/api") :]
+
+        return resolved
 
     def _parse_payload(self, response: httpx.Response) -> Any:
         content_type = response.headers.get("content-type", "").lower()

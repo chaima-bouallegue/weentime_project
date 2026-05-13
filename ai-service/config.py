@@ -48,7 +48,7 @@ class Settings:
             os.getenv("GENERATED_DOCS_DIR", str(self.base_dir / "generated_docs"))
         )
 
-        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8222/api").rstrip("/")
+        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
         self.backend_auth_token = os.getenv("BACKEND_AUTH_TOKEN")
         self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "20"))
         self.backend_retry_attempts = max(1, int(os.getenv("BACKEND_RETRY_ATTEMPTS", "2")))

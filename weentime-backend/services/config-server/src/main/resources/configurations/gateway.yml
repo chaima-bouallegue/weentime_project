@@ -1,12 +1,12 @@
 server:
-  port: 8222
+  port: 8322
 
 spring:
   application:
     name: gateway
 
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://localhost:8988
 
   cloud:
     config:
@@ -35,6 +35,7 @@ spring:
               - "X-Requested-With"
               - "Origin"
               - "X-Skip-Error-Toast"
+              - "X-Request-ID"
             allowCredentials: true
       discovery:
         locator:
@@ -65,6 +66,18 @@ spring:
           predicates:
             - Path=/api/v1/communication/**
 
+        - id: ai-service-api
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - StripPrefix=3
+
+        - id: ai-service-audio-stream
+          uri: http://localhost:8000
+          predicates:
+            - Path=/audio-stream, /audio-stream/**
+
         - id: organisation-ws
           uri: http://localhost:8190
           predicates:
@@ -83,7 +96,7 @@ spring:
         - id: communication-ws
           uri: http://localhost:8194
           predicates:
-            - Path=/ws-communication/**
+            - Path=/ws-communication, /ws-communication/**
 
 eureka:
   client:

@@ -37,6 +37,7 @@ spring:
               - "X-Requested-With"
               - "Origin"
               - "X-Skip-Error-Toast"
+              - "X-Request-ID"
             allowCredentials: true
 
       discovery:
@@ -70,6 +71,18 @@ spring:
           uri: http://localhost:8194
           predicates:
             - Path=/api/v1/communication/**
+
+        - id: ai-service-api
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - StripPrefix=3
+
+        - id: ai-service-audio-stream
+          uri: http://localhost:8000
+          predicates:
+            - Path=/audio-stream, /audio-stream/**
 
         - id: organisation-ws
           uri: http://localhost:8190
