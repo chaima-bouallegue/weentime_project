@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -95,7 +95,7 @@ async def test_employee_cannot_access_manager_team_insight() -> None:
     result = await executor.execute("insights.manager_team", {}, context("EMPLOYEE"))
 
     assert result.success is False
-    assert result.error_code == "forbidden_role"
+    assert result.error_code == "role_not_allowed"
 
 
 @pytest.mark.asyncio

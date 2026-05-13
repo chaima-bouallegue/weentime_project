@@ -139,5 +139,5 @@ async def test_leave_create_request_requires_employee_role() -> None:
     )
 
     assert result.success is False
-    assert result.error_code == "forbidden_role"
+    assert result.error_code == "role_not_allowed"
     assert backend.calls == []

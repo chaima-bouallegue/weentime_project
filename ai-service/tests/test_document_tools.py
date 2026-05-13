@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -167,7 +167,7 @@ async def test_document_create_request_requires_employee_role() -> None:
     )
 
     assert result.success is False
-    assert result.error_code == "forbidden_role"
+    assert result.error_code == "role_not_allowed"
     assert backend.calls == []
 
 
@@ -187,7 +187,7 @@ async def test_employee_cannot_execute_rh_document_generation() -> None:
     )
 
     assert result.success is False
-    assert result.error_code == "forbidden_role"
+    assert result.error_code == "role_not_allowed"
     assert backend.calls == []
 
 

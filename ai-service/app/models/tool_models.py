@@ -19,3 +19,5 @@ class ToolDefinition(BaseModel):
     required_permissions: set[str] = Field(default_factory=set)
     requires_confirmation: bool = False
     idempotency_required: bool = False
+    idempotency_safe_exception: bool = False
+    tenant_scoped: bool = True

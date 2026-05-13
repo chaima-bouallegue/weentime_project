@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from abc import abstractmethod
 from typing import Any
@@ -169,7 +169,7 @@ class BaseRoleCopilot(DomainAgent):
 
     @staticmethod
     def _default_summary(result: ToolResult) -> str:
-        if result.error_code == "forbidden_role" or result.status_code == 403:
+        if result.error_code == "role_not_allowed" or result.status_code == 403:
             return "Vous n'avez pas les droits necessaires pour consulter cette section."
         if result.error_code == "tool_not_found":
             return "Cette capacite n'est pas encore disponible."

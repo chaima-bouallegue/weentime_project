@@ -165,7 +165,7 @@ def test_non_admin_roles_cannot_use_admin_tools() -> None:
     for role in ("EMPLOYEE", "MANAGER", "RH"):
         result = asyncio.run(executor.execute("admin.list_users", {}, context(role)))
         assert result.success is False
-        assert result.error_code == "forbidden_role"
+        assert result.error_code == "role_not_allowed"
 
 
 def test_missing_backend_endpoint_returns_capability_style_unavailable() -> None:

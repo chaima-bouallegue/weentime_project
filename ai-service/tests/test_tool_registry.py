@@ -43,7 +43,7 @@ async def test_registry_denies_unauthorized_role() -> None:
 
     assert not result.success
     assert result.status_code == 403
-    assert result.error_code == "forbidden_role"
+    assert result.error_code == "role_not_allowed"
 
 
 @pytest.mark.asyncio
@@ -59,6 +59,7 @@ async def test_write_tool_requires_confirmation() -> None:
             allowed_roles={"EMPLOYEE"},
             required_permissions={"attendance:write:self"},
             requires_confirmation=True,
+            idempotency_required=True,
         ),
         ok_handler,
     )

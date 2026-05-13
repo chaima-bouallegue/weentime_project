@@ -23,5 +23,13 @@ class CurrentUserContext:
     def tenant_id(self) -> int | None:
         return self.entreprise_id
 
+    @property
+    def is_verified(self) -> bool:
+        if self.metadata.get("jwt_verified") is False:
+            return False
+        if self.metadata.get("jwt_verified") is True:
+            return True
+        return bool(self.token)
+
     def has_role(self, role: str) -> bool:
         return self.role.upper() == role.upper().replace("ROLE_", "")
