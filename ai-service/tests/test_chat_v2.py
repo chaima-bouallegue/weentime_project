@@ -1,15 +1,15 @@
 ﻿from __future__ import annotations
 
-import base64
-import json
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
 import main
+from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
 from app.core.copilot_engine import ensure_copilot_services
 from app.tools.result import ToolResult
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
 class FakeBackendClient:
@@ -24,15 +24,16 @@ class FakeBackendClient:
         return ToolResult.ok({"status": "ACTIVE"})
 
 
-def make_token(claims: dict) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii").rstrip("=")
-    return f"header.{payload}.signature"
-
-
 def prepare_v2_state(client: TestClient) -> None:
     client.app.state.ai_v2_ready = False
     client.app.state.ai_v2_backend_client = FakeBackendClient()
+    client.app.state.copilot_ready = False
+    client.app.state.copilot_backend_client = FakeBackendClient()
+    client.app.state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
     for attr in ("ai_v2_context_builder", "ai_v2_tool_registry", "ai_v2_tool_executor", "ai_v2_confirmation_store", "ai_v2_router_agent", "ai_v2_attendance_agent"):
+        if hasattr(client.app.state, attr):
+            delattr(client.app.state, attr)
+    for attr in ("copilot_tool_registry", "copilot_tool_executor", "copilot_confirmation_store", "copilot_router_agent", "copilot_attendance_agent"):
         if hasattr(client.app.state, attr):
             delattr(client.app.state, attr)
 
@@ -106,3 +107,4 @@ def test_chat_v2_confirm_known_already_exists_returns_success() -> None:
     assert body["success"] is True
     assert body["data"]["type"] == "answer"
     assert body["data"]["text"] == "Une demande existe déjà sur cette période."
+

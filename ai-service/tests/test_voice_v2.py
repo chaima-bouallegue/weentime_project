@@ -1,32 +1,47 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-import base64
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
 import main
+from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
 from app.core.copilot_engine import ensure_copilot_services
 from app.models.agent_models import AgentResponse
 from app.tools.result import ToolResult
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceProcessorResult
 from voice.stt import VoiceProcessingResult
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
-def make_token(claims: dict) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii").rstrip("=")
-    return f"header.{payload}.signature"
+class FakeBackendClient:
+    async def get(self, path, *, context, params=None):
+        if path == "/users/me":
+            return ToolResult.ok({"id": context.user_id, "role": context.role or "EMPLOYEE", "entrepriseId": 9})
+        return ToolResult.ok({})
+
+    async def post(self, path, *, context, json=None, headers=None):
+        return ToolResult.ok({})
 
 
 def token_header(user_id: int = 12, role: str = "EMPLOYEE") -> dict[str, str]:
     return {"Authorization": f"Bearer {make_token({'userId': user_id, 'role': role, 'entrepriseId': 9})}"}
 
 
+def prepare_v2_state(client: TestClient) -> None:
+    client.app.state.copilot_ready = False
+    client.app.state.copilot_backend_client = FakeBackendClient()
+    client.app.state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
+    for attr in ("copilot_tool_registry", "copilot_tool_executor", "copilot_confirmation_store", "copilot_router_agent", "copilot_attendance_agent"):
+        if hasattr(client.app.state, attr):
+            delattr(client.app.state, attr)
+
+
 def test_voice_v2_requires_jwt() -> None:
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
         response = client.post(
             "/v2/voice",
             files={"audio_file": ("audio.webm", b"123", "audio/webm")},
@@ -38,6 +53,7 @@ def test_voice_v2_requires_jwt() -> None:
 
 def test_voice_v2_invalid_audio_returns_controlled_error() -> None:
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
         response = client.post(
             "/v2/voice",
             headers=token_header(),
@@ -64,6 +80,7 @@ def test_voice_v2_valid_stt_calls_copilot(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("app.api.voice_v2.process_copilot_message", process_mock)
 
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
         response = client.post(
             "/v2/voice",
             headers=token_header(),
@@ -91,6 +108,7 @@ def test_voice_v2_confirmation_oui_executes_pending_confirmation(monkeypatch, tm
     monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.generate_tts", AsyncMock(return_value=None))
 
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
         services = ensure_copilot_services(client.app.state)
         context = CurrentUserContext(user_id=12, role="EMPLOYEE", entreprise_id=9, token="token")
         services["confirmation_store"].create(context, "legacy.create_leave_request", {"payload": {"start_date": "2026-05-06"}})
@@ -108,3 +126,4 @@ def test_voice_v2_confirmation_oui_executes_pending_confirmation(monkeypatch, tm
     assert body["data"]["requiresConfirmation"] is False
     assert body["data"]["agent"] == "confirmation"
     assert services["executor"].execute.await_count == 1
+

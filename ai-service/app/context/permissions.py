@@ -9,4 +9,6 @@ ROLE_PERMISSIONS = {
 
 
 def permissions_for_role(role: str | None) -> set[str]:
-    return set(ROLE_PERMISSIONS.get((role or "EMPLOYEE").upper().replace("ROLE_", ""), set()))
+    if not role:
+        return set()
+    return set(ROLE_PERMISSIONS.get(role.upper().replace("ROLE_", ""), set()))
