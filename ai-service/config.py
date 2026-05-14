@@ -101,6 +101,14 @@ class Settings:
 
         self.rag_keywords = _split_csv(os.getenv("RAG_KEYWORDS", "politique,reglement,procedure"))
         self.rag_search_limit = max(1, int(os.getenv("RAG_SEARCH_LIMIT", "3")))
+        self.rag_provider = os.getenv("RAG_PROVIDER", "local_keyword").strip().lower()
+        self.chroma_enabled = _to_bool(os.getenv("CHROMA_ENABLED"), False)
+        self.chroma_persist_dir = Path(os.getenv("CHROMA_PERSIST_DIR", str(self.base_dir / "storage" / "chroma")))
+        self.chroma_collection_name = os.getenv("CHROMA_COLLECTION_NAME", "weentime_policy").strip()
+        self.chroma_embedding_model = os.getenv("CHROMA_EMBEDDING_MODEL", "nomic-embed-text").strip()
+        self.chroma_top_k = max(1, int(os.getenv("CHROMA_TOP_K", "5")))
+        self.rag_require_citations = _to_bool(os.getenv("RAG_REQUIRE_CITATIONS"), True)
+        self.rag_tenant_filter_required = _to_bool(os.getenv("RAG_TENANT_FILTER_REQUIRED"), True)
         self.cors_origins = _safe_cors_origins(os.getenv("CORS_ORIGINS"))
 
         self.braintrust_enabled = _to_bool(os.getenv("BRAINTRUST_ENABLED"), False)

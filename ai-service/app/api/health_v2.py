@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import shutil
 from pathlib import Path
@@ -30,6 +30,7 @@ async def health_deep(request: Request) -> ApiEnvelope:
         "braintrust": get_braintrust_status(),
         "provider": {"ok": False, "status": "unknown"},
         "redis_events": get_redis_event_status(settings),
+        "rag": _rag_status(settings),
     }
     warnings: list[str] = []
 
@@ -71,6 +72,7 @@ async def health_deep(request: Request) -> ApiEnvelope:
             "braintrust": checks["braintrust"],
             "provider": checks["provider"],
             "redis_events": checks["redis_events"],
+            "rag": checks["rag"],
         },
         warnings=warnings,
     )
@@ -87,3 +89,14 @@ async def braintrust_test_event(request: Request) -> ApiEnvelope:
     if result.get("success"):
         return ApiEnvelope.ok({"status": "ok", "event": "braintrust.integration.test"})
     return ApiEnvelope.fail("braintrust_test_event_failed", str(result.get("error") or "Braintrust test event failed."), status_details=result)
+
+def _rag_status(settings: Any | None) -> dict[str, Any]:
+    return {
+        "provider": getattr(settings, "rag_provider", "local_keyword") if settings else "local_keyword",
+        "chroma_enabled": bool(getattr(settings, "chroma_enabled", False)) if settings else False,
+        "collection_name": getattr(settings, "chroma_collection_name", "weentime_policy") if settings else "weentime_policy",
+        "top_k": getattr(settings, "chroma_top_k", 5) if settings else 5,
+        "citation_required": bool(getattr(settings, "rag_require_citations", True)) if settings else True,
+        "tenant_filter_required": bool(getattr(settings, "rag_tenant_filter_required", True)) if settings else True,
+        "fallback": "local_keyword",
+    }
