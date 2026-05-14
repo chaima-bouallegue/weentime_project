@@ -77,7 +77,7 @@ class PriorityEngine:
                 source_tools=[tool_name],
                 recommended_actions=["Consulter le detail avant toute action."],
             )
-        if role == "MANAGER" and _tool_matches(tool_name, ("pending", "team", "presence")):
+        if role == "MANAGER" and _tool_matches(tool_name, ("pending", "team", "presence", "list_manager_requests")):
             return PriorityItem(
                 id=f"manager-work-{index}",
                 type="manager_pending_work",

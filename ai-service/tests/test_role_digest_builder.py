@@ -76,20 +76,35 @@ async def test_employee_digest_uses_personal_read_tools_only() -> None:
 
 
 async def test_manager_digest_prioritizes_pending_work() -> None:
-    executor = FakeExecutor({"legacy.get_pending_validations": read("legacy.get_pending_validations", "2 validations", [{"id": 10}, {"id": 11}])})
+    executor = FakeExecutor({"leave.list_manager_requests": read("leave.list_manager_requests", "2 conges equipe", [{"id": 10}, {"id": 11}])})
     digest = await RoleDigestBuilder(executor).build_digest(context("MANAGER"))
 
     assert digest.role == "MANAGER"
     assert any(priority.type == "manager_pending_work" for priority in digest.priorities)
-    assert any(call.name == "legacy.get_pending_validations" for call in digest.tool_calls)
+    calls = {call.name for call in digest.tool_calls}
+    assert "legacy.get_pending_validations" not in calls
+    assert "legacy.get_team_requests" not in calls
+    assert {"leave.list_manager_requests", "telework.list_manager_requests", "authorization.list_manager_requests"}.issubset(calls)
 
 
 async def test_rh_digest_prioritizes_backlog() -> None:
-    executor = FakeExecutor({"legacy.get_all_requests": read("legacy.get_all_requests", "3 demandes RH", [{"id": 1}, {"id": 2}, {"id": 3}])})
+    executor = FakeExecutor({"leave.list_rh_pending": read("leave.list_rh_pending", "3 conges RH", [{"id": 1}, {"id": 2}, {"id": 3}])})
     digest = await RoleDigestBuilder(executor).build_digest(context("RH"))
 
     assert digest.role == "RH"
     assert any(priority.type == "rh_backlog" for priority in digest.priorities)
+    calls = {call.name for call in digest.tool_calls}
+    assert "legacy.get_all_requests" not in calls
+    assert "legacy.get_rh_stats" in calls
+    assert {"leave.list_rh_pending", "telework.list_rh_pending", "authorization.list_rh_requests"}.issubset(calls)
+
+
+async def test_rh_digest_keeps_legacy_stats_when_no_modern_equivalent_exists() -> None:
+    executor = FakeExecutor({"legacy.get_rh_stats": read("legacy.get_rh_stats", "Stats RH disponibles", [{"metric": "pending", "count": 4}])})
+    digest = await RoleDigestBuilder(executor).build_digest(context("RH"))
+
+    assert any(call.name == "legacy.get_rh_stats" for call in digest.tool_calls)
+    assert any(section.tool_name == "legacy.get_rh_stats" and section.status == "ok" for section in digest.sections)
 
 
 async def test_admin_digest_prioritizes_misconfigured_users() -> None:
@@ -120,3 +135,45 @@ async def test_unavailable_tool_becomes_warning_not_crash() -> None:
 
     assert digest.warnings
     assert any(section.tool_name == "get_week_hours" and section.status == "unavailable" for section in digest.sections)
+
+
+async def test_role_intelligence_digests_never_plan_write_tools() -> None:
+    write_tools = {
+        "leave.create_request",
+        "leave.manager_decide",
+        "leave.rh_decide",
+        "telework.create_request",
+        "telework.manager_decide",
+        "telework.rh_decide",
+        "authorization.create_request",
+        "authorization.manager_decide",
+        "authorization.rh_decide",
+        "document.create_request",
+        "communication.send_message",
+        "admin.create_user",
+    }
+    for role in ("EMPLOYEE", "MANAGER", "RH", "ADMIN"):
+        executor = FakeExecutor()
+        digest = await RoleDigestBuilder(executor).build_digest(context(role, tenant_id=None if role == "ADMIN" else 42))
+        assert write_tools.isdisjoint({call.name for call in digest.tool_calls})
+        assert not digest.to_dict()["requiresConfirmation"]
+
+
+async def test_modern_manager_reads_preserve_verified_tenant_context() -> None:
+    executor = FakeExecutor()
+    await RoleDigestBuilder(executor).build_digest(context("MANAGER", tenant_id=77))
+
+    modern_manager_tools = {"leave.list_manager_requests", "telework.list_manager_requests", "authorization.list_manager_requests"}
+    assert all(call[2].tenant_id == 77 for call in executor.calls if call[0] in modern_manager_tools)
+
+
+async def test_communication_digest_does_not_fake_unread_counts() -> None:
+    channels = [{"id": "channel-1", "name": "General"}, {"id": "channel-2", "name": "RH"}]
+    executor = FakeExecutor({"communication.list_channels": read("communication.list_channels", "2 canaux visibles", channels)})
+
+    digest = await RoleDigestBuilder(executor).build_digest(context("EMPLOYEE"))
+
+    communication = next(section for section in digest.sections if section.tool_name == "communication.list_channels")
+    assert "non lu" not in communication.summary.lower()
+    assert all("unreadCount" not in item for item in communication.items if isinstance(item, dict))
+    assert all(call.name != "communication.get_channel_messages" for call in digest.tool_calls)

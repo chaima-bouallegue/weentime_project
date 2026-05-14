@@ -18,7 +18,13 @@ class FakeExecutor:
 
     async def execute(self, tool_name, payload, context, **kwargs):
         self.calls.append((tool_name, payload or {}))
-        items = [{"id": 1}] if tool_name in {"leave.list_my_requests", "legacy.get_pending_validations", "legacy.get_all_requests", "admin.misconfigured_users"} else []
+        priority_tools = {
+            "leave.list_my_requests",
+            "leave.list_manager_requests",
+            "leave.list_rh_pending",
+            "admin.misconfigured_users",
+        }
+        items = [{"id": 1}] if tool_name in priority_tools else []
         return ToolResult.ok(
             {
                 "read_result": build_read_result(

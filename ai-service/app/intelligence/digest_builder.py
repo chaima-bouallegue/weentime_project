@@ -158,14 +158,18 @@ def _plans_for_role(role: str) -> tuple[ToolReadPlan, ...]:
     if role == "MANAGER":
         return (
             ToolReadPlan("Presence equipe", "get_team_presence"),
-            ToolReadPlan("Validations manager", "legacy.get_pending_validations"),
-            ToolReadPlan("Demandes equipe", "legacy.get_team_requests"),
+            ToolReadPlan("Conges equipe", "leave.list_manager_requests"),
+            ToolReadPlan("Teletravail equipe", "telework.list_manager_requests"),
+            ToolReadPlan("Autorisations equipe", "authorization.list_manager_requests"),
             ToolReadPlan("Communication", "communication.list_channels", {"limit": 10}),
         )
     if role == "RH":
         return (
+            # No modern RH stats endpoint is registered yet; keep this legacy read fallback only.
             ToolReadPlan("Statistiques RH", "legacy.get_rh_stats"),
-            ToolReadPlan("Demandes RH", "legacy.get_all_requests"),
+            ToolReadPlan("Conges RH", "leave.list_rh_pending"),
+            ToolReadPlan("Teletravail RH", "telework.list_rh_pending"),
+            ToolReadPlan("Autorisations RH", "authorization.list_rh_requests"),
             ToolReadPlan("Documents RH", "document.list_my_requests"),
             ToolReadPlan("Communication", "communication.list_channels", {"limit": 10}),
         )
