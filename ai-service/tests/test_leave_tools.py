@@ -34,6 +34,16 @@ class FakeBackendClient:
                 [{"id": 41, "statut": "EN_ATTENTE_MANAGER"}, {"id": 42, "statut": "APPROUVEE"}],
                 status_code=200,
             )
+        if path == "/rh/conges/manager":
+            return ToolResult.ok(
+                [{"id": 43, "statut": "EN_ATTENTE_MANAGER", "utilisateurId": 21}],
+                status_code=200,
+            )
+        if path == "/rh/conges/rh/pending":
+            return ToolResult.ok(
+                [{"id": 44, "statut": "EN_ATTENTE_RH", "utilisateurId": 22}],
+                status_code=200,
+            )
         if path == "/rh/conges/41":
             return ToolResult.ok({"id": 41, "statut": "EN_ATTENTE_MANAGER"}, status_code=200)
         if path == "/rh/type-conges":
@@ -51,6 +61,20 @@ class FakeBackendClient:
         _ = headers
         self.calls.append(("POST", path, json))
         return ToolResult.ok({"id": 99, **(json or {})}, status_code=201)
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        context: CurrentUserContext,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> ToolResult:
+        _ = params, headers
+        self.calls.append((method.upper(), path, json))
+        return ToolResult.ok({"id": 43, "statut": "APPROUVEE", **(json or {})}, status_code=200)
 
 
 def executor_with_backend(backend: FakeBackendClient) -> ToolExecutor:
@@ -135,6 +159,69 @@ async def test_leave_create_request_requires_employee_role() -> None:
             "leave_type_label": "Conge annuel",
         },
         context("MANAGER"),
+        confirmed=True,
+    )
+
+    assert result.success is False
+    assert result.error_code == "role_not_allowed"
+    assert backend.calls == []
+
+
+@pytest.mark.asyncio
+async def test_leave_manager_list_uses_manager_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("leave.list_manager_requests", {}, context("MANAGER"))
+
+    assert result.success is True
+    assert backend.calls[0][1] == "/rh/conges/manager"
+    assert result.data["read_result"]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_leave_rh_pending_uses_rh_pending_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("leave.list_rh_pending", {}, context("RH"))
+
+    assert result.success is True
+    assert backend.calls[0][1] == "/rh/conges/rh/pending"
+    assert result.data["read_result"]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_leave_manager_decide_calls_manager_validation_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "leave.manager_decide",
+        {"request_id": 43, "decision": "APPROVE"},
+        context("MANAGER"),
+        confirmed=True,
+    )
+
+    assert result.success is True
+    assert backend.calls == [("PATCH", "/rh/conges/43/valider", None)]
+
+
+@pytest.mark.asyncio
+async def test_leave_rh_reject_calls_reject_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "leave.rh_decide",
+        {"request_id": 44, "decision": "REJECT", "comment": "incomplet"},
+        context("RH"),
+        confirmed=True,
+    )
+
+    assert result.success is True
+    assert backend.calls == [("PATCH", "/rh/conges/44/refuser", {"commentaire": "incomplet"})]
+
+
+@pytest.mark.asyncio
+async def test_employee_cannot_execute_leave_manager_decision() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "leave.manager_decide",
+        {"request_id": 43, "decision": "APPROVE"},
+        context("EMPLOYEE"),
         confirmed=True,
     )
 

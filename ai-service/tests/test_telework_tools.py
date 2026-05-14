@@ -32,6 +32,16 @@ class FakeBackendClient:
                 ],
                 status_code=200,
             )
+        if path == "/rh/teletravail/demandes-equipe":
+            return ToolResult.ok(
+                [{"id": 43, "statut": "EN_ATTENTE_MANAGER", "dateDebut": "2026-05-10", "dateFin": "2026-05-10"}],
+                status_code=200,
+            )
+        if path == "/rh/teletravail/en-attente-rh":
+            return ToolResult.ok(
+                [{"id": 44, "statut": "EN_ATTENTE_RH", "dateDebut": "2026-05-11", "dateFin": "2026-05-11"}],
+                status_code=200,
+            )
         if path == "/rh/teletravail/41":
             return ToolResult.ok({"id": 41, "statut": "EN_ATTENTE_MANAGER"}, status_code=200)
         return ToolResult.fail("not_found", "Not found", status_code=404)
@@ -102,6 +112,26 @@ async def test_telework_get_status_uses_detail_endpoint() -> None:
     assert result.success is True
     assert backend.calls[0][1] == "/rh/teletravail/41"
     assert "en attente manager" in result.data["read_result"]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_telework_manager_list_uses_team_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("telework.list_manager_requests", {}, context("MANAGER"))
+
+    assert result.success is True
+    assert backend.calls[0][1] == "/rh/teletravail/demandes-equipe"
+    assert result.data["read_result"]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_telework_rh_pending_uses_rh_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("telework.list_rh_pending", {}, context("RH"))
+
+    assert result.success is True
+    assert backend.calls[0][1] == "/rh/teletravail/en-attente-rh"
+    assert result.data["read_result"]["count"] == 1
 
 
 @pytest.mark.asyncio

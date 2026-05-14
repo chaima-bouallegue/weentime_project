@@ -22,6 +22,17 @@ class FakeExecutor:
 
     async def execute(self, tool_name, payload, context, *, confirmed=False, **kwargs):
         self.calls.append((tool_name, payload or {}, confirmed))
+        if tool_name == "leave.get_request_status":
+            return ToolResult.ok(
+                {
+                    "read_result": {
+                        "kind": "read_result",
+                        "summary": "detail",
+                        "items": [{"id": 42, "employee": "Amin Dupont", "type": "CONGE", "statut": "EN_ATTENTE_MANAGER"}],
+                        "count": 1,
+                    }
+                }
+            )
         return ToolResult.ok({"text": f"ok:{tool_name}"})
 
 
@@ -121,7 +132,7 @@ def test_manager_approval_requires_confirmation() -> None:
     response = asyncio.run(agent.handle("approuve le conge 42", context("MANAGER")))
 
     assert response.type == "confirm_action"
-    assert response.toolCalls[0].name == "legacy.approve_request"
+    assert response.toolCalls[0].name == "leave.manager_decide"
 
 
 def test_rh_stats_routes_to_rh_agent() -> None:

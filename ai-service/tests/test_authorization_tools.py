@@ -38,6 +38,16 @@ class FakeBackendClient:
                 {"content": [{"id": 41, "statut": "EN_ATTENTE_MANAGER"}], "totalElements": 1, "number": 0, "size": 20},
                 status_code=200,
             )
+        if path == "/rh/autorisations/manager":
+            return ToolResult.ok(
+                {"content": [{"id": 42, "statut": "EN_ATTENTE_MANAGER"}], "totalElements": 1, "number": 0, "size": 20},
+                status_code=200,
+            )
+        if path == "/rh/autorisations/rh/history":
+            return ToolResult.ok(
+                {"content": [{"id": 43, "statut": "EN_ATTENTE_RH"}], "totalElements": 1, "number": 0, "size": 20},
+                status_code=200,
+            )
         if path == "/rh/autorisations/41":
             return ToolResult.ok({"id": 41, "statut": "EN_ATTENTE_MANAGER"}, status_code=200)
         return ToolResult.fail("not_found", "Not found", status_code=404)
@@ -121,6 +131,26 @@ async def test_authorization_get_status_uses_detail_endpoint() -> None:
     assert result.success is True
     assert backend.calls[0][1] == "/rh/autorisations/41"
     assert "en attente manager" in result.data["read_result"]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_authorization_manager_list_uses_manager_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("authorization.list_manager_requests", {}, context("MANAGER"))
+
+    assert result.success is True
+    assert backend.calls[0] == ("GET", "/rh/autorisations/manager", {"page": 0, "size": 20})
+    assert result.data["read_result"]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_authorization_rh_list_uses_rh_history_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("authorization.list_rh_requests", {}, context("RH"))
+
+    assert result.success is True
+    assert backend.calls[0] == ("GET", "/rh/autorisations/rh/history", {"page": 0, "size": 20})
+    assert result.data["read_result"]["count"] == 1
 
 
 @pytest.mark.asyncio

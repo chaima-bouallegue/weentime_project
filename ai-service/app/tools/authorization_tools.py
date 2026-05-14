@@ -84,6 +84,28 @@ class AuthorizationTools:
         )
         registry.register(
             ToolDefinition(
+                name="authorization.list_manager_requests",
+                description="Retourne les autorisations accessibles au manager authentifie.",
+                input_model=EmptyAuthorizationInput,
+                output_model=None,
+                type="read",
+                allowed_roles=AUTHORIZATION_MANAGER_ROLES,
+            ),
+            self.list_manager_requests,
+        )
+        registry.register(
+            ToolDefinition(
+                name="authorization.list_rh_requests",
+                description="Retourne les autorisations accessibles au RH authentifie.",
+                input_model=EmptyAuthorizationInput,
+                output_model=None,
+                type="read",
+                allowed_roles=AUTHORIZATION_RH_ROLES,
+            ),
+            self.list_rh_requests,
+        )
+        registry.register(
+            ToolDefinition(
                 name="authorization.manager_decide",
                 description="Decision manager sur une demande d'autorisation.",
                 input_model=DecideAuthorizationInput,
@@ -139,13 +161,31 @@ class AuthorizationTools:
         result = await self.backend_client.get("/rh/autorisations/me", context=context, params=params)
         if not result.success:
             return self._read_failure("authorization.list_my_requests", result)
+        return self._list_success("authorization.list_my_requests", result)
+
+    async def list_manager_requests(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        params = {"page": getattr(payload, "page", 0), "size": getattr(payload, "size", 20)}
+        result = await self.backend_client.get("/rh/autorisations/manager", context=context, params=params)
+        if not result.success:
+            return self._read_failure("authorization.list_manager_requests", result)
+        return self._list_success("authorization.list_manager_requests", result)
+
+    async def list_rh_requests(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        params = {"page": getattr(payload, "page", 0), "size": getattr(payload, "size", 20)}
+        result = await self.backend_client.get("/rh/autorisations/rh/history", context=context, params=params)
+        if not result.success:
+            return self._read_failure("authorization.list_rh_requests", result)
+        return self._list_success("authorization.list_rh_requests", result)
+
+    @staticmethod
+    def _list_success(tool_name: str, result: ToolResult) -> ToolResult:
         items = _as_list(result.data)
         count = _extract_count(result.data, items)
         summary = _request_summary(items, "autorisations") if items else "Aucune autorisation trouvee."
         return ToolResult.ok(
             {
                 "read_result": build_read_result(
-                    tool_name="authorization.list_my_requests",
+                    tool_name=tool_name,
                     summary=summary,
                     items=items,
                     count=count,

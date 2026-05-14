@@ -82,6 +82,28 @@ class TeleworkTools:
         )
         registry.register(
             ToolDefinition(
+                name="telework.list_manager_requests",
+                description="Retourne les demandes de teletravail accessibles au manager authentifie.",
+                input_model=EmptyTeleworkInput,
+                output_model=None,
+                type="read",
+                allowed_roles=TELEWORK_MANAGER_ROLES,
+            ),
+            self.list_manager_requests,
+        )
+        registry.register(
+            ToolDefinition(
+                name="telework.list_rh_pending",
+                description="Retourne les demandes de teletravail en attente de validation RH.",
+                input_model=EmptyTeleworkInput,
+                output_model=None,
+                type="read",
+                allowed_roles=TELEWORK_RH_ROLES,
+            ),
+            self.list_rh_pending,
+        )
+        registry.register(
+            ToolDefinition(
                 name="telework.manager_decide",
                 description="Decision manager sur une demande de teletravail.",
                 input_model=DecideTeleworkInput,
@@ -130,21 +152,23 @@ class TeleworkTools:
             return self._read_failure("telework.list_my_requests", result)
         items = _as_list(result.data)
         summary = _request_summary(items, "teletravail") if items else "Aucune demande de teletravail trouvee."
-        return ToolResult.ok(
-            {
-                "read_result": build_read_result(
-                    tool_name="telework.list_my_requests",
-                    summary=summary,
-                    items=items,
-                    count=len(items),
-                    data={"items": items},
-                    backend_status=result.status_code,
-                    empty=not items,
-                )
-            },
-            warnings=result.warnings,
-            status_code=result.status_code,
-        )
+        return _read_success("telework.list_my_requests", result, items, summary)
+
+    async def list_manager_requests(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.backend_client.get("/rh/teletravail/demandes-equipe", context=context)
+        if not result.success:
+            return self._read_failure("telework.list_manager_requests", result)
+        items = _as_list(result.data)
+        summary = _request_summary(items, "teletravail d'equipe") if items else "Aucune demande de teletravail d'equipe trouvee."
+        return _read_success("telework.list_manager_requests", result, items, summary)
+
+    async def list_rh_pending(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.backend_client.get("/rh/teletravail/en-attente-rh", context=context)
+        if not result.success:
+            return self._read_failure("telework.list_rh_pending", result)
+        items = _as_list(result.data)
+        summary = _request_summary(items, "teletravail en attente RH") if items else "Aucune demande de teletravail en attente RH trouvee."
+        return _read_success("telework.list_rh_pending", result, items, summary)
 
     async def get_status(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         request_id = int(getattr(payload, "request_id"))
@@ -293,6 +317,24 @@ def _request_summary(items: list[Any], label: str) -> str:
         return f"Vous avez {len(items)} demande(s) de {label}."
     parts = [f"{count} {status.replace('_', ' ').lower()}" for status, count in sorted(counts.items())]
     return f"Vous avez {len(items)} demande(s) de {label}: " + ", ".join(parts) + "."
+
+
+def _read_success(tool_name: str, result: ToolResult, items: list[Any], summary: str) -> ToolResult:
+    return ToolResult.ok(
+        {
+            "read_result": build_read_result(
+                tool_name=tool_name,
+                summary=summary,
+                items=items,
+                count=len(items),
+                data={"items": items},
+                backend_status=result.status_code,
+                empty=not items,
+            )
+        },
+        warnings=result.warnings,
+        status_code=result.status_code,
+    )
 
 
 def _write_success(tool_name: str, summary: str, result: ToolResult) -> ToolResult:
