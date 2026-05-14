@@ -64,6 +64,13 @@ class Settings:
         self.ai_provider_model = os.getenv("AI_PROVIDER_MODEL", "qwen2.5:3b")
         self.ai_provider_optional_model = os.getenv("AI_PROVIDER_OPTIONAL_MODEL", "qwen2.5:7b")
         self.ai_provider_timeout_seconds = float(os.getenv("AI_PROVIDER_TIMEOUT_SECONDS", "20"))
+        self.ai_local_device = os.getenv("AI_LOCAL_DEVICE", "cpu").strip().lower()
+        self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+        self.ollama_fallback_model = os.getenv("OLLAMA_FALLBACK_MODEL", "").strip()
+        self.ollama_timeout_seconds = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", str(self.ai_provider_timeout_seconds)))
+        self.ollama_max_tokens = max(1, int(os.getenv("OLLAMA_MAX_TOKENS", "512")))
+        self.ollama_temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
 
         self.stt_model = os.getenv("STT_MODEL", "base")
         self.stt_language = os.getenv("STT_LANGUAGE", "fr")

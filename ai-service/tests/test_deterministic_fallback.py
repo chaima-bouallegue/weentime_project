@@ -35,6 +35,19 @@ def test_provider_disabled_returns_deterministic_fallback_metadata() -> None:
     assert response.actionResult["request_id"] == "req-123"
 
 
+def test_provider_timeout_fallback_metadata() -> None:
+    response = deterministic_fallback_response(
+        "provider_timeout",
+        context=context(language="en", request_id="timeout-1"),
+        safe_response_type="deterministic",
+    )
+
+    assert response.actionResult is not None
+    assert response.actionResult["fallback_reason"] == "provider_timeout"
+    assert response.actionResult["safe_response_type"] == "deterministic"
+    assert response.actionResult["request_id"] == "timeout-1"
+
+
 def test_guard_rejected_returns_fallback_and_hides_rejected_output() -> None:
     unsafe = AgentResponse(
         type="answer",

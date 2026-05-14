@@ -10,6 +10,7 @@ from app.observability.tracing import log_error, log_event, start_span
 
 from .base import LLMProvider
 from .disabled_provider import DisabledProvider
+from .ollama_provider import OllamaProvider
 from .provider_request import ProviderRequest
 from .provider_response import ProviderResponse
 from .result import ProviderHealth
@@ -43,9 +44,21 @@ class ProviderRouter:
 
     @classmethod
     def from_settings(cls, settings: Any | None = None, *, providers: dict[str, LLMProvider] | None = None) -> "ProviderRouter":
+        resolved_providers = dict(providers or {})
+        mode = str(getattr(settings, "ai_provider_mode", "disabled") if settings else "disabled").strip().lower()
+        if mode == "ollama" and "ollama" not in resolved_providers:
+            resolved_providers["ollama"] = OllamaProvider(
+                base_url=str(getattr(settings, "ollama_base_url", "http://localhost:11434") if settings else "http://localhost:11434"),
+                model=str(getattr(settings, "ollama_model", "qwen2.5:3b") if settings else "qwen2.5:3b"),
+                fallback_model=getattr(settings, "ollama_fallback_model", None) if settings else None,
+                timeout_seconds=float(getattr(settings, "ollama_timeout_seconds", 20.0) if settings else 20.0),
+                max_tokens=int(getattr(settings, "ollama_max_tokens", 512) if settings else 512),
+                temperature=float(getattr(settings, "ollama_temperature", 0.2) if settings else 0.2),
+                local_device=str(getattr(settings, "ai_local_device", "cpu") if settings else "cpu"),
+            )
         return cls(
-            mode=str(getattr(settings, "ai_provider_mode", "disabled") if settings else "disabled"),
-            providers=providers,
+            mode=mode,
+            providers=resolved_providers,
             timeout_seconds=float(getattr(settings, "ai_provider_timeout_seconds", 20.0) if settings else 20.0),
             default_model=getattr(settings, "ai_provider_model", None) if settings else None,
             optional_model=getattr(settings, "ai_provider_optional_model", None) if settings else None,

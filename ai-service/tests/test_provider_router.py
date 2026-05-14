@@ -67,6 +67,32 @@ async def test_provider_router_selects_disabled_provider_by_default() -> None:
     assert health.supports_tools is False
 
 
+def test_provider_router_ollama_mode_without_provider_is_configured_by_settings() -> None:
+    settings = type(
+        "Settings",
+        (),
+        {
+            "ai_provider_mode": "ollama",
+            "ai_provider_timeout_seconds": 20.0,
+            "ai_provider_model": "qwen2.5:3b",
+            "ai_provider_optional_model": "qwen2.5:7b",
+            "ai_local_device": "cpu",
+            "ollama_base_url": "http://localhost:11434",
+            "ollama_model": "qwen2.5:3b",
+            "ollama_fallback_model": "",
+            "ollama_timeout_seconds": 20.0,
+            "ollama_max_tokens": 512,
+            "ollama_temperature": 0.2,
+        },
+    )()
+
+    router = ProviderRouter.from_settings(settings)
+
+    assert router.mode == "ollama"
+    assert router.selected_provider().provider_name() == "ollama"
+    assert router.default_model == "qwen2.5:3b"
+
+
 @pytest.mark.asyncio
 async def test_unsupported_provider_mode_rejected_safely() -> None:
     router = ProviderRouter(mode="llama-on-the-moon")
