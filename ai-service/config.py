@@ -60,6 +60,11 @@ class Settings:
         self.dedup_window_seconds = float(os.getenv("DEDUP_WINDOW_SECONDS", "60"))
         self.action_confirm_threshold = float(os.getenv("ACTION_CONFIRM_THRESHOLD", "0.72"))
 
+        self.ai_provider_mode = os.getenv("AI_PROVIDER_MODE", "disabled").strip().lower()
+        self.ai_provider_model = os.getenv("AI_PROVIDER_MODEL", "qwen2.5:3b")
+        self.ai_provider_optional_model = os.getenv("AI_PROVIDER_OPTIONAL_MODEL", "qwen2.5:7b")
+        self.ai_provider_timeout_seconds = float(os.getenv("AI_PROVIDER_TIMEOUT_SECONDS", "20"))
+
         self.stt_model = os.getenv("STT_MODEL", "base")
         self.stt_language = os.getenv("STT_LANGUAGE", "fr")
         self.stt_device = os.getenv("STT_DEVICE", "cpu").strip().lower()

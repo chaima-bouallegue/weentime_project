@@ -27,6 +27,7 @@ from app.observability.tracing import log_error, log_event, start_span
 from app.guards.response_guard import ResponseGuard
 from app.insights import InsightEngine
 from app.policy import LocalPolicyStore, PolicyRetriever
+from app.providers.router import ProviderRouter
 from app.tools.attendance_tools import register_attendance_tools
 from app.tools.admin_tools import register_admin_tools
 from app.tools.audit import ToolAuditLogger
@@ -63,6 +64,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             state.copilot_conversation_store = ConversationStateStore()
         if not hasattr(state, "copilot_response_guard"):
             state.copilot_response_guard = ResponseGuard()
+        if not hasattr(state, "copilot_provider_router"):
+            state.copilot_provider_router = ProviderRouter.from_settings(getattr(state, "settings", None))
         return {
             "context_builder": state.copilot_context_builder,
             "router_agent": state.copilot_router_agent,
@@ -70,6 +73,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             "executor": state.copilot_tool_executor,
             "conversation_store": state.copilot_conversation_store,
             "response_guard": state.copilot_response_guard,
+            "provider_router": state.copilot_provider_router,
         }
 
     settings = getattr(state, "settings", None)
@@ -110,6 +114,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     confirmation_store = getattr(state, "copilot_confirmation_store", None) or ConfirmationStore()
     conversation_store = getattr(state, "copilot_conversation_store", None) or ConversationStateStore()
     response_guard = getattr(state, "copilot_response_guard", None) or ResponseGuard()
+    provider_router = getattr(state, "copilot_provider_router", None) or ProviderRouter.from_settings(settings)
     executor = getattr(state, "copilot_tool_executor", None) or ToolExecutor(registry, ToolAuditLogger())
     if not getattr(state, "copilot_insight_tools_registered", False):
         register_insight_tools(registry, executor, insight_engine)
@@ -158,6 +163,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_confirmation_store = confirmation_store
     state.copilot_conversation_store = conversation_store
     state.copilot_response_guard = response_guard
+    state.copilot_provider_router = provider_router
     state.copilot_tool_executor = executor
     state.copilot_attendance_agent = attendance_agent
     state.copilot_leave_agent = leave_agent
@@ -183,6 +189,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         "executor": executor,
         "conversation_store": conversation_store,
         "response_guard": response_guard,
+        "provider_router": provider_router,
     }
 
 
@@ -248,6 +255,7 @@ async def process_copilot_message(
                 "tenant_id": context.tenant_id,
                 "language": context.language or language,
                 "message_length": len(message or ""),
+                "provider_mode": getattr(services["provider_router"], "mode", "disabled"),
             },
         )
         session_id = str(metadata.get("session_id") or "") or None
@@ -306,6 +314,7 @@ async def process_copilot_message(
                 "intent": getattr(response, "intent", None),
                 "response_type": getattr(response, "type", None),
                 "text_length": len(response_text),
+                "provider_mode": getattr(services["provider_router"], "mode", "disabled"),
             },
         )
         return response

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.models.envelopes import ApiEnvelope
 from app.observability.braintrust_client import get_braintrust_status, send_test_event
+from app.providers.router import ProviderRouter
 from app.tools.backend_client import BackendClient
 
 router = APIRouter()
@@ -26,6 +27,7 @@ async def health_deep(request: Request) -> ApiEnvelope:
         "temp_dirs": {"ok": True},
         "backend_gateway": {"ok": False},
         "braintrust": get_braintrust_status(),
+        "provider": {"ok": False, "status": "unknown"},
     }
     warnings: list[str] = []
 
@@ -55,8 +57,15 @@ async def health_deep(request: Request) -> ApiEnvelope:
     if not checks["tts"]["ok"]:
         warnings.append("tts_disabled")
 
+    provider_router = getattr(app_state, "copilot_provider_router", None) or ProviderRouter.from_settings(settings)
+    provider_health = await provider_router.health()
+    checks["provider"] = provider_health.model_dump(mode="json")
+
     status = "ok" if not warnings else "degraded"
-    return ApiEnvelope.ok({"status": status, "checks": checks, "braintrust": checks["braintrust"]}, warnings=warnings)
+    return ApiEnvelope.ok(
+        {"status": status, "checks": checks, "braintrust": checks["braintrust"], "provider": checks["provider"]},
+        warnings=warnings,
+    )
 
 
 @router.post("/debug/braintrust/test-event")
