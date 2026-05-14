@@ -152,6 +152,8 @@ class UnsupportedToolClaimRule(GuardRule):
     _claim_words = ("execute", "executed", "appele", "appelé", "called", "success", "succes", "succès")
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if response.requiresConfirmation or response.type == "confirm_action":
+            return GuardResult.allow()
         lowered = (response.text or "").lower()
         if self._tool_like.search(lowered) and any(word in lowered for word in self._claim_words) and not response.toolCalls:
             return GuardResult.reject(self.category, "Response claims an unsupported tool execution.")
@@ -182,6 +184,8 @@ class UnsupportedStatusRule(GuardRule):
     category = "unsupported_status"
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if response.requiresConfirmation or response.type == "confirm_action":
+            return GuardResult.allow()
         values = []
         if isinstance(response.actionResult, dict):
             values.extend(_status_values(response.actionResult))

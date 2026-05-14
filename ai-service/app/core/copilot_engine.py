@@ -17,6 +17,7 @@ from app.agents.router_agent import RouterAgent
 from app.agents.telework_agent import TeleworkAgent
 from app.agents.role_copilots import AdminCopilot, EmployeeCopilot, ManagerCopilot, RHCopilot
 from app.context.context_builder import ContextBuilder, ContextError
+from app.context.jwt_parser import JwtClaims
 from app.core.conversation_state import ConversationStateStore
 from app.core.slot_filling import capture_pending_flow, continue_pending_flow
 from app.memory.confirmation_store import ConfirmationStore
@@ -227,15 +228,17 @@ async def process_copilot_message(
     ):
         if not access_token and metadata.get("allow_legacy_without_token"):
             context = services["context_builder"]._from_claims(  # compatibility path for old /chat tests and clients
-                type("Claims", (), {
-                    "user_id": user_id,
-                    "email": None,
-                    "role": role or "EMPLOYEE",
-                    "entreprise_id": None,
-                    "department_id": None,
-                    "team_id": None,
-                    "manager_id": None,
-                })(),
+                JwtClaims(
+                    verified=False,
+                    user_id=user_id,
+                    email=None,
+                    role=role or "EMPLOYEE",
+                    roles={role or "EMPLOYEE"},
+                    entreprise_id=metadata.get("entreprise_id") or metadata.get("tenant_id"),
+                    department_id=metadata.get("department_id"),
+                    team_id=metadata.get("team_id"),
+                    manager_id=metadata.get("manager_id"),
+                ),
                 token="",
                 locale=metadata.get("locale", "fr-FR"),
                 language=language,

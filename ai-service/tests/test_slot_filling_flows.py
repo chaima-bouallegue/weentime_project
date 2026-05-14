@@ -41,7 +41,12 @@ async def send(state: SimpleNamespace, message: str, session_id: str = "s1"):
         message,
         None,
         "EMPLOYEE",
-        metadata={"app_state": state, "allow_legacy_without_token": True, "session_id": session_id},
+        metadata={
+            "app_state": state,
+            "allow_legacy_without_token": True,
+            "session_id": session_id,
+            "entreprise_id": 9,
+        },
     )
 
 

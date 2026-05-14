@@ -143,7 +143,7 @@ async def confirm_chat_action(
                 text=(
                     _action_success_text(record.tool_name)
                     if result.success
-                    else (_business_conflict_message(result) if known_conflict else (result.error_message or "Action refusee par le backend."))
+                    else (_business_conflict_message(result) if known_conflict else _backend_error_message(result))
                 ),
                 intent=f"attendance.{record.tool_name}",
                 confidence=1.0,
@@ -209,6 +209,18 @@ def _business_conflict_message(result: Any) -> str:
     if code == "already_exists" or "existe" in lowered or "exists" in lowered or "deja" in lowered or "déjà" in lowered:
         return "Une demande existe déjà sur cette période."
     return message or "Une demande existe déjà sur cette période."
+
+
+def _backend_error_message(result: Any) -> str:
+    status_code = getattr(result, "status_code", None)
+    message = str(getattr(result, "error_message", "") or "").strip()
+    if status_code == 403:
+        return "Vous n'avez pas les droits necessaires pour effectuer cette action."
+    if status_code == 404:
+        return "La ressource demandee est introuvable ou le service backend est indisponible."
+    if status_code and int(status_code) >= 500:
+        return "Le service backend est momentanement indisponible. Reessayez dans quelques instants."
+    return message or "Action refusee par le backend."
 
 
 def _error_response(status_code: int, code: str, message: str, *, request_id: str | None = None) -> JSONResponse:

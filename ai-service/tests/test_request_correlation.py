@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import base64
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -10,6 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 import main
+from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
 from app.core.copilot_engine import ensure_copilot_services
 from app.models.agent_models import AgentResponse
@@ -19,6 +18,7 @@ from app.tools.registry import ToolRegistry
 from app.tools.result import ToolResult
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceProcessorResult
 from voice.stt import VoiceProcessingResult
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
 class FakeBackendClient:
@@ -37,11 +37,6 @@ class EmptyInput(BaseModel):
     pass
 
 
-def make_token(claims: dict) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii").rstrip("=")
-    return f"header.{payload}.signature"
-
-
 def token_header(user_id: int = 12, role: str = "EMPLOYEE", request_id: str | None = None) -> dict[str, str]:
     headers = {"Authorization": f"Bearer {make_token({'userId': user_id, 'role': role, 'entrepriseId': 9})}"}
     if request_id:
@@ -52,8 +47,8 @@ def token_header(user_id: int = 12, role: str = "EMPLOYEE", request_id: str | No
 def prepare_v2_state(client: TestClient) -> None:
     client.app.state.copilot_ready = False
     client.app.state.copilot_backend_client = FakeBackendClient()
+    client.app.state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
     for attr in (
-        "copilot_context_builder",
         "copilot_tool_registry",
         "copilot_tool_executor",
         "copilot_confirmation_store",
@@ -104,6 +99,7 @@ def test_voice_v2_preserves_x_request_id(monkeypatch, tmp_path: Path) -> None:
     )
 
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
         response = client.post(
             "/v2/voice",
             headers=token_header(request_id=request_id),

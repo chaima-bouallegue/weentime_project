@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import base64
-import json
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
 import main
+from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
 from app.core.copilot_engine import ensure_copilot_services
 from app.tools.result import ToolResult
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
 class FakeBackendClient:
@@ -22,11 +22,6 @@ class FakeBackendClient:
         return ToolResult.fail("not_found", "Not found", status_code=404)
 
 
-def token(claims: dict) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii").rstrip("=")
-    return f"header.{payload}.signature"
-
-
 def reset_state(client: TestClient) -> None:
     state = client.app.state
     for name in list(vars(state).get("_state", {}).keys()):
@@ -34,11 +29,12 @@ def reset_state(client: TestClient) -> None:
             delattr(state, name)
     state.copilot_ready = False
     state.copilot_backend_client = FakeBackendClient()
+    state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
     state.settings = SimpleNamespace(backend_timeout_seconds=1, backend_base_url="http://localhost:8222/api/v1")
 
 
 def test_missing_confirmation_returns_controlled_envelope_not_http_404() -> None:
-    auth = token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
+    auth = make_token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
     with TestClient(main.app) as client:
         reset_state(client)
         response = client.post(
@@ -54,7 +50,7 @@ def test_missing_confirmation_returns_controlled_envelope_not_http_404() -> None
 
 
 def test_duplicate_confirmation_returns_already_treated_message() -> None:
-    auth = token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
+    auth = make_token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
     with TestClient(main.app) as client:
         reset_state(client)
         services = ensure_copilot_services(client.app.state)
@@ -75,7 +71,7 @@ def test_duplicate_confirmation_returns_already_treated_message() -> None:
 
 
 def test_confirm_backend_404_returns_clean_response_payload() -> None:
-    auth = token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
+    auth = make_token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
     with TestClient(main.app) as client:
         reset_state(client)
         services = ensure_copilot_services(client.app.state)
