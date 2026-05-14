@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.communication.config.CommunicationProperties;
 import com.weentime.communication.dto.EventReplayResponse;
 import com.weentime.communication.dto.MessageResponse;
+import com.weentime.communication.dto.NotificationEventTypes;
 import com.weentime.communication.dto.ReadReceiptEventResponse;
+import com.weentime.communication.dto.RealtimeNotificationPayload;
 import com.weentime.communication.dto.TypingEventPayload;
 import com.weentime.communication.dto.UnreadSummaryResponse;
 import com.weentime.communication.dto.WebSocketErrorPayload;
@@ -96,6 +98,38 @@ public class RealtimeEventService {
 
     public void publishUnreadUpdated(Long entrepriseId, Long actorId, Long userId, UnreadSummaryResponse summary) {
         queueUserEvent(entrepriseId, userId, null, actorId, "unread.updated", summary);
+    }
+
+    public void publishNotificationCreated(
+            Long entrepriseId,
+            Long actorId,
+            Long recipientUserId,
+            RealtimeNotificationPayload notification
+    ) {
+        queueUserEvent(
+                entrepriseId,
+                recipientUserId,
+                notification == null ? null : notification.channelId(),
+                actorId,
+                NotificationEventTypes.NOTIFICATIONS_CREATED,
+                notification
+        );
+    }
+
+    public void publishNotificationRead(
+            Long entrepriseId,
+            Long actorId,
+            Long recipientUserId,
+            RealtimeNotificationPayload notification
+    ) {
+        queueUserEvent(
+                entrepriseId,
+                recipientUserId,
+                notification == null ? null : notification.channelId(),
+                actorId,
+                NotificationEventTypes.NOTIFICATIONS_READ,
+                notification
+        );
     }
 
     public void publishUserError(Long userId, String code, String message, Map<String, Object> details) {

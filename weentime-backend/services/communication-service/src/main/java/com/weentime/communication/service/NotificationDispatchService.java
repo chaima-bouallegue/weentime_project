@@ -4,7 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.communication.dto.InternalNotificationDispatchRequest;
 import com.weentime.communication.dto.MessageResponse;
+import com.weentime.communication.dto.NotificationCategory;
+import com.weentime.communication.dto.NotificationEventTypes;
 import com.weentime.communication.dto.NotificationIntentPayload;
+import com.weentime.communication.dto.RealtimeNotificationPayload;
 import com.weentime.communication.entity.ChannelType;
 import com.weentime.communication.entity.CommChannel;
 import com.weentime.communication.entity.CommChannelMember;
@@ -14,6 +17,7 @@ import com.weentime.communication.entity.NotificationEventStatus;
 import com.weentime.communication.exception.CommunicationException;
 import com.weentime.communication.repository.CommNotificationEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +33,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationDispatchService {
 
     private static final String COMMUNICATION_TYPE = "COMMUNICATION";
@@ -37,6 +42,7 @@ public class NotificationDispatchService {
     private final OutboxService outboxService;
     private final OrganisationInternalService organisationInternalService;
     private final NotificationPreferencesService notificationPreferencesService;
+    private final RealtimeEventService realtimeEventService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -64,9 +70,16 @@ public class NotificationDispatchService {
                 if (NotificationPreferencesService.LEVEL_MUTED.equals(memberLevel) || !notificationPreferencesService.allowsMention(preferences)) {
                     continue;
                 }
-                queueNotification(channel, message, recipientId, "message.mention", "mention:" + message.id(),
-                        message.sender().fullName() + " vous a mentionne dans " + channel.getName());
-                dominantEventByRecipient.put(recipientId, "message.mention");
+                queueNotification(
+                        channel,
+                        message,
+                        recipientId,
+                        NotificationEventTypes.COMMUNICATION_MENTION_CREATED,
+                        "mention:" + message.id(),
+                        senderName(message) + " vous a mentionne dans " + channel.getName(),
+                        NotificationCategory.ACTION_REQUIRED
+                );
+                dominantEventByRecipient.put(recipientId, NotificationEventTypes.COMMUNICATION_MENTION_CREATED);
                 touchedRecipients.add(recipientId);
                 continue;
             }
@@ -76,8 +89,15 @@ public class NotificationDispatchService {
                         || !notificationPreferencesService.allowsDirectMessage(preferences)) {
                     continue;
                 }
-                queueNotification(channel, message, recipientId, "direct.message", "direct:" + senderId,
-                        message.sender().fullName() + " vous a envoye un message direct");
+                queueNotification(
+                        channel,
+                        message,
+                        recipientId,
+                        NotificationEventTypes.COMMUNICATION_MESSAGE_CREATED,
+                        "direct:" + senderId,
+                        senderName(message) + " vous a envoye un message direct",
+                        NotificationCategory.INFO
+                );
                 touchedRecipients.add(recipientId);
                 continue;
             }
@@ -90,8 +110,15 @@ public class NotificationDispatchService {
                 continue;
             }
 
-            queueNotification(channel, message, recipientId, "channel.message", "channel:" + channel.getId(),
-                    "Nouveau message dans " + channel.getName());
+            queueNotification(
+                    channel,
+                    message,
+                    recipientId,
+                    NotificationEventTypes.COMMUNICATION_MESSAGE_CREATED,
+                    "channel:" + channel.getId(),
+                    "Nouveau message dans " + channel.getName(),
+                    NotificationCategory.INFO
+            );
             touchedRecipients.add(recipientId);
         }
 
@@ -146,7 +173,8 @@ public class NotificationDispatchService {
             Long recipientId,
             String eventType,
             String groupKey,
-            String title
+            String title,
+            NotificationCategory category
     ) {
         String notificationEventId = buildNotificationEventId(message.entrepriseId(), recipientId, eventType, message.id());
         if (notificationEventRepository.findByNotificationEventId(notificationEventId).isPresent()) {
@@ -160,7 +188,8 @@ public class NotificationDispatchService {
                 "channelId", channel.getId(),
                 "messageId", message.id(),
                 "eventType", eventType,
-                "groupKey", groupKey
+                "groupKey", groupKey,
+                "category", category.name()
         );
         NotificationIntentPayload payload = new NotificationIntentPayload(
                 notificationEventId,
@@ -198,6 +227,52 @@ public class NotificationDispatchService {
                 "notification.dispatch:" + notificationEventId,
                 Map.of("notificationEventId", notificationEventId)
         );
+
+        publishRealtimeNotification(event, payload, message, category);
+    }
+
+    private void publishRealtimeNotification(
+            CommNotificationEvent event,
+            NotificationIntentPayload payload,
+            MessageResponse message,
+            NotificationCategory category
+    ) {
+        try {
+            realtimeEventService.publishNotificationCreated(
+                    event.getEntrepriseId(),
+                    message.sender() == null ? null : message.sender().id(),
+                    event.getRecipientId(),
+                    RealtimeNotificationPayload.builder()
+                            .notificationEventId(event.getNotificationEventId())
+                            .recipientId(event.getRecipientId())
+                            .entrepriseId(event.getEntrepriseId())
+                            .eventType(event.getEventType())
+                            .category(category.name())
+                            .title(payload.title())
+                            .message(payload.message())
+                            .actionUrl(payload.actionUrl())
+                            .channelId(payload.channelId())
+                            .messageId(payload.messageId())
+                            .metadata(payload.metadata())
+                            .createdAt(event.getCreatedAt())
+                            .build()
+            );
+        } catch (Exception exception) {
+            log.warn(
+                    "Unable to queue realtime notification event. eventType={}, tenant={}, recipient={}, fallback=outbox_only, error={}",
+                    event.getEventType(),
+                    event.getEntrepriseId(),
+                    event.getRecipientId(),
+                    exception.getClass().getSimpleName()
+            );
+        }
+    }
+
+    private String senderName(MessageResponse message) {
+        if (message.sender() == null || message.sender().fullName() == null || message.sender().fullName().isBlank()) {
+            return "Un utilisateur";
+        }
+        return message.sender().fullName();
     }
 
     private String buildNotificationEventId(Long entrepriseId, Long recipientId, String eventType, UUID messageId) {

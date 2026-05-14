@@ -89,6 +89,13 @@ public class RedisRealtimeEventPublisher implements RealtimeEventPublisher {
 
     private String redisEventType(WebSocketEventResponse event) {
         String type = event.type() == null ? "generated" : event.type();
+        if (type.startsWith("notifications.")
+                || type.startsWith("communication.")
+                || type.startsWith("leave.")
+                || type.startsWith("telework.")
+                || type.startsWith("authorization.")) {
+            return type;
+        }
         if (type.startsWith("message.")) {
             return "communication." + type;
         }
