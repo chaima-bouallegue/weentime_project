@@ -165,8 +165,7 @@ def _plans_for_role(role: str) -> tuple[ToolReadPlan, ...]:
         )
     if role == "RH":
         return (
-            # No modern RH stats endpoint is registered yet; keep this legacy read fallback only.
-            ToolReadPlan("Statistiques RH", "legacy.get_rh_stats"),
+            ToolReadPlan("Statistiques RH", "rh.get_stats"),
             ToolReadPlan("Conges RH", "leave.list_rh_pending"),
             ToolReadPlan("Teletravail RH", "telework.list_rh_pending"),
             ToolReadPlan("Autorisations RH", "authorization.list_rh_requests"),

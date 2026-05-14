@@ -95,16 +95,42 @@ async def test_rh_digest_prioritizes_backlog() -> None:
     assert any(priority.type == "rh_backlog" for priority in digest.priorities)
     calls = {call.name for call in digest.tool_calls}
     assert "legacy.get_all_requests" not in calls
-    assert "legacy.get_rh_stats" in calls
+    assert "legacy.get_rh_stats" not in calls
+    assert "rh.get_stats" in calls
     assert {"leave.list_rh_pending", "telework.list_rh_pending", "authorization.list_rh_requests"}.issubset(calls)
 
 
-async def test_rh_digest_keeps_legacy_stats_when_no_modern_equivalent_exists() -> None:
-    executor = FakeExecutor({"legacy.get_rh_stats": read("legacy.get_rh_stats", "Stats RH disponibles", [{"metric": "pending", "count": 4}])})
+async def test_rh_digest_uses_modern_stats_tool() -> None:
+    executor = FakeExecutor({"rh.get_stats": read("rh.get_stats", "Stats RH disponibles", [{"metric": "pendingRequests", "value": 4}])})
     digest = await RoleDigestBuilder(executor).build_digest(context("RH"))
 
-    assert any(call.name == "legacy.get_rh_stats" for call in digest.tool_calls)
-    assert any(section.tool_name == "legacy.get_rh_stats" and section.status == "ok" for section in digest.sections)
+    assert any(call.name == "rh.get_stats" for call in digest.tool_calls)
+    assert not any(call.name == "legacy.get_rh_stats" for call in digest.tool_calls)
+    assert any(section.tool_name == "rh.get_stats" and section.status == "ok" for section in digest.sections)
+
+
+async def test_rh_stats_unavailable_becomes_clean_digest_section() -> None:
+    failure = ToolResult.fail(
+        "capability_unavailable",
+        "Les statistiques RH ne sont pas encore disponibles dans le backend.",
+        status_code=404,
+        data={
+            "read_result": build_read_result(
+                tool_name="rh.get_stats",
+                summary="Les statistiques RH ne sont pas encore disponibles dans le backend.",
+                items=[],
+                count=0,
+                data={},
+                empty=True,
+                backend_status=404,
+            )
+        },
+    )
+    executor = FakeExecutor({"rh.get_stats": failure})
+    digest = await RoleDigestBuilder(executor).build_digest(context("RH"))
+
+    assert any(section.tool_name == "rh.get_stats" and section.status == "unavailable" for section in digest.sections)
+    assert any("statistiques RH" in warning for warning in digest.warnings)
 
 
 async def test_admin_digest_prioritizes_misconfigured_users() -> None:

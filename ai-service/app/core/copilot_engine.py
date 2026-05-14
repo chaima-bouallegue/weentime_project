@@ -43,6 +43,7 @@ from app.tools.insight_tools import register_insight_tools
 from app.tools.leave_tools import register_leave_tools
 from app.tools.legacy_adapter import register_legacy_hr_tools
 from app.tools.policy_tools import register_policy_tools
+from app.tools.rh_tools import register_rh_tools
 from app.tools.registry import ToolRegistry
 from app.tools.telework_tools import register_telework_tools
 
@@ -108,6 +109,9 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     if not getattr(state, "copilot_admin_tools_registered", False):
         register_admin_tools(registry, backend_client)
         state.copilot_admin_tools_registered = True
+    if not getattr(state, "copilot_rh_tools_registered", False):
+        register_rh_tools(registry, backend_client)
+        state.copilot_rh_tools_registered = True
     if not getattr(state, "copilot_communication_tools_registered", False):
         register_communication_tools(registry, backend_client)
         state.copilot_communication_tools_registered = True
