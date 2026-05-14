@@ -140,6 +140,11 @@ def test_rh_summary_routes_to_rh_copilot() -> None:
     assert response.actionResult["agent"] == "RHCopilot"
     assert any(call.name == "rh.get_stats" for call in response.toolCalls)
     assert not any(call.name == "legacy.get_rh_stats" for call in response.toolCalls)
+    assert not any(call.name == "legacy.get_all_requests" for call in response.toolCalls)
+    assert any(call.name == "leave.list_rh_pending" for call in response.toolCalls)
+    assert any(call.name == "telework.list_rh_pending" for call in response.toolCalls)
+    assert any(call.name == "authorization.list_rh_requests" for call in response.toolCalls)
+    assert any(call.name == "document.rh_workload" for call in response.toolCalls)
 
 
 def test_admin_summary_routes_to_admin_copilot_with_unavailable_sections() -> None:

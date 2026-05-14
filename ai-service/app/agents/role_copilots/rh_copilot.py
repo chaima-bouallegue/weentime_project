@@ -46,7 +46,9 @@ class RHCopilot(BaseRoleCopilot):
         warnings: list[str] = []
         for title, tool_name in (
             ("Statistiques RH", "rh.get_stats"),
-            ("Demandes RH", "legacy.get_all_requests"),
+            ("Conges RH", "leave.list_rh_pending"),
+            ("Teletravail RH", "telework.list_rh_pending"),
+            ("Autorisations RH", "authorization.list_rh_requests"),
             ("Documents RH", "document.rh_workload"),
         ):
             section, call, section_warnings = await self._read_section(title=title, tool_name=tool_name, context=context)

@@ -29,8 +29,9 @@ class InsightEngine:
         insights: list[Insight] = []
         warnings = _warnings_from(tool_results)
         _append(insights, rules.pending_workload(_payload(tool_results.get("rh.get_stats")), source_tool="rh.get_stats"))
-        _append(insights, rules.pending_workload(_payload(tool_results.get("legacy.get_all_requests")), source_tool="legacy.get_all_requests"))
-        _append(insights, rules.document_backlog(_payload(tool_results.get("legacy.get_all_requests")), threshold=8))
+        for tool_name in ("leave.list_rh_pending", "telework.list_rh_pending", "authorization.list_rh_requests"):
+            _append(insights, rules.pending_workload(_payload(tool_results.get(tool_name)), source_tool=tool_name))
+        _append(insights, rules.document_backlog(_payload(tool_results.get("document.rh_workload")), threshold=8, source_tool="document.rh_workload"))
         return InsightReport(role=_role(context), tenant_id=context.tenant_id, period=period, insights=insights, warnings=warnings)
 
     def admin_system(self, context: CurrentUserContext, tool_results: dict[str, ToolResult], *, period: str = "today") -> InsightReport:

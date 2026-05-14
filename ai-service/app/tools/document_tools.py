@@ -105,6 +105,17 @@ class DocumentTools:
         )
         registry.register(
             ToolDefinition(
+                name="document.rh_workload",
+                description="Resume la charge de demandes de documents RH depuis les documents visibles par la RH authentifiee.",
+                input_model=EmptyDocumentInput,
+                output_model=None,
+                type="read",
+                allowed_roles=DOCUMENT_RH_ROLES,
+            ),
+            self.rh_workload,
+        )
+        registry.register(
+            ToolDefinition(
                 name="document.rh_generate",
                 description="Genere un contenu de document RH via l'endpoint RH existant.",
                 input_model=RhGenerateDocumentInput,
@@ -250,6 +261,34 @@ class DocumentTools:
                     data=data,
                     backend_status=result.status_code,
                     empty=False,
+                )
+            },
+            warnings=result.warnings,
+            status_code=result.status_code,
+        )
+
+    async def rh_workload(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self._list_accessible_documents(context)
+        if not result.success:
+            return self._read_failure("document.rh_workload", result)
+        items = [_sanitize_document_item(item) for item in _as_list(result.data)]
+        counts = _status_counts(items)
+        pending = _pending_document_count(counts)
+        summary = (
+            "Aucune demande de document RH en cours."
+            if not items
+            else f"Charge documents RH: {len(items)} demande(s), dont {pending} en attente ou en cours."
+        )
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="document.rh_workload",
+                    summary=summary,
+                    items=items,
+                    count=len(items),
+                    data={"items": items, "countsByStatus": counts, "pendingCount": pending, "latest": items[:5]},
+                    backend_status=result.status_code,
+                    empty=not items,
                 )
             },
             warnings=result.warnings,
@@ -463,6 +502,10 @@ def _status_counts(items: list[Any]) -> dict[str, int]:
         status = str(item.get("statut") or item.get("status") or "INCONNU").upper()
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+def _pending_document_count(counts: dict[str, int]) -> int:
+    return sum(count for status, count in counts.items() if any(term in status for term in ("PENDING", "EN_ATTENTE", "EN_COURS", "IN_PROGRESS")))
 
 
 def _clean_document_error(result: ToolResult) -> str:

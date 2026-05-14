@@ -157,6 +157,49 @@ async def test_document_open_uses_rh_file_endpoint_for_rh_context() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rh_document_workload_uses_rh_document_read_endpoint() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("document.rh_workload", {}, context("RH"))
+
+    read_result = result.data["read_result"]
+    assert result.success is True
+    assert backend.calls[0][1] == "/documents/rh/demandes"
+    assert read_result["toolName"] == "document.rh_workload"
+    assert read_result["count"] == 1
+    assert read_result["data"]["pendingCount"] == 1
+    assert "1 demande(s)" in read_result["summary"]
+
+
+@pytest.mark.asyncio
+async def test_employee_cannot_execute_rh_document_workload() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute("document.rh_workload", {}, context("EMPLOYEE"))
+
+    assert result.success is False
+    assert result.error_code == "role_not_allowed"
+    assert backend.calls == []
+
+
+@pytest.mark.asyncio
+async def test_rh_document_workload_does_not_invent_counts_for_empty_backend_data() -> None:
+    backend = FakeBackendClient()
+
+    async def empty_get(path: str, *, context: CurrentUserContext, params: dict[str, Any] | None = None) -> ToolResult:
+        backend.calls.append(("GET", path, params))
+        return ToolResult.ok([], status_code=200)
+
+    backend.get = empty_get  # type: ignore[method-assign]
+    result = await executor_with_backend(backend).execute("document.rh_workload", {}, context("RH"))
+
+    read_result = result.data["read_result"]
+    assert result.success is True
+    assert read_result["count"] == 0
+    assert read_result["data"]["pendingCount"] == 0
+    assert read_result["items"] == []
+    assert read_result["summary"] == "Aucune demande de document RH en cours."
+
+
+@pytest.mark.asyncio
 async def test_document_create_request_requires_employee_role() -> None:
     backend = FakeBackendClient()
     result = await executor_with_backend(backend).execute(

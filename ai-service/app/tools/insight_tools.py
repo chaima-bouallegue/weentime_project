@@ -102,7 +102,16 @@ class InsightTools:
 
     async def rh_daily(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         period = str(getattr(payload, "period", "today") or "today")
-        results = await self._collect(context, (("rh.get_stats", {}), ("legacy.get_all_requests", {})))
+        results = await self._collect(
+            context,
+            (
+                ("rh.get_stats", {}),
+                ("leave.list_rh_pending", {}),
+                ("telework.list_rh_pending", {}),
+                ("authorization.list_rh_requests", {}),
+                ("document.rh_workload", {}),
+            ),
+        )
         report = self.engine.rh_daily(context, results, period=period)
         return self._report_result("insights.rh_daily", report)
 

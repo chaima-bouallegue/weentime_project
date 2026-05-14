@@ -120,18 +120,36 @@ async def test_rh_insight_summary_uses_rh_role_only() -> None:
     registry = ToolRegistry()
     recorder = Recorder()
     register_fake_read(registry, "rh.get_stats", recorder, read_result("rh.get_stats", data={"totalEmployees": 22, "pendingRequests": 7}), roles={"RH"})
-    register_fake_read(registry, "legacy.get_all_requests", recorder, read_result("legacy.get_all_requests", items=[{"id": i} for i in range(6)]), roles={"RH"})
+    register_fake_read(registry, "leave.list_rh_pending", recorder, read_result("leave.list_rh_pending", items=[{"id": i} for i in range(6)]), roles={"RH"})
+    register_fake_read(registry, "telework.list_rh_pending", recorder, read_result("telework.list_rh_pending", items=[]), roles={"RH"})
+    register_fake_read(registry, "authorization.list_rh_requests", recorder, read_result("authorization.list_rh_requests", items=[]), roles={"RH"})
+    register_fake_read(
+        registry,
+        "document.rh_workload",
+        recorder,
+        read_result("document.rh_workload", items=[{"id": i, "statut": "EN_ATTENTE"} for i in range(9)]),
+        roles={"RH"},
+    )
     executor = ToolExecutor(registry)
     register_insight_tools(registry, executor, InsightEngine())
 
     result = await executor.execute("insights.rh_daily", {}, context("RH"))
 
     assert result.success is True
-    assert set(recorder.calls) == {"rh.get_stats", "legacy.get_all_requests"}
+    assert set(recorder.calls) == {
+        "rh.get_stats",
+        "leave.list_rh_pending",
+        "telework.list_rh_pending",
+        "authorization.list_rh_requests",
+        "document.rh_workload",
+    }
+    assert "legacy.get_all_requests" not in recorder.calls
     assert "legacy.get_rh_stats" not in recorder.calls
     read = get_read_result(result.data)
     assert read is not None
     assert any(item["sourceTools"] == ["rh.get_stats"] for item in read["data"]["insights"])
+    assert any(item["sourceTools"] == ["leave.list_rh_pending"] for item in read["data"]["insights"])
+    assert any(item["sourceTools"] == ["document.rh_workload"] for item in read["data"]["insights"])
 
 
 @pytest.mark.asyncio

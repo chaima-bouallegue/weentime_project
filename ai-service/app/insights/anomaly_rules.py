@@ -122,7 +122,7 @@ def low_leave_balance(balance: Any, *, threshold: float = LOW_LEAVE_BALANCE_THRE
     return None
 
 
-def document_backlog(documents: Any, *, threshold: int = DOCUMENT_BACKLOG_THRESHOLD) -> Insight | None:
+def document_backlog(documents: Any, *, threshold: int = DOCUMENT_BACKLOG_THRESHOLD, source_tool: str = "document.list_my_requests") -> Insight | None:
     rows = _as_list(documents)
     pending = 0
     for row in rows:
@@ -138,7 +138,7 @@ def document_backlog(documents: Any, *, threshold: int = DOCUMENT_BACKLOG_THRESH
             summary=f"{pending} demande(s) de document semblent en attente ou en cours.",
             evidence={"pendingDocuments": pending, "threshold": threshold},
             confidence=0.7,
-            source_tools=["document.list_my_requests"],
+            source_tools=[source_tool],
             recommended_actions=["Verifier les documents en attente de traitement."],
         )
     return None
