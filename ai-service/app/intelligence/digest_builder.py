@@ -27,6 +27,7 @@ class RoleDigestSection:
     tool_name: str
     count: int = 0
     items: list[Any] = field(default_factory=list)
+    data: dict[str, Any] = field(default_factory=dict)
     citations: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +38,7 @@ class RoleDigestSection:
             "toolName": self.tool_name,
             "count": self.count,
             "items": self.items,
+            "data": self.data,
             "citations": self.citations,
         }
 
@@ -51,6 +53,7 @@ class RoleDigest:
     warnings: list[str]
     tool_calls: list[ToolCallRecord]
     citations: list[dict[str, Any]] = field(default_factory=list)
+    reminders: list[dict[str, Any]] = field(default_factory=list)
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
@@ -72,6 +75,7 @@ class RoleDigest:
             "summary": self.summary,
             "sections": [section.to_dict() for section in self.sections],
             "priorities": [priority.to_dict() for priority in self.priorities],
+            "reminders": self.reminders,
             "warnings": self.warnings,
             "citations": self.citations,
             "requiresConfirmation": False,
@@ -202,6 +206,7 @@ def _section_from_tool_result(plan: ToolReadPlan, result: ToolResult) -> RoleDig
             tool_name=str(read_result.get("toolName") or plan.tool_name),
             count=int(read_result.get("count") or len(items)),
             items=items,
+            data=data,
             citations=[item for item in citations if isinstance(item, dict)],
         )
     if result.success:

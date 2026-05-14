@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+from app.agents.base_domain_agent import DomainAgent
+from app.context.current_user import CurrentUserContext
+from app.intelligence.employee_digest_builder import EmployeeDigestBuilder
+from app.models.agent_models import AgentResponse
+
+
+class EmployeeAgent(DomainAgent):
+    """Read-only employee intelligence agent for personal digest prompts."""
+
+    name = "employee"
+
+    def __init__(self, executor, digest_builder: EmployeeDigestBuilder | None = None) -> None:
+        self.executor = executor
+        self.digest_builder = digest_builder or EmployeeDigestBuilder(executor)
+
+    def can_handle(self, message: str, context: CurrentUserContext) -> float:
+        role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
+        if role != "EMPLOYEE":
+            return 0.0
+        text = (message or "").lower()
+        if any(marker in text for marker in ("resume intelligent", "mes rappels", "mes priorites", "productivite", "quoi faire aujourd")):
+            return 0.88
+        return 0.0
+
+    async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
+        role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
+        if role != "EMPLOYEE" or not context.is_verified:
+            return AgentResponse(
+                type="error",
+                text="Contexte employe non autorise pour ce digest.",
+                intent="employee_intelligence.forbidden",
+                confidence=0.95,
+                requiresConfirmation=False,
+                actionResult={
+                    "kind": "role_intelligence_digest",
+                    "role": role,
+                    "sections": [],
+                    "priorities": [],
+                    "reminders": [],
+                    "warnings": ["employee_context_not_allowed"],
+                    "requiresConfirmation": False,
+                },
+            )
+
+        digest = await self.digest_builder.build_digest(context)
+        lines = [digest.summary]
+        if digest.reminders:
+            lines.append("Rappels:")
+            lines.extend(f"- {item.get('title')}: {item.get('summary')}" for item in digest.reminders[:5])
+        return AgentResponse(
+            type="answer",
+            text="\n".join(lines),
+            intent="employee_intelligence.digest",
+            confidence=0.9,
+            requiresConfirmation=False,
+            toolCalls=digest.tool_calls,
+            actionResult=digest.to_dict(),
+        )

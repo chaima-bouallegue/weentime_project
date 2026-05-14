@@ -1,7 +1,8 @@
 ﻿from __future__ import annotations
 
 from app.context.current_user import CurrentUserContext
-from app.models.agent_models import AgentResponse, ToolCallRecord
+from app.intelligence.employee_digest_builder import EmployeeDigestBuilder
+from app.models.agent_models import AgentResponse
 
 from .base_role_copilot import BaseRoleCopilot
 
@@ -9,6 +10,10 @@ from .base_role_copilot import BaseRoleCopilot
 class EmployeeCopilot(BaseRoleCopilot):
     name = "EmployeeCopilot"
     allowed_roles = {"EMPLOYEE", "MANAGER", "RH", "ADMIN"}
+
+    def __init__(self, executor) -> None:
+        super().__init__(executor)
+        self.digest_builder = EmployeeDigestBuilder(executor)
 
     def detect_intent(self, message: str, context: CurrentUserContext) -> tuple[str, float]:
         text = (message or "").lower()
@@ -41,29 +46,32 @@ class EmployeeCopilot(BaseRoleCopilot):
         intent: str,
         confidence: float,
     ) -> AgentResponse:
-        sections: list[dict] = []
-        calls: list[ToolCallRecord] = []
-        warnings: list[str] = []
-        for title, tool_name in (
-            ("Pointage", "get_pointage_status"),
-            ("Heures semaine", "get_week_hours"),
-            ("Solde conges", "leave.get_balance"),
-            ("Conges", "leave.list_my_requests"),
-            ("Documents", "document.list_my_requests"),
-            ("Teletravail", "telework.list_my_requests"),
-            ("Autorisations", "authorization.list_my_requests"),
-        ):
-            section, call, section_warnings = await self._read_section(title=title, tool_name=tool_name, context=context)
-            sections.append(section)
-            calls.append(call)
-            warnings.extend(section_warnings)
-        return self._role_response(
+        digest = await self.digest_builder.build_digest(context)
+        sections = [section.to_dict() for section in digest.sections]
+        text_lines = ["Resume de votre espace personnel."]
+        for section in sections:
+            text_lines.append(f"- {section['title']}: {section['summary']}")
+        if digest.reminders:
+            text_lines.append("Rappels:")
+            text_lines.extend(f"- {item.get('title')}: {item.get('summary')}" for item in digest.reminders[:5])
+        if digest.warnings:
+            text_lines.append("Certaines donnees sont indisponibles; le resume reste partiel.")
+        return AgentResponse(
+            type="answer",
+            text="\n".join(text_lines),
             intent=intent,
             confidence=confidence,
-            headline="Resume de votre espace personnel.",
-            sections=sections,
-            warnings=warnings,
-            tool_calls=calls,
+            requiresConfirmation=False,
+            toolCalls=digest.tool_calls,
+            actionResult={
+                "kind": "role_summary",
+                "agent": self.name,
+                "sections": sections,
+                "priorities": [item.to_dict() for item in digest.priorities],
+                "reminders": digest.reminders,
+                "warnings": digest.warnings,
+                "requiresConfirmation": False,
+            },
         )
 
 

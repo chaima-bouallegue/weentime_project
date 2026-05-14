@@ -54,6 +54,11 @@ SUPPORTED_STATUSES = {
     "WARNING",
     "UNAVAILABLE",
     "OK",
+    "CHECKED_IN",
+    "CHECKED_OUT",
+    "CLOSED",
+    "PRESENT",
+    "ABSENT",
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"
