@@ -300,7 +300,7 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
     action = response.actionResult
     if action.get("success") is True:
         return True
-    if action.get("kind") in {"read_result", "write_result", "policy_answer", "role_summary", "insight_report"}:
+    if action.get("kind") in {"read_result", "write_result", "policy_answer", "role_summary", "role_intelligence_digest", "insight_report"}:
         return True
     data = action.get("data")
     if isinstance(data, dict):

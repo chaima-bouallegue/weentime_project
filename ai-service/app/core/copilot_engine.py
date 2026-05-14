@@ -28,6 +28,7 @@ from app.observability.request_context import ensure_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.guards.response_guard import ResponseGuard
 from app.insights import InsightEngine
+from app.intelligence import RoleIntelligenceAgent
 from app.policy import LocalPolicyStore, PolicyRetriever
 from app.providers.router import ProviderRouter
 from app.tools.attendance_tools import register_attendance_tools
@@ -134,6 +135,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     rh_agent = getattr(state, "copilot_rh_agent", None) or RHAgent(executor, confirmation_store)
     admin_agent = getattr(state, "copilot_admin_agent", None) or AdminAgent(executor, confirmation_store)
     communication_agent = getattr(state, "copilot_communication_agent", None) or CommunicationAgent(executor, confirmation_store)
+    role_intelligence_agent = getattr(state, "copilot_role_intelligence_agent", None) or RoleIntelligenceAgent(executor)
     employee_copilot = getattr(state, "copilot_employee_copilot", None) or EmployeeCopilot(executor)
     manager_copilot = getattr(state, "copilot_manager_copilot", None) or ManagerCopilot(executor)
     rh_copilot = getattr(state, "copilot_rh_copilot", None) or RHCopilot(executor)
@@ -153,6 +155,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             admin_agent,
             communication_agent,
             insight_agent,
+            role_intelligence_agent,
             employee_copilot,
             manager_copilot,
             rh_copilot,
@@ -183,6 +186,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_admin_agent = admin_agent
     state.copilot_communication_agent = communication_agent
     state.copilot_insight_agent = insight_agent
+    state.copilot_role_intelligence_agent = role_intelligence_agent
     state.copilot_employee_copilot = employee_copilot
     state.copilot_manager_copilot = manager_copilot
     state.copilot_rh_copilot = rh_copilot
