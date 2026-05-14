@@ -162,10 +162,13 @@ def test_fallback_returned_when_guard_rejects() -> None:
     guarded = guard().guard_response(response, context())
 
     assert guarded.type == "error"
-    assert guarded.intent == "response.guard_rejected"
+    assert guarded.intent == "fallback.guard_rejected"
     assert guarded.text == SAFE_FALLBACK_TEXT
     assert guarded.actionResult is not None
-    assert guarded.actionResult["category"] == "hallucinated_hr_value"
+    assert guarded.actionResult["kind"] == "deterministic_fallback"
+    assert guarded.actionResult["fallback_used"] is True
+    assert guarded.actionResult["fallback_reason"] == "guard_rejected"
+    assert guarded.actionResult["guard_status"] == "hallucinated_hr_value"
 
 
 def test_unsafe_tenant_claim_is_blocked() -> None:

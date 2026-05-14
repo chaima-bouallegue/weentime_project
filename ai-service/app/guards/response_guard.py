@@ -3,13 +3,14 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from app.context.current_user import CurrentUserContext
+from app.core.deterministic_fallback import SAFE_FALLBACK_MESSAGES, deterministic_fallback_response
 from app.models.agent_models import AgentResponse
 from app.observability.tracing import log_event, log_error
 
 from .guard_result import GuardResult
 from .rules import GuardRule, default_guard_rules
 
-SAFE_FALLBACK_TEXT = "Je ne peux pas confirmer cette information sans donnees verifiees. Reessayez avec une demande basee sur les donnees du systeme."
+SAFE_FALLBACK_TEXT = SAFE_FALLBACK_MESSAGES["guard_rejected"]["fr"]
 
 
 class ResponseGuard:
@@ -36,17 +37,4 @@ class ResponseGuard:
 
         category = result.primary_category or "guard_rejected"
         log_event("response_guard.rejected", metadata={"category": category, "intent": response.intent, "type": response.type})
-        return AgentResponse(
-            type="error",
-            text=SAFE_FALLBACK_TEXT,
-            intent="response.guard_rejected",
-            confidence=1.0,
-            requiresConfirmation=False,
-            confirmationId=None,
-            toolCalls=[],
-            actionResult={
-                "kind": "guard_rejection",
-                "category": category,
-                "reasons": [rejection.category for rejection in result.rejections],
-            },
-        )
+        return deterministic_fallback_response("guard_rejected", context=context, guard_result=result)
