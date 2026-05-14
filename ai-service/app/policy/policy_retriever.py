@@ -45,6 +45,8 @@ class KeywordPolicyRetriever(BasePolicyRetriever):
             excerpt=_best_excerpt(source.content, matched),
             score=round(score, 3),
             location=source.path_or_url,
+            chunk_id=f"{source.id}:keyword",
+            citation_label=f"{source.title}#keyword",
         )
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable
 
+from .chunking import chunk_text, redact_sensitive_text
 from .policy_models import PolicySource
 
 ALLOWED_SOURCE_TYPES = {
@@ -16,6 +17,7 @@ ALLOWED_SOURCE_TYPES = {
     "approved_text",
     "approved_markdown",
     "pdf_extracted_text",
+    "fixture",
 }
 
 FORBIDDEN_SOURCE_TYPES = {
@@ -34,13 +36,18 @@ FORBIDDEN_SOURCE_TYPES = {
     "role",
 }
 
-_SECRET_PATTERNS = (
-    re.compile(r"authorization\s*:\s*bearer\s+[^\s]+", re.IGNORECASE),
-    re.compile(r"bearer\s+eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}", re.IGNORECASE),
-    re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
-    re.compile(r"\b(?:sk-[A-Za-z0-9_-]{12,}|bt_[A-Za-z0-9_-]{12,})\b"),
-    re.compile(r"\b(?:JWT_SECRET|AI_JWT_SECRET|BRAINTRUST_API_KEY|OPENAI_API_KEY|DATABASE_URL)\s*[:=]\s*[^\s]+", re.IGNORECASE),
-)
+
+@dataclass(slots=True)
+class ApprovedPolicySource:
+    source_id: str
+    tenant_id: int
+    title: str
+    language: str
+    source_type: str
+    approved: bool
+    path: str
+    citation_label: str
+    content: str
 
 
 @dataclass(slots=True)
@@ -50,64 +57,62 @@ class PolicyChunk:
     metadata: dict[str, object]
 
 
+def approved_source_from_policy_source(source: PolicySource) -> ApprovedPolicySource | None:
+    if not is_indexable_policy_source(source):
+        return None
+    assert source.tenant_id is not None  # guarded by is_indexable_policy_source
+    source_id = str(source.id).strip()
+    title = str(source.title or source_id).strip()
+    path = str(source.path_or_url or source.metadata.get("path") or source_id).strip()
+    return ApprovedPolicySource(
+        source_id=source_id,
+        tenant_id=int(source.tenant_id),
+        title=title,
+        language=(source.language or "fr").lower(),
+        source_type=(source.source_type or "hr_policy").lower(),
+        approved=True,
+        path=path,
+        citation_label=str(source.metadata.get("citation_label") or title).strip(),
+        content=source.content or "",
+    )
+
+
 def is_indexable_policy_source(source: PolicySource) -> bool:
     source_type = (source.source_type or "").strip().lower()
     if not source.approved or source.tenant_id is None:
         return False
     if source_type in FORBIDDEN_SOURCE_TYPES:
         return False
-    return source_type in ALLOWED_SOURCE_TYPES
+    if source_type not in ALLOWED_SOURCE_TYPES:
+        return False
+    suffix = Path(str(source.path_or_url or "")).suffix.lower()
+    if suffix and suffix not in {".md", ".txt", ".json", ".pdf"}:
+        return False
+    return bool((source.content or "").strip())
 
 
 def build_policy_chunks(source: PolicySource, *, max_chars: int = 900, overlap_chars: int = 120) -> list[PolicyChunk]:
-    if not is_indexable_policy_source(source):
+    approved_source = approved_source_from_policy_source(source)
+    if approved_source is None:
         return []
-    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", source.content or "") if part.strip()]
-    if not paragraphs:
-        paragraphs = [source.content.strip()] if source.content.strip() else []
-
-    raw_chunks: list[str] = []
-    current = ""
-    for paragraph in paragraphs:
-        if not current:
-            current = paragraph
-            continue
-        if len(current) + 2 + len(paragraph) <= max_chars:
-            current = f"{current}\n\n{paragraph}"
-        else:
-            raw_chunks.append(current)
-            current = paragraph
-    if current:
-        raw_chunks.append(current)
-
-    expanded: list[str] = []
-    for chunk in raw_chunks:
-        if len(chunk) <= max_chars:
-            expanded.append(chunk)
-            continue
-        start = 0
-        step = max(1, max_chars - overlap_chars)
-        while start < len(chunk):
-            expanded.append(chunk[start : start + max_chars])
-            start += step
-
     chunks: list[PolicyChunk] = []
-    for index, chunk in enumerate(expanded):
-        chunk_id = f"{source.id}:{index}"
-        citation_label = f"{source.title}#{index + 1}"
+    for chunk in chunk_text(approved_source.content, max_chars=max_chars, overlap_chars=overlap_chars):
+        chunk_id = f"{approved_source.source_id}:{chunk.index}"
+        citation_label = f"{approved_source.citation_label}#{chunk.index + 1}"
         chunks.append(
             PolicyChunk(
                 id=chunk_id,
-                text=redact_sensitive_text(chunk.strip()),
+                text=chunk.text,
                 metadata={
-                    "tenant_id": int(source.tenant_id),
-                    "source_id": source.id,
-                    "source_title": source.title,
-                    "source_type": source.source_type,
-                    "source_location": source.path_or_url,
-                    "language": (source.language or "fr").lower(),
+                    "tenant_id": approved_source.tenant_id,
+                    "source_id": approved_source.source_id,
+                    "source_title": approved_source.title,
+                    "source_type": approved_source.source_type,
+                    "source_location": approved_source.path,
+                    "language": approved_source.language,
                     "approved": True,
                     "chunk_id": chunk_id,
+                    "chunk_index": chunk.index,
                     "citation_label": citation_label,
                 },
             )
@@ -115,11 +120,13 @@ def build_policy_chunks(source: PolicySource, *, max_chars: int = 900, overlap_c
     return chunks
 
 
-def redact_sensitive_text(text: str) -> str:
-    value = text or ""
-    for pattern in _SECRET_PATTERNS:
-        value = pattern.sub("[REDACTED]", value)
-    return value
+def iter_approved_sources(sources: Iterable[PolicySource]) -> list[ApprovedPolicySource]:
+    approved: list[ApprovedPolicySource] = []
+    for source in sources:
+        item = approved_source_from_policy_source(source)
+        if item is not None:
+            approved.append(item)
+    return approved
 
 
 def iter_indexable_chunks(sources: Iterable[PolicySource]) -> list[PolicyChunk]:

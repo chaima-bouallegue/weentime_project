@@ -25,6 +25,8 @@ class PolicyCitation:
     excerpt: str
     score: float
     location: str | None = None
+    chunk_id: str | None = None
+    citation_label: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -33,6 +35,8 @@ class PolicyCitation:
             "excerpt": self.excerpt,
             "score": self.score,
             "location": self.location,
+            "chunkId": self.chunk_id,
+            "citationLabel": self.citation_label,
         }
 
 

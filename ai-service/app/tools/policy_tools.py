@@ -146,12 +146,15 @@ def _policy_unavailable(tool_name: str, *, query: str | None = None) -> ToolResu
 def _answer_from_citations(citations: list[dict[str, Any]], *, language: str) -> str:
     first = citations[0]
     title = str(first.get("title") or "source RH")
+    source_id = str(first.get("sourceId") or first.get("source_id") or "").strip()
+    chunk_id = str(first.get("chunkId") or first.get("chunk_id") or "").strip()
+    citation = f"{source_id} / {chunk_id}".strip(" /") or title
     excerpt = str(first.get("excerpt") or "").strip()
     if language == "en":
-        return f"According to the approved HR source '{title}': {excerpt}"
+        return f"According to approved HR source '{title}' ({citation}): {excerpt}"
     if language == "ar":
-        return f"حسب مصدر الموارد البشرية المعتمد '{title}': {excerpt}"
-    return f"Selon la source RH approuvee '{title}' : {excerpt}"
+        return f"حسب مصدر الموارد البشرية المعتمد '{title}' ({citation}): {excerpt}"
+    return f"Selon la source RH approuvee '{title}' ({citation}) : {excerpt}"
 
 
 def _confidence(citations: list[dict[str, Any]]) -> float:

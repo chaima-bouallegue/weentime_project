@@ -158,6 +158,8 @@ def _citations_from_query_result(result: dict[str, Any], *, tenant_id: int, lang
                 excerpt=str(document or "").strip()[:420],
                 score=score,
                 location=str(metadata.get("citation_label") or metadata.get("source_location") or "") or None,
+                chunk_id=str(metadata.get("chunk_id") or "") or None,
+                citation_label=str(metadata.get("citation_label") or "") or None,
             )
         )
     citations.sort(key=lambda item: item.score, reverse=True)

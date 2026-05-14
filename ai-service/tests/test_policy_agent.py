@@ -61,6 +61,8 @@ def test_answer_uses_approved_source() -> None:
     assert response.actionResult is not None
     assert response.actionResult["policyAvailable"] is True
     assert "tenant42-sick-leave" == response.actionResult["citations"][0]["sourceId"]
+    assert response.actionResult["citations"][0]["chunkId"] == "tenant42-sick-leave:keyword"
+    assert "tenant42-sick-leave" in response.text
     assert "certificat" in response.text.lower()
     assert ResponseGuard().validate(response, context()).allowed is True
 

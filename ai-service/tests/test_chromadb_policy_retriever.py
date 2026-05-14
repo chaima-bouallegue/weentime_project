@@ -102,6 +102,7 @@ def test_chromadb_query_uses_tenant_approved_and_language_filter() -> None:
     }
     assert result.citations[0].source_id == "src1"
     assert result.citations[0].title == "Policy"
+    assert result.citations[0].chunk_id is None
 
 
 def test_chromadb_result_post_filter_blocks_cross_tenant_and_unapproved_sources() -> None:
@@ -177,4 +178,6 @@ def test_citations_include_source_title_and_chunk_location() -> None:
     assert citation.source_id == "faq1"
     assert citation.title == "FAQ"
     assert citation.location == "FAQ#1"
+    assert citation.chunk_id == "faq1:0"
+    assert citation.citation_label == "FAQ#1"
     assert citation.excerpt == "Approved FAQ answer"
