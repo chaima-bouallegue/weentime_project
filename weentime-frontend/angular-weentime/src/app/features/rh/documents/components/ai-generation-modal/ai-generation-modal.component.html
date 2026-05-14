@@ -52,9 +52,15 @@
             </div>
           </div>
 
-          <div class="section-card help">
-            <h3 class="section-title">Conseils IA</h3>
-            <p>Le document généré respectera les standards légaux français. Vous pourrez le relire et le modifier manuellement avant l'envoi définitif.</p>
+          <div class="section-card prompt-editor">
+            <h3 class="section-title">Personnaliser le prompt</h3>
+            <textarea 
+              class="prompt-textarea" 
+              [(ngModel)]="customPrompt" 
+              placeholder="Instructions pour l'IA..."
+              [disabled]="isGenerating()">
+            </textarea>
+            <p class="hint">Vous pouvez ajouter des instructions spécifiques (ex: "Mentionner le solde de congés restants").</p>
           </div>
 
           <div class="panel-footer-left">

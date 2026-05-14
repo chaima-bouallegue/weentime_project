@@ -32,5 +32,11 @@ public class Document extends Demande {
     @Column(name = "commentaire_rh", length = 1000)
     private String commentaireRH;
 
+    @Column(name = "ai_model_used", length = 50)
+    private String aiModelUsed;
+
+    @Column(name = "tokens_used")
+    private Integer tokensUsed;
+
     private Integer nombreExemplaires;
 }

@@ -206,7 +206,7 @@ public class CommunicationProperties {
     public static class Storage {
         private String basePath = "./communication-uploads";
         private int maxFileSizeMb = 10;
-        private String allowedTypes = "image/jpeg,image/png,image/gif,image/webp,application/pdf,application/x-pdf,application/vnd.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/zip";
+        private String allowedTypes = "image/jpeg,image/jpg,image/png,image/gif,image/webp,application/pdf,application/x-pdf,application/vnd.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/zip,application/x-zip-compressed";
 
         public String getBasePath() {
             return basePath;

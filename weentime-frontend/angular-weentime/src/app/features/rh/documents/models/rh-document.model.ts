@@ -44,9 +44,29 @@ export interface DemandeDocumentRH {
   delaiEstime: string;
   urgente?: boolean;
   generatedByAI?: boolean;
+  contenuIA?: string;
+  aiModelUsed?: string;
+  tokensUsed?: number;
   documentUrl?: string | null;
   employe: EmployeDocumentRH;
   [key: string]: unknown;
+}
+
+export interface TypeDocumentConfig {
+  id: number;
+  code: string;
+  libelle: string;
+  description?: string;
+  modeGeneration: 'TEMPLATE_ONLY' | 'AI_HYBRID' | 'AI_FULL' | 'MANUAL_UPLOAD';
+  contentTemplate?: string;
+  aiPromptTemplate?: string;
+  aiTemperature?: number;
+  aiModel?: string;
+  workflowType: 'RH_VALIDATION' | 'AUTO_APPROVE' | 'MANAGER_VALIDATION';
+  niveauConfidentialite: 'PUBLIC' | 'INTERNE' | 'CONFIDENTIEL';
+  delaiTraitementJours: number;
+  maxDemandesParMois?: number;
+  languesDisponibles: string;
 }
 
 export interface StatsDocuments {

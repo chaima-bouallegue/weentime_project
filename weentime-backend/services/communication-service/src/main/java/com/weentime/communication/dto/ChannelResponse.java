@@ -22,9 +22,11 @@ public record ChannelResponse(
         boolean isArchived,
         long memberCount,
         java.util.List<SenderSummary> members,
+        long pinnedCount,
         long unreadCount,
         MessageResponse lastMessage,
         ChannelPermissionResponse permissions,
+        String notificationLevel,
         java.time.Instant createdAt,
         java.time.Instant updatedAt
 ) {

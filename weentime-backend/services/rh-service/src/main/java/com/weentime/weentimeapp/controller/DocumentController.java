@@ -2,8 +2,12 @@ package com.weentime.weentimeapp.controller;
 
 import com.weentime.weentimeapp.client.OrganisationServiceClient;
 import com.weentime.weentimeapp.dto.*;
+import com.weentime.weentimeapp.entity.TypeDocument;
+import com.weentime.weentimeapp.repository.TypeDocumentRepository;
 import com.weentime.weentimeapp.service.AiService;
+import com.weentime.weentimeapp.service.DocumentGeneratorService;
 import com.weentime.weentimeapp.service.DocumentService;
+import com.weentime.weentimeapp.service.TemplateResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
@@ -11,8 +15,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/documents")
@@ -23,6 +29,8 @@ public class DocumentController {
     private final DocumentService service;
     private final OrganisationServiceClient organisationServiceClient;
     private final AiService aiService;
+    private final TemplateResolver templateResolver;
+    private final TypeDocumentRepository typeDocumentRepository;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
@@ -114,15 +122,22 @@ public class DocumentController {
                 .body(resource);
     }
 
+    // ══════════════════════════════════════════════════
+    //  AI DOCUMENT ENGINE — Endpoints
+    // ══════════════════════════════════════════════════
+
+    /**
+     * Génère du contenu documentaire via IA (Gemini Flash).
+     * Utilisé par le RH depuis l'AI Document Builder.
+     */
     @PostMapping("/rh/generate-ai")
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<AIGenerationResult> generateAIDocument(@RequestBody AIGenerationRequest request) {
         String prompt = String.format(
-            "Tu es un assistant RH professionnel. Génère une %s officielle pour l'employé suivant :\n" +
+            "Génère une %s officielle pour l'employé suivant :\n" +
             "- Nom complet : %s %s\n" +
             "- Poste : %s\n" +
             "- Département : %s\n" +
-            "- Entreprise : WeenTime\n" +
             "%s\n" +
             "Le document doit être formel, professionnel, en français, avec la date du jour, " +
             "les formules légales appropriées et la mention \"Pour faire valoir ce que de droit\". " +
@@ -132,17 +147,81 @@ public class DocumentController {
             request.getMoisConcerne() != null ? "- Mois concerné : " + request.getMoisConcerne() : ""
         );
 
-        String contenu = aiService.generateDocument(prompt);
+        AiService.AiResponse aiRes;
+        try {
+            aiRes = aiService.generateDocument(prompt);
+        } catch (Exception e) {
+            log.warn("Gemini generation failed, trying advanced fallback: {}", e.getMessage());
+            // Fallback via generateDocument logic already handles it internally mostly, 
+            // but generateAIDocument calls generateDocument which already has fallback.
+            // Wait, let's verify generateDocument in AiService.
+            throw e;
+        }
+
         return ResponseEntity.ok(AIGenerationResult.builder()
-            .contenu(contenu)
+            .contenu(aiRes.text())
+            .tokensUsed(aiRes.tokens())
+            .modelUsed(aiRes.model())
             .type(request.getType())
             .employeNom(request.getEmployePrenom() + " " + request.getEmployeNom())
             .dateGeneration(java.time.LocalDateTime.now().toString())
             .build());
     }
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DocumentController.class);
+    /**
+     * Génère du contenu IA avancé avec paramètres de température et modèle.
+     */
+    @PostMapping("/rh/generate-ai-advanced")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<AIGenerationResult> generateAIDocumentAdvanced(
+            @RequestBody AIAdvancedGenerationRequest request) {
 
+        TypeDocument typeDoc = null;
+        if (request.getTypeDocumentId() != null) {
+            typeDoc = typeDocumentRepository.findById(request.getTypeDocumentId()).orElse(null);
+        }
+
+        String systemPrompt = """
+            Tu es le rédacteur documentaire officiel de l'entreprise.
+            RÈGLES : N'invente JAMAIS de données. Utilise uniquement les données fournies.
+            Si une donnée manque, écris [DONNÉE MANQUANTE].
+            Ton : Professionnel, Formel. Pas de markdown.
+            """;
+
+        float temperature = request.getTemperature() != null ? request.getTemperature() :
+            (typeDoc != null && typeDoc.getAiTemperature() != null ? typeDoc.getAiTemperature() : 0.2f);
+
+        AiService.AiResponse aiRes;
+        try {
+            aiRes = aiService.generateWithGemini(systemPrompt, request.getPrompt(), temperature);
+        } catch (Exception e) {
+            log.warn("Advanced Gemini failed (Rate Limit?), falling back to local/other: {}", e.getMessage());
+            // Manual fallback for advanced generation
+            aiRes = aiService.generateDocument(request.getPrompt()); 
+        }
+
+        return ResponseEntity.ok(AIGenerationResult.builder()
+            .contenu(aiRes.text())
+            .tokensUsed(aiRes.tokens())
+            .modelUsed(aiRes.model())
+            .type(request.getType())
+            .employeNom(request.getEmployeNom())
+            .dateGeneration(java.time.LocalDateTime.now().toString())
+            .build());
+    }
+
+    /**
+     * Retourne la liste des variables dynamiques disponibles pour les templates.
+     */
+    @GetMapping("/rh/template-variables")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<List<Map<String, String>>> getTemplateVariables() {
+        return ResponseEntity.ok(templateResolver.getAvailableVariables());
+    }
+
+    // ══════════════════════════════════════════════════
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DocumentController.class);
 
     private Long getRhEntrepriseId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

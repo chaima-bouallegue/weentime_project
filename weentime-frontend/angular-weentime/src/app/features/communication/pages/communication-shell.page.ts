@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { CommunicationSidebarComponent } from '../components/communication-sidebar/communication-sidebar.component';
+import { CreateChannelModalComponent } from '../components/create-channel-modal/create-channel-modal.component';
 import { CommunicationStoreService } from '../services/communication-store.service';
 
 @Component({
   selector: 'app-communication-shell-page',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, CommunicationSidebarComponent],
+  imports: [CommonModule, RouterOutlet, CommunicationSidebarComponent, CreateChannelModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="comm-page">
@@ -29,12 +30,20 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           [loading]="store.loadingChannels() || store.bootstrapInProgress()"
           [error]="store.channelsError()"
           [canSync]="store.canSync()"
+          [canCreateChannel]="store.canCreateChannel()"
           [syncing]="store.syncInProgress()"
           [syncResult]="store.syncResult()"
           [syncError]="store.syncError()"
           (retry)="store.loadChannels()"
-          (syncRequested)="store.runCommunicationSync()">
+          (syncRequested)="store.runCommunicationSync()"
+          (addChannelRequested)="showCreateModal.set(true)">
         </app-communication-sidebar>
+
+        <app-create-channel-modal
+          *ngIf="showCreateModal()"
+          (close)="showCreateModal.set(false)"
+          (create)="onCreateChannel($event)">
+        </app-create-channel-modal>
 
         <div class="comm-conversation">
           <router-outlet />
@@ -96,8 +105,18 @@ import { CommunicationStoreService } from '../services/communication-store.servi
 })
 export class CommunicationShellPage implements OnInit {
   readonly store = inject(CommunicationStoreService);
+  showCreateModal = signal(false);
 
   ngOnInit(): void {
     this.store.initialize();
+  }
+
+  onCreateChannel(request: { name: string; description: string; isPrivate: boolean }): void {
+    this.store.createChannel(request).subscribe({
+      next: () => this.showCreateModal.set(false),
+      error: () => {
+        // Handle error (optional: show toast)
+      }
+    });
   }
 }

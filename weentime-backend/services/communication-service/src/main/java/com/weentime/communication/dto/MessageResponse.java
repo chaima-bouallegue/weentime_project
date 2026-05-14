@@ -22,6 +22,7 @@ public record MessageResponse(
         String status,
         String clientMessageId,
         Instant createdAt,
-        Instant editedAt
+        Instant editedAt,
+        Instant pinnedAt
 ) {
 }

@@ -21,67 +21,94 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
         </button>
       </header>
 
-      <div *ngIf="syncError" class="comm-sync-card error">
-        <strong>Synchronisation impossible</strong>
-        <span>{{ syncError }}</span>
+      <div class="comm-sidebar-nav">
+        <div *ngIf="syncError" class="comm-sync-card error">
+          <strong>Synchronisation impossible</strong>
+          <span>{{ syncError }}</span>
+        </div>
+
+        <div *ngIf="syncResult" class="comm-sync-card">
+          <strong>Derniere synchronisation</strong>
+          <span>{{ syncResult.channelsCreated }} canal(x) cree(s), {{ syncResult.channelsUpdated }} mis a jour</span>
+          <span>{{ syncResult.membersAdded }} membre(s) ajoute(s), {{ syncResult.membersRemoved }} retire(s)</span>
+          <span *ngIf="syncResult.warnings.length > 0">{{ syncResult.warnings[0] }}</span>
+        </div>
+
+        <div *ngIf="loading" class="comm-state-list">
+          <div class="comm-skeleton" *ngFor="let item of [1, 2, 3, 4]"></div>
+        </div>
+
+        <div *ngIf="!loading && error" class="comm-error">
+          <p>{{ error }}</p>
+          <button type="button" (click)="retry.emit()">Recharger</button>
+        </div>
+
+        <ng-container *ngIf="!loading && !error">
+          <section class="comm-section">
+            <div class="comm-section-heading">
+              <span>Canaux RH</span>
+            </div>
+            <div class="comm-sidebar-list">
+              <!-- Using a slice/filter as a placeholder for grouping -->
+              <app-channel-list-item
+                *ngFor="let channel of channels.slice(0, 3)"
+                [channel]="channel"
+                [route]="'/app/messages/channel/' + channel.id"
+                [active]="channel.id === activeChannelId">
+              </app-channel-list-item>
+            </div>
+          </section>
+
+          <section class="comm-section">
+            <div class="comm-section-heading">
+              <span>Entreprise</span>
+            </div>
+            <div class="comm-sidebar-list">
+              <app-channel-list-item
+                *ngFor="let channel of channels.slice(3)"
+                [channel]="channel"
+                [route]="'/app/messages/channel/' + channel.id"
+                [active]="channel.id === activeChannelId">
+              </app-channel-list-item>
+              
+              <button *ngIf="canCreateChannel" type="button" class="add-channel-btn" (click)="addChannelRequested.emit()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Ajouter un canal</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="comm-section">
+            <div class="comm-section-heading">
+              <span>Messages directs</span>
+            </div>
+            <div *ngIf="directMessages.length === 0" class="comm-empty">Aucune conversation directe.</div>
+            <div class="comm-sidebar-list">
+              <app-direct-message-list-item
+                *ngFor="let channel of directMessages"
+                [channel]="channel"
+                [route]="'/app/messages/channel/' + channel.id"
+                [active]="channel.id === activeChannelId">
+              </app-direct-message-list-item>
+            </div>
+          </section>
+        </ng-container>
       </div>
-
-      <div *ngIf="syncResult" class="comm-sync-card">
-        <strong>Derniere synchronisation</strong>
-        <span>{{ syncResult.channelsCreated }} canal(x) cree(s), {{ syncResult.channelsUpdated }} mis a jour</span>
-        <span>{{ syncResult.membersAdded }} membre(s) ajoute(s), {{ syncResult.membersRemoved }} retire(s)</span>
-        <span *ngIf="syncResult.warnings.length > 0">{{ syncResult.warnings[0] }}</span>
-      </div>
-
-      <div *ngIf="loading" class="comm-state-list">
-        <div class="comm-skeleton" *ngFor="let item of [1, 2, 3, 4]"></div>
-      </div>
-
-      <div *ngIf="!loading && error" class="comm-error">
-        <p>{{ error }}</p>
-        <button type="button" (click)="retry.emit()">Recharger</button>
-      </div>
-
-      <ng-container *ngIf="!loading && !error">
-        <section class="comm-section">
-          <div class="comm-section-heading">
-            <span>Canaux</span>
-          </div>
-          <div *ngIf="channels.length === 0" class="comm-empty">Aucun canal visible.</div>
-          <app-channel-list-item
-            *ngFor="let channel of channels"
-            [channel]="channel"
-            [route]="'/app/messages/channel/' + channel.id"
-            [active]="channel.id === activeChannelId">
-          </app-channel-list-item>
-        </section>
-
-        <section class="comm-section">
-          <div class="comm-section-heading">
-            <span>Messages directs</span>
-          </div>
-          <div *ngIf="directMessages.length === 0" class="comm-empty">Aucune conversation directe.</div>
-          <app-direct-message-list-item
-            *ngFor="let channel of directMessages"
-            [channel]="channel"
-            [route]="'/app/messages/channel/' + channel.id"
-            [active]="channel.id === activeChannelId">
-          </app-direct-message-list-item>
-        </section>
-      </ng-container>
     </aside>
   `,
   styles: [`
     .comm-sidebar {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       height: 100%;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 237, 254, 0.98)),
-        linear-gradient(135deg, #ffffff, #f5f3ff);
-      border: 1px solid rgba(83, 74, 183, 0.12);
-      border-radius: 28px;
-      padding: 18px;
-      overflow: auto;
-      box-shadow: 0 24px 60px rgba(83, 74, 183, 0.08);
+    }
+
+    .comm-sidebar-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
     }
 
     .comm-sidebar-header p {
@@ -89,43 +116,43 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.18em;
-      color: #534AB7;
+      color: var(--text-tertiary);
       opacity: 0.8;
     }
 
     .comm-sidebar-header h2 {
-      margin: 6px 0 0;
-      font-size: 24px;
-      color: #1e1b4b;
+      margin: 0;
+      font-size: 20px;
       font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
     }
 
-    .comm-sidebar-header {
+    .comm-sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 12px;
       display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 24px;
+      flex-direction: column;
+      gap: 24px;
     }
 
     .comm-sync-btn {
       border: none;
       border-radius: 999px;
       padding: 10px 14px;
-      background: #534AB7;
+      background: var(--primary);
       color: white;
       cursor: pointer;
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.2);
     }
 
     .comm-sync-btn:hover {
-      background: #4338ca;
+      background: var(--primary-hover);
       transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(83, 74, 183, 0.3);
     }
 
     .comm-sync-btn:disabled {
@@ -178,6 +205,33 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
       font-style: italic;
     }
 
+    .add-channel-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      margin-top: 4px;
+    }
+
+    .add-channel-btn:hover {
+      background: var(--surface-alt);
+      color: #534AB7;
+    }
+
+    .add-channel-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
     .comm-state-list {
       display: grid;
       gap: 12px;
@@ -226,8 +280,10 @@ export class CommunicationSidebarComponent {
   @Input() error: string | null = null;
   @Input() canSync = false;
   @Input() syncing = false;
+  @Input() canCreateChannel = false;
   @Input() syncResult: ProvisioningSyncResponse | null = null;
   @Input() syncError: string | null = null;
   @Output() retry = new EventEmitter<void>();
   @Output() syncRequested = new EventEmitter<void>();
+  @Output() addChannelRequested = new EventEmitter<void>();
 }

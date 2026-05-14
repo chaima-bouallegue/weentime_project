@@ -229,6 +229,9 @@ export class ApiConfigService {
     UPLOAD_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/upload`,
     GET_DOCUMENT_FILE_RH: (id: number) => `${this.API_BASE}/documents/${id}/file`,
     GENERATE_DOCUMENT_AI: `${this.API_BASE}/documents/rh/generate-ai`,
+    GENERATE_DOCUMENT_AI_ADVANCED: `${this.API_BASE}/documents/rh/generate-ai-advanced`,
+    GET_TEMPLATE_VARIABLES: `${this.API_BASE}/documents/rh/template-variables`,
+    GET_TYPE_DOCUMENTS: `${this.API_BASE}/documents/types`,
 
     // RH Configuration
     GET_TYPE_CONGES: `${this.API_BASE}/rh/type-conges`,

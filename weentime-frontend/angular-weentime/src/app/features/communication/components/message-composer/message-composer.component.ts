@@ -1,4 +1,17 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject, signal, computed, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+import { 
+  ChangeDetectionStrategy, 
+  Component, 
+  EventEmitter, 
+  Input, 
+  Output, 
+  inject, 
+  signal, 
+  computed, 
+  ViewChild, 
+  ElementRef, 
+  OnDestroy,
+  AfterViewInit
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CommunicationStoreService } from '../../services/communication-store.service';
@@ -7,6 +20,13 @@ import { OrganisationService, SimpleUser } from '@app/core/services/organisation
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { HostListener } from '@angular/core';
+
+const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
+  { label: 'Smileys', icon: '😀', emojis: ['😀','😃','😄','😁','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😋','😛','🤪','🤨','🧐','🤓','😎','🤠','🥳','🤗','🤭','😐','😑','😶','🙄','😏','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😤','😠','😡','🤬'] },
+  { label: 'Gestes', icon: '👋', emojis: ['👍','👎','👊','✊','🤛','🤜','👏','🙌','🤝','🤲','👐','🙏','💪','✌️','🤟','🤘','👌','🤌','👋','🤙','👆','👇','👉','👈','🫶','🫡'] },
+  { label: 'Cœurs', icon: '❤️', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','❣️','💕','💞','💓','💗','💖','💘','💝','🔥','⭐','✨','💯','🎉','🎊','💎','🏆','🥇'] },
+];
 
 @Component({
   selector: 'app-message-composer',
@@ -37,73 +57,88 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
               <small>{{ user.email }}</small>
             </div>
           </div>
-          <div class="mention-empty" *ngIf="filteredUsers().length === 0">
-            Aucun utilisateur trouvé
-          </div>
         </div>
 
         <!-- File Preview List -->
         <div class="comm-attachment-previews" *ngIf="attachments().length > 0">
           <div class="attachment-preview-item" *ngFor="let file of attachments(); let i = index" [class.uploading]="isUploading()">
-            <!-- Image Preview -->
             <div class="img-container" *ngIf="isImage(file)">
               <img [src]="getPreviewUrl(file)" alt="preview">
             </div>
-            
-            <!-- File Chip (for non-images) -->
             <div class="file-chip" *ngIf="!isImage(file)">
                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                <span class="file-name">{{ file.name }}</span>
             </div>
-
-            <!-- Upload Indicator -->
-            <div class="upload-indicator" *ngIf="isUploading()">
-              <div class="upload-spinner"></div>
-            </div>
-
-            <!-- Remove Button (The X like WhatsApp) -->
             <button type="button" class="remove-btn" (click)="removeAttachment(i)" [disabled]="isUploading()" title="Annuler">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="comm-composer-toolbar">
-          <button type="button" class="tool-btn" title="Émojis" [disabled]="disabled || isUploading()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-          </button>
-          <button type="button" class="tool-btn" title="Joindre un fichier" [disabled]="disabled || isUploading()" (click)="fileInput.click()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-          </button>
-          <input type="file" #fileInput multiple hidden (change)="handleFileSelect($event)">
-          <button type="button" class="tool-btn" title="Mentionner" [disabled]="disabled || isUploading()" (click)="triggerMention()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
-          </button>
-        </div>
+        <div class="comm-composer-input-container">
+          <div class="comm-composer-input-wrapper">
+            <textarea
+              #textareaRef
+              [(ngModel)]="draft"
+              [disabled]="disabled || isUploading()"
+              rows="1"
+              [placeholder]="'Écrire un message dans #' + channelName + '...'"
+              (input)="handleInput()"
+              (keydown)="handleKeydown($event)"></textarea>
+          </div>
 
-        <div class="comm-composer-input-wrapper">
-          <textarea
-            #textareaRef
-            [(ngModel)]="draft"
-            [disabled]="disabled || isUploading()"
-            rows="1"
-            placeholder="Écrire un message dans #{{ channelName }}..."
-            (input)="handleInput()"
-            (keydown)="handleKeydown($event)"></textarea>
+          <div class="comm-composer-footer">
+            <div class="comm-composer-toolbar">
+              <div class="emoji-picker-container">
+                <button type="button" class="tool-btn" title="Émojis" [disabled]="disabled || isUploading()" (click)="toggleEmojiPicker($event)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                </button>
 
-          <button type="button" 
-                  class="send-btn" 
-                  [disabled]="disabled || isUploading() || (!trimmedDraft && attachments().length === 0)" 
-                  (click)="submit()">
-            <svg *ngIf="!isUploading()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            <div class="btn-loader" *ngIf="isUploading()"></div>
-          </button>
-        </div>
+                <!-- Emoji Picker Popup -->
+                <div class="composer-emoji-picker" *ngIf="showEmojiPicker()" (click)="$event.stopPropagation()">
+                  <div class="emoji-tabs">
+                    <button *ngFor="let cat of emojiCategories; let i = index" type="button"
+                            class="emoji-tab" [class.active]="activeTab() === i"
+                            (click)="activeTab.set(i)">{{ cat.icon }}</button>
+                  </div>
+                  <div class="emoji-grid">
+                    <button type="button" class="emoji-cell" *ngFor="let e of emojiCategories[activeTab()].emojis"
+                            (click)="pickEmoji(e)">{{ e }}</button>
+                  </div>
+                </div>
+              </div>
 
-        <div class="comm-composer-hints">
-          <span *ngIf="!disabled && !isUploading()"><b>Entrée</b> pour envoyer, <b>Maj+Entrée</b> pour une nouvelle ligne</span>
-          <span *ngIf="isUploading()">Téléchargement en cours...</span>
-          <span *ngIf="disabled">Lecture seule</span>
+              <button type="button" class="tool-btn" title="Joindre un fichier" [disabled]="disabled || isUploading()" (click)="fileInput.click()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <input type="file" #fileInput multiple hidden (change)="handleFileSelect($event)">
+              <button type="button" class="tool-btn" title="Mentionner" [disabled]="disabled || isUploading()" (click)="triggerMention()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>
+              </button>
+              
+              <div class="tool-separator"></div>
+
+              <button type="button" class="tool-btn" title="Gras" (click)="toggleBold()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
+              </button>
+              <button type="button" class="tool-btn" title="Liste" (click)="toggleList()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div class="comm-composer-actions">
+              <span class="send-hint" *ngIf="!disabled && !isUploading()">Entrée pour envoyer</span>
+              <button type="button" 
+                      class="send-btn" 
+                      [class.active]="trimmedDraft || attachments().length > 0"
+                      [disabled]="disabled || isUploading() || (!trimmedDraft && attachments().length === 0)" 
+                      (click)="submit()">
+                <svg *ngIf="!isUploading()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <span *ngIf="!isUploading()">Envoyer</span>
+                <div class="btn-loader" *ngIf="isUploading()"></div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
@@ -111,8 +146,8 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
   styles: [`
     .comm-composer {
       padding: 16px 24px 24px;
-      background: white;
-      border-top: 1px solid rgba(83, 74, 183, 0.1);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
       position: relative;
     }
 
@@ -135,7 +170,7 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
     .drag-overlay {
       position: absolute;
       inset: -10px;
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--surface);
       backdrop-filter: blur(4px);
       z-index: 1000;
       display: flex;
@@ -158,14 +193,49 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
     .drag-msg span { font-weight: 700; font-size: 18px; }
 
     .comm-composer.disabled {
-      background: #f8fafc;
+      background: var(--surface-alt);
       opacity: 0.8;
+    }
+
+    .comm-composer-input-container {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.2s ease;
+      overflow: hidden;
+    }
+
+    .comm-composer-input-container:focus-within {
+      border-color: #534AB7;
+      box-shadow: 0 0 0 4px rgba(83, 74, 183, 0.1);
+    }
+
+    .comm-composer-input-wrapper {
+      padding: 16px 16px 8px;
+    }
+
+    .comm-composer-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #fdfdfc; /* Light beige/off-white as in image */
+      border-top: 1px solid var(--border);
     }
 
     .comm-composer-toolbar {
       display: flex;
-      gap: 4px;
-      padding: 0 4px;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tool-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 8px;
     }
 
     .tool-btn {
@@ -176,65 +246,77 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
       justify-content: center;
       border: none;
       background: none;
-      color: #64748b;
+      color: var(--text-primary);
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
+      opacity: 0.8;
     }
 
     .tool-btn:hover:not(:disabled) {
-      background: #EEEDFE;
+      background: rgba(83, 74, 183, 0.08);
       color: #534AB7;
+      opacity: 1;
     }
 
-    .comm-composer-input-wrapper {
-      position: relative;
-      display: flex;
-      align-items: flex-end;
-      gap: 12px;
-      background: #f8fafc;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 16px;
-      padding: 8px 12px;
-      transition: all 0.2s ease;
-    }
-
-    .comm-composer-input-wrapper:focus-within {
-      background: white;
-      border-color: #534AB7;
-      box-shadow: 0 0 0 4px rgba(83, 74, 183, 0.1);
-    }
+    .tool-btn svg { width: 18px; height: 18px; }
 
     textarea {
       flex: 1;
       border: none;
       background: none;
       resize: none;
-      padding: 8px 4px;
-      font-size: 15px;
+      padding: 4px;
+      font-size: 16px;
       line-height: 1.5;
-      color: #1e1b4b;
+      color: var(--text-primary);
       font-family: inherit;
       max-height: 200px;
+      width: 100%;
     }
 
     textarea:focus { outline: none; }
+    textarea::placeholder { color: var(--text-tertiary); opacity: 0.5; }
 
-    .send-btn {
-      width: 36px;
-      height: 36px;
+    .comm-composer-actions {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 16px;
+    }
+
+    .send-hint {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    .send-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #534AB7;
       color: white;
       cursor: pointer;
       transition: all 0.2s ease;
-      flex-shrink: 0;
-      margin-bottom: 2px;
+      font-weight: 700;
+      font-size: 14px;
     }
+
+    .send-btn:disabled {
+      background: #e2e8f0;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .send-btn.active {
+      background: #534AB7;
+      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.2);
+    }
+
+    .send-btn svg { width: 18px; height: 18px; }
 
     .send-btn:hover:not(:disabled) {
       background: #4338ca;
@@ -392,9 +474,18 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
       color: #94a3b8;
       padding-left: 12px;
     }
+
+    .emoji-picker-container { position:relative; }
+    .composer-emoji-picker { position:absolute; bottom:calc(100% + 12px); left:0; width:280px; background:white; border:1px solid rgba(83,74,183,0.15); border-radius:16px; box-shadow:0 -8px 24px rgba(15,23,42,0.1); z-index:200; overflow:hidden; }
+    .emoji-tabs { display:flex; border-bottom:1px solid rgba(83,74,183,0.1); padding:4px 8px 0; gap:2px; }
+    .emoji-tab { background:none; border:none; font-size:16px; padding:6px 8px; cursor:pointer; border-radius:8px 8px 0 0; border-bottom:2px solid transparent; }
+    .emoji-tab.active { border-bottom-color:#534AB7; background:#EEEDFE; }
+    .emoji-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:8px; max-height:180px; overflow-y:auto; }
+    .emoji-cell { background:none; border:none; font-size:18px; padding:6px; cursor:pointer; border-radius:6px; transition:all .2s; }
+    .emoji-cell:hover { background:#EEEDFE; transform:scale(1.15); }
   `]
 })
-export class MessageComposerComponent implements OnDestroy {
+export class MessageComposerComponent implements OnDestroy, AfterViewInit {
   private readonly store = inject(CommunicationStoreService);
   private readonly api = inject(CommunicationApiService);
   private readonly organisationService = inject(OrganisationService);
@@ -421,6 +512,15 @@ export class MessageComposerComponent implements OnDestroy {
   readonly attachments = signal<File[]>([]);
   readonly isUploading = signal(false);
   readonly isDragging = signal(false);
+
+  // Emoji state
+  readonly showEmojiPicker = signal(false);
+  readonly activeTab = signal(0);
+  readonly emojiCategories = EMOJI_CATEGORIES;
+
+  @HostListener('document:click') onDocClick() {
+    this.showEmojiPicker.set(false);
+  }
 
   readonly filteredUsers = computed(() => {
     const filter = this.mentionFilter().toLowerCase();
@@ -551,6 +651,7 @@ export class MessageComposerComponent implements OnDestroy {
 
   handleInput(): void {
     if (this.disabled) return;
+    this.adjustHeight();
     this.typing.emit(true);
     if (this.typingTimeout) clearTimeout(this.typingTimeout);
     this.typingTimeout = setTimeout(() => this.typing.emit(false), 1200);
@@ -605,7 +706,22 @@ export class MessageComposerComponent implements OnDestroy {
       ta.focus();
       const newCursor = cursor + prefix.length;
       ta.setSelectionRange(newCursor, newCursor);
+      this.adjustHeight();
     });
+  }
+
+  private adjustHeight(): void {
+    const ta = this.textareaEl;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const newHeight = Math.min(ta.scrollHeight, 150); // ~5 lines
+    ta.style.height = newHeight + 'px';
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => {
+      this.textareaEl?.focus();
+    }, 500);
   }
 
   submit(): void {
@@ -645,5 +761,63 @@ export class MessageComposerComponent implements OnDestroy {
       clearTimeout(this.typingTimeout);
       this.typingTimeout = null;
     }
+    setTimeout(() => this.adjustHeight());
+  }
+
+  toggleEmojiPicker(event: Event): void {
+    event.stopPropagation();
+    this.showEmojiPicker.update(v => !v);
+    this.showMentions.set(false);
+  }
+
+  pickEmoji(emoji: string): void {
+    const ta = this.textareaEl;
+    if (!ta) return;
+    const cursor = ta.selectionStart ?? this.draft.length;
+    this.draft = this.draft.slice(0, cursor) + emoji + this.draft.slice(cursor);
+    this.showEmojiPicker.set(false);
+    setTimeout(() => {
+      ta.focus();
+      const newCursor = cursor + emoji.length;
+      ta.setSelectionRange(newCursor, newCursor);
+      this.adjustHeight();
+    });
+  }
+
+  toggleBold(): void {
+    const ta = this.textareaEl;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selection = this.draft.slice(start, end);
+    const replacement = `**${selection}**`;
+    this.draft = this.draft.slice(0, start) + replacement + this.draft.slice(end);
+    
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start + 2, end + 2);
+      this.adjustHeight();
+    });
+  }
+
+  toggleList(): void {
+    const ta = this.textareaEl;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const textBefore = this.draft.slice(0, start);
+    const textAfter = this.draft.slice(end);
+    const selection = this.draft.slice(start, end);
+    
+    const lines = selection.split('\n');
+    const replacement = lines.map(line => line.startsWith('- ') ? line : `- ${line}`).join('\n');
+    
+    this.draft = textBefore + replacement + textAfter;
+    
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start, start + replacement.length);
+      this.adjustHeight();
+    });
   }
 }

@@ -70,6 +70,16 @@ public class MessageController {
         return ApiEnvelope.success(messageService.markRead(messageId, SecurityUtils.currentUser()));
     }
 
+    @PutMapping("/messages/{messageId}/pin")
+    public ApiEnvelope<MessageResponse> pinMessage(@PathVariable UUID messageId) {
+        return ApiEnvelope.success(messageService.pinMessage(messageId, SecurityUtils.currentUser()));
+    }
+
+    @PutMapping("/messages/{messageId}/unpin")
+    public ApiEnvelope<MessageResponse> unpinMessage(@PathVariable UUID messageId) {
+        return ApiEnvelope.success(messageService.unpinMessage(messageId, SecurityUtils.currentUser()));
+    }
+
     @GetMapping("/messages/{messageId}/replies")
     public ApiEnvelope<CursorMessagePageResponse> getThreadReplies(
             @PathVariable UUID messageId,

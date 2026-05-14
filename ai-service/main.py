@@ -35,6 +35,7 @@ from voice.tts import TextToSpeechService
 from app.api.chat_v2 import router as chat_v2_router
 from app.api.health_v2 import router as health_v2_router
 from app.api.voice_v2 import router as voice_v2_router
+from app.api.document_generation import router as document_generation_router
 from app.core.copilot_engine import configure_copilot_engine, process_copilot_message
 from app.nlp.language_detector import detect_language as detect_response_language
 from app.observability.decorators import trace_ai_step
@@ -284,6 +285,7 @@ app.add_middleware(
 app.include_router(chat_v2_router)
 app.include_router(health_v2_router)
 app.include_router(voice_v2_router)
+app.include_router(document_generation_router)
 
 
 @app.exception_handler(RequestValidationError)

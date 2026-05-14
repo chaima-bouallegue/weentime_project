@@ -5,7 +5,7 @@ spring:
   application:
     name: communication-service
   datasource:
-    url: jdbc:postgresql://localhost:5435/communication_db?currentSchema=communication
+    url: jdbc:postgresql://localhost:5435/communication_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver

@@ -12,4 +12,5 @@ public interface EquipeService {
     EquipeResponse updateEquipe(Long id, EquipeRequest request);
     void deleteEquipe(Long id);
     Page<?> getEquipeMembers(Long id, Pageable pageable);
+    java.util.List<EquipeResponse> getEquipesByResponsable(Long responsableId);
 }

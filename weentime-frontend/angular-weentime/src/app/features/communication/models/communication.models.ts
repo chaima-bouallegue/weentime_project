@@ -57,6 +57,7 @@ export interface MessageModel {
   clientMessageId: string | null;
   createdAt: string;
   editedAt: string | null;
+  pinnedAt: string | null;
   localState?: 'sending' | 'failed';
   localError?: string | null;
 }
@@ -77,9 +78,11 @@ export interface ChannelModel {
   isArchived: boolean;
   memberCount: number;
   members: SenderSummaryModel[];
+  pinnedCount: number;
   unreadCount: number;
   lastMessage: MessageModel | null;
   permissions: ChannelPermissionModel;
+  notificationLevel: string;
   createdAt: string;
   updatedAt: string;
 }

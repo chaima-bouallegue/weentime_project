@@ -208,6 +208,25 @@
     .value { color: #cbd5e1; }
     .text-block { background: #1e293b; color: #94a3b8; }
   }
+  .ai-tracking-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 10px;
+    color: #5b21b6;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 8px;
+
+    .token-count {
+      color: #7c3aed;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+  }
   .timeline .timeline-item {
     border-left-color: #1e293b;
     .dot { border-color: #0f172a; background: #334155; }

@@ -57,11 +57,11 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
     .thread-panel {
       width: 400px;
       height: 100%;
-      background: white;
-      border-left: 1px solid rgba(83, 74, 183, 0.1);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      box-shadow: -10px 0 30px rgba(15, 23, 42, 0.05);
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
       animation: slideIn 0.3s cubic-bezier(0, 0, 0.2, 1);
     }
 
@@ -72,7 +72,7 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
 
     .thread-header {
       padding: 16px 24px;
-      border-bottom: 1px solid rgba(83, 74, 183, 0.1);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -82,13 +82,13 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
       margin: 0;
       font-size: 18px;
       font-weight: 800;
-      color: #1e1b4b;
+      color: var(--text-primary);
     }
 
     .thread-header p {
       margin: 2px 0 0;
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-tertiary);
     }
 
     .close-btn {
@@ -96,7 +96,7 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
       height: 32px;
       border: none;
       background: none;
-      color: #94a3b8;
+      color: var(--text-tertiary);
       cursor: pointer;
       border-radius: 8px;
       display: flex;
@@ -106,8 +106,8 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
     }
 
     .close-btn:hover {
-      background: #f1f5f9;
-      color: #1e1b4b;
+      background: var(--surface-alt);
+      color: var(--text-primary);
     }
 
     .close-btn svg {
@@ -137,14 +137,14 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
       content: '';
       flex: 1;
       height: 1px;
-      background: rgba(148, 163, 184, 0.2);
+      background: var(--border);
     }
 
     .thread-divider span {
       padding: 0 12px;
       font-size: 12px;
       font-weight: 700;
-      color: #94a3b8;
+      color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -157,13 +157,13 @@ import { MessageComposerComponent } from '../message-composer/message-composer.c
     .thread-loading {
       text-align: center;
       padding: 24px;
-      color: #64748b;
+      color: var(--text-secondary);
       font-style: italic;
     }
 
     .thread-footer {
-      border-top: 1px solid rgba(83, 74, 183, 0.1);
-      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      background: var(--surface-alt);
     }
 
     /* Override composer padding for thread panel */

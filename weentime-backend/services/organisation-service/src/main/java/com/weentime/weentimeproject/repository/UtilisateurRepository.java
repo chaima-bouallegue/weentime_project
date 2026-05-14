@@ -70,6 +70,9 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     );
 
     org.springframework.data.domain.Page<Utilisateur> findByEquipeId(Long equipeId, org.springframework.data.domain.Pageable pageable);
+    
+    @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
+    List<Utilisateur> findByEquipeId(Long equipeId);
 
     @EntityGraph(attributePaths = {"roles", "departement", "equipe", "entreprise", "manager"})
     List<Utilisateur> findByManagerId(Long managerId);

@@ -64,6 +64,15 @@
                 <p class="text-block">{{ demande.motif }}</p>
               </div>
             }
+            @if (demande.generatedByAI) {
+              <div class="ai-tracking-badge full">
+                <lucide-icon name="sparkles" size="14"></lucide-icon>
+                <span>Généré par {{ demande.aiModelUsed || 'Gemini Flash' }}</span>
+                @if (demande.tokensUsed) {
+                   <span class="token-count">({{ demande.tokensUsed }} tokens)</span>
+                }
+              </div>
+            }
           </div>
         </section>
 

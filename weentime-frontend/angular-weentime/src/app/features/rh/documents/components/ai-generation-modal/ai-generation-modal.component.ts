@@ -26,9 +26,28 @@ export class AiGenerationModalComponent {
   generatedContent = signal<string>('');
   isGenerating = signal<boolean>(false);
   streamingContent = signal<string>('');
+  customPrompt = signal<string>('');
 
   // Progress indicators
-  progressText = signal<string>('Preparation du prompt...');
+  progressText = signal<string>('Préparation du prompt...');
+
+  ngOnInit() {
+    if (this.demande) {
+      this.customPrompt.set(this.buildInitialPrompt());
+    }
+  }
+
+  private buildInitialPrompt(): string {
+    if (!this.demande) return '';
+    return `Génère une ${this.demande.label} officielle pour l'employé suivant :
+- Nom complet : ${this.demande.employe.prenom} ${this.demande.employe.nom}
+- Poste : ${this.demande.employe.poste}
+- Département : ${this.demande.employe.departement}
+${this.demande.moisConcerne ? '- Période : ' + this.demande.moisConcerne : ''}
+
+Le document doit être formel, professionnel, en français, avec la date du jour, les formules légales appropriées et la mention "Pour faire valoir ce que de droit".
+Retourne uniquement le contenu du document sans balises markdown.`;
+  }
 
   generate() {
     if (!this.demande) return;
@@ -36,9 +55,16 @@ export class AiGenerationModalComponent {
     this.isGenerating.set(true);
     this.generatedContent.set('');
     this.streamingContent.set('');
-    this.progressText.set("Appel a l'IA Anthropic...");
+    this.progressText.set("Appel à l'IA Gemini Flash...");
 
-    this.documentService.generateAIDocument(this.demande)
+    const request = {
+      type: this.demande.type,
+      prompt: this.customPrompt() || this.buildInitialPrompt(),
+      employeNom: `${this.demande.employe.prenom} ${this.demande.employe.nom}`,
+      temperature: 0.2
+    };
+
+    this.documentService.generateAIDocumentAdvanced(request)
       .pipe(take(1))
       .subscribe({
         next: result => {
@@ -47,8 +73,8 @@ export class AiGenerationModalComponent {
         },
         error: () => {
           this.isGenerating.set(false);
-          this.progressText.set('Erreur lors de la generation.');
-          this.toastService.error("La generation du document a echoue.");
+          this.progressText.set('Erreur lors de la génération.');
+          this.toastService.error("La génération du document via Gemini a échoué.");
         }
       });
   }

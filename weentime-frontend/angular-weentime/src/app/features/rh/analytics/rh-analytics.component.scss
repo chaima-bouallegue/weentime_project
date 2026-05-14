@@ -37,21 +37,10 @@
   .dashboard-hero {
     .hero-card {
       @extend .bento-card;
-      background: white;
+      background: var(--surface);
       padding: 0;
-
-      :host-context(.dark) & {
-        background: #0f172a;
-      }
-    }
-
-    .card-mesh {
-      position: absolute;
-      inset: 0;
-      opacity: 0.1;
-      background: radial-gradient(circle at 100% 0%, var(--mesh-color) 0%, transparent 50%),
-                  radial-gradient(circle at 0% 100%, var(--mesh-color) 0%, transparent 50%);
-      pointer-events: none;
+      border: none;
+      box-shadow: var(--shadow-xl);
     }
 
     .hero-btn {

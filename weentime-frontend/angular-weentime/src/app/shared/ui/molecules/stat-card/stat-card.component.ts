@@ -39,103 +39,97 @@ import { UiIconComponent } from '../../atoms/icon/icon.component';
   `,
   styles: [`
     .stat-card {
-      border-radius: 20px;
-      background: linear-gradient(170deg, rgba(255,255,255,.82), rgba(255,255,255,.66));
-      border: 1px solid rgba(255,255,255,.52);
-      backdrop-filter: blur(14px);
-      padding: 16px;
-      display: grid;
-      gap: 14px;
-      box-shadow: 0 14px 34px rgba(15, 23, 42, .06);
-      transition: transform .24s ease, box-shadow .24s ease;
-      min-height: 154px;
-      animation: cardIn .36s ease both;
+      border-radius: 16px;
+      background: white;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: 160px;
+      animation: cardIn 0.5s ease both;
     }
 
     .stat-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 22px 40px rgba(15, 23, 42, .11);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      border-color: rgba(99, 102, 241, 0.2);
     }
 
     .stat-card__head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
     }
 
     .stat-card__icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, rgba(37, 99, 235, .18), rgba(124, 58, 237, .2));
-      color: #1e40af;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      color: #6366f1;
+      border: 1px solid #f1f5f9;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover .stat-card__icon {
+      background: rgba(99, 102, 241, 0.1);
+      color: #4f46e5;
+      border-color: rgba(99, 102, 241, 0.2);
     }
 
     .stat-card__body {
-      display: grid;
-      gap: 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .stat-card__value {
       margin: 0;
       color: #0f172a;
-      font-size: clamp(1.4rem, 1.8vw, 1.9rem);
-      font-weight: 900;
-      letter-spacing: -0.03em;
-      animation: numberPop .28s ease both;
-    }
-
-    .stat-card__value--muted {
-      color: #94a3b8;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
     }
 
     .stat-card__detail {
-      margin: 0;
+      margin-top: 4px;
       color: #64748b;
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1.35;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .stat-card__foot {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
     }
 
     .stat-card__skeleton {
       display: grid;
-      gap: 10px;
-      align-content: center;
+      gap: 12px;
     }
 
     .stat-card__skeleton span {
       display: block;
-      height: 18px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 50%, #e2e8f0 80%);
-      background-size: 210% 100%;
-      animation: shimmer 1.2s linear infinite;
-    }
-
-    .stat-card__skeleton span:first-child {
-      width: 62%;
-      height: 30px;
-    }
-
-    .stat-card__skeleton span:last-child {
-      width: 84%;
-    }
-
-    .stat-card--error {
-      border-color: rgba(239, 68, 68, .24);
+      background: #f1f5f9;
+      border-radius: 4px;
+      animation: shimmer 2s infinite linear;
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
     }
 
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
-    }
-
-    @keyframes numberPop {
-      from { opacity: .35; transform: translateY(4px) scale(.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     @keyframes cardIn {

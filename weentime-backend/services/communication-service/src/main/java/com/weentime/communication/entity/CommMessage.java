@@ -73,4 +73,7 @@ public class CommMessage {
 
     @Column(name = "deleted_by")
     private Long deletedBy;
+
+    @Column(name = "pinned_at")
+    private Instant pinnedAt;
 }

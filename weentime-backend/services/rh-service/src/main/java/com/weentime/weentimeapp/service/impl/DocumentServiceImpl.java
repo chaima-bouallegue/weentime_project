@@ -9,12 +9,15 @@ import com.weentime.weentimeapp.dto.UserResponse;
 import com.weentime.weentimeapp.dto.UtilisateurAuthResponse;
 import com.weentime.weentimeapp.dto.ValiderDocumentRequest;
 import com.weentime.weentimeapp.entity.Document;
+import com.weentime.weentimeapp.entity.TypeDocument;
 import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.enums.StatutDocument;
 import com.weentime.weentimeapp.enums.TypeDemandeEnum;
 import com.weentime.weentimeapp.mapper.DocumentMapper;
 import com.weentime.weentimeapp.repository.DocumentRepository;
 import com.weentime.weentimeapp.repository.TypeDocumentRepository;
+import com.weentime.weentimeapp.service.DocumentAuditService;
+import com.weentime.weentimeapp.service.DocumentGeneratorService;
 import com.weentime.weentimeapp.service.DocumentPdfGenerator;
 import com.weentime.weentimeapp.service.DocumentService;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +51,8 @@ public class DocumentServiceImpl implements DocumentService {
     private final DocumentMapper documentMapper;
     private final DocumentPdfGenerator pdfGenerator;
     private final OrganisationServiceClient organisationClient;
+    private final DocumentGeneratorService documentGeneratorService;
+    private final DocumentAuditService auditService;
 
     @Override
     public DemandeDocumentResponse createDemande(CreateDocumentRequest request, String userEmail) {
@@ -66,13 +71,25 @@ public class DocumentServiceImpl implements DocumentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le type de document est requis.");
         }
 
-        com.weentime.weentimeapp.entity.TypeDocument typeDocument;
+        TypeDocument typeDocument;
         if (request.getTypeDocumentId() != null) {
             typeDocument = typeDocumentRepository.findById(request.getTypeDocumentId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par ID."));
         } else {
-            typeDocument = typeDocumentRepository.findByCode(request.getType())
+            typeDocument = typeDocumentRepository.findByEntrepriseIdAndCode(entrepriseId, request.getType())
+                    .or(() -> typeDocumentRepository.findByCode(request.getType()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par code: " + request.getType()));
+        }
+
+        // Vérifier le quota mensuel si configuré
+        if (typeDocument.getMaxDemandesParMois() != null) {
+            LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0);
+            long countThisMonth = documentRepository.countByUtilisateurIdAndTypeDocumentAndDateCreationAfter(
+                userId, typeDocument, startOfMonth);
+            if (countThisMonth >= typeDocument.getMaxDemandesParMois()) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Quota mensuel atteint pour ce type de document (" + typeDocument.getMaxDemandesParMois() + "/mois).");
+            }
         }
 
         List<StatutDemandeEnum> ongoingStatuts = List.of(StatutDemandeEnum.EN_ATTENTE_RH);
@@ -91,7 +108,61 @@ public class DocumentServiceImpl implements DocumentService {
                 .dateCreation(LocalDateTime.now())
                 .build();
 
-        return documentMapper.toResponse(documentRepository.save(document));
+        document = documentRepository.save(document);
+
+        // Audit : demande créée
+        auditService.log(entrepriseId, document.getId(), DocumentAuditService.ACTION_REQUESTED,
+            userId, "Type: " + typeDocument.getLibelle());
+
+        // ── AUTO-APPROVAL ENGINE ──
+        if (canAutoApprove(typeDocument)) {
+            try {
+                DocumentGeneratorService.GeneratedDocument generated =
+                    documentGeneratorService.generate(document, typeDocument);
+
+                document.setDocumentUrl(generated.pdfPath());
+                document.setContenuIA(generated.content());
+                document.setGeneratedByAI(generated.generatedByAI());
+                document.setAiModelUsed(generated.modelUsed());
+                document.setTokensUsed(generated.tokensUsed());
+                document.setStatut(StatutDemandeEnum.APPROUVE);
+                document.setDateDecision(LocalDateTime.now());
+                document = documentRepository.save(document);
+
+                String auditAction = generated.generatedByAI()
+                    ? DocumentAuditService.ACTION_AI_GENERATED
+                    : DocumentAuditService.ACTION_TEMPLATE_GENERATED;
+                auditService.log(entrepriseId, document.getId(), auditAction,
+                    userId, "Model: " + generated.modelUsed() + ", Auto-approved");
+                auditService.log(entrepriseId, document.getId(), DocumentAuditService.ACTION_AUTO_APPROVED,
+                    userId, "Workflow: AUTO_APPROVE");
+
+                log.info("Document auto-approved: id={}, type={}, mode={}",
+                    document.getId(), typeDocument.getCode(), typeDocument.getModeGeneration());
+            } catch (Exception e) {
+                // En cas d'erreur IA, on laisse le document en attente RH
+                log.warn("Auto-generation failed, falling back to RH validation: {}", e.getMessage());
+            }
+        }
+
+        return documentMapper.toResponse(document);
+    }
+
+    /**
+     * Détermine si un document peut être auto-approuvé.
+     */
+    private boolean canAutoApprove(TypeDocument typeDoc) {
+        // Le workflow doit être configuré en AUTO_APPROVE
+        if (!"AUTO_APPROVE".equals(typeDoc.getWorkflowType())) {
+            return false;
+        }
+        // Les documents confidentiels ne sont jamais auto-approuvés
+        if ("CONFIDENTIEL".equals(typeDoc.getNiveauConfidentialite())) {
+            return false;
+        }
+        // Le mode de génération doit être TEMPLATE_ONLY ou AI_HYBRID ou AI_FULL
+        String mode = typeDoc.getModeGeneration();
+        return mode != null && !mode.equals("MANUAL_UPLOAD");
     }
 
     @Override
@@ -114,6 +185,10 @@ public class DocumentServiceImpl implements DocumentService {
 
         document.setStatut(StatutDemandeEnum.ANNULE);
         document.setDateDecision(LocalDateTime.now());
+
+        auditService.log(document.getEntrepriseId(), document.getId(),
+            DocumentAuditService.ACTION_CANCELLED, userId, null);
+
         return documentMapper.toResponse(documentRepository.save(document));
     }
 
@@ -125,6 +200,10 @@ public class DocumentServiceImpl implements DocumentService {
         if (!document.getUtilisateurId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces non autorise.");
         }
+
+        auditService.log(document.getEntrepriseId(), document.getId(),
+            DocumentAuditService.ACTION_DOWNLOADED, userId, null);
+
         return resolveDocumentResource(document);
     }
 
@@ -224,6 +303,10 @@ public class DocumentServiceImpl implements DocumentService {
         document.setStatut(StatutDemandeEnum.APPROUVE);
         document.setContenuIA(request.getContenuIA());
         document.setGeneratedByAI(request.isGeneratedByAI());
+        if (request.isGeneratedByAI()) {
+            document.setAiModelUsed("gemini-2.0-flash"); // Défaut pour la validation manuelle assistée
+            document.setTokensUsed(0);
+        }
         document.setCommentaireValidateur(request.getCommentaireRH());
         document.setDateDecision(LocalDateTime.now());
 
@@ -233,6 +316,10 @@ public class DocumentServiceImpl implements DocumentService {
             UserResponse user = organisationClient.getUtilisateurById(document.getUtilisateurId());
             document.setDocumentUrl(pdfGenerator.generatePdfFromContent(document, user, request.getContenuIA()));
         }
+
+        auditService.log(document.getEntrepriseId(), document.getId(),
+            DocumentAuditService.ACTION_VALIDATED, document.getUtilisateurId(),
+            "GeneratedByAI: " + request.isGeneratedByAI());
 
         return enrichirResponse(documentRepository.save(document));
     }
@@ -245,6 +332,10 @@ public class DocumentServiceImpl implements DocumentService {
         document.setStatut(StatutDemandeEnum.REFUSE);
         document.setCommentaireValidateur(commentaireRH);
         document.setDateDecision(LocalDateTime.now());
+
+        auditService.log(document.getEntrepriseId(), document.getId(),
+            DocumentAuditService.ACTION_REFUSED, document.getUtilisateurId(),
+            "Motif: " + commentaireRH);
 
         return enrichirResponse(documentRepository.save(document));
     }

@@ -18,7 +18,7 @@ public interface DocumentMapper {
     @Mapping(target = "statut", source = "statut", qualifiedByName = "mapStatut")
     @Mapping(target = "dateMiseAJour", expression = "java(entity.getDateDecision() != null ? entity.getDateDecision() : entity.getDateCreation())")
     @Mapping(target = "commentaireRH", source = "commentaireValidateur")
-    @Mapping(target = "delaiEstime", source = "typeDocument.code", qualifiedByName = "mapDelai")
+    @Mapping(target = "delaiEstime", expression = "java(entity.getTypeDocument().getDelaiTraitementJours() + \"j\")")
     DemandeDocumentResponse toResponse(Document entity);
 
     List<DemandeDocumentResponse> toResponseList(List<Document> entities);

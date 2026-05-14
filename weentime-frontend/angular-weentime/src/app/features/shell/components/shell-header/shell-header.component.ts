@@ -36,55 +36,79 @@ import { TemplatePortal } from '@angular/cdk/portal';
       </div>
 
       <div class="header-right">
-        <!-- Pointage Status Pill -->
-        <button [routerLink]="['/app', userRole(), 'pointage']"
-                class="pointage-status-pill group"
-                [class.active]="isPointageActive()"
-                [attr.data-tooltip]="isPointageActive() ? 'Session démarrée' : 'Aucun pointage aujourd’hui'">
-          @if (isPointageActive()) {
-            <div class="pulse-dot"></div>
-            <lucide-icon name="zap" size="16" class="status-icon" [strokeWidth]="2.5"></lucide-icon>
-            <span class="status-label">Pointé</span>
-            <span class="status-timer hidden sm:inline-block">{{ pointageService.sessionDuration() }}</span>
-          } @else {
-            <lucide-icon name="play" size="16" class="status-icon" [strokeWidth]="2.5"></lucide-icon>
-            <span class="status-label text-xs sm:text-sm">Non pointé</span>
-          }
-        </button>
-
-        <div class="system-group">
-          <!-- Dark mode toggle -->
-          <button (click)="themeService.toggleTheme()" class="icon-btn" data-tooltip="Changer le thème">
-            <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" size="18" [strokeWidth]="2"></lucide-icon>
-          </button>
-
-          <a routerLink="/app/messages"
-             class="message-pill"
-             [class.has-unread]="communicationUnreadTotal() > 0"
-             data-tooltip="Messages">
-            <lucide-icon name="message-square" size="16" [strokeWidth]="2"></lucide-icon>
-            <span class="message-pill-label hidden sm:inline">Messages</span>
-            @if (communicationUnreadTotal() > 0) {
-              <span class="message-pill-count">{{ communicationUnreadTotal() > 99 ? '99+' : communicationUnreadTotal() }}</span>
-            }
-          </a>
-
-          <!-- Notifications -->
-          <div class="notif-wrapper">
-            <button (click)="notifOpen.set(!notifOpen())"
-                    class="icon-btn notif-btn"
-                    [class.has-unread]="unreadCount() > 0"
-                    [class.bell-shake]="shakeBell()"
-                    data-tooltip="Notifications">
-              <lucide-icon name="bell" size="18" [strokeWidth]="2"></lucide-icon>
-              @if (unreadCount() > 0) {
-                <span class="notif-badge">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+        <!-- Live User Status Section -->
+        <div class="status-section">
+          <button [routerLink]="['/app', userRole(), 'pointage']"
+                  class="live-status-pill"
+                  [class.is-active]="isPointageActive()"
+                  [attr.data-tooltip]="isPointageActive() ? 'Session en cours' : 'Hors session'">
+            <div class="status-indicator">
+              <div class="status-dot"></div>
+              @if (isPointageActive()) {
+                <div class="status-pulse"></div>
               }
+            </div>
+            <span class="status-text">{{ isPointageActive() ? 'En activité' : 'Non pointé' }}</span>
+            @if (isPointageActive()) {
+              <span class="status-timer">{{ pointageService.sessionDuration() }}</span>
+            }
+          </button>
+        </div>
+
+        <div class="header-divider"></div>
+
+        <!-- System Actions & Profile Group -->
+        <div class="actions-section">
+          <div class="system-controls">
+            <button (click)="themeService.toggleTheme()" class="action-btn" data-tooltip="Thème">
+              <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" size="18"></lucide-icon>
             </button>
 
-            @if (notifOpen()) {
-              <app-notification-dropdown (close)="notifOpen.set(false)"></app-notification-dropdown>
-            }
+            <a routerLink="/app/messages" class="action-btn" [class.has-badge]="communicationUnreadTotal() > 0" data-tooltip="Messages">
+              <lucide-icon name="message-square" size="18"></lucide-icon>
+              @if (communicationUnreadTotal() > 0) {
+                <span class="btn-badge">{{ communicationUnreadTotal() > 9 ? '9+' : communicationUnreadTotal() }}</span>
+              }
+            </a>
+
+            <div class="notif-container">
+              <button (click)="notifOpen.set(!notifOpen())" class="action-btn" [class.has-badge]="unreadCount() > 0" [class.shake]="shakeBell()" data-tooltip="Notifications">
+                <lucide-icon name="bell" size="18"></lucide-icon>
+                @if (unreadCount() > 0) {
+                  <span class="btn-badge btn-badge--danger">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+                }
+              </button>
+              @if (notifOpen()) {
+                <app-notification-dropdown (close)="notifOpen.set(false)"></app-notification-dropdown>
+              }
+            </div>
+          </div>
+
+          <div class="profile-trigger-wrapper user-dropdown-wrapper">
+             <button (click)="dropdownOpen.set(!dropdownOpen())" class="profile-trigger">
+                <div class="avatar-box" [style.background]="avatarColor()">
+                  {{ initials() }}
+                </div>
+                <lucide-icon name="chevron-down" size="14" class="trigger-arrow" [class.rotated]="dropdownOpen()"></lucide-icon>
+             </button>
+
+             @if (dropdownOpen()) {
+               <div class="user-dropdown-menu">
+                 <div class="menu-header">
+                   <strong>{{ fullName() }}</strong>
+                   <span>{{ roleLabel() }}</span>
+                 </div>
+                 <div class="menu-divider"></div>
+                 <a [routerLink]="profileRoute()" class="menu-item" (click)="dropdownOpen.set(false)">
+                   <lucide-icon name="user" size="16"></lucide-icon>
+                   Mon Profil
+                 </a>
+                 <button class="menu-item text-red-500" (click)="onLogout()">
+                   <lucide-icon name="log-out" size="16"></lucide-icon>
+                   Déconnexion
+                 </button>
+               </div>
+             }
           </div>
         </div>
       </div>
@@ -203,250 +227,257 @@ import { TemplatePortal } from '@angular/cdk/portal';
     .header-right {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 20px;
     }
 
-    .system-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding-left: 12px;
-      margin-left: 4px;
-      border-left: 1px solid rgba(226, 232, 240, 0.8);
+    .header-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
     }
 
-    :host-context(.dark) .system-group {
-      border-left-color: rgba(45, 53, 72, 0.8);
-    }
-
-    .message-pill {
-      height: 38px;
-      padding: 0 14px;
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      color: #475569;
-      background: rgba(15, 23, 42, 0.04);
-      position: relative;
-      transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
-    }
-
-    .message-pill:hover {
-      transform: translateY(-1px);
-      background: rgba(15, 118, 110, 0.1);
-      color: #0f766e;
-    }
-
-    .message-pill.has-unread {
-      color: #0f766e;
-      background: rgba(15, 118, 110, 0.1);
-    }
-
-    .message-pill-count {
-      min-width: 20px;
-      height: 20px;
-      padding: 0 6px;
-      border-radius: 999px;
-      background: #0f766e;
-      color: white;
-      font-size: 10px;
-      font-weight: 800;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    :host-context(.dark) .message-pill {
-      background: rgba(255, 255, 255, 0.05);
-      color: #e2e8f0;
-    }
-
-    :host-context(.dark) .message-pill.has-unread {
-      background: rgba(15, 118, 110, 0.18);
-      color: #99f6e4;
-    }
-
-    .icon-btn {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: transparent;
-      color: #64748b;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      border: none;
-      transition: all 0.25s ease;
-      position: relative;
-    }
-
-    .icon-btn:hover {
-      background: rgba(0, 0, 0, 0.04);
-      color: #1e1b4b;
-      transform: translateY(-1px);
-    }
-
-    :host-context(.dark) .icon-btn {
-      color: #94a3b8;
-    }
-
-    :host-context(.dark) .icon-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #f8fafc;
-    }
-
-    /* Minimalist Tooltip */
-    .icon-btn::after, .pointage-status-pill::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      top: calc(100% + 10px);
-      left: 50%;
-      transform: translateX(-50%) translateY(4px);
-      background: #0f172a;
-      color: #ffffff;
-      padding: 5px 10px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: 600;
-      white-space: nowrap;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 100;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .icon-btn:hover::after, .pointage-status-pill:hover::after {
-      opacity: 1;
-      visibility: visible;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    /* Pointage Status Pill */
-    .pointage-status-pill {
+    /* --- Status Section --- */
+    .live-status-pill {
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 6px 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 700;
+      border-radius: 100px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
       cursor: pointer;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc;
-      color: #64748b;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      height: 38px;
-      outline: none;
     }
 
-    .pointage-status-pill:hover {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+    .live-status-pill:hover {
+      background: var(--surface);
+      border-color: var(--primary-light);
       transform: translateY(-1px);
     }
 
-    .pointage-status-pill.active {
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.3);
-      color: #059669;
-      padding-right: 16px;
+    .live-status-pill.is-active {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.2);
     }
 
-    .pointage-status-pill.active:hover {
-      background: rgba(16, 185, 129, 0.15);
-      border-color: rgba(16, 185, 129, 0.4);
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
-    }
-
-    .pulse-dot {
+    .status-indicator {
+      position: relative;
       width: 8px;
       height: 8px;
-      background: #10b981;
-      border-radius: 50%;
-      position: relative;
     }
 
-    .pulse-dot::after {
-      content: '';
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--muted-light);
+      border-radius: 50%;
+    }
+
+    .is-active .status-dot {
+      background: var(--accent);
+    }
+
+    .status-pulse {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
+      background: var(--accent);
       border-radius: 50%;
-      background: inherit;
-      animation: status-pulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+      animation: status-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
-    @keyframes status-pulse {
-      0% { transform: scale(1); opacity: 0.6; }
-      100% { transform: scale(2.8); opacity: 0; }
+    @keyframes status-ping {
+      75%, 100% { transform: scale(3); opacity: 0; }
+    }
+
+    .status-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .is-active .status-text {
+      color: var(--accent-dark);
     }
 
     .status-timer {
-      font-family: 'JetBrains Mono', 'Monaco', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
       font-weight: 600;
-      padding-left: 10px;
-      border-left: 1px solid rgba(5, 150, 105, 0.2);
+      color: var(--accent-dark);
+      padding-left: 8px;
+      border-left: 1px solid rgba(16, 185, 129, 0.2);
     }
 
-    :host-context(.dark) .pointage-status-pill {
-      background: #1a1f2e;
-      border-color: #2d3548;
-      color: #94a3b8;
+    /* --- Actions Section --- */
+    .actions-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
 
-    :host-context(.dark) .pointage-status-pill:hover {
-      background: #2d3548;
-      color: #e2e8f0;
+    .system-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
     }
 
-    :host-context(.dark) .pointage-status-pill.active {
-      background: rgba(16, 185, 129, 0.15);
-      border-color: rgba(16, 185, 129, 0.4);
-      color: #34d399;
-    }
-
-    .notif-wrapper { position: relative; }
-    .notif-btn { position: relative; }
-
-    .notif-badge {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      min-width: 15px;
-      height: 15px;
-      background: #534AB7;
-      color: white;
-      border-radius: 500px;
-      font-size: 9px;
-      font-weight: 700;
+    .action-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background: var(--surface-alt);
+      color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .btn-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      min-width: 18px;
+      height: 18px;
       padding: 0 4px;
-      border: 2px solid #fff;
+      background: var(--primary);
+      color: white;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--surface);
     }
 
-    :host-context(.dark) .notif-badge {
-      border-color: #0f1117;
+    .btn-badge--danger {
+      background: var(--danger);
     }
 
-    .bell-shake {
-      animation: bell-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    .action-btn.shake {
+      animation: bell-shake 0.5s ease both;
+    }
+
+    /* --- Profile Section --- */
+    .profile-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px;
+      border-radius: 14px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .profile-trigger:hover {
+      background: var(--surface-alt);
+      border-color: var(--border);
+    }
+
+    .avatar-box {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .trigger-arrow {
+      color: var(--text-tertiary);
+      transition: transform 0.2s ease;
+    }
+
+    .trigger-arrow.rotated {
+      transform: rotate(180deg);
+    }
+
+    .user-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-xl);
+      padding: 8px;
+      z-index: 1000;
+      animation: slide-up-fade 0.2s ease;
+    }
+
+    .menu-header {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .menu-header strong {
+      display: block;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    .menu-header span {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.15s ease;
+    }
+
+    .menu-item:hover {
+      background: var(--surface-alt);
+      color: var(--primary);
+    }
+
+    @keyframes slide-up-fade {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     @keyframes bell-shake {
       0%, 100% { transform: rotate(0); }
-      20%, 60% { transform: rotate(15deg); }
-      40%, 80% { transform: rotate(-15deg); }
+      20%, 60% { transform: rotate(10deg); }
+      40%, 80% { transform: rotate(-10deg); }
     }
 
     .notification-count {
@@ -749,6 +780,22 @@ export class ShellHeaderComponent {
       hash = name.charCodeAt(index) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
+  });
+
+  readonly fullName = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) return 'Utilisateur';
+    return `${user.prenom ?? ''} ${user.nom ?? ''}`.trim() || user.email;
+  });
+
+  readonly roleLabel = computed(() => {
+    const role = this.userRole();
+    switch (role) {
+      case 'admin': return 'Administrateur';
+      case 'rh': return 'Responsable RH';
+      case 'manager': return 'Manager d\'équipe';
+      default: return 'Collaborateur';
+    }
   });
 
   onLogout(): void {

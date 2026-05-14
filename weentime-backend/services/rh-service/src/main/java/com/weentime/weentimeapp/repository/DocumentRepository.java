@@ -21,4 +21,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     long countByUtilisateurIdInAndDateCreationBetween(List<Long> utilisateurIds, LocalDateTime start, LocalDateTime end);
 
     boolean existsByUtilisateurIdAndTypeDocumentAndStatutIn(Long utilisateurId, TypeDocument type, List<StatutDemandeEnum> statuts);
+
+    long countByUtilisateurIdAndTypeDocumentAndDateCreationAfter(Long utilisateurId, TypeDocument typeDocument, java.time.LocalDateTime after);
 }
