@@ -32,10 +32,7 @@ from tools.hr_tools import HRTools
 from voice.audio_conversion import convert_to_wav
 from voice.stt import AudioConversionError, SpeechToTextService, VoiceProcessingResult, is_valid_audio
 from voice.tts import TextToSpeechService
-from app.api.chat_v2 import router as chat_v2_router
-from app.api.health_v2 import router as health_v2_router
-from app.api.voice_v2 import router as voice_v2_router
-from app.api.document_generation import router as document_generation_router
+from app.api.router_loader import RouterSpec, register_routers
 from app.core.copilot_engine import configure_copilot_engine, process_copilot_message
 from app.nlp.language_detector import detect_language as detect_response_language
 from app.observability.decorators import trace_ai_step
@@ -282,10 +279,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(chat_v2_router)
-app.include_router(health_v2_router)
-app.include_router(voice_v2_router)
-app.include_router(document_generation_router)
+register_routers(
+    app,
+    [
+        RouterSpec(name="chat_v2", module_path="app.api.chat_v2", critical=True),
+        RouterSpec(name="health_v2", module_path="app.api.health_v2", critical=True),
+        RouterSpec(name="voice_v2", module_path="app.api.voice_v2", critical=True),
+        RouterSpec(name="document_generation", module_path="app.api.document_generation", critical=False),
+    ],
+)
 
 
 @app.exception_handler(RequestValidationError)
