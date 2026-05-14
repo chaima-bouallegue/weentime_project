@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,13 +25,13 @@ public class RhDashboardCompatibilityController {
     @GetMapping("/dashboard")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
     public ResponseEntity<ApiResponse<RhDashboardDTO>> getDashboard() {
-        return ResponseEntity.ok(ApiResponse.success(rhDashboardService.getDashboard()));
+        return ResponseEntity.ok(ApiResponse.success(normalizeDashboard(rhDashboardService.getDashboard())));
     }
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStatsOverview() {
-        RhDashboardDTO dashboard = rhDashboardService.getDashboard();
+        RhDashboardDTO dashboard = normalizeDashboard(rhDashboardService.getDashboard());
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("totalEmployees", dashboard.getTotalEmployees());
         payload.put("presentToday", dashboard.getPresentCount());
@@ -52,29 +54,61 @@ public class RhDashboardCompatibilityController {
     @GetMapping("/stats/evolution-mensuelle")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
     public ResponseEntity<ApiResponse<Map<Integer, Long>>> getMonthlyEvolution() {
-        Map<Integer, Long> byMonth = rhDashboardService.getDashboard().getRecentActivities().stream()
-                .filter(activity -> activity.getDate() != null)
-                .collect(java.util.stream.Collectors.groupingBy(
-                        activity -> activity.getDate().getMonthValue(),
-                        LinkedHashMap::new,
-                        java.util.stream.Collectors.counting()
-                ));
-
-        for (java.time.Month month : java.time.Month.values()) {
-            byMonth.putIfAbsent(month.getValue(), 0L);
-        }
-
-        return ResponseEntity.ok(ApiResponse.success(byMonth));
+        return ResponseEntity.ok(ApiResponse.success(normalizeDashboard(rhDashboardService.getDashboard()).getMonthlyRequestEvolution()));
     }
 
     @GetMapping("/stats/demandes-par-type")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getDemandesByType() {
-        RhDashboardDTO.RequestStats requestStats = rhDashboardService.getDashboard().getRequestStats();
+        RhDashboardDTO.RequestStats requestStats = normalizeDashboard(rhDashboardService.getDashboard()).getRequestStats();
         Map<String, Long> byType = new LinkedHashMap<>();
         byType.put("CONGE", requestStats.getLeave());
         byType.put("AUTORISATION", requestStats.getAutorisation());
         byType.put("TELETRAVAIL", requestStats.getTeletravail());
         return ResponseEntity.ok(ApiResponse.success(byType));
+    }
+
+    private RhDashboardDTO normalizeDashboard(RhDashboardDTO source) {
+        RhDashboardDTO dashboard = source == null ? new RhDashboardDTO() : source;
+
+        if (dashboard.getHoursWorked() == null) {
+            dashboard.setHoursWorked(BigDecimal.ZERO);
+        }
+        if (dashboard.getPendingRequests() == null) {
+            dashboard.setPendingRequests(List.of());
+        }
+        if (dashboard.getAttendanceStats() == null) {
+            dashboard.setAttendanceStats(RhDashboardDTO.AttendanceStats.builder()
+                    .present(0)
+                    .absent(0)
+                    .remote(0)
+                    .build());
+        }
+        if (dashboard.getRequestStats() == null) {
+            dashboard.setRequestStats(RhDashboardDTO.RequestStats.builder()
+                    .leave(0)
+                    .autorisation(0)
+                    .teletravail(0)
+                    .build());
+        }
+        if (dashboard.getHighlightedEmployees() == null) {
+            dashboard.setHighlightedEmployees(List.of());
+        }
+        if (dashboard.getRecentActivities() == null) {
+            dashboard.setRecentActivities(List.of());
+        }
+        if (dashboard.getDepartmentEmployeeCounts() == null) {
+            dashboard.setDepartmentEmployeeCounts(new LinkedHashMap<>());
+        }
+        if (dashboard.getMonthlyRequestEvolution() == null) {
+            dashboard.setMonthlyRequestEvolution(new LinkedHashMap<>());
+        }
+        for (java.time.Month month : java.time.Month.values()) {
+            dashboard.getMonthlyRequestEvolution().putIfAbsent(month.getValue(), 0L);
+        }
+        if (dashboard.getRequestStatusDistribution() == null) {
+            dashboard.setRequestStatusDistribution(new LinkedHashMap<>());
+        }
+        return dashboard;
     }
 }

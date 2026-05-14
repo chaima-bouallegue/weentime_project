@@ -131,9 +131,9 @@ public class DemandeController {
         LocalDate from = parseDate(dateFrom);
         LocalDate to = parseDate(dateTo);
         TypeDemandeEnum typeFilter = parseType(type);
-        Set<StatutDemandeEnum> statutFilter = StatutDemandeEnum.resolveFilterValues(statut);
+        Set<StatutDemandeEnum> statutFilter = parseStatutFilter(statut);
 
-        List<DemandeDTO> demandes = source.stream()
+        List<DemandeDTO> demandes = (source == null ? List.<DemandeDTO>of() : source).stream()
                 .filter(demande -> statutFilter == null || statutFilter.contains(demande.getStatut()))
                 .filter(demande -> typeFilter == null || demande.getTypeDemande() == typeFilter)
                 .filter(demande -> employeeFilter == null || employeeFilter.isBlank() || matchesEmployee(demande, employeeFilter))
@@ -189,7 +189,23 @@ public class DemandeController {
         if (value == null || value.isBlank()) {
             return null;
         }
-        return TypeDemandeEnum.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        try {
+            return TypeDemandeEnum.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Type de demande invalide: " + value);
+        }
+    }
+
+    private Set<StatutDemandeEnum> parseStatutFilter(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        Set<StatutDemandeEnum> statuts = StatutDemandeEnum.resolveFilterValues(value);
+        if (statuts == null || statuts.isEmpty()) {
+            throw new IllegalArgumentException("Statut invalide: " + value);
+        }
+        return statuts;
     }
 
     private LocalDateTime resolveDate(DemandeDTO demande) {

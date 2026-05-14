@@ -9,7 +9,7 @@ spring:
     import: optional:configserver:http://localhost:8988
 
   datasource:
-    url: jdbc:postgresql://localhost:5435/organisation_db
+    url: jdbc:postgresql://localhost:5433/organisation_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver

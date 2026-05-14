@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -98,5 +99,31 @@ class RhDashboardControllerTest {
                 .andExpect(jsonPath("$.data.pendingRequests[0].employeeName").value("Ada Lovelace"))
                 .andExpect(jsonPath("$.data.attendanceStats.remote").value(1))
                 .andExpect(jsonPath("$.data.recentActivities[0].route").value("/app/rh/requests"));
+    }
+
+    @Test
+    @WithMockUser(roles = "RH")
+    void getMonthlyEvolutionReturnsTwelveMonthsWhenDashboardHasNoData() throws Exception {
+        when(rhDashboardService.getDashboard()).thenReturn(new RhDashboardDTO());
+
+        mockMvc.perform(get("/api/v1/rh/stats/evolution-mensuelle"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data['1']").value(0))
+                .andExpect(jsonPath("$.data['6']").value(0))
+                .andExpect(jsonPath("$.data['12']").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "RH")
+    void getDemandesByTypeReturnsZeroCountsWhenDashboardStatsAreMissing() throws Exception {
+        RhDashboardDTO dashboard = new RhDashboardDTO();
+        dashboard.setMonthlyRequestEvolution(new LinkedHashMap<>());
+        when(rhDashboardService.getDashboard()).thenReturn(dashboard);
+
+        mockMvc.perform(get("/api/v1/rh/stats/demandes-par-type"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.CONGE").value(0))
+                .andExpect(jsonPath("$.data.AUTORISATION").value(0))
+                .andExpect(jsonPath("$.data.TELETRAVAIL").value(0));
     }
 }

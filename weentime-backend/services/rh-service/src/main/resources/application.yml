@@ -5,7 +5,7 @@ spring:
   application:
     name: rh-service
   datasource:
-    url: jdbc:postgresql://localhost:5435/rh_db
+    url: jdbc:postgresql://localhost:5433/rh_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver

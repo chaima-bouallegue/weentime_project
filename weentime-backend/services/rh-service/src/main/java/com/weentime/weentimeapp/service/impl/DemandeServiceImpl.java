@@ -11,6 +11,7 @@ import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.DemandeService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 @Transactional
 @SuppressWarnings("null")
+@Slf4j
 public class DemandeServiceImpl implements DemandeService {
 
     private final DemandeRepository demandeRepository;
@@ -102,7 +104,11 @@ public class DemandeServiceImpl implements DemandeService {
                 dto.setDateFin(c.getDateFin() != null ? c.getDateFin().atStartOfDay() : null);
                 dto.setNombreJours(c.getNombreJours() != null ? c.getNombreJours().doubleValue() : 0.0);
                 if (c.getTypeCongeId() != null) {
-                    typeCongeRepository.findById(c.getTypeCongeId()).ifPresent(t -> dto.setTypeCongeNom(t.getLibelle()));
+                    try {
+                        typeCongeRepository.findById(c.getTypeCongeId()).ifPresent(t -> dto.setTypeCongeNom(t.getLibelle()));
+                    } catch (Exception exception) {
+                        log.warn("Unable to resolve type conge {} for demande {}: {}", c.getTypeCongeId(), dto.getId(), exception.getMessage());
+                    }
                 }
             } else if (entity instanceof Teletravail t) {
                 dto.setDateDebut(t.getDateDebut() != null ? t.getDateDebut().atStartOfDay() : null);
@@ -114,8 +120,12 @@ public class DemandeServiceImpl implements DemandeService {
                 dto.setDateFin(a.getDateAutorisation() != null && a.getHeureFin() != null ? 
                                  a.getDateAutorisation().atTime(a.getHeureFin()) : null);
                 dto.setNombreJours(a.getDuree() != null ? a.getDuree() / 60.0 : 0.0);
-                if (a.getTypeAutorisation() != null) {
-                    dto.setTypeAutorisation(a.getTypeAutorisation().getLibelle());
+                try {
+                    if (a.getTypeAutorisation() != null) {
+                        dto.setTypeAutorisation(a.getTypeAutorisation().getLibelle());
+                    }
+                } catch (Exception exception) {
+                    log.warn("Unable to resolve type autorisation for demande {}: {}", dto.getId(), exception.getMessage());
                 }
             }
         }

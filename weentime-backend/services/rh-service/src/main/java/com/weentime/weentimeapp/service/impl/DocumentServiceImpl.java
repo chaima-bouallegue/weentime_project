@@ -154,7 +154,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     public List<DemandeDocumentResponse> getDemandesEntreprise(Long entrepriseId) {
         List<Long> userIds = organisationClient.findUserIdsByEntrepriseId(entrepriseId);
-        if (userIds.isEmpty()) {
+        if (userIds == null || userIds.isEmpty()) {
             return List.of();
         }
 
@@ -167,7 +167,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     public StatsDocumentsDTO getStats(Long entrepriseId) {
         List<Long> userIds = organisationClient.findUserIdsByEntrepriseId(entrepriseId);
-        if (userIds.isEmpty()) {
+        if (userIds == null || userIds.isEmpty()) {
             return new StatsDocumentsDTO();
         }
 
@@ -286,21 +286,28 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     private DemandeDocumentResponse enrichirResponse(Document document) {
+        if (document == null) {
+            return new DemandeDocumentResponse();
+        }
+
         DemandeDocumentResponse response = documentMapper.toResponse(document);
 
         try {
             UserResponse user = organisationClient.getUtilisateurById(document.getUtilisateurId());
-            response.setEmployeId(user.getId());
-            response.setEmployeNom(user.getNom());
-            response.setEmployePrenom(user.getPrenom());
-            response.setEmployePoste(user.getPoste());
-            response.setEmployeDepartement(user.getDepartementNom());
-            response.setEmployeeEmail(user.getEmail());
+            if (user != null) {
+                response.setEmployeId(user.getId());
+                response.setEmployeNom(user.getNom());
+                response.setEmployePrenom(user.getPrenom());
+                response.setEmployePoste(user.getPoste());
+                response.setEmployeDepartement(user.getDepartementNom());
+                response.setEmployeeEmail(user.getEmail());
+            }
         } catch (Exception exception) {
             log.warn("Erreur lors de l'enrichissement employe: {}", exception.getMessage());
         }
 
         response.setUrgente(document.getStatut() == StatutDemandeEnum.EN_ATTENTE_RH
+                && document.getDateCreation() != null
                 && document.getDateCreation().isBefore(LocalDateTime.now().minusHours(48)));
 
         return response;

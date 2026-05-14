@@ -15,7 +15,7 @@ public class TypeDocument {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "entreprise_id")
     private Long entrepriseId;
 
     @Column(nullable = false, unique = true)
