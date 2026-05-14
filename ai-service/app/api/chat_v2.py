@@ -122,6 +122,7 @@ async def confirm_chat_action(
                     requiresConfirmation=False,
                     confirmationId=payload.confirmation_id,
                 )
+                response = services["response_guard"].guard_response(response, context)
                 response_payload = response.model_dump(mode="json")
                 response_payload["request_id"] = request_id
                 response_payload["requestId"] = request_id
@@ -151,6 +152,7 @@ async def confirm_chat_action(
                 toolCalls=[ToolCallRecord(name=record.tool_name, arguments=record.tool_input, status="success" if result.success else ("business_conflict" if known_conflict else "failed"))],
                 actionResult=result.model_dump(mode="json"),
             )
+            response = services["response_guard"].guard_response(response, context)
             response_payload = response.model_dump(mode="json")
             response_payload["request_id"] = request_id
             response_payload["requestId"] = request_id

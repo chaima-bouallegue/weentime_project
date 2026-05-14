@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 from pathlib import Path
@@ -9,6 +9,7 @@ from app.agents.router_agent import RouterAgent
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
 from app.policy import LocalPolicyStore, PolicyRetriever
+from app.guards.response_guard import ResponseGuard
 from app.tools.audit import ToolAuditLogger
 from app.tools.executor import ToolExecutor
 from app.tools.policy_tools import register_policy_tools
@@ -61,6 +62,7 @@ def test_answer_uses_approved_source() -> None:
     assert response.actionResult["policyAvailable"] is True
     assert "tenant42-sick-leave" == response.actionResult["citations"][0]["sourceId"]
     assert "certificat" in response.text.lower()
+    assert ResponseGuard().validate(response, context()).allowed is True
 
 
 def test_missing_source_returns_unavailable_answer() -> None:

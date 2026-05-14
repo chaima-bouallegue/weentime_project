@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -7,7 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
+from app.guards.response_guard import ResponseGuard
 from app.models.agent_models import AgentResponse
 from app.tools.executor import ToolExecutor
 from app.tools.legacy_adapter import LegacyHrToolsAdapter
@@ -15,6 +17,7 @@ from app.tools.registry import ToolRegistry
 from tools.api_client import ToolResult as LegacyToolResult
 from voice.stt import VoiceProcessingResult
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceProcessorResult
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
 def context(role: str = "EMPLOYEE") -> CurrentUserContext:
@@ -29,6 +32,16 @@ class FakeHrTools:
     async def execute_action(self, action, payload, *, user_id, access_token=None, role="EMPLOYEE"):
         self.calls.append((action, payload))
         return self.result
+
+
+class FakeBackendClient:
+    async def get(self, path, *, context, params=None):
+        if path == "/users/me":
+            return ToolResult.ok({"id": context.user_id, "role": "EMPLOYEE", "entrepriseId": 9})
+        return ToolResult.ok({})
+
+    async def post(self, path, *, context, json=None, headers=None):
+        return ToolResult.ok({})
 
 
 async def execute_legacy(tool_name: str, legacy_result: LegacyToolResult, *, role: str = "EMPLOYEE"):
@@ -55,6 +68,8 @@ async def test_leave_balance_read_returns_read_result_summary() -> None:
     assert read_result["summary"] == "Il vous reste 12 jours de conge."
     assert read_result["count"] == 1
     assert read_result["backendStatus"] == 200
+    response = AgentResponse(type="answer", text=read_result["summary"], intent="leave.balance", confidence=0.9, actionResult=result.model_dump(mode="json"))
+    assert ResponseGuard().validate(response, context()).allowed is True
 
 
 @pytest.mark.asyncio
@@ -128,8 +143,13 @@ async def test_403_returns_permission_denied_message() -> None:
     assert "droits necessaires" in read_result["summary"]
 
 
-def make_token() -> str:
-    return "header.eyJ1c2VySWQiOjEyLCJyb2xlIjoiRU1QTE9ZRUUiLCJlbnRyZXByaXNlSWQiOjl9.signature"
+def prepare_v2_state(client: TestClient) -> None:
+    client.app.state.copilot_ready = False
+    client.app.state.copilot_backend_client = FakeBackendClient()
+    client.app.state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
+    for attr in ("copilot_tool_registry", "copilot_tool_executor", "copilot_confirmation_store", "copilot_router_agent", "copilot_attendance_agent", "copilot_response_guard"):
+        if hasattr(client.app.state, attr):
+            delattr(client.app.state, attr)
 
 
 def fake_voice_result(tmp_path: Path) -> VoiceProcessorResult:
@@ -173,9 +193,11 @@ def test_voice_path_preserves_read_result(monkeypatch, tmp_path: Path) -> None:
     )
 
     with TestClient(main.app) as client:
+        prepare_v2_state(client)
+        token = make_token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
         response = client.post(
             "/v2/voice",
-            headers={"Authorization": f"Bearer {make_token()}"},
+            headers={"Authorization": f"Bearer {token}"},
             files={"audio_file": ("audio.webm", b"fake", "audio/webm")},
         )
 

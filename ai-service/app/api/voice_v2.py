@@ -109,6 +109,7 @@ async def voice_v2(
                             },
                         )
 
+                response = services["response_guard"].guard_response(response, context)
                 response_payload = _payload_from_response(response)
                 text = str(response_payload.get("text") or response_payload.get("message") or response_payload.get("response") or "")
                 audio_url = None
@@ -165,7 +166,7 @@ async def _maybe_handle_voice_confirmation(
 
     if normalized in NEGATIVE_CONFIRMATIONS:
         store.reject(record.confirmation_id)
-        return AgentResponse(
+        response = AgentResponse(
             type="answer",
             text="Action annulee.",
             intent="confirmation.rejected",
@@ -173,6 +174,7 @@ async def _maybe_handle_voice_confirmation(
             requiresConfirmation=False,
             confirmationId=record.confirmation_id,
         )
+        return services["response_guard"].guard_response(response, context)
 
     store.consume(record.confirmation_id)
     result = await services["executor"].execute(record.tool_name, record.tool_input, context, confirmed=True)
@@ -186,7 +188,7 @@ async def _maybe_handle_voice_confirmation(
             "business_conflict": bool(result.status_code == 409),
         },
     )
-    return AgentResponse(
+    response = AgentResponse(
         type="execute_action" if result.success else "error",
         text="Action confirmee." if result.success else (result.error_message or "Action refusee par le backend."),
         intent=f"confirmation.{record.tool_name}",
@@ -196,6 +198,7 @@ async def _maybe_handle_voice_confirmation(
         toolCalls=[ToolCallRecord(name=record.tool_name, arguments=record.tool_input, status="success" if result.success else "failed")],
         actionResult=result.model_dump(mode="json"),
     )
+    return services["response_guard"].guard_response(response, context)
 
 
 def _confirmation_token(value: str) -> str:

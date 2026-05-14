@@ -24,6 +24,7 @@ from app.nlp.language_detector import detect_language
 from app.i18n.response_localizer import localize_agent_response
 from app.observability.request_context import ensure_request_id
 from app.observability.tracing import log_error, log_event, start_span
+from app.guards.response_guard import ResponseGuard
 from app.insights import InsightEngine
 from app.policy import LocalPolicyStore, PolicyRetriever
 from app.tools.attendance_tools import register_attendance_tools
@@ -60,12 +61,15 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     if getattr(state, "copilot_ready", False):
         if not hasattr(state, "copilot_conversation_store"):
             state.copilot_conversation_store = ConversationStateStore()
+        if not hasattr(state, "copilot_response_guard"):
+            state.copilot_response_guard = ResponseGuard()
         return {
             "context_builder": state.copilot_context_builder,
             "router_agent": state.copilot_router_agent,
             "confirmation_store": state.copilot_confirmation_store,
             "executor": state.copilot_tool_executor,
             "conversation_store": state.copilot_conversation_store,
+            "response_guard": state.copilot_response_guard,
         }
 
     settings = getattr(state, "settings", None)
@@ -105,6 +109,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
 
     confirmation_store = getattr(state, "copilot_confirmation_store", None) or ConfirmationStore()
     conversation_store = getattr(state, "copilot_conversation_store", None) or ConversationStateStore()
+    response_guard = getattr(state, "copilot_response_guard", None) or ResponseGuard()
     executor = getattr(state, "copilot_tool_executor", None) or ToolExecutor(registry, ToolAuditLogger())
     if not getattr(state, "copilot_insight_tools_registered", False):
         register_insight_tools(registry, executor, insight_engine)
@@ -152,6 +157,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_tool_registry = registry
     state.copilot_confirmation_store = confirmation_store
     state.copilot_conversation_store = conversation_store
+    state.copilot_response_guard = response_guard
     state.copilot_tool_executor = executor
     state.copilot_attendance_agent = attendance_agent
     state.copilot_leave_agent = leave_agent
@@ -176,6 +182,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         "confirmation_store": confirmation_store,
         "executor": executor,
         "conversation_store": conversation_store,
+        "response_guard": response_guard,
     }
 
 
@@ -254,7 +261,8 @@ async def process_copilot_message(
                     confidence=0.9,
                     actionResult={"kind": "error_explanation", "lastError": last_error},
                 )
-                return localize_agent_response(response, context)
+                response = localize_agent_response(response, context)
+                return services["response_guard"].guard_response(response, context)
 
         response = await continue_pending_flow(
             message=message,
@@ -274,6 +282,7 @@ async def process_copilot_message(
                 session_id=session_id,
             )
         response = localize_agent_response(response, context)
+        response = services["response_guard"].guard_response(response, context)
         if response.type == "error":
             services["conversation_store"].record_last_error(context, response.text, session_id)
         response_text = str(getattr(response, "text", "") or "")
