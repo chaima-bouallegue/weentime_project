@@ -8,6 +8,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 from app.models.envelopes import ApiEnvelope
+from app.events import get_redis_event_status
 from app.observability.braintrust_client import get_braintrust_status, send_test_event
 from app.providers.router import ProviderRouter
 from app.tools.backend_client import BackendClient
@@ -28,6 +29,7 @@ async def health_deep(request: Request) -> ApiEnvelope:
         "backend_gateway": {"ok": False},
         "braintrust": get_braintrust_status(),
         "provider": {"ok": False, "status": "unknown"},
+        "redis_events": get_redis_event_status(settings),
     }
     warnings: list[str] = []
 
@@ -63,7 +65,13 @@ async def health_deep(request: Request) -> ApiEnvelope:
 
     status = "ok" if not warnings else "degraded"
     return ApiEnvelope.ok(
-        {"status": status, "checks": checks, "braintrust": checks["braintrust"], "provider": checks["provider"]},
+        {
+            "status": status,
+            "checks": checks,
+            "braintrust": checks["braintrust"],
+            "provider": checks["provider"],
+            "redis_events": checks["redis_events"],
+        },
         warnings=warnings,
     )
 

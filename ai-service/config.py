@@ -116,6 +116,11 @@ class Settings:
         self.braintrust_redact_emails = _to_bool(os.getenv("BRAINTRUST_REDACT_EMAILS"), True)
         self.braintrust_max_text_length = max(64, int(os.getenv("BRAINTRUST_MAX_TEXT_LENGTH", "1200")))
 
+        self.redis_enabled = _to_bool(os.getenv("REDIS_ENABLED"), False)
+        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379").strip()
+        self.redis_ai_events_channel = os.getenv("REDIS_AI_EVENTS_CHANNEL", "ai.events.generated").strip()
+        self.redis_default_ttl_seconds = max(1, int(os.getenv("REDIS_DEFAULT_TTL_SECONDS", "300")))
+
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.rag_documents_dir.mkdir(parents=True, exist_ok=True)
         self.temp_audio_dir.mkdir(parents=True, exist_ok=True)

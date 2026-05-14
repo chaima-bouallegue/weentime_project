@@ -9,7 +9,6 @@ import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Slf4j
@@ -37,7 +36,11 @@ public class RedisRealtimeSubscriber implements MessageListener {
                 localRealtimeDispatcher.dispatchUserEvent(Long.parseLong(envelope.target()), event);
             }
         } catch (Exception exception) {
-            log.warn("Ignoring malformed Redis realtime event payload: {}", new String(message.getBody(), StandardCharsets.UTF_8));
+            log.warn(
+                    "Ignoring malformed Redis realtime event payload. bytes={}, error={}",
+                    message.getBody() == null ? 0 : message.getBody().length,
+                    exception.getClass().getSimpleName()
+            );
         }
     }
 }
