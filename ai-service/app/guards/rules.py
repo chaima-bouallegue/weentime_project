@@ -148,7 +148,7 @@ def _looks_like_write_success(text: str | None) -> bool:
 class UnsupportedToolClaimRule(GuardRule):
     category = "unsupported_tool_claim"
 
-    _tool_like = re.compile(r"\b(?:admin|leave|document|telework|authorization|attendance|legacy|policy|insights)\.[a-z_]+", re.IGNORECASE)
+    _tool_like = re.compile(r"\b(?:admin|leave|document|telework|authorization|attendance|communication|legacy|policy|insights)\.[a-z_]+", re.IGNORECASE)
     _claim_words = ("execute", "executed", "appele", "appelé", "called", "success", "succes", "succès")
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:

@@ -5,6 +5,7 @@ from typing import Any, Awaitable, Callable
 from app.agents.attendance_agent import AttendanceAgent
 from app.agents.admin_agent import AdminAgent
 from app.agents.authorization_agent import AuthorizationAgent
+from app.agents.communication_agent import CommunicationAgent
 from app.agents.document_agent import DocumentAgent
 from app.agents.hr_policy_agent import HRPolicyAgent
 from app.agents.insight_agent import InsightAgent
@@ -33,6 +34,7 @@ from app.tools.admin_tools import register_admin_tools
 from app.tools.audit import ToolAuditLogger
 from app.tools.authorization_tools import register_authorization_tools
 from app.tools.backend_client import BackendClient
+from app.tools.communication_tools import register_communication_tools
 from app.tools.document_tools import register_document_tools
 from app.tools.executor import ToolExecutor
 from app.tools.insight_tools import register_insight_tools
@@ -104,6 +106,9 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     if not getattr(state, "copilot_admin_tools_registered", False):
         register_admin_tools(registry, backend_client)
         state.copilot_admin_tools_registered = True
+    if not getattr(state, "copilot_communication_tools_registered", False):
+        register_communication_tools(registry, backend_client)
+        state.copilot_communication_tools_registered = True
     if not getattr(state, "copilot_policy_tools_registered", False):
         register_policy_tools(registry, policy_retriever)
         state.copilot_policy_tools_registered = True
@@ -127,6 +132,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     manager_agent = getattr(state, "copilot_manager_agent", None) or ManagerAgent(executor, confirmation_store)
     rh_agent = getattr(state, "copilot_rh_agent", None) or RHAgent(executor, confirmation_store)
     admin_agent = getattr(state, "copilot_admin_agent", None) or AdminAgent(executor, confirmation_store)
+    communication_agent = getattr(state, "copilot_communication_agent", None) or CommunicationAgent(executor, confirmation_store)
     employee_copilot = getattr(state, "copilot_employee_copilot", None) or EmployeeCopilot(executor)
     manager_copilot = getattr(state, "copilot_manager_copilot", None) or ManagerCopilot(executor)
     rh_copilot = getattr(state, "copilot_rh_copilot", None) or RHCopilot(executor)
@@ -144,6 +150,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             manager_agent,
             rh_agent,
             admin_agent,
+            communication_agent,
             insight_agent,
             employee_copilot,
             manager_copilot,
@@ -173,6 +180,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_manager_agent = manager_agent
     state.copilot_rh_agent = rh_agent
     state.copilot_admin_agent = admin_agent
+    state.copilot_communication_agent = communication_agent
     state.copilot_insight_agent = insight_agent
     state.copilot_employee_copilot = employee_copilot
     state.copilot_manager_copilot = manager_copilot
