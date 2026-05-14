@@ -75,11 +75,12 @@ def test_provider_router_ollama_mode_without_provider_is_configured_by_settings(
             "ai_provider_mode": "ollama",
             "ai_provider_timeout_seconds": 20.0,
             "ai_provider_model": "qwen2.5:3b",
-            "ai_provider_optional_model": "qwen2.5:7b",
+            "ai_provider_optional_model": "qwen2.5-coder:3b-instruct",
             "ai_local_device": "cpu",
             "ollama_base_url": "http://localhost:11434",
             "ollama_model": "qwen2.5:3b",
-            "ollama_fallback_model": "",
+            "ollama_coder_model": "qwen2.5-coder:3b-instruct",
+            "ollama_fallback_model": "phi3",
             "ollama_timeout_seconds": 20.0,
             "ollama_max_tokens": 512,
             "ollama_temperature": 0.2,
@@ -91,6 +92,8 @@ def test_provider_router_ollama_mode_without_provider_is_configured_by_settings(
     assert router.mode == "ollama"
     assert router.selected_provider().provider_name() == "ollama"
     assert router.default_model == "qwen2.5:3b"
+    assert router.coder_model == "qwen2.5-coder:3b-instruct"
+    assert router.fallback_model == "phi3"
 
 
 @pytest.mark.asyncio

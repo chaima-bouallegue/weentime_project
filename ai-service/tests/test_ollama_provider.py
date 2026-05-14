@@ -35,11 +35,12 @@ def settings(mode: str = "ollama") -> SimpleNamespace:
         ai_provider_mode=mode,
         ai_provider_timeout_seconds=20.0,
         ai_provider_model="qwen2.5:3b",
-        ai_provider_optional_model="qwen2.5:7b",
+        ai_provider_optional_model="qwen2.5-coder:3b-instruct",
         ai_local_device="cpu",
         ollama_base_url="http://ollama.test",
         ollama_model="qwen2.5:3b",
-        ollama_fallback_model="",
+        ollama_coder_model="qwen2.5-coder:3b-instruct",
+        ollama_fallback_model="phi3",
         ollama_timeout_seconds=20.0,
         ollama_max_tokens=512,
         ollama_temperature=0.2,
@@ -158,17 +159,19 @@ async def test_ollama_request_payload_does_not_include_jwt_or_secrets() -> None:
     assert "user_id" not in payload_text
 
 
-def test_settings_default_to_disabled_cpu_qwen3b(monkeypatch) -> None:
+def test_settings_default_to_ollama_cpu_qwen3b(monkeypatch) -> None:
     monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OLLAMA_CODER_MODEL", raising=False)
     monkeypatch.delenv("OLLAMA_FALLBACK_MODEL", raising=False)
     monkeypatch.delenv("AI_LOCAL_DEVICE", raising=False)
 
     current = Settings()
 
-    assert current.ai_provider_mode == "disabled"
+    assert current.ai_provider_mode == "ollama"
     assert current.ollama_model == "qwen2.5:3b"
-    assert current.ollama_fallback_model == ""
+    assert current.ollama_coder_model == "qwen2.5-coder:3b-instruct"
+    assert current.ollama_fallback_model == "phi3"
     assert current.ai_local_device == "cpu"
 
 
@@ -180,6 +183,76 @@ def test_provider_router_registers_ollama_only_when_mode_ollama() -> None:
     assert disabled.selected_provider().provider_name() == "disabled"
     assert ollama.mode == "ollama"
     assert ollama.selected_provider().provider_name() == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_standard_copilot_request_uses_qwen_chat_model() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, json={"message": {"content": "Je peux resumer."}})
+
+    router = ProviderRouter.from_settings(settings(), providers={"ollama": OllamaProvider(base_url="http://ollama.test", transport=httpx.MockTransport(handler))})
+
+    response = await router.generate(provider_request("Resume cette demande RH"))
+
+    assert response.success is True
+    assert response.model == "qwen2.5:3b"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "qwen2.5:3b"
+
+
+@pytest.mark.asyncio
+async def test_coding_request_uses_qwen_coder_model() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, json={"message": {"content": "Cette stacktrace vient probablement de..."}})
+
+    router = ProviderRouter.from_settings(settings(), providers={"ollama": OllamaProvider(base_url="http://ollama.test", transport=httpx.MockTransport(handler))})
+    request = ProviderRequest.build(
+        "Analyse cette stacktrace Python",
+        context=context(),
+        channel="chat",
+        intent="developer.stacktrace_analysis",
+    )
+
+    response = await router.generate(request)
+
+    assert response.success is True
+    assert response.model == "qwen2.5-coder:3b-instruct"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "qwen2.5-coder:3b-instruct"
+
+
+@pytest.mark.asyncio
+async def test_phi3_fallback_model_is_used_after_qwen_unavailable() -> None:
+    seen_models: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content.decode("utf-8"))
+        seen_models.append(payload["model"])
+        if payload["model"] == "qwen2.5:3b":
+            return httpx.Response(503, json={"error": "model unavailable"})
+        return httpx.Response(200, json={"message": {"content": "Reponse de secours."}})
+
+    provider = OllamaProvider(
+        base_url="http://ollama.test",
+        fallback_model="phi3",
+        transport=httpx.MockTransport(handler),
+    )
+    router = ProviderRouter.from_settings(settings(), providers={"ollama": provider})
+
+    response = await router.generate(provider_request())
+
+    assert response.success is True
+    assert response.model == "phi3"
+    assert response.metadata["fallback_model_used"] is True
+    assert seen_models == ["qwen2.5:3b", "phi3"]
 
 
 @pytest.mark.asyncio

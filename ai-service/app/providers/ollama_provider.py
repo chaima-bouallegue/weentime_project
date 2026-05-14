@@ -25,6 +25,7 @@ class OllamaProvider(LLMProvider):
         *,
         base_url: str = "http://localhost:11434",
         model: str = "qwen2.5:3b",
+        coder_model: str = "qwen2.5-coder:3b-instruct",
         fallback_model: str | None = None,
         timeout_seconds: float = 20.0,
         max_tokens: int = 512,
@@ -34,6 +35,7 @@ class OllamaProvider(LLMProvider):
     ) -> None:
         self.base_url = (base_url or "http://localhost:11434").rstrip("/")
         self.model = model or "qwen2.5:3b"
+        self.coder_model = (coder_model or "qwen2.5-coder:3b-instruct").strip()
         self.fallback_model = (fallback_model or "").strip() or None
         self.timeout_seconds = max(0.1, float(timeout_seconds or 20.0))
         self.max_tokens = max(1, int(max_tokens or 512))
@@ -45,13 +47,16 @@ class OllamaProvider(LLMProvider):
         return "ollama"
 
     async def generate(self, request: ProviderRequest) -> ProviderResponse:
-        response = await self._generate_with_model(self.model, request)
-        if response.success or not self.fallback_model or self.fallback_model == self.model:
+        selected_model = self._model_for_request(request)
+        fallback_model = str(request.metadata.get("fallback_model") or self.fallback_model or "").strip() or None
+        response = await self._generate_with_model(selected_model, request)
+        if response.success or not fallback_model or fallback_model == selected_model:
             return response
-        if response.error_code not in {"provider_timeout", "provider_unavailable"}:
-            fallback_response = await self._generate_with_model(self.fallback_model, request)
+        if response.error_code != "provider_timeout":
+            fallback_response = await self._generate_with_model(fallback_model, request)
             if fallback_response.success:
                 fallback_response.metadata["fallback_model_used"] = True
+                fallback_response.metadata["primary_model_failed"] = selected_model
                 return fallback_response
         return response
 
@@ -72,7 +77,14 @@ class OllamaProvider(LLMProvider):
                 latency_ms=latency_ms,
                 supports_streaming=self.supports_streaming(),
                 supports_tools=self.supports_tools(),
-                details={"base_url": self.base_url, "device": self.local_device},
+                details={
+                    "base_url": self.base_url,
+                    "device": self.local_device,
+                    "cpu_mode_enabled": self.local_device == "cpu",
+                    "chat_model": self.model,
+                    "coder_model": self.coder_model,
+                    "fallback_model": self.fallback_model,
+                },
             )
         except httpx.TimeoutException:
             return ProviderHealth(
@@ -84,7 +96,14 @@ class OllamaProvider(LLMProvider):
                 model=self.model,
                 supports_streaming=self.supports_streaming(),
                 supports_tools=self.supports_tools(),
-                details={"base_url": self.base_url, "device": self.local_device},
+                details={
+                    "base_url": self.base_url,
+                    "device": self.local_device,
+                    "cpu_mode_enabled": self.local_device == "cpu",
+                    "chat_model": self.model,
+                    "coder_model": self.coder_model,
+                    "fallback_model": self.fallback_model,
+                },
             )
         except httpx.RequestError:
             return ProviderHealth(
@@ -96,7 +115,14 @@ class OllamaProvider(LLMProvider):
                 model=self.model,
                 supports_streaming=self.supports_streaming(),
                 supports_tools=self.supports_tools(),
-                details={"base_url": self.base_url, "device": self.local_device},
+                details={
+                    "base_url": self.base_url,
+                    "device": self.local_device,
+                    "cpu_mode_enabled": self.local_device == "cpu",
+                    "chat_model": self.model,
+                    "coder_model": self.coder_model,
+                    "fallback_model": self.fallback_model,
+                },
             )
 
     def supports_streaming(self) -> bool:
@@ -104,6 +130,13 @@ class OllamaProvider(LLMProvider):
 
     def supports_tools(self) -> bool:
         return False
+
+    def _model_for_request(self, request: ProviderRequest) -> str:
+        override = str(request.metadata.get("model_override") or "").strip()
+        if override:
+            return override
+        role = str(request.metadata.get("model_role") or "").strip().lower()
+        return self.coder_model if role in {"coder", "coding", "debug"} else self.model
 
     async def _generate_with_model(self, model: str, request: ProviderRequest) -> ProviderResponse:
         started = perf_counter()

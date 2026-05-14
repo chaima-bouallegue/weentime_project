@@ -26,6 +26,8 @@ class ProviderRouter:
         timeout_seconds: float = 20.0,
         default_model: str | None = None,
         optional_model: str | None = None,
+        coder_model: str | None = None,
+        fallback_model: str | None = None,
     ) -> None:
         raw_mode = (mode or "disabled").strip().lower()
         self.mode_error: str | None = None
@@ -37,6 +39,8 @@ class ProviderRouter:
         self.timeout_seconds = max(0.1, float(timeout_seconds or 20.0))
         self.default_model = default_model
         self.optional_model = optional_model
+        self.coder_model = coder_model
+        self.fallback_model = fallback_model
         self.providers = {"disabled": DisabledProvider(), **(providers or {})}
         if self.mode in {"ollama", "cloud"} and self.mode not in self.providers:
             self.mode_error = f"provider_not_configured:{self.mode}"
@@ -50,6 +54,7 @@ class ProviderRouter:
             resolved_providers["ollama"] = OllamaProvider(
                 base_url=str(getattr(settings, "ollama_base_url", "http://localhost:11434") if settings else "http://localhost:11434"),
                 model=str(getattr(settings, "ollama_model", "qwen2.5:3b") if settings else "qwen2.5:3b"),
+                coder_model=str(getattr(settings, "ollama_coder_model", "qwen2.5-coder:3b-instruct") if settings else "qwen2.5-coder:3b-instruct"),
                 fallback_model=getattr(settings, "ollama_fallback_model", None) if settings else None,
                 timeout_seconds=float(getattr(settings, "ollama_timeout_seconds", 20.0) if settings else 20.0),
                 max_tokens=int(getattr(settings, "ollama_max_tokens", 512) if settings else 512),
@@ -62,6 +67,8 @@ class ProviderRouter:
             timeout_seconds=float(getattr(settings, "ai_provider_timeout_seconds", 20.0) if settings else 20.0),
             default_model=getattr(settings, "ai_provider_model", None) if settings else None,
             optional_model=getattr(settings, "ai_provider_optional_model", None) if settings else None,
+            coder_model=str(getattr(settings, "ollama_coder_model", "qwen2.5-coder:3b-instruct") if settings else "qwen2.5-coder:3b-instruct"),
+            fallback_model=str(getattr(settings, "ollama_fallback_model", "phi3") if settings else "phi3"),
         )
 
     def selected_provider(self) -> LLMProvider:
@@ -69,6 +76,7 @@ class ProviderRouter:
 
     async def generate(self, request: ProviderRequest) -> ProviderResponse:
         provider = self.selected_provider()
+        request = self._route_request(request)
         if self.mode_error:
             log_event("provider.mode_invalid", metadata={"mode": self.mode, "mode_error": self.mode_error})
             return ProviderResponse.fail(
@@ -87,6 +95,8 @@ class ProviderRouter:
                 "mode": self.mode,
                 "request_id": request.context.request_id,
                 "prompt_length": len(request.prompt or ""),
+                "model": request.metadata.get("model_override"),
+                "model_role": request.metadata.get("model_role"),
             },
         ):
             try:
@@ -123,9 +133,24 @@ class ProviderRouter:
                 "latency_ms": latency_ms,
                 "fallback_reason": response.fallback_reason,
                 "request_id": request.context.request_id,
+                "model": response.model or request.metadata.get("model_override"),
+                "model_role": request.metadata.get("model_role"),
             },
         )
         return response
+
+    def _route_request(self, request: ProviderRequest) -> ProviderRequest:
+        if self.mode != "ollama":
+            return request
+        model_role = "coder" if _is_coding_request(request) else "chat"
+        selected_model = self.coder_model if model_role == "coder" else self.default_model
+        metadata = dict(request.metadata or {})
+        metadata.setdefault("model_role", model_role)
+        if selected_model:
+            metadata.setdefault("model_override", selected_model)
+        if self.fallback_model:
+            metadata.setdefault("fallback_model", self.fallback_model)
+        return request.model_copy(update={"metadata": metadata})
 
     async def generate_agent_response(
         self,
@@ -176,3 +201,45 @@ class ProviderRouter:
                 supports_tools=provider.supports_tools(),
             )
         return await provider.health()
+
+
+_CODING_INTENT_MARKERS = (
+    "code",
+    "coding",
+    "debug",
+    "stacktrace",
+    "traceback",
+    "bug",
+    "architecture_debug",
+    "developer",
+)
+
+_CODING_PROMPT_MARKERS = (
+    "stacktrace",
+    "traceback",
+    "bug",
+    "fix this code",
+    "code explanation",
+    "explain this code",
+    "debug",
+    "exception",
+    "compile error",
+    "typescript",
+    "python",
+    "java",
+    "spring boot",
+    "fastapi",
+    "angular",
+)
+
+
+def _is_coding_request(request: ProviderRequest) -> bool:
+    intent = str(request.context.intent or "").lower()
+    prompt = str(request.prompt or "").lower()
+    metadata = request.metadata if isinstance(request.metadata, dict) else {}
+    task_type = str(metadata.get("task_type") or metadata.get("model_role") or "").lower()
+    return (
+        task_type in {"coder", "coding", "debug"}
+        or any(marker in intent for marker in _CODING_INTENT_MARKERS)
+        or any(marker in prompt for marker in _CODING_PROMPT_MARKERS)
+    )
