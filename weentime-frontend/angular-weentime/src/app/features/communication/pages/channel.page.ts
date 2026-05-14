@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
@@ -9,6 +9,10 @@ import { MessageTimelineComponent } from '../components/message-timeline/message
 import { ThreadPanelComponent } from '../components/thread-panel/thread-panel.component';
 import { MessageModel } from '../models/communication.models';
 import { CommunicationStoreService } from '../services/communication-store.service';
+import { PinnedPanelComponent } from '../components/pinned-panel/pinned-panel.component';
+import { MembersPanelComponent } from '../components/members-panel/members-panel.component';
+import { AttachmentsPanelComponent } from '../components/attachments-panel/attachments-panel.component';
+import { SettingsPanelComponent } from '../components/settings-panel/settings-panel.component';
 
 @Component({
   selector: 'app-channel-page',
@@ -18,7 +22,11 @@ import { CommunicationStoreService } from '../services/communication-store.servi
     ChannelHeaderComponent, 
     MessageTimelineComponent, 
     MessageComposerComponent,
-    ThreadPanelComponent
+    ThreadPanelComponent,
+    PinnedPanelComponent,
+    MembersPanelComponent,
+    AttachmentsPanelComponent,
+    SettingsPanelComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -28,11 +36,17 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           [channel]="store.activeChannel()"
           [typingLabel]="store.typingLabel()"
           [connectionState]="store.connectionState()"
-          [readRetryPending]="store.readRetryPending()">
+          [readRetryPending]="store.readRetryPending()"
+          [searchResultsCount]="filteredMessages().length"
+          (viewPinned)="openPanel('pinned')"
+          (search)="onSearch($event)"
+          (viewAttachments)="openPanel('attachments')"
+          (viewMembers)="openPanel('members')"
+          (openSettings)="openPanel('settings')">
         </app-channel-header>
 
         <app-message-timeline
-          [messages]="store.activeMessages()"
+          [messages]="filteredMessages()"
           [loading]="store.loadingMessages()"
           [error]="store.messagesError()"
           [currentUserId]="currentUserId"
@@ -43,8 +57,16 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           (editMessage)="onEditMessage($event)"
           (deleteForEveryone)="onDeleteForEveryone($event)"
           (deleteForMe)="onDeleteForMe($event)"
-          (replyThread)="store.openThread($event.id)">
+          (replyThread)="store.openThread($event.id)"
+          (pinMessage)="store.togglePin($event)">
         </app-message-timeline>
+
+        <div class="comm-typing-wrapper" *ngIf="store.typingLabel()">
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text">{{ store.typingLabel() }} est en train d'écrire...</span>
+        </div>
 
         <app-message-composer
           [disabled]="!store.canSend()"
@@ -64,6 +86,39 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           (submitReply)="store.sendReply($event.text, $event.attachmentIds)"
           (toggleReaction)="store.toggleReaction($event.message, $event.emoji)">
         </app-thread-panel>
+
+        <!-- Pinned Messages Drawer -->
+        <app-pinned-panel
+          *ngIf="showPinnedPanel()"
+          [messages]="store.pinnedMessages()"
+          [currentUserId]="currentUserId"
+          (close)="showPinnedPanel.set(false)"
+          (toggleReaction)="toggleReaction($event.message, $event.emoji)"
+          (pinMessage)="store.togglePin($event)">
+        </app-pinned-panel>
+
+        <!-- Members Drawer -->
+        <app-members-panel
+          *ngIf="showMembersPanel()"
+          [channel]="store.activeChannel()"
+          (close)="showMembersPanel.set(false)">
+        </app-members-panel>
+
+        <!-- Attachments Drawer -->
+        <app-attachments-panel
+          *ngIf="showAttachmentsPanel()"
+          [messages]="store.activeMessages()"
+          (close)="showAttachmentsPanel.set(false)">
+        </app-attachments-panel>
+
+        <!-- Settings Drawer -->
+        <app-settings-panel
+          *ngIf="showSettingsPanel()"
+          [channel]="store.activeChannel()"
+          [currentLevel]="store.activeChannel()?.notificationLevel || 'ALL'"
+          (close)="showSettingsPanel.set(false)"
+          (updateNotificationLevel)="onUpdateNotificationLevel($event)">
+        </app-settings-panel>
     </section>
 
     <ng-template #emptyState>
@@ -88,8 +143,14 @@ import { CommunicationStoreService } from '../services/communication-store.servi
     </ng-template>
   `,
   styles: [`
+    :host {
+      display: block;
+      height: calc(100vh - 120px);
+      box-sizing: border-box;
+    }
+
     .comm-channel-shell {
-      min-height: calc(100vh - 220px);
+      height: 100%;
       display: flex;
       flex-direction: row;
       border-radius: 32px;
@@ -97,6 +158,7 @@ import { CommunicationStoreService } from '../services/communication-store.servi
       background: white;
       border: 1px solid rgba(83, 74, 183, 0.1);
       box-shadow: 0 32px 80px rgba(83, 74, 183, 0.08);
+      position: relative; /* Base for thread drawer */
     }
 
     .comm-channel-main {
@@ -104,11 +166,38 @@ import { CommunicationStoreService } from '../services/communication-store.servi
       min-width: 0;
       display: flex;
       flex-direction: column;
-      border-right: 1px solid rgba(83, 74, 183, 0.05);
+      height: 100%;
+      overflow: hidden;
+    }
+
+    app-channel-header {
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    app-message-timeline {
+      flex: 1;
+      min-height: 0; /* Important for flex child with overflow */
+    }
+
+    app-message-composer {
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    app-thread-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      border-left: 1px solid rgba(83, 74, 183, 0.1);
+      background: white;
+      box-shadow: -20px 0 60px rgba(15, 23, 42, 0.15);
     }
 
     .comm-empty-state {
-      min-height: calc(100vh - 220px);
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -118,6 +207,46 @@ import { CommunicationStoreService } from '../services/communication-store.servi
         radial-gradient(circle at top, rgba(83, 74, 183, 0.08), transparent 40%),
         linear-gradient(180deg, white, #fdfdff);
       border: 1px solid rgba(83, 74, 183, 0.1);
+    }
+
+    .comm-typing-wrapper {
+      padding: 8px 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      border-top: 1px solid rgba(83, 74, 183, 0.05);
+      flex-shrink: 0;
+    }
+
+    .typing-indicator {
+      display: flex;
+      gap: 3px;
+    }
+
+    .typing-indicator span {
+      width: 5px;
+      height: 5px;
+      background: #534AB7;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1.0); }
+    }
+
+    .typing-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #534AB7;
+      opacity: 0.8;
     }
 
     .comm-empty-state.error {
@@ -173,8 +302,22 @@ import { CommunicationStoreService } from '../services/communication-store.servi
   `]
 })
 export class ChannelPage {
+  showEmojiPicker = signal(false);
+  showPinnedPanel = signal(false);
+  showMembersPanel = signal(false);
+  showAttachmentsPanel = signal(false);
+  showSettingsPanel = signal(false);
+  searchQuery = signal('');
+
   private readonly route = inject(ActivatedRoute);
   readonly store = inject(CommunicationStoreService);
+
+  readonly filteredMessages = computed(() => {
+    const query = this.searchQuery().toLowerCase().trim();
+    const messages = this.store.activeMessages();
+    if (!query) return messages;
+    return messages.filter(m => m.body?.toLowerCase().includes(query));
+  });
   readonly currentUserId = inject(AuthService).currentUser()?.id ?? null;
 
   constructor() {
@@ -198,6 +341,31 @@ export class ChannelPage {
 
   onDeleteForEveryone(message: MessageModel): void {
     this.store.deleteMessage(message);
+  }
+
+  onSearch(query: string): void {
+    this.searchQuery.set(query);
+  }
+
+  openPanel(panel: 'pinned' | 'members' | 'attachments' | 'settings'): void {
+    // Close others first
+    this.showPinnedPanel.set(panel === 'pinned');
+    this.showMembersPanel.set(panel === 'members');
+    this.showAttachmentsPanel.set(panel === 'attachments');
+    this.showSettingsPanel.set(panel === 'settings');
+    
+    // Also close thread if opening a panel
+    if (this.store.activeThreadRootId()) {
+      this.store.closeThread();
+    }
+  }
+
+  onUpdateNotificationLevel(level: string): void {
+    this.store.updateNotificationLevel(level);
+  }
+
+  onNotImplemented(feature: string): void {
+    alert(`${feature} sera disponible prochainement dans WeenTime !`);
   }
 
   onDeleteForMe(message: MessageModel): void {

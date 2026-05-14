@@ -21,50 +21,64 @@ import { UiBadgeComponent } from '../../atoms/badge/badge.component';
   `,
   styles: [`
     .timeline-item {
-      display: grid;
-      grid-template-columns: 12px 1fr;
-      gap: 12px;
-      align-items: flex-start;
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 0;
+      bottom: -16px;
+      width: 1px;
+      background: #f1f5f9;
+    }
+
+    .timeline-item:last-child::before {
+      bottom: 0;
+      height: 20px;
     }
 
     .timeline-item__line {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      margin-top: 8px;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      box-shadow: 0 0 0 5px rgba(99, 102, 241, .15);
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #6366f1;
+      z-index: 1;
     }
 
     .timeline-item__content {
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, .2);
-      background: rgba(255, 255, 255, .74);
-      padding: 10px 12px;
-      display: grid;
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     .timeline-item__head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 12px;
     }
 
     .timeline-item__head h4 {
       margin: 0;
       color: #0f172a;
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
     }
 
     .timeline-item__content p {
       margin: 0;
-      color: #475569;
-      font-size: 12px;
-      line-height: 1.35;
-      font-weight: 600;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 500;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush

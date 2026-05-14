@@ -32,8 +32,10 @@ public class CommunicationMapper {
             CommChannel channel,
             List<CommChannelMember> activeMembers,
             MessageResponse lastMessage,
+            long pinnedCount,
             long unreadCount,
             ChannelPermissionResponse permissions,
+            String notificationLevel,
             Map<Long, OrganisationUserSummary> userSummaries,
             Long currentUserId
     ) {
@@ -53,9 +55,11 @@ public class CommunicationMapper {
                 .isArchived(channel.isArchived())
                 .memberCount(activeMembers.size())
                 .members(mapMembers(activeMembers, userSummaries))
+                .pinnedCount(pinnedCount)
                 .unreadCount(unreadCount)
                 .lastMessage(lastMessage)
                 .permissions(permissions)
+                .notificationLevel(notificationLevel)
                 .createdAt(channel.getCreatedAt())
                 .updatedAt(channel.getUpdatedAt())
                 .build();
@@ -85,6 +89,7 @@ public class CommunicationMapper {
                 .clientMessageId(message.getClientMessageId())
                 .createdAt(message.getCreatedAt())
                 .editedAt(message.getEditedAt())
+                .pinnedAt(message.getPinnedAt())
                 .build();
     }
 

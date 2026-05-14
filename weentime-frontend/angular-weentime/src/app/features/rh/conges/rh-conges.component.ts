@@ -14,206 +14,156 @@ import { RhLeaveStore } from '../../../core/services/rh-leave.store';
   imports: [CommonModule, LucideAngularModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="rh-conges-container">
-      <header class="page-header">
-        <div class="header-content">
-          <h1 class="page-title">Gestion des Congés</h1>
-          <p class="page-subtitle">Validation finale et suivi global des absences</p>
+    <div class="animate-fade-in">
+      <!-- Actions bar -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div class="search-box-wrapper flex-1 max-w-md">
+          <lucide-icon name="search" size="18" class="text-slate-400"></lucide-icon>
+          <input type="text" class="input pl-10" placeholder="Rechercher un collaborateur..." [(ngModel)]="searchQuery" (input)="onFilterChange()">
         </div>
         
-        <div class="stats-row">
-          <div class="mini-stat">
-            <span class="label">À valider</span>
-            <span class="value yellow">{{ pendingCount() }}</span>
-          </div>
-          <div class="mini-stat">
-            <span class="label">Approuvés</span>
-            <span class="value green">{{ approvedCount() }}</span>
-          </div>
-        </div>
-      </header>
-
-      <div class="filters-bar card mb-6">
-        <div class="search-box">
-          <lucide-icon name="search" size="18"></lucide-icon>
-          <input type="text" placeholder="Rechercher un collaborateur..." [(ngModel)]="searchQuery" (input)="onFilterChange()">
-        </div>
-        
-        <div class="filter-actions">
-          <select class="filter-select" [(ngModel)]="statusFilter" (change)="onFilterChange()">
+        <div class="flex items-center gap-3">
+          <select class="input py-2 px-4 min-w-[180px]" [(ngModel)]="statusFilter" (change)="onFilterChange()">
             <option value="ALL">Tous les statuts</option>
-            <option value="EN_ATTENTE_RH">En attente RH</option>
-            <option value="EN_ATTENTE_MANAGER">En attente Manager</option>
-            <option value="APPROUVE">Approuvés</option>
+            <option value="EN_ATTENTE_RH">À valider RH</option>
+            <option value="EN_ATTENTE_MANAGER">Attente Manager</option>
+            <option value="APPROUVE">Finalisés</option>
             <option value="REFUSE">Refusés</option>
           </select>
+          <button class="btn btn-secondary" (click)="refresh()">
+            <lucide-icon name="refresh-cw" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
+          </button>
         </div>
       </div>
 
-      <div class="content-section">
-        <div class="table-container card">
-          @if (isLoading()) {
-            <div class="loading-state">
-              <div class="spinner"></div>
-              <span>Chargement des demandes...</span>
+      <!-- Stats Summary -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+         <div class="card p-6 flex flex-col">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">En attente RH</span>
+            <div class="flex items-baseline gap-2">
+               <span class="text-3xl font-black text-amber-500">{{ pendingCount() }}</span>
+               <span class="text-xs text-slate-400">demandes</span>
             </div>
-          } @else if (filteredDemandes().length === 0) {
-            <div class="empty-state">
-              <div class="empty-icon"><lucide-icon name="calendar-check" size="48"></lucide-icon></div>
-              <h3>Aucune demande trouvée</h3>
-              <p>Essayez de modifier vos filtres.</p>
+         </div>
+         <div class="card p-6 flex flex-col">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Finalisés</span>
+            <div class="flex items-baseline gap-2">
+               <span class="text-3xl font-black text-emerald-500">{{ approvedCount() }}</span>
+               <span class="text-xs text-slate-400">ce mois</span>
             </div>
-          } @else {
-            <table class="data-table">
+         </div>
+      </div>
+
+      <!-- Main Content Table -->
+      <div class="card overflow-hidden">
+        @if (isLoading()) {
+          <div class="flex flex-col items-center justify-center p-20 gap-4">
+            <div class="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin"></div>
+            <span class="text-sm font-medium text-slate-500">Synchronisation des demandes...</span>
+          </div>
+        } @else if (filteredDemandes().length === 0) {
+          <div class="flex flex-col items-center justify-center p-20 text-center">
+            <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mb-4">
+              <lucide-icon name="calendar-check" size="32"></lucide-icon>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">Aucune demande trouvée</h3>
+            <p class="text-sm text-slate-500">Ajustez vos filtres pour voir plus de résultats.</p>
+          </div>
+        } @else {
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
               <thead>
-                <tr>
-                  <th>Collaborateur</th>
-                  <th>Équipe</th>
-                  <th>Type</th>
-                  <th>Période</th>
-                  <th>Jours</th>
-                  <th>Statut</th>
-                  <th class="actions-col">Actions</th>
+                <tr class="bg-slate-50/50 border-bottom border-slate-100">
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Collaborateur</th>
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Période</th>
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Durée</th>
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+                  <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="divide-y divide-slate-50">
                 @for (demande of filteredDemandes(); track demande.id) {
-                  <tr>
-                    <td>
-                      <div class="user-info">
-                        <div class="user-avatar">{{ getInitials(demande.userName) }}</div>
-                        <div class="user-details">
-                          <span class="user-name">{{ demande.userName }}</span>
-                          <span class="user-email">{{ demande.userEmail }}</span>
+                  <tr class="hover:bg-slate-50/30 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-sm" [style.background]="avatarColor(demande.userName)">
+                          {{ getInitials(demande.userName) }}
+                        </div>
+                        <div class="flex flex-col">
+                          <span class="text-sm font-bold text-slate-800">{{ demande.userName }}</span>
+                          <span class="text-xs text-slate-400">{{ demande.userEmail }}</span>
                         </div>
                       </div>
                     </td>
-                    <td><span class="team-name">{{ demande.managerName || 'N/A' }} (Manager)</span></td>
-                    <td>
-                      <span class="type-pill" [style.border-color]="getTypeColor(demande.typeCongeNom)">
+                    <td class="px-6 py-4">
+                      <span class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border" [style.border-color]="getTypeColor(demande.typeCongeNom)" [style.color]="getTypeColor(demande.typeCongeNom)">
                         {{ demande.typeCongeNom }}
                       </span>
                     </td>
-                    <td>
-                      <div class="period-cell">
-                        <span class="dates">{{ demande.dateDebut | date:'dd/MM' }} - {{ demande.dateFin | date:'dd/MM/yy' }}</span>
+                    <td class="px-6 py-4">
+                      <div class="flex flex-col">
+                        <span class="text-sm font-bold text-slate-700">{{ demande.dateDebut | date:'dd MMM' }}</span>
+                        <span class="text-[10px] text-slate-400">au {{ demande.dateFin | date:'dd MMM yyyy' }}</span>
                       </div>
                     </td>
-                    <td><strong>{{ demande.nombreJours }} j</strong></td>
-                    <td>
-                      <span class="status-badge" [class]="demande.statut.toLowerCase()">
+                    <td class="px-6 py-4">
+                      <span class="text-sm font-black text-slate-800">{{ demande.nombreJours }} j</span>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="badge" [class]="getStatusClass(demande.statut)">
                         {{ formatStatut(demande.statut) }}
                       </span>
                     </td>
-                    <td class="actions-col">
+                    <td class="px-6 py-4 text-right">
                       @if (demande.statut === 'EN_ATTENTE_RH') {
-                        <div class="action-buttons">
-                          <button class="btn-icon approve" (click)="approve(demande)" [disabled]="isProcessing(demande.id)" title="Approuver">
-                            <lucide-icon name="check" size="18"></lucide-icon>
+                        <div class="flex justify-end gap-2">
+                          <button class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center" (click)="approve(demande)" [disabled]="isProcessing(demande.id)">
+                            <lucide-icon name="check" size="14"></lucide-icon>
                           </button>
-                          <button class="btn-icon reject" (click)="openRejectDialog(demande)" [disabled]="isProcessing(demande.id)" title="Refuser">
-                            <lucide-icon name="x" size="18"></lucide-icon>
+                          <button class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center" (click)="openRejectDialog(demande)" [disabled]="isProcessing(demande.id)">
+                            <lucide-icon name="x" size="14"></lucide-icon>
                           </button>
                         </div>
-                      } @else if (demande.statut === 'APPROUVE') {
-                        <span class="text-xs text-green-600 font-bold">Validé par RH</span>
-                      } @else if (demande.statut === 'EN_ATTENTE_MANAGER') {
-                        <span class="text-xs text-slate-400 italic">Attente Manager</span>
+                      } @else {
+                        <lucide-icon name="check-circle" size="16" class="text-slate-300 ml-auto"></lucide-icon>
                       }
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
-          }
-        </div>
+          </div>
+        }
       </div>
     </div>
 
     <!-- Rejection Modal -->
     @if (showRejectModal()) {
-      <div class="modal-overlay">
-        <div class="modal-card">
-          <div class="modal-header">
-            <h3>Refuser la demande</h3>
-            <button class="close-btn" (click)="closeRejectModal()"><lucide-icon name="x" size="20"></lucide-icon></button>
-          </div>
-          <div class="modal-body">
-            <p class="text-sm text-slate-500 mb-4">Veuillez indiquer le motif du refus RH pour <strong>{{ selectedDemande()?.userName }}</strong>.</p>
-            <textarea 
-              class="form-control" 
-              rows="4" 
-              placeholder="Justification du refus..."
-              [(ngModel)]="rejectComment"
-            ></textarea>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline" (click)="closeRejectModal()">Annuler</button>
-            <button 
-              class="btn btn-danger" 
-              [disabled]="!rejectComment.trim() || isProcessing(selectedDemande()?.id || 0)"
-              (click)="confirmReject()"
-            >
-              Confirmer le refus RH
+      <div class="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" (click)="closeRejectModal()"></div>
+        <div class="card w-full max-w-md relative z-10 animate-scale-in">
+          <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-lg font-black text-slate-800">Refuser la demande</h3>
+            <button (click)="closeRejectModal()" class="text-slate-400 hover:text-slate-600">
+              <lucide-icon name="x" size="20"></lucide-icon>
             </button>
+          </div>
+          <div class="p-6">
+            <p class="text-sm text-slate-500 mb-4">Justification obligatoire pour le collaborateur :</p>
+            <textarea class="input min-h-[120px]" placeholder="Motif du refus..." [(ngModel)]="rejectComment"></textarea>
+          </div>
+          <div class="p-6 bg-slate-50/50 flex justify-end gap-3 rounded-b-[var(--radius-lg)]">
+            <button class="btn btn-secondary" (click)="closeRejectModal()">Annuler</button>
+            <button class="btn btn-danger" [disabled]="!rejectComment.trim()" (click)="confirmReject()">Confirmer le refus</button>
           </div>
         </div>
       </div>
     }
   `,
   styles: [`
-    .rh-conges-container { padding: 32px; max-width: 1400px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-    .page-title { font-size: 28px; font-weight: 900; color: #1e293b; margin: 0; }
-    .page-subtitle { color: #64748b; margin: 4px 0 0; }
-    .stats-row { display: flex; gap: 24px; }
-    .mini-stat { display: flex; flex-direction: column; align-items: flex-end; }
-    .mini-stat .label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
-    .mini-stat .value { font-size: 28px; font-weight: 900; line-height: 1; margin-top: 4px; }
-    .mini-stat .value.yellow { color: #eab308; }
-    .mini-stat .value.green { color: #10b981; }
-    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    :host-context(.dark) .card { background: #1e293b; border-color: #334155; }
-    .filters-bar { padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-    .search-box { flex: 1; position: relative; display: flex; align-items: center; color: #94a3b8; }
-    .search-box input { width: 100%; border: none; background: transparent; padding: 10px 12px; font-size: 14px; outline: none; color: #1e293b; }
-    :host-context(.dark) .search-box input { color: #f8fafc; }
-    .filter-select { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 16px; font-size: 13px; font-weight: 600; outline: none; transition: border-color 0.2s; }
-    :host-context(.dark) .filter-select { background: #0f172a; border-color: #334155; color: #f8fafc; }
-    .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th { padding: 16px 24px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.025em; text-align: left; }
-    .data-table td { padding: 16px 24px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-    :host-context(.dark) .data-table td { border-bottom-color: #334155; }
-    .user-info { display: flex; align-items: center; gap: 12px; }
-    .user-avatar { width: 40px; height: 40px; border-radius: 12px; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-    .user-name { display: block; font-weight: 700; font-size: 14px; color: #1e293b; }
-    :host-context(.dark) .user-name { color: #f8fafc; }
-    .user-email { display: block; font-size: 12px; color: #94a3b8; }
-    .type-pill { padding: 4px 12px; border-radius: 10px; border: 1px solid; font-size: 11px; font-weight: 700; color: #64748b; background: rgba(0,0,0,0.02); }
-    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
-    .status-badge.en_attente_rh { background: #dbeafe; color: #1e40af; }
-    .status-badge.en_attente_manager { background: #fef9c3; color: #854d0e; }
-    .status-badge.approuve { background: #dcfce7; color: #166534; }
-    .status-badge.refuse { background: #fee2e2; color: #991b1b; }
-    .actions-col { text-align: right; }
-    .action-buttons { display: flex; gap: 8px; justify-content: flex-end; }
-    .btn-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; }
-    .btn-icon.approve { background: #dcfce7; color: #16a34a; }
-    .btn-icon.approve:hover { background: #16a34a; color: #fff; }
-    .btn-icon.reject { background: #fee2e2; color: #ef4444; }
-    .btn-icon.reject:hover { background: #ef4444; color: #fff; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal-card { background: #fff; border-radius: 24px; width: 100%; max-width: 440px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-    .modal-header { padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-    .modal-body { padding: 24px; }
-    .form-control { width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; outline: none; resize: none; font-size: 14px; }
-    .modal-footer { padding: 16px 24px; background: #f8fafc; display: flex; gap: 12px; justify-content: flex-end; }
-    .btn { padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
-    .btn-outline { background: #fff; border: 1px solid #e2e8f0; color: #64748b; }
-    .btn-danger { background: #ef4444; color: #fff; }
-    .loading-state, .empty-state { padding: 80px; text-align: center; }
-    .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .search-box-wrapper { position: relative; }
+    .search-box-wrapper lucide-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; }
   `]
 })
 export class RhCongesComponent {
@@ -320,6 +270,16 @@ export class RhCongesComponent {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   }
 
+  getStatusClass(statut: string): string {
+    switch (statut) {
+      case 'EN_ATTENTE_MANAGER': return 'badge-warning';
+      case 'EN_ATTENTE_RH': return 'badge-primary';
+      case 'APPROUVE': return 'badge-success';
+      case 'REFUSE': return 'badge-danger';
+      default: return '';
+    }
+  }
+
   getTypeColor(type?: string): string {
     if (!type) return '#cbd5e1';
     const t = type.toLowerCase();
@@ -332,10 +292,20 @@ export class RhCongesComponent {
   formatStatut(statut: string): string {
     switch (statut) {
       case 'EN_ATTENTE_MANAGER': return 'Attente Manager';
-      case 'EN_ATTENTE_RH': return 'Attente RH';
+      case 'EN_ATTENTE_RH': return 'À valider RH';
       case 'APPROUVE': return 'Finalisé';
       case 'REFUSE': return 'Refusé';
       default: return statut;
     }
+  }
+
+  avatarColor(name?: string): string {
+    if (!name) return '#6366f1';
+    const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
   }
 }

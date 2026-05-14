@@ -134,10 +134,23 @@ export class RhDashboardService {
   private toActivityFeedItem(item: Partial<Activity>): ActivityFeedItem {
     return {
       id: item.id || `activity-${Date.now()}`,
-      title: item.title || 'Activite RH',
-      description: item.description || 'Aucune description disponible.',
+      title: item.title || 'Activité RH',
+      description: this.mapActivityDescription(item.description),
       date: this.relativeDate(item.date)
     };
+  }
+
+  private mapActivityDescription(desc?: string): string {
+    if (!desc) return 'Aucune description disponible.';
+    return desc
+      .replace(/en_attente_rh/g, 'en attente RH')
+      .replace(/en_attente_manager/g, 'en attente Manager')
+      .replace(/approuvee/g, 'approuvée')
+      .replace(/refusee/g, 'refusée')
+      .replace(/une document/g, 'un document')
+      .replace(/un document/g, 'un document')
+      .replace(/une conge/g, 'un congé')
+      .replace(/une teletravail/g, 'un télétravail');
   }
 
   private emptyState(): DashboardViewModel {
@@ -180,25 +193,32 @@ export class RhDashboardService {
   }
 
   private relativeDate(value?: string | null): string {
-    if (!value) {
-      return 'Maintenant';
-    }
+    if (!value) return 'Maintenant';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
+    if (Number.isNaN(date.getTime())) return value;
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'À l\'instant';
+    if (diffMin < 60) return `Il y a ${diffMin} min`;
+    
+    if (date.toDateString() === now.toDateString()) {
+      return `Aujourd'hui ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
     }
-    const diffMinutes = Math.max(Math.floor((Date.now() - date.getTime()) / 60000), 0);
-    if (diffMinutes < 1) {
-      return 'Maintenant';
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return `Hier ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
     }
-    if (diffMinutes < 60) {
-      return `${diffMinutes} min`;
-    }
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) {
-      return `${diffHours} h`;
-    }
-    return `${Math.floor(diffHours / 24)} j`;
+
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `Il y a ${diffDay} j`;
+    
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   }
 
   private unwrap<T>(response: ApiEnvelope<T> | T): T {

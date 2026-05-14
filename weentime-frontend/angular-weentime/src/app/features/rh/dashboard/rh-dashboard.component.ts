@@ -32,7 +32,8 @@ import {
   Sparkles,
   Shield,
   Eye,
-  FileText
+  FileText,
+  Settings
 } from 'lucide-angular';
 import { RhDashboardService } from './rh-dashboard.service';
 import {
@@ -83,7 +84,8 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
     sparkles: Sparkles,
     shield: Shield,
     eye: Eye,
-    file: FileText
+    file: FileText,
+    settings: Settings
   };
 
   /* ── state ──────────────────────────────────────────── */
@@ -167,6 +169,30 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
       });
     }
     return out;
+  });
+
+  readonly suggestedActions = computed(() => {
+    const out: { label: string; icon: any; route: string; priority: boolean }[] = [];
+    const pending = this.pendingCount();
+    const rate = this.attendanceRate();
+    const day = this.now().getDay(); // 0=Sun, 5=Fri
+    const hour = this.now().getHours();
+
+    if (pending > 0) {
+      out.push({ label: 'Valider les demandes', icon: this.ic.check, route: '/app/rh/requests', priority: true });
+    }
+
+    if (rate < 80 && hour >= 10) {
+      out.push({ label: 'Vérifier les retards', icon: this.ic.clock, route: '/app/rh/employees', priority: true });
+    }
+
+    if (day === 5 && hour >= 14) {
+      out.push({ label: 'Rapport de semaine', icon: this.ic.chart, route: '/app/rh/reports', priority: false });
+    }
+
+    out.push({ label: 'Nouveau collaborateur', icon: this.ic.users, route: '/app/rh/employees', priority: false });
+    
+    return out.slice(0, 3);
   });
 
   readonly skeletons = Array.from({ length: 5 }, (_, i) => i);

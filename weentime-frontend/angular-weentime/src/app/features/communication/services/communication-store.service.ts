@@ -83,11 +83,13 @@ export class CommunicationStoreService {
   readonly directMessages = computed(() => this.channels().filter(channel => channel.type === 'DIRECT' || channel.type === 'GROUP_DM'));
   readonly visibleChannels = computed(() => this.channels().filter(channel => channel.type !== 'DIRECT' && channel.type !== 'GROUP_DM'));
   readonly canSend = computed(() => this.activeChannel()?.permissions.canWrite ?? false);
+  readonly pinnedMessages = computed(() => this.activeMessages().filter(m => !!m.pinnedAt));
   readonly typingLabel = computed(() => {
     const channelId = this.activeChannelId();
     return channelId ? this.typingByChannel()[channelId] ?? null : null;
   });
   readonly canSync = computed(() => this.authService.hasRole('ADMIN'));
+  readonly canCreateChannel = computed(() => this.authService.hasRole('ADMIN') || this.authService.hasRole('RH'));
   readonly readRetryPending = computed(() => {
     const channelId = this.activeChannelId();
     return channelId ? !!this.pendingReadRetryByChannel()[channelId] : false;
@@ -268,6 +270,36 @@ export class CommunicationStoreService {
 
   closeThread(): void {
     this.activeThreadRootId.set(null);
+  }
+
+  updateNotificationLevel(level: string): void {
+    const channelId = this.activeChannelId();
+    if (!channelId) return;
+
+    this.api.updateChannelNotificationLevel(channelId, level)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.channels.update(channels => 
+            channels.map(c => c.id === channelId ? { ...c, notificationLevel: level } : c)
+          );
+        }
+      });
+  }
+
+  createChannel(request: { name: string; description: string; isPrivate: boolean }): Observable<ChannelModel> {
+    return this.api.createChannel({
+      name: request.name,
+      description: request.description,
+      isPrivate: request.isPrivate,
+      type: 'PUBLIC', // Frontend currently creates standard channels
+      visibility: request.isPrivate ? 'PRIVATE' : 'PUBLIC'
+    }).pipe(
+      tap(newChannel => {
+        this.channels.update(prev => this.sortChannels([...prev, newChannel]));
+        this.selectChannel(newChannel.id);
+      })
+    );
   }
 
   sendReply(body: string, attachmentIds: string[] = []): void {
@@ -474,24 +506,83 @@ export class CommunicationStoreService {
   }
 
   toggleReaction(message: MessageModel, emoji: string): void {
-    const channel = this.channels().find(item => item.id === message.channelId);
+    const channelId = message.channelId || this.activeChannelId();
+    if (!channelId) return;
+
+    const channel = this.channels().find(item => item.id === channelId);
+    
     if (!this.hasTenantContext() || !channel?.permissions.canRead) {
-      this.messagesError.set('Reaction impossible: acces au canal non confirme.');
+      this.messagesError.set('Reaction impossible: accès au canal non confirmé.');
       return;
     }
 
-    const request$ = message.reactions.some(reaction => reaction.emoji === emoji && reaction.reactedByMe)
+    this.messagesError.set(null); // Clear previous errors
+
+
+    const isRemoving = message.reactions.some(reaction => reaction.emoji === emoji && reaction.reactedByMe);
+    
+    // Optimistic Update
+    const updatedReactions = [...message.reactions];
+    const existingIdx = updatedReactions.findIndex(r => r.emoji === emoji);
+    
+    if (isRemoving) {
+      if (existingIdx >= 0) {
+        const r = updatedReactions[existingIdx];
+        if (r.count <= 1) {
+          updatedReactions.splice(existingIdx, 1);
+        } else {
+          updatedReactions[existingIdx] = { ...r, count: r.count - 1, reactedByMe: false };
+        }
+      }
+    } else {
+      if (existingIdx >= 0) {
+        updatedReactions[existingIdx] = { ...updatedReactions[existingIdx], count: updatedReactions[existingIdx].count + 1, reactedByMe: true };
+      } else {
+        updatedReactions.push({ emoji, count: 1, reactedByMe: true });
+      }
+    }
+    
+    this.upsertMessage(channelId, { ...message, reactions: updatedReactions });
+
+    const request$ = isRemoving
       ? this.api.removeReaction(message.id, emoji)
       : this.api.addReaction(message.id, emoji);
+
+    const originalMessage = { ...message };
 
     request$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => EMPTY)
+        catchError((err) => {
+          this.messagesError.set('Erreur lors de la mise à jour de la réaction: ' + (err.message || 'Serveur injoignable'));
+          // Rollback
+          this.upsertMessage(channelId, originalMessage);
+          return EMPTY;
+        })
       )
       .subscribe(updated => {
         this.upsertMessage(updated.channelId, updated);
         this.bumpChannelWithMessage(updated.channelId, updated, false);
+      });
+  }
+
+  togglePin(message: MessageModel): void {
+    const isPinned = !!message.pinnedAt;
+    const request$ = isPinned 
+      ? this.api.unpinMessage(message.id)
+      : this.api.pinMessage(message.id);
+
+    request$
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(error => {
+          this.messagesError.set(this.toMessage(error, 'Impossible de modifier l\'epinglage.'));
+          return EMPTY;
+        })
+      )
+      .subscribe(updated => {
+        this.upsertMessage(updated.channelId, updated);
+        this.refreshChannel(updated.channelId);
       });
   }
 
@@ -958,6 +1049,7 @@ export class CommunicationStoreService {
       clientMessageId: request.clientMessageId,
       createdAt: new Date().toISOString(),
       editedAt: null,
+      pinnedAt: null,
       localState: 'sending',
       localError: null
     };

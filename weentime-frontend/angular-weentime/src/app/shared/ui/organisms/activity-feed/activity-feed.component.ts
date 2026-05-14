@@ -31,50 +31,51 @@ import { UiIconComponent } from '../../atoms/icon/icon.component';
   `,
   styles: [`
     .feed {
-      border-radius: 20px;
-      border: 1px solid rgba(148, 163, 184, .22);
-      background: rgba(255,255,255,.78);
-      padding: 16px;
-      display: grid;
-      gap: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .feed__head {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 8px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 16px;
     }
 
     .feed__head h3 {
       margin: 0;
       color: #0f172a;
-      font-size: 15px;
-      font-weight: 900;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
     }
 
     .feed__head p {
       margin: 4px 0 0;
       color: #64748b;
-      font-size: 11px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 500;
     }
 
     .feed__list {
-      display: grid;
-      gap: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
     .feed__empty {
       margin: 0;
-      min-height: 120px;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      border: 1px dashed rgba(148, 163, 184, .4);
+      min-height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      border: 2px dashed #f1f5f9;
       color: #94a3b8;
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 500;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush

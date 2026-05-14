@@ -49,6 +49,7 @@ class Settings:
         )
 
         self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
+
         self.backend_auth_token = os.getenv("BACKEND_AUTH_TOKEN")
         self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "20"))
         self.backend_retry_attempts = max(1, int(os.getenv("BACKEND_RETRY_ATTEMPTS", "2")))
@@ -129,6 +130,13 @@ class Settings:
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379").strip()
         self.redis_ai_events_channel = os.getenv("REDIS_AI_EVENTS_CHANNEL", "ai.events.generated").strip()
         self.redis_default_ttl_seconds = max(1, int(os.getenv("REDIS_DEFAULT_TTL_SECONDS", "300")))
+
+        # ── AI Providers Configuration ──
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "AIzaSyB2NMVh_dPxLkmPXdUh7eYqkVMLicaNPVs")
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "gemini")
+
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.rag_documents_dir.mkdir(parents=True, exist_ok=True)

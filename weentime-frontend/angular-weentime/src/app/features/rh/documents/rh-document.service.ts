@@ -4,7 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import {
   DemandeDocumentRH,
   StatsDocuments,
-  AIGenerationResult
+  AIGenerationResult,
+  TypeDocumentConfig
 } from './models/rh-document.model';
 import { ApiConfigService } from '../../../core/services/api-config.service';
 
@@ -109,6 +110,32 @@ export class RhDocumentService {
     };
 
     return this.http.post<AIGenerationResult>(this.apiConfig.RH.GENERATE_DOCUMENT_AI, body).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  generateAIDocumentAdvanced(request: {
+    type: string;
+    prompt: string;
+    employeNom: string;
+    typeDocumentId?: number;
+    temperature?: number;
+  }): Observable<AIGenerationResult> {
+    return this.http.post<AIGenerationResult>(this.apiConfig.RH.GENERATE_DOCUMENT_AI_ADVANCED, request).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  getTemplateVariables(): Observable<Array<{key: string, label: string, group: string}>> {
+    return this.http.get<any>(this.apiConfig.RH.GET_TEMPLATE_VARIABLES).pipe(
+      map(res => this.unwrapItem(res)),
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  getTypeDocumentConfigs(): Observable<TypeDocumentConfig[]> {
+    return this.http.get<any>(this.apiConfig.RH.GET_TYPE_DOCUMENTS).pipe(
+      map(res => this.unwrapCollection(res)),
       catchError(err => throwError(() => err))
     );
   }

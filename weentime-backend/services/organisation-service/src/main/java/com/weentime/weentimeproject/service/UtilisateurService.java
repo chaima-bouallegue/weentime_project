@@ -60,4 +60,5 @@ public interface UtilisateurService {
     void reset2faAttempts(String email);
     void consumeBackupCode(String email, String code);
     void changePassword(ChangePasswordRequest request);
+    java.util.List<UtilisateurResponse> getUtilisateursByEquipe(Long equipeId);
 }

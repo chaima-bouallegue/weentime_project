@@ -307,12 +307,16 @@ public class ChannelService {
 
         long unreadCount = countUnread(channel.getEntrepriseId(), channel.getId(), currentUser.userId(),
                 membership.getLastReadAt(), membership.getLastReadMessageId());
+        long pinnedCount = messageRepository.countPinned(channel.getEntrepriseId(), channel.getId());
+        
         return mapper.toChannelResponse(
                 channel,
                 activeMembers,
                 lastMessage,
+                pinnedCount,
                 unreadCount,
                 membershipService.permissionsFor(channel, membership),
+                membership.getNotificationLevel(),
                 userSummaries,
                 currentUser.userId()
         );
@@ -320,7 +324,7 @@ public class ChannelService {
 
     private void assertCanCreateChannel(CommunicationUserPrincipal currentUser) {
         Set<String> roles = normalizeRoles(currentUser.roles());
-        if (!(roles.contains("ADMIN") || roles.contains("RH") || roles.contains("MANAGER"))) {
+        if (!(roles.contains("ADMIN") || roles.contains("RH"))) {
             throw new CommunicationException(HttpStatus.FORBIDDEN, "COMM_CHANNEL_CREATE_FORBIDDEN",
                     "You are not allowed to create channels.", Map.of());
         }

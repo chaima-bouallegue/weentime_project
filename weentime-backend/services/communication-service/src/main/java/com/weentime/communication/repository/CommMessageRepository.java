@@ -119,4 +119,17 @@ public interface CommMessageRepository extends JpaRepository<CommMessage, UUID> 
             @Param("parentMessageId") UUID parentMessageId,
             Pageable pageable
     );
+
+    @Query("""
+            select count(m)
+            from CommMessage m
+            where m.entrepriseId = :entrepriseId
+              and m.channelId = :channelId
+              and m.pinnedAt is not null
+              and m.deletedAt is null
+            """)
+    long countPinned(
+            @Param("entrepriseId") Long entrepriseId,
+            @Param("channelId") UUID channelId
+    );
 }

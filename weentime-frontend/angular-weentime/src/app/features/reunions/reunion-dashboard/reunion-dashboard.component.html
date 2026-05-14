@@ -1,60 +1,64 @@
 <div class="dashboard-bento-container">
-  <!-- Hero Section: Prochaine Réunion -->
+  <!-- ═══════════════════ HERO SECTION: NEXT MEETING ═══════════════════ -->
   @if (prochaineReunion(); as next) {
-    <div class="dashboard-hero">
-      <div class="hero-card premium-glass" [routerLink]="['/app/reunions', next.uuid]">
-        <div class="card-mesh"></div>
-        <div class="hero-content">
-          <div class="hero-main">
-            <div class="live-indicator" [class.active]="next.statut === 'EN_COURS'">
-              <span class="dot"></span>
-              {{ next.statut === 'EN_COURS' ? 'En cours' : 'Prochaine réunion' }}
+  <header class="dashboard-hero">
+    <div class="hero-card premium-glass" [routerLink]="['/app/reunions', next.uuid]">
+      <div class="card-mesh"></div>
+      <div class="hero-content">
+        <div class="hero-main">
+          <div class="hero-context-badge">
+            <span class="hero-live-dot"></span>
+            {{ next.statut === 'EN_COURS' ? 'En cours' : 'Prochaine réunion' }}
+          </div>
+
+          <h1 class="hero-title">{{ next.titre }}</h1>
+
+          <div class="hero-meta">
+            <div class="meta-item">
+              <lucide-icon [img]="iconClock" size="20"></lucide-icon>
+              <span>{{ next.heureDebut.substring(0, 5) }} — {{ next.heureFin.substring(0, 5) }}</span>
             </div>
-            <h1 class="hero-title">{{ next.titre }}</h1>
-            <div class="hero-meta">
-              <div class="meta-item">
-                <lucide-icon [img]="iconClock" size="20"></lucide-icon>
-                <span>{{ next.heureDebut }} — {{ next.heureFin }}</span>
-              </div>
-              <div class="meta-item">
-                <lucide-icon [img]="next.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="20"></lucide-icon>
-                <span>{{ next.type === 'EN_LIGNE' ? 'Visioconférence' : next.lieu }}</span>
-              </div>
+            <div class="meta-item">
+              <lucide-icon [img]="next.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="20"></lucide-icon>
+              <span>{{ next.type === 'EN_LIGNE' ? 'Visioconférence' : next.lieu }}</span>
             </div>
           </div>
-          <div class="hero-side">
-            @if (countdown(); as time) {
-              <div class="countdown-badge">
-                <span class="label">Commence dans</span>
-                <span class="time">{{ time }}</span>
-              </div>
-            }
-            @if (next.type === 'EN_LIGNE' && next.lienVisio) {
-              <button class="hero-btn primary" (click)="$event.stopPropagation()">
-                <lucide-icon [img]="iconVideo"></lucide-icon>
-                Rejoindre maintenant
-              </button>
-            }
+        </div>
+
+        <div class="hero-side">
+          @if (countdown(); as time) {
+          <div class="countdown-badge">
+            <span class="label">Commence dans</span>
+            <span class="time">{{ time }}</span>
           </div>
+          }
+          @if (next.type === 'EN_LIGNE' && next.lienVisio) {
+          <button class="btn-hero-primary" (click)="$event.stopPropagation()">
+            <lucide-icon [img]="iconVideo" size="18"></lucide-icon>
+            Rejoindre
+          </button>
+          }
         </div>
       </div>
     </div>
+  </header>
   } @else {
-    <div class="dashboard-hero">
-      <div class="hero-card premium-glass empty-hero-card">
-         <div class="hero-main">
-            <h1 class="hero-title">Bonjour, {{ currentUser()?.prenom }}</h1>
-            <p>Aucune réunion immédiate prévue. Profitez-en pour organiser votre journée !</p>
-         </div>
+  <header class="dashboard-hero dashboard-hero--empty">
+    <div class="hero-card premium-glass">
+      <div class="hero-main">
+        <div class="hero-context-badge">Agenda du jour</div>
+        <h1 class="hero-title">Prêt pour vos prochaines sessions ?</h1>
+        <p class="hero-subtitle">Aucune réunion prévue aujourd'hui. Profitez-en pour organiser votre journée !</p>
       </div>
     </div>
+  </header>
   }
 
-  <!-- Search & Quick Actions -->
+  <!-- ═══════════════════ ACTIONS & FILTERS ═══════════════════ -->
   <div class="dashboard-actions-row">
     <div class="search-glass">
       <lucide-icon [img]="iconSearch" size="18"></lucide-icon>
-      <input type="text" placeholder="Rechercher une réunion, un projet..." (input)="onSearch($event)">
+      <input type="text" placeholder="Rechercher une réunion..." (input)="onSearch($event)">
     </div>
 
     <div class="filter-tabs">
@@ -64,72 +68,104 @@
     </div>
 
     @if (isManagerOrRh()) {
-      <button class="hero-btn primary compact" routerLink="create">
-        <lucide-icon [img]="iconPlus"></lucide-icon>
-        <span>Nouvelle réunion</span>
-      </button>
+    <button class="btn-hero-primary compact" routerLink="create">
+      <lucide-icon [img]="iconPlus" size="18"></lucide-icon>
+      <span>Nouvelle réunion</span>
+    </button>
     }
   </div>
 
-  <!-- Bento Grid of Meetings -->
-  <div class="bento-grid">
-    <!-- Meeting Card -->
+  <!-- ═══════════════════ BENTO GRID OF MEETINGS ═══════════════════ -->
+  <div class="meeting-list">
     @for (r of filteredReunions(); track r.uuid) {
-      <div class="bento-card meeting-card" [routerLink]="['/app/reunions', r.uuid]">
+    <article class="meeting-list-card premium-glass" [routerLink]="['/app/reunions', r.uuid]">
+      <!-- Left Accent Bar -->
+      <div class="status-accent" [style.background-color]="getStatusColor(r.statut)"></div>
+
+      <!-- Left Date Column -->
+      <div class="date-column">
+        <span class="day-name">{{ (r.dateReunion | date:'EEE')!.replace('.', '') | uppercase }}</span>
+        <span class="day-num">{{ r.dateReunion | date:'dd' }}</span>
+        <span class="month-name">{{ r.dateReunion | date:'MMM' | uppercase }}</span>
+      </div>
+
+      <!-- Main Content -->
+      <div class="card-main">
         <div class="card-header">
-          <div class="date-tag">
-            <span class="day">{{ r.dateReunion | date:'dd' }}</span>
-            <span class="month">{{ r.dateReunion | date:'MMM' }}</span>
+          <div class="header-info">
+            <h3 class="meeting-title">{{ r.titre }}</h3>
+            <div class="meta-row">
+              <div class="meta-item">
+                <lucide-icon [img]="iconClock" size="14"></lucide-icon>
+                <span>{{ r.heureDebut.substring(0, 5) }} — {{ r.heureFin.substring(0, 5) }}</span>
+              </div>
+              <div class="meta-item">
+                <lucide-icon [img]="r.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="14"></lucide-icon>
+                <span>{{ r.type === 'EN_LIGNE' ? 'Visioconférence' : r.lieu }}</span>
+              </div>
+              <div class="tag-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                  <line x1="7" y1="7" x2="7.01" y2="7" />
+                </svg>
+                <span>Reconnaissance</span>
+              </div>
+            </div>
           </div>
-          <div class="status-pill" [attr.data-status]="r.statut">
-            {{ r.statut }}
+
+          <div class="status-pill" [attr.data-status]="r.statut" [style.color]="getStatusColor(r.statut)">
+            {{ getStatusLabel(r.statut) }}
           </div>
         </div>
 
-        <div class="card-body">
-          <h3 class="meeting-title">{{ r.titre }}</h3>
-          <div class="meeting-type">
-            <lucide-icon [img]="r.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="14"></lucide-icon>
-            <span>{{ r.type }}</span>
-          </div>
-          <p class="meeting-desc">{{ r.description | slice:0:80 }}{{ r.description.length > 80 ? '...' : '' }}</p>
-        </div>
+        <div class="card-divider"></div>
 
         <div class="card-footer">
-          <div class="participant-stack">
+          <div class="participant-info">
             <div class="avatars">
               @for (p of r.participants.slice(0, 3); track p.utilisateurId) {
-                <div class="avatar-mini">
-                  @if (p.photo) {
-                    <img [src]="p.photo" [title]="p.nom">
-                  } @else {
-                    <div class="initials">{{ p.nom?.[0] }}</div>
-                  }
-                </div>
+              <div class="avatar-mini">
+                @if (p.photo) {
+                <img [src]="p.photo" [title]="p.nom">
+                } @else {
+                <div class="initials">{{ p.nom?.[0] }}</div>
+                }
+              </div>
               }
               @if (r.participants.length > 3) {
-                <div class="avatar-more">+{{ r.participants.length - 3 }}</div>
+              <div class="avatar-more">+{{ r.participants.length - 3 }}</div>
               }
             </div>
-            <span class="p-count">{{ r.participants.length }} participants</span>
+            <span class="p-summary">
+              {{ r.participants.length }} participants
+              <span class="rsvp-confirmed">
+                · <span class="dot"></span> {{ getConfirmedCount(r) }} confirmés
+              </span>
+            </span>
           </div>
-          <div class="time-tag">
-            <lucide-icon [img]="iconClock" size="14"></lucide-icon>
-            {{ r.heureDebut }}
+
+          <div class="footer-actions">
+            <button class="btn-more-circle" (click)="$event.stopPropagation()">
+              <lucide-icon [img]="iconMore" size="18"></lucide-icon>
+            </button>
+            <button class="btn-details-primary" [routerLink]="['/app/reunions', r.uuid]">
+              Voir détails
+            </button>
           </div>
         </div>
       </div>
+    </article>
     }
   </div>
 
-  <!-- Empty State -->
+  <!-- ═══════════════════ EMPTY STATE ═══════════════════ -->
   @if (!isLoading() && filteredReunions().length === 0) {
-    <div class="empty-state-glass">
-      <div class="empty-icon-wrap">
-        <lucide-icon [img]="iconCalendar" size="40"></lucide-icon>
-      </div>
-      <h3>Aucune réunion à afficher</h3>
-      <p>Vos réunions apparaîtront ici une fois planifiées.</p>
+  <div class="empty-state-glass">
+    <div class="empty-icon-wrap">
+      <lucide-icon [img]="iconCalendar" size="40"></lucide-icon>
     </div>
+    <h3>Aucune réunion à afficher</h3>
+    <p>Vos réunions apparaîtront ici une fois planifiées.</p>
+  </div>
   }
 </div>

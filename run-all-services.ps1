@@ -8,13 +8,13 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ServicesRoot = Join-Path $Root "weentime-backend\services"
 
 $Services = @(
-    @{ Name = "config-server"; Port = 8888; Path = Join-Path $ServicesRoot "config-server" },
+    @{ Name = "config-server"; Port = 8988; Path = Join-Path $ServicesRoot "config-server" },
     @{ Name = "discovery-service"; Port = 8761; Path = Join-Path $ServicesRoot "discovery" },
-    @{ Name = "auth-service"; Port = 8081; Path = Join-Path $ServicesRoot "auth-service" },
-    @{ Name = "organisation-service"; Port = 8090; Path = Join-Path $ServicesRoot "organisation-service" },
-    @{ Name = "rh-service"; Port = 8092; Path = Join-Path $ServicesRoot "rh-service" },
-    @{ Name = "presence-service"; Port = 8093; Path = Join-Path $ServicesRoot "presence-service" },
-    @{ Name = "communication-service"; Port = 8094; Path = Join-Path $ServicesRoot "communication-service" },
+    @{ Name = "auth-service"; Port = 8181; Path = Join-Path $ServicesRoot "auth-service" },
+    @{ Name = "organisation-service"; Port = 8190; Path = Join-Path $ServicesRoot "organisation-service" },
+    @{ Name = "rh-service"; Port = 8192; Path = Join-Path $ServicesRoot "rh-service" },
+    @{ Name = "presence-service"; Port = 8193; Path = Join-Path $ServicesRoot "presence-service" },
+    @{ Name = "communication-service"; Port = 8194; Path = Join-Path $ServicesRoot "communication-service" },
     @{ Name = "gateway"; Port = 8222; Path = Join-Path $ServicesRoot "gateway" }
 )
 

@@ -52,6 +52,9 @@
           <td>
             <div class="doc-label">
               <span class="type">{{ d.label }}</span>
+              @if (d.generatedByAI) {
+                <span class="ai-badge">IA</span>
+              }
               @if (d.urgente && d.statut === 'EN_ATTENTE') {
                 <span class="urgent-tag">URGENT</span>
               }

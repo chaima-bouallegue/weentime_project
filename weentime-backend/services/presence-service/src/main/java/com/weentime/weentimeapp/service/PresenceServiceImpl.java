@@ -656,12 +656,15 @@ public class PresenceServiceImpl implements PresenceService {
             status = lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING;
         } else if (hasSessions) {
             status = lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE;
-        } else if (hasApprovedLeave(utilisateurId, effectiveDate)) {
-            status = AttendanceDayStatus.ON_LEAVE;
-        } else if (hasApprovedTelework(utilisateurId, effectiveDate)) {
-            status = AttendanceDayStatus.REMOTE;
         } else {
-            status = AttendanceDayStatus.ABSENT;
+            // N'appeler les services externes que si aucune session locale n'est trouvée (économie de 200+ appels REST sur les dashboards)
+            if (hasApprovedLeave(utilisateurId, effectiveDate)) {
+                status = AttendanceDayStatus.ON_LEAVE;
+            } else if (hasApprovedTelework(utilisateurId, effectiveDate)) {
+                status = AttendanceDayStatus.REMOTE;
+            } else {
+                status = AttendanceDayStatus.ABSENT;
+            }
         }
 
         return AttendanceSummaryDTO.builder()

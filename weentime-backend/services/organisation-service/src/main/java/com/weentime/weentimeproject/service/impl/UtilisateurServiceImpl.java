@@ -1182,4 +1182,13 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .entreprise(UserProfileResponse.EntrepriseDto.builder().build())
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<UtilisateurResponse> getUtilisateursByEquipe(Long equipeId) {
+        return utilisateurRepository.findByEquipeId(equipeId).stream()
+                .map(this::enforceSingleBusinessRole)
+                .map(utilisateurMapper::toResponse)
+                .toList();
+    }
 }

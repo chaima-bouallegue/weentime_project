@@ -9,6 +9,7 @@ import com.weentime.weentimeapp.dto.UserResponse;
 import com.weentime.weentimeapp.dto.UtilisateurAuthResponse;
 import com.weentime.weentimeapp.dto.ValiderDocumentRequest;
 import com.weentime.weentimeapp.entity.Document;
+import com.weentime.weentimeapp.entity.TypeDocument;
 import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.enums.StatutDocument;
 import com.weentime.weentimeapp.enums.TypeDemandeEnum;
@@ -66,13 +67,16 @@ public class DocumentServiceImpl implements DocumentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le type de document est requis.");
         }
 
-        com.weentime.weentimeapp.entity.TypeDocument typeDocument;
-        if (request.getTypeDocumentId() != null) {
-            typeDocument = typeDocumentRepository.findById(request.getTypeDocumentId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par ID."));
-        } else {
-            typeDocument = typeDocumentRepository.findByCode(request.getType())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par code: " + request.getType()));
+        TypeDocument typeDocument = resolveTypeDocument(request, entrepriseId);
+
+        if (typeDocument.getMaxDemandesParMois() != null) {
+            LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0);
+            long countThisMonth = documentRepository.countByUtilisateurIdAndTypeDocumentAndDateCreationAfter(
+                    userId, typeDocument, startOfMonth);
+            if (countThisMonth >= typeDocument.getMaxDemandesParMois()) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Quota mensuel atteint pour ce type de document (" + typeDocument.getMaxDemandesParMois() + "/mois).");
+            }
         }
 
         List<StatutDemandeEnum> ongoingStatuts = List.of(StatutDemandeEnum.EN_ATTENTE_RH);
@@ -224,6 +228,10 @@ public class DocumentServiceImpl implements DocumentService {
         document.setStatut(StatutDemandeEnum.APPROUVE);
         document.setContenuIA(request.getContenuIA());
         document.setGeneratedByAI(request.isGeneratedByAI());
+        if (request.isGeneratedByAI()) {
+            document.setAiModelUsed("gemini-2.0-flash");
+            document.setTokensUsed(0);
+        }
         document.setCommentaireValidateur(request.getCommentaireRH());
         document.setDateDecision(LocalDateTime.now());
 
@@ -285,6 +293,20 @@ public class DocumentServiceImpl implements DocumentService {
         return resolveDocumentResource(document);
     }
 
+    private TypeDocument resolveTypeDocument(CreateDocumentRequest request, Long entrepriseId) {
+        if (request.getTypeDocumentId() != null) {
+            return typeDocumentRepository.findById(request.getTypeDocumentId())
+                    .filter(typeDocument -> canAccessTypeDocument(typeDocument, entrepriseId))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par ID."));
+        }
+
+        return typeDocumentRepository.findByEntrepriseIdAndCode(entrepriseId, request.getType())
+                .or(() -> typeDocumentRepository.findAllByEntrepriseId(entrepriseId).stream()
+                        .filter(typeDocument -> request.getType().equalsIgnoreCase(typeDocument.getCode()))
+                        .findFirst())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de document introuvable par code: " + request.getType()));
+    }
+
     private DemandeDocumentResponse enrichirResponse(Document document) {
         if (document == null) {
             return new DemandeDocumentResponse();
@@ -323,6 +345,11 @@ public class DocumentServiceImpl implements DocumentService {
         if (document.getEntrepriseId() == null || !document.getEntrepriseId().equals(entrepriseId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces non autorise a ce document.");
         }
+    }
+
+    private boolean canAccessTypeDocument(TypeDocument typeDocument, Long entrepriseId) {
+        return typeDocument != null
+                && (typeDocument.getEntrepriseId() == null || typeDocument.getEntrepriseId().equals(entrepriseId));
     }
 
     private Resource resolveDocumentResource(Document document) {

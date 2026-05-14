@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, Clock, MapPin, Video, Search, Plus, Calendar } from 'lucide-angular';
+import { LucideAngularModule, Clock, MapPin, Video, Search, Plus, Calendar, MoreHorizontal } from 'lucide-angular';
 import { ReunionStore } from '../../../core/services/reunion.store';
 import { AuthService } from '../../../core/services/auth.service';
 import { Reunion, ReunionStatut } from '../../../core/models/reunion.model';
@@ -26,6 +26,7 @@ export class ReunionDashboardComponent {
   readonly iconSearch = Search;
   readonly iconPlus = Plus;
   readonly iconCalendar = Calendar;
+  readonly iconMore = MoreHorizontal;
 
   readonly reunions = this.store.reunions;
   readonly isLoading = this.store.isLoading;
@@ -33,6 +34,30 @@ export class ReunionDashboardComponent {
 
   readonly filter = signal<'all' | 'upcoming' | 'past'>('all');
   readonly searchQuery = signal('');
+
+  getStatusLabel(status: ReunionStatut): string {
+    switch (status) {
+      case ReunionStatut.PLANIFIEE: return 'Planifiée';
+      case ReunionStatut.EN_COURS: return 'En cours';
+      case ReunionStatut.CLOTUREE: return 'Terminée';
+      case ReunionStatut.ANNULEE: return 'Annulée';
+      default: return status;
+    }
+  }
+
+  getStatusColor(status: ReunionStatut): string {
+    switch (status) {
+      case ReunionStatut.PLANIFIEE: return '#4f46e5';
+      case ReunionStatut.EN_COURS: return '#16a34a';
+      case ReunionStatut.CLOTUREE: return '#64748b';
+      case ReunionStatut.ANNULEE: return '#dc2626';
+      default: return '#64748b';
+    }
+  }
+
+  getConfirmedCount(reunion: Reunion): number {
+    return reunion.participants.filter(p => p.reponse === 'CONFIRME').length;
+  }
 
   readonly filteredReunions = computed(() => {
     let list = this.reunions();

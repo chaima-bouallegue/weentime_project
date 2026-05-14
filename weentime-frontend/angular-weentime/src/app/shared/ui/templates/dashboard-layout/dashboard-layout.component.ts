@@ -47,10 +47,10 @@ import { DashboardHeaderComponent } from '../../organisms/dashboard-header/dashb
   `,
   styles: [`
     .layout-root {
-      --layout-gap: 24px;
-      width: min(1320px, 100%);
+      --layout-gap: 32px;
+      width: min(1400px, 100%);
       margin-inline: auto;
-      padding: calc(16px + env(safe-area-inset-top)) 16px 24px;
+      padding: calc(24px + env(safe-area-inset-top)) 24px 40px;
       display: grid;
       gap: var(--layout-gap);
       box-sizing: border-box;

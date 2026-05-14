@@ -2,12 +2,10 @@
   <!-- RH Analytics Hero -->
   <header class="dashboard-hero mb-10">
     <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#ec4899'"></div>
-      
       <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10 p-10">
         <div class="flex-1 text-center md:text-left">
           <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-pink-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-pink-200 dark:shadow-none">
+            <span class="px-4 py-1.5 bg-pink-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-pink-200">
               Intelligence RH
             </span>
           </div>
@@ -21,9 +19,9 @@
         </div>
 
         <div class="flex flex-col sm:flex-row gap-4">
-           <button class="hero-btn secondary" (click)="refreshData()" [disabled]="isLoading()">
+           <button class="btn btn-secondary" (click)="refreshData()" [disabled]="isLoading()">
               <lucide-angular [img]="iconActivity" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
-              <span>Regénérer les modèles</span>
+              <span>Actualiser les données</span>
            </button>
         </div>
       </div>

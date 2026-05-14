@@ -92,8 +92,7 @@ public class DocumentController {
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<?> getDemandesEntreprise(
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size
-    ) {
+            @RequestParam(required = false) Integer size) {
         List<DemandeDocumentResponse> demandes = service.getDemandesEntreprise(getRhEntrepriseId());
         if (page == null && size == null) {
             return ResponseEntity.ok(demandes);
@@ -168,9 +167,11 @@ public class DocumentController {
                 request.getMoisConcerne() != null ? "- Mois concerne : " + request.getMoisConcerne() : ""
         );
 
-        String contenu = aiService.generateDocument(prompt);
+        AiService.AiResponse aiResponse = aiService.generateDocument(prompt);
         return ResponseEntity.ok(AIGenerationResult.builder()
-                .contenu(contenu)
+                .contenu(aiResponse.text())
+                .tokensUsed(aiResponse.tokens())
+                .modelUsed(aiResponse.model())
                 .type(request.getType())
                 .employeNom(request.getEmployePrenom() + " " + request.getEmployeNom())
                 .dateGeneration(java.time.LocalDateTime.now().toString())

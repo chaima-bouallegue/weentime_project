@@ -356,6 +356,50 @@ public class MessageService {
     }
 
     @Transactional
+    public MessageResponse pinMessage(UUID messageId, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        CommMessage message = messageRepository.findByIdAndEntrepriseId(messageId, currentUser.entrepriseId())
+                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "COMM_MESSAGE_NOT_FOUND",
+                        "The requested message could not be found.", Map.of("messageId", messageId)));
+        membershipService.assertActiveMember(message.getChannelId(), currentUser);
+
+        if (message.getPinnedAt() == null) {
+            message.setPinnedAt(Instant.now());
+            message.setUpdatedAt(Instant.now());
+            messageRepository.save(message);
+            channelService.touchChannel(message.getChannelId());
+        }
+
+        MessageResponse response = hydrateMessage(message, currentUser);
+        realtimeEventService.publishMessageUpdated(currentUser.entrepriseId(), currentUser.userId(), message.getChannelId(), response);
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "MESSAGE", messageId.toString(),
+                "message.pinned", Map.of("channelId", message.getChannelId()));
+        return response;
+    }
+
+    @Transactional
+    public MessageResponse unpinMessage(UUID messageId, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        CommMessage message = messageRepository.findByIdAndEntrepriseId(messageId, currentUser.entrepriseId())
+                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "COMM_MESSAGE_NOT_FOUND",
+                        "The requested message could not be found.", Map.of("messageId", messageId)));
+        membershipService.assertActiveMember(message.getChannelId(), currentUser);
+
+        if (message.getPinnedAt() != null) {
+            message.setPinnedAt(null);
+            message.setUpdatedAt(Instant.now());
+            messageRepository.save(message);
+            channelService.touchChannel(message.getChannelId());
+        }
+
+        MessageResponse response = hydrateMessage(message, currentUser);
+        realtimeEventService.publishMessageUpdated(currentUser.entrepriseId(), currentUser.userId(), message.getChannelId(), response);
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "MESSAGE", messageId.toString(),
+                "message.unpinned", Map.of("channelId", message.getChannelId()));
+        return response;
+    }
+
+    @Transactional
     public void publishTyping(UUID channelId, CommunicationUserPrincipal currentUser, boolean typing) {
         assertTenantContext(currentUser);
         membershipService.assertActiveMember(channelId, currentUser);

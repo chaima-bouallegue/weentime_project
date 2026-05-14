@@ -32,6 +32,8 @@ public class DemandeDocumentResponse {
     // Champs IA
     private boolean generatedByAI;
     private String contenuIA;
+    private String aiModelUsed;
+    private Integer tokensUsed;
 
     // Champs calculés
     private boolean urgente;

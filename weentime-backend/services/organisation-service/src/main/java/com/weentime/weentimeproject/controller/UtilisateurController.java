@@ -178,4 +178,11 @@ public class UtilisateurController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/equipe/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
+    public ResponseEntity<java.util.List<UtilisateurResponse>> getUtilisateursByEquipe(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(utilisateurService.getUtilisateursByEquipe(id));
+    }
+
 }

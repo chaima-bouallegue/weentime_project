@@ -140,6 +140,14 @@ public class EquipeServiceImpl implements EquipeService {
                 });
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<EquipeResponse> getEquipesByResponsable(Long responsableId) {
+        return equipeRepository.findByResponsableId(responsableId).stream()
+                .map(equipeMapper::toResponse)
+                .toList();
+    }
+
     private Long resolveScopedEntrepriseId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {

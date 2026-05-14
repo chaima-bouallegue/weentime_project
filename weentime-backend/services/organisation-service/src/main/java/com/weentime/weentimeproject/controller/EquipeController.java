@@ -70,4 +70,11 @@ public class EquipeController {
             @Valid PageParams params) {
         return ResponseEntity.ok(equipeService.getEquipeMembers(id, params.toPageable()));
     }
+
+    @GetMapping("/responsable/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER')")
+    public ResponseEntity<java.util.List<EquipeResponse>> getEquipesByResponsable(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(equipeService.getEquipesByResponsable(id));
+    }
 }

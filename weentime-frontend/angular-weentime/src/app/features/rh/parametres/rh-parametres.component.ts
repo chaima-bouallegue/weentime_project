@@ -26,24 +26,19 @@ import { RhConfigStore } from '../../../core/services/rh-config.store';
     RhSoldesManagerComponent
   ],
   template: `
-    <div class="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] p-4 lg:p-8 transition-colors duration-300">
+    <div class="animate-fade-in">
       
-      <!-- Top Header -->
-      <header class="mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
+      <!-- Top Header (Simplified) -->
+      <header class="mb-8">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div class="flex items-center gap-3 mb-1">
-              <div class="p-3 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-100 dark:shadow-indigo-900/40 transform transition-transform hover:rotate-12">
-                <lucide-icon [img]="SettingsIcon" class="w-6 h-6 text-white"></lucide-icon>
-              </div>
-              <h1 class="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">
-                Paramètres <span class="text-indigo-600 dark:text-indigo-400 font-light lowercase">RH</span>
-              </h1>
-            </div>
-            <p class="text-slate-400 dark:text-slate-500 font-medium ml-16 text-sm">Configurez l'écosystème de votre capital humain</p>
+            <h1 class="text-3xl font-black tracking-tight text-slate-800 dark:text-white">
+              Paramètres <span class="text-indigo-600 dark:text-indigo-400 font-light lowercase">RH</span>
+            </h1>
+            <p class="text-slate-400 dark:text-slate-500 font-medium text-sm">Configurez l'écosystème de votre capital humain</p>
           </div>
           
-          <!-- Quick stats or shortcuts -->
+          <!-- Quick stats -->
           <div class="hidden lg:flex items-center gap-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-2 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
              <div class="px-4 py-2 text-center border-r border-slate-200 dark:border-slate-700">
                 <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Modules</span>
@@ -282,10 +277,33 @@ export class RhParametresComponent implements OnInit {
   ];
 
   documentColumns: CrudColumn[] = [
-    { key: 'code', label: 'Code unique', type: 'text', required: true },
     { key: 'libelle', label: 'Libellé', type: 'text', required: true },
-    { key: 'requireSignature', label: 'Signature exigée ?', type: 'boolean' },
-    { key: 'enableTemplate', label: 'Généré via modèle ?', type: 'boolean' }
+    { key: 'code', label: 'Code unique', type: 'text', required: true },
+    { 
+      key: 'modeGeneration', 
+      label: 'Mode de génération', 
+      type: 'enum', 
+      required: true,
+      options: [
+        { value: 'TEMPLATE_ONLY', label: 'Modèle fixe (0€)' },
+        { value: 'AI_HYBRID', label: 'IA Hybride (Corps IA)' },
+        { value: 'AI_FULL', label: 'IA Totale (Libre)' },
+        { value: 'MANUAL_UPLOAD', label: 'Upload manuel' }
+      ]
+    },
+    { 
+      key: 'workflowType', 
+      label: 'Workflow', 
+      type: 'enum', 
+      required: true,
+      options: [
+        { value: 'RH_VALIDATION', label: 'Validation RH requise' },
+        { value: 'AUTO_APPROVE', label: 'Auto-approbation immédiate' },
+        { value: 'MANAGER_VALIDATION', label: 'Validation Manager' }
+      ]
+    },
+    { key: 'delaiTraitementJours', label: 'Délai (jours)', type: 'number', required: true },
+    { key: 'maxDemandesParMois', label: 'Quota mensuel', type: 'number' }
   ];
 }
 

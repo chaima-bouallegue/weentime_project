@@ -14,4 +14,6 @@ public class AIGenerationResult {
     private String type;
     private String employeNom;
     private String dateGeneration;
+    private String modelUsed;
+    private Integer tokensUsed;
 }
