@@ -9,6 +9,8 @@ _SECRET_PATTERNS = (
     re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
     re.compile(r"\b(?:sk-[A-Za-z0-9_-]{12,}|bt_[A-Za-z0-9_-]{12,})\b"),
     re.compile(r"\b(?:JWT_SECRET|AI_JWT_SECRET|BRAINTRUST_API_KEY|OPENAI_API_KEY|DATABASE_URL)\s*[:=]\s*[^\s]+", re.IGNORECASE),
+    re.compile(r"\b(?:api[_-]?key|password|passwd|pwd)\s*[:=]\s*[^\s]+", re.IGNORECASE),
+    re.compile(r"\b(?:postgresql|postgres|mysql|mariadb|mongodb)://[^\s]+", re.IGNORECASE),
 )
 
 
