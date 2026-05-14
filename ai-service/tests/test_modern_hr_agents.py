@@ -142,7 +142,8 @@ def test_rh_stats_routes_to_rh_agent() -> None:
     response = asyncio.run(agent.handle("donne moi les stats rh", context("RH")))
 
     assert response.intent == "rh.stats"
-    assert executor.calls[0][0] == "legacy.get_rh_stats"
+    assert executor.calls[0][0] == "rh.get_stats"
+    assert all(call[0] != "legacy.get_rh_stats" for call in executor.calls)
 
 
 def test_legacy_agent_still_works_as_fallback() -> None:

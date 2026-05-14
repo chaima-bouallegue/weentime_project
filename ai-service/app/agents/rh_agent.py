@@ -45,7 +45,7 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         intent, confidence = self.detect_intent(message, context)
         if intent == "rh.stats":
             return await self.read_response(
-                tool_name="legacy.get_rh_stats",
+                tool_name="rh.get_stats",
                 tool_input={},
                 context=context,
                 intent=intent,

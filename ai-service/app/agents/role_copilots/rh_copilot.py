@@ -45,7 +45,7 @@ class RHCopilot(BaseRoleCopilot):
         calls: list[ToolCallRecord] = []
         warnings: list[str] = []
         for title, tool_name in (
-            ("Statistiques RH", "legacy.get_rh_stats"),
+            ("Statistiques RH", "rh.get_stats"),
             ("Demandes RH", "legacy.get_all_requests"),
             ("Documents RH", "document.rh_workload"),
         ):

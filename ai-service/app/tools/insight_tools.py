@@ -102,7 +102,7 @@ class InsightTools:
 
     async def rh_daily(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         period = str(getattr(payload, "period", "today") or "today")
-        results = await self._collect(context, (("legacy.get_rh_stats", {}), ("legacy.get_all_requests", {})))
+        results = await self._collect(context, (("rh.get_stats", {}), ("legacy.get_all_requests", {})))
         report = self.engine.rh_daily(context, results, period=period)
         return self._report_result("insights.rh_daily", report)
 

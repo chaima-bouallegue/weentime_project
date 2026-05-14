@@ -138,6 +138,8 @@ def test_rh_summary_routes_to_rh_copilot() -> None:
     assert response.intent == "rh.daily_briefing"
     assert response.actionResult is not None
     assert response.actionResult["agent"] == "RHCopilot"
+    assert any(call.name == "rh.get_stats" for call in response.toolCalls)
+    assert not any(call.name == "legacy.get_rh_stats" for call in response.toolCalls)
 
 
 def test_admin_summary_routes_to_admin_copilot_with_unavailable_sections() -> None:

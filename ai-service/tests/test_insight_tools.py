@@ -119,7 +119,7 @@ async def test_manager_team_summary_is_read_only() -> None:
 async def test_rh_insight_summary_uses_rh_role_only() -> None:
     registry = ToolRegistry()
     recorder = Recorder()
-    register_fake_read(registry, "legacy.get_rh_stats", recorder, {"employees": 22, "pendingRequests": 4}, roles={"RH"})
+    register_fake_read(registry, "rh.get_stats", recorder, read_result("rh.get_stats", data={"totalEmployees": 22, "pendingRequests": 7}), roles={"RH"})
     register_fake_read(registry, "legacy.get_all_requests", recorder, read_result("legacy.get_all_requests", items=[{"id": i} for i in range(6)]), roles={"RH"})
     executor = ToolExecutor(registry)
     register_insight_tools(registry, executor, InsightEngine())
@@ -127,7 +127,11 @@ async def test_rh_insight_summary_uses_rh_role_only() -> None:
     result = await executor.execute("insights.rh_daily", {}, context("RH"))
 
     assert result.success is True
-    assert set(recorder.calls) == {"legacy.get_rh_stats", "legacy.get_all_requests"}
+    assert set(recorder.calls) == {"rh.get_stats", "legacy.get_all_requests"}
+    assert "legacy.get_rh_stats" not in recorder.calls
+    read = get_read_result(result.data)
+    assert read is not None
+    assert any(item["sourceTools"] == ["rh.get_stats"] for item in read["data"]["insights"])
 
 
 @pytest.mark.asyncio
