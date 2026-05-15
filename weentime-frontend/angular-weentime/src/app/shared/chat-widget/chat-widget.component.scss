@@ -8,22 +8,29 @@
   --chat-assistant: rgba(255, 255, 255, 0.06);
   --chat-accent-soft: rgba(84, 209, 255, 0.16);
   --chat-text-strong: #07111f;
-  position: fixed;
-  inset: auto 24px 24px auto;
-  z-index: 1300;
-  display: block;
-  width: 0;
-  height: 0;
-  overflow: visible;
-  pointer-events: none;
+  /* Reserved space below the panel: shell footer (~52px) + breathing room. */
+  --chat-bottom-safe: calc(52px + 24px + env(safe-area-inset-bottom, 0px));
+  /* Distance from viewport edges to the floating toggle. */
+  --chat-toggle-offset: 24px;
+  --chat-toggle-size: 68px;
+  /* The panel sits above the floating toggle. */
+  --chat-panel-bottom: calc(var(--chat-bottom-safe) + var(--chat-toggle-size) + 12px);
+  --chat-panel-side-offset: 24px;
+  /* Host stays display:contents so it doesn't generate a stacking context
+     that could trap the fixed children in a smaller layout box. The
+     viewport-sized layer is created by .chat-widget below. */
+  display: contents;
 }
 
 .chat-widget {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  width: 100vw;
+  height: 100vh;
   font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
-  width: 0;
-  height: 0;
-  overflow: visible;
+  /* The viewport-sized layer stays click-through; only interactive children
+     (toggle, panel) opt back into pointer events. */
   pointer-events: none;
 }
 
@@ -58,18 +65,22 @@
 }
 
 .chat-panel-shell {
-  position: absolute;
-  right: 0;
-  bottom: 86px;
-  width: 0;
-  height: 0;
-  overflow: visible;
+  /* Anchor the panel directly to the viewport, NOT to the zero-sized chat
+     widget container. This keeps the panel inside the viewport regardless
+     of the host's containing block. */
+  position: fixed;
+  right: var(--chat-panel-side-offset);
+  bottom: var(--chat-panel-bottom);
+  width: min(420px, calc(100vw - 2 * var(--chat-panel-side-offset)));
+  /* The shell does not consume layout when the panel is hidden. */
   pointer-events: none;
 }
 
 .chat-panel {
-  width: min(430px, calc(100vw - 24px));
-  height: min(700px, calc(100vh - 120px));
+  width: 100%;
+  /* Cap the panel so it never extends past the footer/toggle reserved area. */
+  height: min(720px, calc(100vh - var(--chat-panel-bottom) - 24px));
+  max-height: calc(100vh - var(--chat-panel-bottom) - 24px);
   display: flex;
   flex-direction: column;
   border-radius: 26px;
@@ -98,6 +109,10 @@
 .chat-panel button,
 .chat-panel input,
 .chat-panel textarea {
+  pointer-events: auto;
+}
+
+.chat-panel-shell--open {
   pointer-events: auto;
 }
 
@@ -241,7 +256,10 @@
 }
 
 .chat-panel__messages {
-  flex: 1;
+  flex: 1 1 auto;
+  /* min-height: 0 lets the flex child shrink below content size so its own
+     overflow-y actually scrolls instead of pushing the composer out. */
+  min-height: 0;
   overflow-y: auto;
   padding: 4px 18px 28px;
   scroll-padding-bottom: 28px;
@@ -696,17 +714,28 @@
 }
 
 .chat-toggle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 68px;
-  height: 68px;
+  position: fixed;
+  right: var(--chat-toggle-offset);
+  bottom: var(--chat-bottom-safe);
+  width: var(--chat-toggle-size);
+  height: var(--chat-toggle-size);
   border: 0;
   border-radius: 22px;
   background: linear-gradient(135deg, var(--chat-violet), var(--chat-blue));
   color: white;
   box-shadow: 0 22px 50px rgba(17, 24, 39, 0.34);
   pointer-events: auto;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
+}
+
+/* When the panel is open, hide the duplicate floating toggle: the close
+   action lives inside the panel header. We collapse it instead of removing
+   it from the DOM so the open/close transition stays smooth. */
+.chat-toggle--hidden {
+  opacity: 0;
+  transform: scale(0.6) translateY(12px);
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .chat-toggle__halo {
@@ -773,16 +802,21 @@
 
 @media (max-width: 720px) {
   :host {
-    inset: auto 12px 12px auto;
+    --chat-toggle-offset: 16px;
+    --chat-toggle-size: 60px;
+    --chat-panel-side-offset: 12px;
+    --chat-bottom-safe: calc(52px + 16px + env(safe-area-inset-bottom, 0px));
+    --chat-panel-bottom: calc(var(--chat-bottom-safe) + var(--chat-toggle-size) + 8px);
   }
 
   .chat-panel-shell {
-    bottom: 76px;
+    /* Make the panel take the available width with 12px safe margins. */
+    width: calc(100vw - 2 * var(--chat-panel-side-offset));
   }
 
   .chat-panel {
-    width: min(100vw - 12px, 430px);
-    height: min(82vh, 680px);
+    height: calc(100vh - var(--chat-panel-bottom) - 16px);
+    max-height: calc(100vh - var(--chat-panel-bottom) - 16px);
   }
 
   .chat-panel__header {

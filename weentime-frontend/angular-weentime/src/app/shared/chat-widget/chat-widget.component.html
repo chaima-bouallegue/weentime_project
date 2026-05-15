@@ -320,11 +320,14 @@
   <button
     type="button"
     class="chat-toggle"
+    [class.chat-toggle--hidden]="isOpen()"
     (click)="toggleChat()"
     [attr.aria-expanded]="isOpen()"
-    aria-label="Ouvrir le chat RH"
+    [attr.aria-hidden]="isOpen() ? 'true' : null"
+    [attr.tabindex]="isOpen() ? -1 : null"
+    aria-label="Ouvrir l'assistant AI"
   >
     <span class="chat-toggle__halo"></span>
-    <lucide-icon [name]="isOpen() ? 'x' : 'message-square'" [size]="22"></lucide-icon>
+    <lucide-icon name="message-square" [size]="22"></lucide-icon>
   </button>
 </div>
