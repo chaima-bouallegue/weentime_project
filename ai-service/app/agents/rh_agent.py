@@ -43,6 +43,30 @@ class RHAgent(ConfirmationMixin, DomainAgent):
             return AgentResponse(type="error", text="Votre role ne permet pas cette action RH.", intent="rh.forbidden", confidence=0.95)
 
         intent, confidence = self.detect_intent(message, context)
+        if intent == "rh.create_user_unavailable":
+            return AgentResponse(
+                type="answer",
+                text=(
+                    "La creation de comptes utilisateurs est reservee aux administrateurs. "
+                    "En tant que RH, vous pouvez : affecter un employe a une equipe ou un departement, "
+                    "designer un manager, generer un document RH, ou consulter le backlog RH."
+                ),
+                intent=intent,
+                confidence=confidence,
+                actionResult={
+                    "kind": "rh_capability_unavailable",
+                    "agent": "RHAgent",
+                    "capability": "create_user",
+                    "allowedRoles": ["ADMIN"],
+                    "alternatives": [
+                        "affecter un employe a une equipe",
+                        "affecter un employe a un departement",
+                        "designer un manager",
+                        "generer un document RH",
+                        "consulter le backlog RH",
+                    ],
+                },
+            )
         if intent == "rh.stats":
             return await self.read_response(
                 tool_name="rh.get_stats",
@@ -124,6 +148,12 @@ class RHAgent(ConfirmationMixin, DomainAgent):
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
+        # Capability question: "can RH create a platform user?" — answered locally
+        # with a deterministic capability response. RH cannot create users; that's
+        # an ADMIN-only operation. Without this branch, the message falls through
+        # to the legacy/LLM path and the guard rejects it as unsafe_response.
+        if _wants_user_creation(text):
+            return "rh.create_user_unavailable", 0.92
         if not has_any(text, ("rh", "stats", "statistiques", "kpi", "toutes les demandes", "process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette", "validation")):
             return None, 0.0
         if has_any(text, ("stats", "statistiques", "kpi")):
@@ -323,6 +353,30 @@ def _request_label(summary: dict[str, Any]) -> str:
     if motif:
         parts.append(f"motif: {motif}")
     return " - ".join(str(part) for part in parts if part)
+
+
+def _wants_user_creation(text: str) -> bool:
+    """Detect 'create / add / new user' intent across FR, EN, TN, AR.
+
+    Conservative: requires both a create-verb AND a user-noun in the same
+    message. Returns False on bare 'user' so 'liste users' / 'user details'
+    fall through to other agents (admin).
+    """
+    if not text:
+        return False
+    create_verbs = (
+        # FR / TN
+        "creer", "cree", "ajouter", "ajoute", "nouveau", "nouvelle", "nzid", "jdid", "jdida",
+        # EN
+        "create", "add", "new",
+    )
+    user_nouns = (
+        "user", "utilisateur", "compte", "account",
+        "مستخدم",  # AR "user"
+    )
+    has_verb = any(verb in text for verb in create_verbs)
+    has_user = any(noun in text for noun in user_nouns)
+    return has_verb and has_user
 
 
 def _choices_text(choices: list[dict[str, Any]]) -> str:

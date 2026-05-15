@@ -7,6 +7,7 @@ import { AuthService, User } from '../../core/services/auth.service';
 import { resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
 import { ChatApiResponse } from './chat.service';
 import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-response-normalizer';
+import { safeDisplayText, safeTrimmedString } from './safe-text.util';
 
 export type VoiceAssistantState =
   | 'idle'
@@ -580,12 +581,13 @@ export class VoiceAssistantService {
     return fallbackMessage;
   }
 
-  private normalizeAudioErrorMessage(value: string | null | undefined): string | null {
-    if (!value?.trim()) {
+  private normalizeAudioErrorMessage(value: unknown): string | null {
+    const safe = safeDisplayText(value);
+    if (!safe) {
       return null;
     }
 
-    const lowered = value.trim().toLowerCase();
+    const lowered = safe.toLowerCase();
     if (
       lowered === 'empty_audio'
       || lowered === 'no_speech_detected'
@@ -624,7 +626,7 @@ export class VoiceAssistantService {
     ) {
       return VoiceAssistantService.ASSISTANT_UNAVAILABLE_MESSAGE;
     }
-    return value.trim();
+    return safe;
   }
 
   private isSoftVoiceResponse(
@@ -681,11 +683,12 @@ export class VoiceAssistantService {
     return String(normalized.assistantText || response?.message || response?.response || VoiceAssistantService.SOFT_NO_INPUT_MESSAGE).trim();
   }
 
-  private isAudioFailure(value: string | null | undefined): boolean {
-    if (!value?.trim()) {
+  private isAudioFailure(value: unknown): boolean {
+    const safe = safeDisplayText(value);
+    if (!safe) {
       return false;
     }
-    const lowered = value.trim().toLowerCase();
+    const lowered = safe.toLowerCase();
     return (
       lowered === 'audio_transcription_failed'
       || lowered === 'audio_processing_failed'
@@ -823,10 +826,5 @@ export class VoiceAssistantService {
   }
 }
 
-function safeTrimmedString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
+// safeTrimmedString and safeDisplayText now live in safe-text.util.ts so
+// chat-widget.component.ts can reuse them without circular imports.

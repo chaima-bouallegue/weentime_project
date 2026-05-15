@@ -327,6 +327,15 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
         "role_summary",
         "role_intelligence_digest",
         "insight_report",
+        # RH-specific aggregator kinds. RHAgent._read_rh_requests fans out to
+        # 4 tools and folds their read_results into `sections`, which are the
+        # real evidence. The wrapper kind names must be whitelisted so the
+        # natural text "X demandes en attente" does not trip the regex check.
+        "rh_request_summary",
+        "rh_capability_unavailable",
+        "approval_lookup",
+        "approval_confirmation",
+        "capability_unavailable",
     }:
         return True
 

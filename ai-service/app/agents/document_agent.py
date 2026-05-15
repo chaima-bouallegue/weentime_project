@@ -82,6 +82,35 @@ class DocumentAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if intent == "document.create":
+            # Pre-flight role check. `document.create_request` is registered with
+            # allowed_roles={"EMPLOYEE"} in document_tools.py — the registry will
+            # deny non-EMPLOYEE callers at execution time, but if we still offered
+            # a confirm_action here the user would see the confirm dialog then
+            # get a 401/403 on accept. That's bad UX and what RH-AGENT-HOTFIX-01
+            # called out. Refuse upfront with a capability message instead.
+            caller_role = (context.role or "").upper().replace("ROLE_", "")
+            if caller_role and caller_role != "EMPLOYEE":
+                return AgentResponse(
+                    type="answer",
+                    text=(
+                        "La demande de document est une action employe. "
+                        f"En tant que {caller_role}, utilisez plutot 'charge documents RH' "
+                        "pour voir le backlog, ou 'generer document' pour produire un document RH."
+                    ),
+                    intent=intent,
+                    confidence=confidence,
+                    actionResult={
+                        "kind": "capability_unavailable",
+                        "agent": "DocumentAgent",
+                        "capability": "document.create_request",
+                        "allowedRoles": ["EMPLOYEE"],
+                        "callerRole": caller_role,
+                        "alternatives": [
+                            "charge documents RH (document.rh_workload)",
+                            "generer document RH (document.rh_generate)",
+                        ],
+                    },
+                )
             payload = extract_payload(source_text, "REQUEST_DOCUMENT", context)
             document_type = payload.get("document_type") or _infer_document_type(source_text)
             if not document_type:

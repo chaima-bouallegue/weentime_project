@@ -18,6 +18,7 @@ import { finalize } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
 import { DragDropModule, CdkDragEnd } from '@angular/cdk/drag-drop';
 import { Subscription } from 'rxjs';
+import { safeDisplayText } from './safe-text.util';
 import { environment } from '../../../environments/environment';
 import { AssistantResponseMeta, AssistantWorkflowState } from '../../core/models/assistant.model';
 import { ChatApiResponse, ChatHistoryMessage, ChatService, TtsResponse } from './chat.service';
@@ -634,12 +635,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     return 'System';
   }
 
-  formatDetectedLanguage(value: string | null | undefined): string | null {
-    if (!value?.trim()) {
+  formatDetectedLanguage(value: unknown): string | null {
+    const safe = safeDisplayText(value);
+    if (!safe) {
       return null;
     }
 
-    switch (value.trim().toLowerCase()) {
+    switch (safe.toLowerCase()) {
       case 'fr':
         return 'FR';
       case 'en':
@@ -649,7 +651,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       case 'tn':
         return 'TN';
       default:
-        return value.trim().toUpperCase();
+        return safe.toUpperCase();
     }
   }
 
