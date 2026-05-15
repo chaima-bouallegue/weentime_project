@@ -130,6 +130,10 @@ class Settings:
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379").strip()
         self.redis_ai_events_channel = os.getenv("REDIS_AI_EVENTS_CHANNEL", "ai.events.generated").strip()
         self.redis_default_ttl_seconds = max(1, int(os.getenv("REDIS_DEFAULT_TTL_SECONDS", "300")))
+        self.workflow_session_ttl_seconds = min(
+            1800,
+            max(900, int(os.getenv("WORKFLOW_SESSION_TTL_SECONDS", "1800"))),
+        )
 
         # ── AI Providers Configuration ──
         self.gemini_api_key = os.getenv("GEMINI_API_KEY", "AIzaSyB2NMVh_dPxLkmPXdUh7eYqkVMLicaNPVs")

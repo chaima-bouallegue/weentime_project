@@ -46,6 +46,7 @@ from app.tools.policy_tools import register_policy_tools
 from app.tools.rh_tools import register_rh_tools
 from app.tools.registry import ToolRegistry
 from app.tools.telework_tools import register_telework_tools
+from app.workflows import SessionStore, WorkflowOrchestrator
 
 LegacyHandler = Callable[[Any], Awaitable[Any]]
 
@@ -64,6 +65,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state = app_state or _APP_STATE
     if state is None:
         raise RuntimeError("copilot_engine_not_configured")
+    settings = getattr(state, "settings", None)
+    workflow_session_ttl = int(getattr(settings, "workflow_session_ttl_seconds", 1800)) if settings else 1800
     if getattr(state, "copilot_ready", False):
         if not hasattr(state, "copilot_conversation_store"):
             state.copilot_conversation_store = ConversationStateStore()
@@ -71,6 +74,23 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             state.copilot_response_guard = ResponseGuard()
         if not hasattr(state, "copilot_provider_router"):
             state.copilot_provider_router = ProviderRouter.from_settings(getattr(state, "settings", None))
+        if not hasattr(state, "copilot_session_store"):
+            state.copilot_session_store = SessionStore(
+                ttl_seconds=workflow_session_ttl,
+                redis_enabled=bool(getattr(settings, "redis_enabled", False)),
+                redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
+            )
+        if not hasattr(state, "copilot_workflow_orchestrator"):
+            state.copilot_workflow_orchestrator = WorkflowOrchestrator(
+                context_builder=state.copilot_context_builder,
+                router_agent=state.copilot_router_agent,
+                confirmation_store=state.copilot_confirmation_store,
+                executor=state.copilot_tool_executor,
+                conversation_store=state.copilot_conversation_store,
+                response_guard=state.copilot_response_guard,
+                provider_router=state.copilot_provider_router,
+                session_store=state.copilot_session_store,
+            )
         return {
             "context_builder": state.copilot_context_builder,
             "router_agent": state.copilot_router_agent,
@@ -79,9 +99,10 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             "conversation_store": state.copilot_conversation_store,
             "response_guard": state.copilot_response_guard,
             "provider_router": state.copilot_provider_router,
+            "session_store": state.copilot_session_store,
+            "workflow_orchestrator": state.copilot_workflow_orchestrator,
         }
 
-    settings = getattr(state, "settings", None)
     timeout = float(getattr(settings, "backend_timeout_seconds", 20.0)) if settings else 20.0
     base_url = getattr(settings, "backend_base_url", None) if settings else None
     backend_client = getattr(state, "copilot_backend_client", None) or BackendClient(base_url=base_url, timeout=timeout)
@@ -122,10 +143,15 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         register_legacy_hr_tools(registry, getattr(state, "hr_tools", None))
         state.copilot_legacy_tools_registered = True
 
-    confirmation_store = getattr(state, "copilot_confirmation_store", None) or ConfirmationStore()
+    confirmation_store = getattr(state, "copilot_confirmation_store", None) or ConfirmationStore(ttl_seconds=workflow_session_ttl)
     conversation_store = getattr(state, "copilot_conversation_store", None) or ConversationStateStore()
     response_guard = getattr(state, "copilot_response_guard", None) or ResponseGuard()
     provider_router = getattr(state, "copilot_provider_router", None) or ProviderRouter.from_settings(settings)
+    session_store = getattr(state, "copilot_session_store", None) or SessionStore(
+        ttl_seconds=workflow_session_ttl,
+        redis_enabled=bool(getattr(settings, "redis_enabled", False)),
+        redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
+    )
     executor = getattr(state, "copilot_tool_executor", None) or ToolExecutor(registry, ToolAuditLogger())
     if not getattr(state, "copilot_insight_tools_registered", False):
         register_insight_tools(registry, executor, insight_engine)
@@ -179,6 +205,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_conversation_store = conversation_store
     state.copilot_response_guard = response_guard
     state.copilot_provider_router = provider_router
+    state.copilot_session_store = session_store
     state.copilot_tool_executor = executor
     state.copilot_attendance_agent = attendance_agent
     state.copilot_leave_agent = leave_agent
@@ -198,6 +225,16 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_hr_policy_agent = hr_policy_agent
     state.copilot_legacy_agent = legacy_agent
     state.copilot_router_agent = router_agent
+    state.copilot_workflow_orchestrator = WorkflowOrchestrator(
+        context_builder=context_builder,
+        router_agent=router_agent,
+        confirmation_store=confirmation_store,
+        executor=executor,
+        conversation_store=conversation_store,
+        response_guard=response_guard,
+        provider_router=provider_router,
+        session_store=session_store,
+    )
     state.copilot_ready = True
     return {
         "context_builder": context_builder,
@@ -207,6 +244,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         "conversation_store": conversation_store,
         "response_guard": response_guard,
         "provider_router": provider_router,
+        "session_store": session_store,
+        "workflow_orchestrator": state.copilot_workflow_orchestrator,
     }
 
 
@@ -234,89 +273,38 @@ async def process_copilot_message(
             "request_id": request_id,
         },
     ):
-        if not access_token and metadata.get("allow_legacy_without_token"):
-            context = services["context_builder"]._from_claims(  # compatibility path for old /chat tests and clients
-                JwtClaims(
-                    verified=False,
-                    user_id=user_id,
-                    email=None,
-                    role=role or "EMPLOYEE",
-                    roles={role or "EMPLOYEE"},
-                    entreprise_id=metadata.get("entreprise_id") or metadata.get("tenant_id"),
-                    department_id=metadata.get("department_id"),
-                    team_id=metadata.get("team_id"),
-                    manager_id=metadata.get("manager_id"),
-                ),
-                token="",
-                locale=metadata.get("locale", "fr-FR"),
-                language=language,
-            )
-            context.metadata["request_id"] = request_id
-        else:
-            try:
-                payload_user_id = user_id if user_id and user_id > 0 else None
-                context = await services["context_builder"].build(
-                    f"Bearer {access_token}" if access_token and not access_token.lower().startswith("bearer ") else access_token,
-                    payload_user_id=payload_user_id,
-                    locale=metadata.get("locale", "fr-FR"),
-                    language=language,
-                )
-                context.metadata["request_id"] = request_id
-            except ContextError as exc:
-                log_error("copilot.context_error", exc, {"code": exc.code, "status_code": exc.status_code})
-                raise
-
-        log_event(
-            "copilot.request",
-            metadata={
-                "channel": channel,
-                "user_role": context.role,
-                "tenant_id": context.tenant_id,
-                "language": context.language or language,
-                "message_length": len(message or ""),
-                "provider_mode": getattr(services["provider_router"], "mode", "disabled"),
-            },
-        )
-        session_id = str(metadata.get("session_id") or "") or None
-        if _is_why_message(message):
-            last_error = services["conversation_store"].get_last_error(context, session_id)
-            if last_error:
-                response = AgentResponse(
-                    type="answer",
-                    text=f"La derniere erreur vient de ceci : {last_error}",
-                    intent="conversation.explain_last_error",
-                    confidence=0.9,
-                    actionResult={"kind": "error_explanation", "lastError": last_error},
-                )
-                response = localize_agent_response(response, context)
-                return services["response_guard"].guard_response(response, context)
-
-        response = await continue_pending_flow(
-            message=message,
-            context=context,
-            store=services["conversation_store"],
-            executor=services["executor"],
-            confirmation_store=services["confirmation_store"],
-            session_id=session_id,
-        )
-        if response is None:
-            response = await services["router_agent"].handle(message, context)
-            response = capture_pending_flow(
+        try:
+            result = await services["workflow_orchestrator"].process_message(
+                user_id=user_id,
                 message=message,
-                response=response,
-                context=context,
-                store=services["conversation_store"],
-                session_id=session_id,
+                access_token=access_token,
+                role=role,
+                channel=channel,
+                metadata={**metadata, "request_id": request_id},
             )
-        response = localize_agent_response(response, context)
-        response = services["response_guard"].guard_response(response, context)
-        if response.type == "error":
-            services["conversation_store"].record_last_error(context, response.text, session_id)
+        except ContextError as exc:
+            log_error("copilot.context_error", exc, {"code": exc.code, "status_code": exc.status_code})
+            raise
+
+        context = result.context
+        response = result.response
+        if context is not None:
+            log_event(
+                "copilot.request",
+                metadata={
+                    "channel": channel,
+                    "user_role": context.role,
+                    "tenant_id": context.tenant_id,
+                    "language": context.language or language,
+                    "message_length": len(message or ""),
+                    "provider_mode": getattr(services["provider_router"], "mode", "disabled"),
+                },
+            )
         response_text = str(getattr(response, "text", "") or "")
         log_event(
             "agent.result",
             metadata={
-                "agent": context.metadata.get("selected_agent"),
+                "agent": result.state.selected_agent,
                 "response_type": getattr(response, "type", None),
                 "requires_confirmation": bool(getattr(response, "requiresConfirmation", False)),
             },
@@ -327,9 +315,9 @@ async def process_copilot_message(
             metadata={
                 "success": getattr(response, "type", None) != "error",
                 "channel": channel,
-                "language": context.language,
-                "role": context.role,
-                "tenant_id": context.tenant_id,
+                "language": context.language if context is not None else language,
+                "role": context.role if context is not None else None,
+                "tenant_id": context.tenant_id if context is not None else None,
                 "intent": getattr(response, "intent", None),
                 "response_type": getattr(response, "type", None),
                 "text_length": len(response_text),

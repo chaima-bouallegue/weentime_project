@@ -7,9 +7,10 @@ from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.context.context_builder import ContextError
+from app.context.current_user import CurrentUserContext
 from app.context.jwt_parser import extract_bearer_token
 from app.core.copilot_engine import ensure_copilot_services, process_copilot_message
-from app.models.agent_models import AgentResponse, ToolCallRecord
+from app.models.agent_models import AgentResponse
 from app.models.envelopes import ApiEnvelope
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
@@ -57,6 +58,7 @@ async def voice_v2(
             services = ensure_copilot_services(request.app.state)
             try:
                 context = await services["context_builder"].build(authorization, locale="fr-FR", language=language_hint or "fr")
+                context.metadata["request_id"] = resolved_request_id
             except ContextError as exc:
                 return JSONResponse(
                     status_code=exc.status_code,
@@ -191,53 +193,22 @@ async def voice_v2(
 async def _maybe_handle_voice_confirmation(
     *,
     transcript: str,
-    context,
+    context: CurrentUserContext,
     services: dict[str, Any],
 ) -> AgentResponse | None:
     normalized = _confirmation_token(transcript)
     if normalized not in POSITIVE_CONFIRMATIONS and normalized not in NEGATIVE_CONFIRMATIONS:
         return None
 
-    store = services["confirmation_store"]
-    record = store.find_pending_for_user(context.user_id, context.tenant_id)
-    if record is None:
+    result = await services["workflow_orchestrator"].maybe_confirm_latest_pending(
+        approved=normalized in POSITIVE_CONFIRMATIONS,
+        context=context,
+        channel="voice",
+        metadata={"request_id": context.metadata.get("request_id"), "language": context.language},
+    )
+    if result is None:
         return None
-
-    if normalized in NEGATIVE_CONFIRMATIONS:
-        store.reject(record.confirmation_id)
-        response = AgentResponse(
-            type="answer",
-            text="Action annulee.",
-            intent="confirmation.rejected",
-            confidence=1.0,
-            requiresConfirmation=False,
-            confirmationId=record.confirmation_id,
-        )
-        return services["response_guard"].guard_response(response, context)
-
-    store.consume(record.confirmation_id)
-    result = await services["executor"].execute(record.tool_name, record.tool_input, context, confirmed=True)
-    log_event(
-        "confirmation.executed",
-        metadata={
-            "confirmation_id": record.confirmation_id,
-            "tool_name": record.tool_name,
-            "status": "success" if result.success else "failed",
-            "http_status": result.status_code,
-            "business_conflict": bool(result.status_code == 409),
-        },
-    )
-    response = AgentResponse(
-        type="execute_action" if result.success else "error",
-        text="Action confirmee." if result.success else (result.error_message or "Action refusee par le backend."),
-        intent=f"confirmation.{record.tool_name}",
-        confidence=1.0,
-        requiresConfirmation=False,
-        confirmationId=record.confirmation_id,
-        toolCalls=[ToolCallRecord(name=record.tool_name, arguments=record.tool_input, status="success" if result.success else "failed")],
-        actionResult=result.model_dump(mode="json"),
-    )
-    return services["response_guard"].guard_response(response, context)
+    return result.response
 
 
 def _confirmation_token(value: str) -> str:

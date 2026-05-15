@@ -1,0 +1,223 @@
+from __future__ import annotations
+
+import importlib
+import logging
+from threading import RLock
+from typing import Any
+
+from app.observability.tracing import log_event
+
+from .session_serializer import deserialize_session_state, serialize_session_state
+from .session_state import SessionState
+
+logger = logging.getLogger(__name__)
+
+
+class SessionStore:
+    def __init__(
+        self,
+        *,
+        ttl_seconds: int = 1800,
+        redis_enabled: bool = False,
+        redis_url: str = "redis://localhost:6379",
+        redis_client: Any | None = None,
+    ) -> None:
+        self.ttl_seconds = min(1800, max(900, int(ttl_seconds)))
+        self.redis_enabled = bool(redis_enabled)
+        self.redis_url = redis_url
+        self._redis_client = redis_client
+        self._memory_sessions: dict[str, SessionState] = {}
+        self._memory_latest: dict[str, str] = {}
+        self._memory_confirmations: dict[str, str] = {}
+        self._lock = RLock()
+
+    async def save(self, state: SessionState) -> SessionState:
+        state.touch(self.ttl_seconds)
+        storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id)
+        latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel)
+        confirmation_key = self._confirmation_key(
+            state.user_id,
+            state.tenant_id,
+            _pending_confirmation_id(state),
+        )
+        payload = serialize_session_state(state)
+
+        with self._lock:
+            self._memory_sessions[storage_key] = state
+            self._memory_latest[latest_key] = storage_key
+            if confirmation_key is not None:
+                self._memory_confirmations[confirmation_key] = storage_key
+
+        await self._write_redis(storage_key, payload, latest_key=latest_key, confirmation_key=confirmation_key)
+        return state
+
+    async def load(
+        self,
+        *,
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        session_id: str,
+    ) -> SessionState | None:
+        return await self._load_by_storage_key(self._session_key(user_id, tenant_id, channel, session_id))
+
+    async def load_latest_for_user(
+        self,
+        *,
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+    ) -> SessionState | None:
+        latest_key = self._latest_key(user_id, tenant_id, channel)
+        with self._lock:
+            storage_key = self._memory_latest.get(latest_key)
+        if storage_key:
+            state = await self._load_by_storage_key(storage_key)
+            if state is not None:
+                return state
+        if not self._redis_available():
+            return None
+        try:
+            client = await self._client()
+            storage_key = await client.get(latest_key)
+            if not storage_key:
+                return None
+            return await self._load_by_storage_key(str(storage_key))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Workflow session latest lookup failed: %s", exc)
+            return None
+
+    async def load_by_confirmation(
+        self,
+        *,
+        user_id: int,
+        tenant_id: int | None,
+        confirmation_id: str,
+    ) -> SessionState | None:
+        confirmation_key = self._confirmation_key(user_id, tenant_id, confirmation_id)
+        if confirmation_key is None:
+            return None
+        with self._lock:
+            storage_key = self._memory_confirmations.get(confirmation_key)
+        if storage_key:
+            state = await self._load_by_storage_key(storage_key)
+            if _pending_confirmation_id(state) == confirmation_id:
+                return state
+        if not self._redis_available():
+            return None
+        try:
+            client = await self._client()
+            storage_key = await client.get(confirmation_key)
+            if not storage_key:
+                return None
+            state = await self._load_by_storage_key(str(storage_key))
+            if _pending_confirmation_id(state) == confirmation_id:
+                return state
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Workflow session confirmation lookup failed: %s", exc)
+        return None
+
+    async def clear(
+        self,
+        *,
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        session_id: str,
+    ) -> None:
+        storage_key = self._session_key(user_id, tenant_id, channel, session_id)
+        with self._lock:
+            self._memory_sessions.pop(storage_key, None)
+        if not self._redis_available():
+            return
+        try:
+            client = await self._client()
+            await client.delete(storage_key)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Workflow session delete failed: %s", exc)
+
+    async def _load_by_storage_key(self, storage_key: str) -> SessionState | None:
+        with self._lock:
+            state = self._memory_sessions.get(storage_key)
+        if state is not None:
+            if state.is_expired():
+                with self._lock:
+                    self._memory_sessions.pop(storage_key, None)
+                return None
+            return state
+        if not self._redis_available():
+            return None
+        try:
+            client = await self._client()
+            payload = await client.get(storage_key)
+            state = deserialize_session_state(payload)
+            if state is None or state.is_expired():
+                return None
+            with self._lock:
+                self._memory_sessions[storage_key] = state
+            return state
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Workflow session load failed: %s", exc)
+            return None
+
+    async def _write_redis(
+        self,
+        storage_key: str,
+        payload: str,
+        *,
+        latest_key: str,
+        confirmation_key: str | None,
+    ) -> None:
+        if not self._redis_available():
+            return
+        try:
+            client = await self._client()
+            await client.set(storage_key, payload, ex=self.ttl_seconds)
+            await client.set(latest_key, storage_key, ex=self.ttl_seconds)
+            if confirmation_key is not None:
+                await client.set(confirmation_key, storage_key, ex=self.ttl_seconds)
+            log_event(
+                "workflow.session.saved",
+                metadata={"storage": "redis", "session_key": storage_key, "confirmation_bound": bool(confirmation_key)},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Workflow session redis save failed: %s", exc)
+
+    async def _client(self) -> Any:
+        if self._redis_client is not None:
+            return self._redis_client
+        redis_module = importlib.import_module("redis.asyncio")
+        self._redis_client = redis_module.Redis.from_url(self.redis_url, decode_responses=True)
+        return self._redis_client
+
+    def _redis_available(self) -> bool:
+        if not self.redis_enabled:
+            return False
+        if self._redis_client is not None:
+            return True
+        try:
+            importlib.import_module("redis.asyncio")
+        except Exception:  # noqa: BLE001
+            return False
+        return True
+
+    @staticmethod
+    def _session_key(user_id: int, tenant_id: int | None, channel: str, session_id: str) -> str:
+        return f"workflow:session:{tenant_id}:{user_id}:{channel}:{session_id}"
+
+    @staticmethod
+    def _latest_key(user_id: int, tenant_id: int | None, channel: str) -> str:
+        return f"workflow:latest:{tenant_id}:{user_id}:{channel}"
+
+    @staticmethod
+    def _confirmation_key(user_id: int, tenant_id: int | None, confirmation_id: str | None) -> str | None:
+        if not confirmation_id:
+            return None
+        return f"workflow:confirmation:{tenant_id}:{user_id}:{confirmation_id}"
+
+
+def _pending_confirmation_id(state: SessionState | None) -> str | None:
+    if state is None or not isinstance(state.pending_confirmation, dict):
+        return None
+    confirmation_id = str(state.pending_confirmation.get("confirmation_id") or "").strip()
+    return confirmation_id or None

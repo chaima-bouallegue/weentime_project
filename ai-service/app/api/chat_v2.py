@@ -8,8 +8,7 @@ from fastapi.responses import JSONResponse
 from app.context.context_builder import ContextError
 from app.context.jwt_parser import extract_bearer_token
 from app.core.copilot_engine import ensure_copilot_services, process_copilot_message
-from app.memory.confirmation_store import ConfirmationStore
-from app.models.agent_models import AgentResponse, ChatV2Request, ConfirmActionRequest, ToolCallRecord
+from app.models.agent_models import AgentResponse, ChatV2Request, ConfirmActionRequest
 from app.models.envelopes import ApiEnvelope
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
@@ -75,16 +74,18 @@ async def confirm_chat_action(
     try:
         with start_span("ai.confirmation.request", {"approved": payload.approved}):
             try:
-                with start_span("context.build"):
-                    context = await services["context_builder"].build(authorization, locale="fr-FR")
+                result = await services["workflow_orchestrator"].confirm_action(
+                    approved=payload.approved,
+                    confirmation_id=payload.confirmation_id,
+                    access_token=extract_bearer_token(authorization),
+                    channel="chat",
+                    metadata={"request_id": request_id, "locale": "fr-FR"},
+                )
             except ContextError as exc:
                 log_error("ai.confirmation.context_error", exc, {"code": exc.code, "status_code": exc.status_code})
                 return _error_response(exc.status_code, exc.code, exc.message, request_id=request_id)
 
-            store: ConfirmationStore = services["confirmation_store"]
-            with start_span("confirmation.lookup", {"user_id": context.user_id, "tenant_id": context.tenant_id}):
-                record = store.get(payload.confirmation_id)
-            if not record:
+            if result.state.error_code == "confirmation_not_found":
                 return _controlled_confirmation_response(
                     code="confirmation_not_found",
                     text="Confirmation introuvable ou expiree.",
@@ -92,9 +93,7 @@ async def confirm_chat_action(
                     confirmation_id=payload.confirmation_id,
                     status="not_found",
                 )
-            if record.user_id != context.user_id or record.tenant_id != context.tenant_id:
-                return _error_response(403, "confirmation_context_mismatch", "Cette confirmation ne correspond pas a votre session.", request_id=request_id)
-            if record.status == "expired" or record.expired:
+            if result.state.error_code == "confirmation_expired":
                 return _controlled_confirmation_response(
                     code="confirmation_expired",
                     text="Cette confirmation a expire.",
@@ -102,7 +101,7 @@ async def confirm_chat_action(
                     confirmation_id=payload.confirmation_id,
                     status="expired",
                 )
-            if record.status != "pending":
+            if result.state.error_code == "confirmation_already_used":
                 return _controlled_confirmation_response(
                     code="confirmation_already_used",
                     text="Cette action a deja ete traitee.",
@@ -112,115 +111,21 @@ async def confirm_chat_action(
                     success=True,
                 )
 
-            if not payload.approved:
-                store.reject(payload.confirmation_id)
-                response = AgentResponse(
-                    type="answer",
-                    text="Action annulee.",
-                    intent="confirmation.rejected",
-                    confidence=1.0,
-                    requiresConfirmation=False,
-                    confirmationId=payload.confirmation_id,
-                )
-                response = services["response_guard"].guard_response(response, context)
-                response_payload = response.model_dump(mode="json")
-                response_payload["request_id"] = request_id
-                response_payload["requestId"] = request_id
-                log_event("response.compose", output=response_payload, metadata={"approved": False})
-                return JSONResponse(status_code=200, content=ApiEnvelope.ok(response_payload).model_dump(mode="json"))
-
-            store.consume(payload.confirmation_id)
-            result = await services["executor"].execute(
-                record.tool_name,
-                record.tool_input,
-                context,
-                confirmed=True,
-                request_id=request_id,
-            )
-            known_conflict = _known_business_conflict(result)
-            response = AgentResponse(
-                type="execute_action" if result.success else ("answer" if known_conflict else "error"),
-                text=(
-                    _action_success_text(record.tool_name)
-                    if result.success
-                    else (_business_conflict_message(result) if known_conflict else _backend_error_message(result))
-                ),
-                intent=f"attendance.{record.tool_name}",
-                confidence=1.0,
-                requiresConfirmation=False,
-                confirmationId=payload.confirmation_id,
-                toolCalls=[ToolCallRecord(name=record.tool_name, arguments=record.tool_input, status="success" if result.success else ("business_conflict" if known_conflict else "failed"))],
-                actionResult=result.model_dump(mode="json"),
-            )
-            response = services["response_guard"].guard_response(response, context)
+            response = result.response
             response_payload = response.model_dump(mode="json")
             response_payload["request_id"] = request_id
             response_payload["requestId"] = request_id
             log_event(
                 "response.compose",
                 output=response_payload,
-                metadata={"approved": True, "tool_name": record.tool_name, "success": result.success},
-            )
-            log_event(
-                "confirmation.executed",
-                metadata={
-                    "confirmation_id": payload.confirmation_id,
-                    "tool_name": record.tool_name,
-                    "status": "success" if result.success else ("business_conflict" if known_conflict else "failed"),
-                    "business_conflict": known_conflict,
-                    "http_status": result.status_code,
-                },
+                metadata={"approved": payload.approved, "intent": response.intent, "success": response.type != "error"},
             )
             return JSONResponse(
-                status_code=200,
+                status_code=result.http_status,
                 content=ApiEnvelope.ok(response_payload, warnings=result.warnings).model_dump(mode="json"),
             )
     finally:
         reset_request_id(request_token)
-
-
-def _action_success_text(tool_name: str) -> str:
-    if tool_name == "check_in":
-        return "Pointage d'entree confirme."
-    if tool_name == "check_out":
-        return "Pointage de sortie confirme."
-    return "Action confirmee."
-
-
-def _known_business_conflict(result: Any) -> bool:
-    code = str(getattr(result, "error_code", "") or "").lower()
-    message = str(getattr(result, "error_message", "") or "").lower()
-    data = getattr(result, "data", None)
-    data_text = str(data).lower() if data is not None else ""
-    if code in {"already_exists", "already_processed", "duplicate_request"}:
-        return True
-    if getattr(result, "status_code", None) != 409:
-        return False
-    known_markers = ("deja", "déjà", "already", "existe", "exists", "traitee", "traitée", "processed")
-    return any(marker in message or marker in data_text for marker in known_markers)
-
-
-def _business_conflict_message(result: Any) -> str:
-    code = str(getattr(result, "error_code", "") or "").lower()
-    message = str(getattr(result, "error_message", "") or "").strip()
-    lowered = message.lower()
-    if code == "already_processed" or "traitee" in lowered or "traitée" in lowered or "processed" in lowered:
-        return "Cette demande a déjà été traitée."
-    if code == "already_exists" or "existe" in lowered or "exists" in lowered or "deja" in lowered or "déjà" in lowered:
-        return "Une demande existe déjà sur cette période."
-    return message or "Une demande existe déjà sur cette période."
-
-
-def _backend_error_message(result: Any) -> str:
-    status_code = getattr(result, "status_code", None)
-    message = str(getattr(result, "error_message", "") or "").strip()
-    if status_code == 403:
-        return "Vous n'avez pas les droits necessaires pour effectuer cette action."
-    if status_code == 404:
-        return "La ressource demandee est introuvable ou le service backend est indisponible."
-    if status_code and int(status_code) >= 500:
-        return "Le service backend est momentanement indisponible. Reessayez dans quelques instants."
-    return message or "Action refusee par le backend."
 
 
 def _error_response(status_code: int, code: str, message: str, *, request_id: str | None = None) -> JSONResponse:
