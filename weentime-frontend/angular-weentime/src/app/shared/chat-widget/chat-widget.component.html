@@ -11,6 +11,9 @@
       #chatPanel
       class="chat-panel"
       [class.chat-panel--open]="isOpen()"
+      role="dialog"
+      aria-modal="false"
+      tabindex="-1"
       [attr.aria-hidden]="!isOpen()"
       [attr.inert]="!isOpen() ? '' : null"
     >
@@ -58,7 +61,7 @@
         <span class="chat-panel__status-pill chat-panel__status-pill--accent">{{ roleLabel() }}</span>
         <span class="chat-panel__status-pill">{{ handsFreeMode() ? 'Voice auto' : 'Mode manuel' }}</span>
         <span class="chat-panel__status-pill chat-panel__status-pill--ghost">
-          {{ speaking() ? 'Audio en cours' : 'Temps reel actif' }}
+          {{ voiceStatusText() }}
         </span>
       </div>
 
@@ -74,7 +77,7 @@
         </button>
       </div>
 
-      <div class="chat-panel__messages" #messageContainer>
+      <div class="chat-panel__messages" #messageContainer aria-live="polite">
         <div *ngIf="loadingHistory()" class="chat-panel__loading-history">
           <lucide-icon name="loader-2" [size]="16" class="is-spinning"></lucide-icon>
           <span>Chargement de l'historique...</span>
@@ -89,19 +92,27 @@
         >
           <div class="message-bubble" [class.message-bubble--error]="message.isError">
             <div class="message-bubble__meta">
-              <span class="message-bubble__sender">
-                {{
-                  message.sender === 'user'
-                    ? 'Vous'
-                    : message.sender === 'assistant'
-                      ? 'Assistant RH'
-                      : 'Systeme'
-                }}
-              </span>
+              <span class="message-bubble__sender">{{ messageSenderLabel(message) }}</span>
               <span class="message-bubble__time">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
 
             <p class="message-bubble__text">{{ message.text }}</p>
+
+            <section
+              *ngIf="message.origin === 'voice' || message.detectedLanguage || message.audioStatusLabel || message.fallbackLabel"
+              class="message-bubble__signal-strip"
+            >
+              <span *ngIf="message.origin === 'voice'" class="message-bubble__signal">Voice</span>
+              <span *ngIf="formatDetectedLanguage(message.detectedLanguage)" class="message-bubble__signal">
+                {{ formatDetectedLanguage(message.detectedLanguage) }}
+              </span>
+              <span *ngIf="message.audioStatusLabel" class="message-bubble__signal message-bubble__signal--ghost">
+                {{ message.audioStatusLabel }}
+              </span>
+              <span *ngIf="message.fallbackLabel" class="message-bubble__signal message-bubble__signal--warning">
+                {{ message.fallbackLabel }}
+              </span>
+            </section>
 
             <section *ngIf="message.pendingFlow" class="message-bubble__pending-flow">
               <span class="pending-flow__pill">
@@ -123,6 +134,21 @@
                 <span>{{ row.label }}</span>
                 <strong>{{ row.value }}</strong>
               </div>
+            </section>
+
+            <section *ngIf="message.toolLabels?.length" class="message-bubble__tool-calls">
+              <span *ngFor="let toolLabel of message.toolLabels" class="message-bubble__signal message-bubble__signal--tool">
+                {{ toolLabel }}
+              </span>
+            </section>
+
+            <section
+              *ngIf="message.actionResultDisplay"
+              class="message-bubble__action-result"
+              [attr.data-tone]="message.actionResultDisplay.tone"
+            >
+              <lucide-icon [name]="actionToneIcon(message.actionResultDisplay.tone)" [size]="15"></lucide-icon>
+              <span>{{ message.actionResultDisplay.text }}</span>
             </section>
 
             <section *ngIf="message.readResult" class="message-bubble__read-result">
@@ -202,7 +228,7 @@
                   *ngIf="message.confirmationResolved"
                   class="message-bubble__resolved"
                 >
-                  Action traitee
+                  {{ confirmationResolutionLabel(message) }}
                 </span>
 
                 <button
@@ -260,7 +286,7 @@
         <textarea
           class="chat-panel__input"
           rows="1"
-          placeholder="Posez une question RH, ou parlez pour lancer une action..."
+          [placeholder]="inputPlaceholder()"
           [ngModel]="input()"
           (ngModelChange)="onInputChange($event)"
           (keydown)="onInputKeydown($event)"
@@ -273,9 +299,9 @@
           [class.chat-panel__voice--recording]="recording()"
           (click)="toggleRecording()"
           [disabled]="loading()"
-          aria-label="Enregistrer un message vocal"
+          [attr.aria-label]="voiceButtonLabel()"
         >
-          <lucide-icon [name]="recording() ? 'square' : 'mic'" [size]="18"></lucide-icon>
+          <lucide-icon [name]="voiceButtonIcon()" [size]="18" [class.is-spinning]="voiceButtonIcon() === 'loader-2'"></lucide-icon>
         </button>
 
         <button
@@ -285,7 +311,7 @@
           [disabled]="!canSend()"
           aria-label="Envoyer"
         >
-          <lucide-icon name="send-horizontal" [size]="18"></lucide-icon>
+          <lucide-icon [name]="loading() ? 'loader-2' : 'send-horizontal'" [size]="18" [class.is-spinning]="loading()"></lucide-icon>
         </button>
       </div>
     </section>

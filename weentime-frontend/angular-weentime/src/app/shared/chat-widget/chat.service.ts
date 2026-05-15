@@ -55,6 +55,11 @@ export interface ChatApiResponse extends AssistantResponseMeta {
   requiresConfirmation?: boolean;
   confirmationId?: string | null;
   toolCalls?: AssistantToolCall[];
+  warnings?: string[];
+  fallback?: Record<string, unknown> | null;
+  detectedLanguage?: string | null;
+  audioStatus?: string | null;
+  confidence?: number;
 }
 
 export interface TtsResponse {
@@ -200,6 +205,11 @@ export class ChatService {
         response: message,
         intent: this.readString(data['intent']),
         data: envelope.data,
+        warnings: envelope.warnings ?? [],
+        fallback: this.readObject(data['fallback']),
+        detectedLanguage: this.readString(data['detectedLanguage']) ?? this.readString(data['detected_language']),
+        audioStatus: this.readString(data['audioStatus']) ?? this.readString(data['audio_status']),
+        confidence: typeof data['confidence'] === 'number' ? data['confidence'] : undefined,
         actionResult: this.readObject(data['actionResult']) as AssistantActionResult | null,
         action_result: this.readObject(data['actionResult']) as AssistantActionResult | null,
         error: message,
@@ -226,6 +236,11 @@ export class ChatService {
       response: text,
       intent: data.intent,
       data,
+      warnings: envelope.warnings ?? [],
+      fallback: this.readObject(data.fallback) as Record<string, unknown> | null,
+      detectedLanguage: this.readString(data.detectedLanguage),
+      audioStatus: this.readString(data.audioStatus),
+      confidence: typeof data.confidence === 'number' ? data.confidence : undefined,
       requiresConfirmation: data.requiresConfirmation,
       requires_confirmation: data.requiresConfirmation,
       confirmationId: data.confirmationId,
@@ -233,6 +248,7 @@ export class ChatService {
       tool_call: toolCall,
       actionResult: data.actionResult as AssistantActionResult | null | undefined,
       action_result: data.actionResult as AssistantActionResult | null | undefined,
+      audioUrl: typeof data.audioUrl === 'string' ? data.audioUrl : undefined,
       error: data.type === 'error' ? text : undefined,
     };
   }
@@ -316,21 +332,36 @@ export class ChatService {
 
   private toError(error: unknown, fallbackMessage: string): Error {
     if (error instanceof HttpErrorResponse) {
+      const apiMessage = this.extractApiErrorMessage(error.error);
+
+      if (error.status === 0) {
+        return new Error("Le gateway AI est indisponible pour le moment.");
+      }
+      if (error.status === 401) {
+        return new Error('Votre session a expire. Reconnectez-vous pour continuer.');
+      }
+      if (error.status === 403) {
+        return new Error("Vous n'avez pas la permission d'utiliser cette action AI.");
+      }
       if (error.status === 400) {
-        return new Error('Donnees invalides');
+        return new Error(apiMessage ?? 'Donnees invalides');
       }
       if (error.status === 409) {
-        return new Error('Action deja faite');
+        return new Error(apiMessage ?? 'Action deja faite');
+      }
+      if (error.status === 429) {
+        return new Error('Trop de requetes AI en cours. Reessayez dans quelques instants.');
+      }
+      if (error.status === 404) {
+        return new Error("La route AI du gateway est introuvable.");
       }
       if (error.status >= 500) {
-        return new Error('Erreur serveur');
+        return new Error(apiMessage ?? 'Le service AI est temporairement indisponible.');
       }
 
-      const apiMessage = this.extractApiErrorMessage(error.error);
       if (apiMessage) {
         return new Error(apiMessage);
       }
-
       if (error.message?.trim()) {
         return new Error(error.message.trim());
       }
@@ -353,6 +384,7 @@ export class ChatService {
     }
 
     const body = payload as Record<string, unknown>;
+    const data = this.readObject(body['data']);
     const statusText = typeof body['status'] === 'string' ? body['status'].trim().toLowerCase() : '';
     if (statusText === 'retry') {
       return ChatService.RETRY_MESSAGE;
@@ -366,9 +398,19 @@ export class ChatService {
       return this.normalizeBusinessError(messageText);
     }
 
+    const dataMessageText = typeof data?.['text'] === 'string' ? data['text'].trim() : '';
+    if (dataMessageText) {
+      return this.normalizeBusinessError(dataMessageText);
+    }
+
     const responseText = typeof body['response'] === 'string' ? body['response'].trim() : '';
     if (responseText) {
       return this.normalizeBusinessError(responseText);
+    }
+
+    const dataResponseText = typeof data?.['message'] === 'string' ? data['message'].trim() : '';
+    if (dataResponseText) {
+      return this.normalizeBusinessError(dataResponseText);
     }
 
     const errorText = typeof body['error'] === 'string' ? body['error'].trim() : '';
@@ -383,6 +425,16 @@ export class ChatService {
         : '';
       if (nestedMessage) {
         return this.normalizeBusinessError(nestedMessage);
+      }
+
+      const nestedCode = typeof (nestedError as Record<string, unknown>)['code'] === 'string'
+        ? String((nestedError as Record<string, unknown>)['code']).trim().toLowerCase()
+        : '';
+      if (nestedCode === 'provider_unavailable' || nestedCode === 'ollama_unavailable') {
+        return 'Le provider AI est temporairement indisponible.';
+      }
+      if (nestedCode === 'permission_denied' || nestedCode === 'forbidden') {
+        return "Vous n'avez pas la permission d'utiliser cette action AI.";
       }
     }
 

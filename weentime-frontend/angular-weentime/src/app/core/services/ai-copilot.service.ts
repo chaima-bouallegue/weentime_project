@@ -16,6 +16,13 @@ export interface AiCopilotToolCall {
   status?: string | null;
 }
 
+export interface AiCopilotFallback {
+  provider?: string | null;
+  message?: string | null;
+  reason?: string | null;
+  [key: string]: unknown;
+}
+
 export interface AiCopilotChatData {
   type: 'answer' | 'ask' | 'confirm_action' | 'execute_action' | 'error' | string;
   text: string;
@@ -25,6 +32,10 @@ export interface AiCopilotChatData {
   confirmationId?: string | null;
   toolCalls?: AiCopilotToolCall[];
   actionResult?: Record<string, unknown> | null;
+  fallback?: AiCopilotFallback | null;
+  detectedLanguage?: string | null;
+  audioUrl?: string | null;
+  audioStatus?: string | null;
   request_id?: string;
   requestId?: string;
 }
@@ -32,15 +43,71 @@ export interface AiCopilotChatData {
 export interface AiCopilotEnvelope<T = AiCopilotChatData> {
   success: boolean;
   data: T | null;
-  warnings: string[];
+  warnings?: string[];
   error: AiCopilotError | null;
+}
+
+export type AiLanguageCode = 'fr' | 'en' | 'ar' | 'tn';
+
+export function resolvePreferredAiLanguage(browserLanguage?: string | null): AiLanguageCode {
+  const normalized = String(browserLanguage ?? '').trim().toLowerCase().replace('_', '-');
+  if (!normalized) {
+    return 'fr';
+  }
+  if (normalized === 'tn' || normalized.endsWith('-tn')) {
+    return 'tn';
+  }
+  if (normalized.startsWith('ar')) {
+    return 'ar';
+  }
+  if (normalized.startsWith('en')) {
+    return 'en';
+  }
+  return 'fr';
+}
+
+export function resolveAiServiceEndpoint(
+  aiServiceUrl: string | null | undefined,
+  aiDebugUrl: string | null | undefined,
+): string {
+  const gatewayCandidate = String(aiServiceUrl ?? '').trim().replace(/\/+$/, '');
+  if (gatewayCandidate) {
+    return gatewayCandidate;
+  }
+
+  const debugCandidate = String(aiDebugUrl ?? '').trim().replace(/\/+$/, '');
+  if (debugCandidate) {
+    return debugCandidate;
+  }
+
+  return 'http://localhost:8000';
+}
+
+export function buildAiChatRequestPayload(message: string, userId?: number): {
+  message: string;
+  user_id?: number;
+  metadata: {
+    channel: 'chat';
+    language: AiLanguageCode;
+  };
+} {
+  return {
+    message,
+    user_id: userId,
+    metadata: {
+      channel: 'chat',
+      language: resolvePreferredAiLanguage(
+        typeof navigator !== 'undefined' ? navigator.language : null,
+      ),
+    },
+  };
 }
 
 @Injectable({ providedIn: 'root' })
 export class AiCopilotService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
-  private readonly endpoint = (environment.aiServiceUrl || environment.aiUrl || 'http://localhost:8000').replace(/\/+$/, '');
+  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
 
   sendChatV2(message: string): Observable<AiCopilotEnvelope> {
     const user = this.authService.currentUser();
@@ -48,11 +115,7 @@ export class AiCopilotService {
     this.debugRequest('chat.v2', requestId);
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat`,
-      {
-        message,
-        channel: 'chat',
-        user_id: user?.id ?? undefined,
-      },
+      buildAiChatRequestPayload(message, user?.id),
       { headers: this.authHeaders(requestId) },
     );
   }

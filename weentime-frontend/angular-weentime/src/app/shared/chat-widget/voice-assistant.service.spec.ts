@@ -58,6 +58,7 @@ describe('VoiceAssistantService — single-blob upload contract', () => {
     expect(requests[0].request.headers.get('Authorization')).toBe('Bearer fake-token');
     const body = requests[0].request.body as FormData;
     expect(body.get('generate_tts')).toBe('true');
+    expect(body.get('metadata')).toBeTruthy();
     expect(body.get('audio_file')).toBeInstanceOf(Blob);
     expect((body.get('audio_file') as Blob).size).toBe(8);
     requests[0].flush({
@@ -85,6 +86,7 @@ describe('VoiceAssistantService — single-blob upload contract', () => {
 
     const legacy = httpMock.expectOne(req => req.url.endsWith('/audio-stream'));
     const body = legacy.request.body as FormData;
+    expect(legacy.request.headers.get('Authorization')).toBe('Bearer fake-token');
     expect(body.get('is_final')).toBe('true');
     expect(body.get('access_token')).toBe('fake-token');
     expect(body.get('file')).toBeInstanceOf(Blob);

@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService, User } from '../../core/services/auth.service';
+import { resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
 import { ChatApiResponse } from './chat.service';
 import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-response-normalizer';
 
@@ -45,6 +46,7 @@ export class VoiceAssistantService {
   private static readonly AUDIO_ERROR_MESSAGE = 'Erreur audio, veuillez reessayer.';
   private static readonly SERVER_ERROR_MESSAGE = 'Erreur serveur temporaire.';
   private static readonly ASSISTANT_UNAVAILABLE_MESSAGE = 'Assistant temporairement indisponible';
+  private static readonly BACKEND_UNAVAILABLE_MESSAGE = 'Le gateway vocal est indisponible pour le moment.';
   private static readonly SOFT_UNCLEAR_MESSAGE =
     "Je n'ai pas bien compris. Pouvez-vous repeter plus clairement ?";
   private static readonly INITIAL_SILENCE_MS = 1500;
@@ -53,7 +55,7 @@ export class VoiceAssistantService {
 
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
-  private readonly endpoint = environment.aiServiceUrl;
+  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
   private readonly eventsSubject = new Subject<VoiceAssistantEvent>();
 
   readonly events$: Observable<VoiceAssistantEvent> = this.eventsSubject.asObservable();
@@ -270,7 +272,9 @@ export class VoiceAssistantService {
     voiceFormData.append('generate_tts', 'true');
     voiceFormData.append('session_id', sessionId);
     voiceFormData.append('request_id', requestId);
-    voiceFormData.append('language_hint', this.resolveLanguageHint());
+    const language = this.resolveLanguageHint();
+    voiceFormData.append('language_hint', language);
+    voiceFormData.append('metadata', JSON.stringify({ channel: 'voice', language }));
     const headers = new HttpHeaders({ Authorization: `Bearer ${context.token}`, 'X-Request-ID': requestId });
     this.debugVoiceRequest('v2/voice', requestId);
 
@@ -328,7 +332,12 @@ export class VoiceAssistantService {
       this.http.post<AudioStreamResponse>(
         `${this.endpoint}/audio-stream`,
         formData,
-        { headers: new HttpHeaders({ 'X-Request-ID': requestId }) }
+        {
+          headers: new HttpHeaders({
+            Authorization: `Bearer ${context.token}`,
+            'X-Request-ID': requestId,
+          }),
+        }
       )
     );
   }
@@ -487,6 +496,19 @@ export class VoiceAssistantService {
 
   private resolveErrorMessage(error: unknown, fallbackMessage: string): string {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 0) {
+        return VoiceAssistantService.BACKEND_UNAVAILABLE_MESSAGE;
+      }
+      if (error.status === 401) {
+        return 'Votre session a expire. Reconnectez-vous pour utiliser la voix.';
+      }
+      if (error.status === 403) {
+        return "Vous n'avez pas la permission d'utiliser l'assistant vocal.";
+      }
+      if (error.status === 429) {
+        return 'Trop de requetes vocales en cours. Reessayez dans quelques instants.';
+      }
+
       const body = error.error as Record<string, unknown> | string | null | undefined;
       if (typeof body === 'string' && body.trim()) {
         return this.normalizeAudioErrorMessage(body.trim()) ?? body.trim();
@@ -685,10 +707,9 @@ export class VoiceAssistantService {
   }
 
   private resolveLanguageHint(): string {
-    const language = typeof navigator !== 'undefined' && navigator.language
-      ? navigator.language
-      : 'fr-FR';
-    return language.split('-')[0] || 'fr';
+    return resolvePreferredAiLanguage(
+      typeof navigator !== 'undefined' ? navigator.language : null,
+    );
   }
 
   private withNormalizedResponse(
@@ -705,6 +726,8 @@ export class VoiceAssistantService {
       response: normalized.assistantText ?? response.response,
       audio_url: normalized.audioUrl ?? response.audio_url,
       audioUrl: normalized.audioUrl ?? response.audioUrl,
+      detectedLanguage: normalized.detectedLanguage ?? (response as AudioStreamResponse & { detectedLanguage?: string }).detectedLanguage,
+      audioStatus: normalized.audioStatus ?? (response as AudioStreamResponse & { audioStatus?: string }).audioStatus,
       intent: normalized.intent ?? response.intent,
       requiresConfirmation: normalized.requiresConfirmation,
       requires_confirmation: normalized.requiresConfirmation,

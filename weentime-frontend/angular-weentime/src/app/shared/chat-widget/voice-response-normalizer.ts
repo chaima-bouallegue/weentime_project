@@ -3,12 +3,15 @@ export interface NormalizedVoiceAiResponse {
   transcript: string | null;
   assistantText: string | null;
   audioUrl: string | null;
+  audioStatus: string | null;
+  detectedLanguage: string | null;
   intent: string | null;
   agent: string | null;
   requiresConfirmation: boolean;
   confirmationId: string | null;
   toolCalls: unknown[];
   actionResult: unknown | null;
+  fallback: UnknownRecord | null;
   status: string | null;
   error: string | null;
   warnings: string[];
@@ -62,6 +65,18 @@ export function normalizeVoiceAiResponse(raw: unknown): NormalizedVoiceAiRespons
         root?.['audio_url'],
         root?.['audio'],
       ),
+      audioStatus: firstString(
+        data?.['audioStatus'],
+        data?.['audio_status'],
+        root?.['audioStatus'],
+        root?.['audio_status'],
+      ),
+      detectedLanguage: firstString(
+        data?.['detectedLanguage'],
+        data?.['detected_language'],
+        root?.['detectedLanguage'],
+        root?.['detected_language'],
+      ),
       intent: firstString(data?.['intent'], root?.['intent']),
       agent: firstString(data?.['agent'], root?.['agent']),
       requiresConfirmation: firstBoolean(
@@ -78,6 +93,7 @@ export function normalizeVoiceAiResponse(raw: unknown): NormalizedVoiceAiRespons
       ),
       toolCalls: firstArray(data?.['toolCalls'], data?.['tool_calls'], root?.['toolCalls'], root?.['tool_calls']),
       actionResult,
+      fallback: asRecord(data?.['fallback']) ?? asRecord(root?.['fallback']),
       status: firstString(data?.['status'], data?.['type'], root?.['status'], root?.['type']),
       error,
       warnings: uniqueStrings([
@@ -103,12 +119,15 @@ function emptyNormalizedResponse(raw: unknown): NormalizedVoiceAiResponse {
     transcript: null,
     assistantText: null,
     audioUrl: null,
+    audioStatus: null,
+    detectedLanguage: null,
     intent: null,
     agent: null,
     requiresConfirmation: false,
     confirmationId: null,
     toolCalls: [],
     actionResult: null,
+    fallback: null,
     status: null,
     error: null,
     warnings: [],

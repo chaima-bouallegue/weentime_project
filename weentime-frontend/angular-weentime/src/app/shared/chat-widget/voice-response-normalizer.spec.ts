@@ -39,10 +39,13 @@ describe('normalizeVoiceAiResponse', () => {
         transcript: 'check me in',
         response: 'Please confirm.',
         audioUrl: '/audio/v2.wav',
+        audioStatus: 'ready',
+        detectedLanguage: 'en',
         requiresConfirmation: true,
         confirmationId: 'confirm-1',
         toolCalls: [{ name: 'check_in' }],
         actionResult: { pending: true },
+        fallback: { provider: 'ollama-backup' },
         warnings: ['data-warning'],
       },
       warnings: ['root-warning'],
@@ -51,10 +54,13 @@ describe('normalizeVoiceAiResponse', () => {
     expect(result.transcript).toBe('check me in');
     expect(result.assistantText).toBe('Please confirm.');
     expect(result.audioUrl).toBe('/audio/v2.wav');
+    expect(result.audioStatus).toBe('ready');
+    expect(result.detectedLanguage).toBe('en');
     expect(result.requiresConfirmation).toBe(true);
     expect(result.confirmationId).toBe('confirm-1');
     expect(result.toolCalls).toHaveLength(1);
     expect(result.actionResult).toEqual({ pending: true });
+    expect(result.fallback).toEqual({ provider: 'ollama-backup' });
     expect(result.warnings).toEqual(['root-warning', 'data-warning']);
   });
 
