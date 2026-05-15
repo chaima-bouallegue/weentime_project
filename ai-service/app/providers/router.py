@@ -6,6 +6,7 @@ from typing import Any
 from app.context.current_user import CurrentUserContext
 from app.core.deterministic_fallback import deterministic_fallback_response
 from app.models.agent_models import AgentResponse
+from app.observability.metrics import record_provider_event
 from app.observability.tracing import log_error, log_event, start_span
 
 from .base import LLMProvider
@@ -79,6 +80,13 @@ class ProviderRouter:
         request = self._route_request(request)
         if self.mode_error:
             log_event("provider.mode_invalid", metadata={"mode": self.mode, "mode_error": self.mode_error})
+            record_provider_event(
+                provider=provider.provider_name(),
+                mode=self.mode,
+                model=request.metadata.get("model_override"),
+                fallback_reason="provider_disabled",
+                success=False,
+            )
             return ProviderResponse.fail(
                 "provider_disabled",
                 provider_name=provider.provider_name(),
@@ -104,6 +112,14 @@ class ProviderRouter:
             except TimeoutError as exc:
                 latency_ms = round((perf_counter() - started) * 1000, 2)
                 log_error("provider.timeout", exc, {"provider": provider.provider_name(), "latency_ms": latency_ms})
+                record_provider_event(
+                    provider=provider.provider_name(),
+                    mode=self.mode,
+                    model=request.metadata.get("model_override"),
+                    fallback_reason="provider_timeout",
+                    latency_ms=latency_ms,
+                    success=False,
+                )
                 return ProviderResponse.fail(
                     "provider_timeout",
                     provider_name=provider.provider_name(),
@@ -114,6 +130,14 @@ class ProviderRouter:
             except Exception as exc:  # noqa: BLE001
                 latency_ms = round((perf_counter() - started) * 1000, 2)
                 log_error("provider.error", exc, {"provider": provider.provider_name(), "latency_ms": latency_ms})
+                record_provider_event(
+                    provider=provider.provider_name(),
+                    mode=self.mode,
+                    model=request.metadata.get("model_override"),
+                    fallback_reason="provider_unavailable",
+                    latency_ms=latency_ms,
+                    success=False,
+                )
                 return ProviderResponse.fail(
                     "provider_unavailable",
                     provider_name=provider.provider_name(),
@@ -136,6 +160,14 @@ class ProviderRouter:
                 "model": response.model or request.metadata.get("model_override"),
                 "model_role": request.metadata.get("model_role"),
             },
+        )
+        record_provider_event(
+            provider=response.provider_name,
+            mode=self.mode,
+            model=response.model or request.metadata.get("model_override"),
+            fallback_reason=response.fallback_reason,
+            latency_ms=latency_ms,
+            success=response.success,
         )
         return response
 

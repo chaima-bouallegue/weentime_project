@@ -1,10 +1,13 @@
 ﻿from __future__ import annotations
 
+from time import perf_counter
 from typing import Any
 
 from app.agents.base_domain_agent import DomainAgent
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
+from app.observability.metrics import record_role_intelligence_event
+from app.observability.tracing import log_event, start_span
 from app.tools.executor import ToolExecutor
 
 from .admin_digest_builder import AdminDigestBuilder
@@ -58,43 +61,51 @@ class RoleIntelligenceService:
         return 0.0
 
     async def build_response(self, message: str, context: CurrentUserContext) -> AgentResponse:
+        started = perf_counter()
         role_context = RoleIntelligenceContext.from_current_user(context)
-        if not role_context.verified:
+        digest_type = f"{role_context.role.lower()}_digest"
+        with start_span("role_intelligence.digest", {"role": role_context.role, "digest_type": digest_type}):
+            if not role_context.verified:
+                duration_ms = round((perf_counter() - started) * 1000, 2)
+                record_role_intelligence_event(role=role_context.role, digest_type="unverified", duration_ms=duration_ms, success=False)
+                return AgentResponse(
+                    type="error",
+                    text="Contexte utilisateur non verifie. Reconnectez-vous avant de demander un digest role.",
+                    intent="role_intelligence.unverified_context",
+                    confidence=0.95,
+                    actionResult={
+                        "kind": "role_intelligence_digest",
+                        "role": role_context.role,
+                        "tenantId": role_context.tenant_id,
+                        "sections": [],
+                        "priorities": [],
+                        "warnings": ["unverified_context"],
+                        "requiresConfirmation": False,
+                    },
+                )
+            policy_query = _policy_query(message) if _has_policy_focus(message) else None
+            if role_context.role == "EMPLOYEE":
+                builder = self.employee_digest_builder
+            elif role_context.role == "MANAGER":
+                builder = self.manager_digest_builder
+            elif role_context.role == "ADMIN":
+                builder = self.admin_digest_builder
+            else:
+                builder = self.digest_builder
+            digest = await builder.build_digest(context, policy_query=policy_query)
+            duration_ms = round((perf_counter() - started) * 1000, 2)
+            record_role_intelligence_event(role=role_context.role, digest_type=digest_type, duration_ms=duration_ms, success=True)
+            log_event("role_intelligence.digest", metadata={"role": role_context.role, "digest_type": digest_type, "duration_ms": duration_ms})
+            text = _digest_text(digest.to_dict(), language=role_context.language)
             return AgentResponse(
-                type="error",
-                text="Contexte utilisateur non verifie. Reconnectez-vous avant de demander un digest role.",
-                intent="role_intelligence.unverified_context",
-                confidence=0.95,
-                actionResult={
-                    "kind": "role_intelligence_digest",
-                    "role": role_context.role,
-                    "tenantId": role_context.tenant_id,
-                    "sections": [],
-                    "priorities": [],
-                    "warnings": ["unverified_context"],
-                    "requiresConfirmation": False,
-                },
+                type="answer",
+                text=text,
+                intent=f"role_intelligence.{role_context.role.lower()}_digest",
+                confidence=0.9,
+                requiresConfirmation=False,
+                toolCalls=digest.tool_calls,
+                actionResult=digest.to_dict(),
             )
-        policy_query = _policy_query(message) if _has_policy_focus(message) else None
-        if role_context.role == "EMPLOYEE":
-            builder = self.employee_digest_builder
-        elif role_context.role == "MANAGER":
-            builder = self.manager_digest_builder
-        elif role_context.role == "ADMIN":
-            builder = self.admin_digest_builder
-        else:
-            builder = self.digest_builder
-        digest = await builder.build_digest(context, policy_query=policy_query)
-        text = _digest_text(digest.to_dict(), language=role_context.language)
-        return AgentResponse(
-            type="answer",
-            text=text,
-            intent=f"role_intelligence.{role_context.role.lower()}_digest",
-            confidence=0.9,
-            requiresConfirmation=False,
-            toolCalls=digest.tool_calls,
-            actionResult=digest.to_dict(),
-        )
 
 
 class RoleIntelligenceAgent(DomainAgent):

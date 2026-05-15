@@ -8,6 +8,7 @@ from typing import Any
 from config import get_settings
 
 from app.events.publisher import get_redis_event_status
+from app.observability.monitoring import build_ai_monitoring_snapshot
 
 from .priority_engine import PriorityItem
 
@@ -251,6 +252,53 @@ class AdminDiagnostics:
                 )
             )
 
+        braintrust = safe_runtime.get("braintrust") if isinstance(safe_runtime.get("braintrust"), dict) else {}
+        if braintrust:
+            enabled = bool(braintrust.get("enabled"))
+            configured = bool(braintrust.get("configured"))
+            diagnostics.append(
+                AdminDiagnosticItem(
+                    id="admin-braintrust-status",
+                    type="braintrust_status",
+                    severity="info" if enabled and configured else "warning",
+                    title="Braintrust observabilite",
+                    summary=(
+                        "Braintrust est configure pour tracer les requetes IA."
+                        if enabled and configured
+                        else "Braintrust n'est pas completement configure; les traces restent locales/no-op."
+                    ),
+                    evidence={
+                        "enabled": enabled,
+                        "configured": configured,
+                        "status": braintrust.get("status"),
+                        "project": braintrust.get("project_name"),
+                    },
+                    source_tools=["braintrust.status"],
+                    recommended_actions=["Verifier le dashboard Braintrust sans exposer de secrets."],
+                )
+            )
+
+        ai_monitoring = safe_runtime.get("aiMonitoring") if isinstance(safe_runtime.get("aiMonitoring"), dict) else {}
+        metrics = ai_monitoring.get("metrics") if isinstance(ai_monitoring.get("metrics"), dict) else {}
+        counters = metrics.get("counters") if isinstance(metrics.get("counters"), dict) else {}
+        if ai_monitoring:
+            diagnostics.append(
+                AdminDiagnosticItem(
+                    id="admin-ai-monitoring-status",
+                    type="ai_monitoring",
+                    severity="info",
+                    title="Monitoring IA operationnel",
+                    summary="Les compteurs IA suivent provider, outils, RAG, voix et confirmations sans autorite metier.",
+                    evidence={
+                        "counterCount": len(counters),
+                        "providerMode": (ai_monitoring.get("provider") or {}).get("mode") if isinstance(ai_monitoring.get("provider"), dict) else None,
+                        "ragProvider": (ai_monitoring.get("rag") or {}).get("provider") if isinstance(ai_monitoring.get("rag"), dict) else None,
+                    },
+                    source_tools=["observability.metrics"],
+                    recommended_actions=["Utiliser ces mesures pour surveiller la qualite; ne pas en faire une source d'autorite."],
+                )
+            )
+
         routers = safe_runtime.get("optionalRouters")
         if isinstance(routers, list):
             missing = [
@@ -311,6 +359,8 @@ def collect_admin_runtime_status(settings: Any | None = None) -> dict[str, Any]:
                 "citationRequired": bool(getattr(resolved, "rag_require_citations", True)),
                 "tenantFilterRequired": bool(getattr(resolved, "rag_tenant_filter_required", True)),
             },
+            "braintrust": build_ai_monitoring_snapshot(resolved).get("braintrust", {}),
+            "aiMonitoring": build_ai_monitoring_snapshot(resolved),
             "optionalRouters": _optional_router_statuses(),
             "configuration": {
                 "gatewayBaseUrl": _safe_gateway_url(getattr(resolved, "backend_base_url", None)),

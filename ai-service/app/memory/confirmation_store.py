@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.context.current_user import CurrentUserContext
+from app.observability.metrics import record_confirmation_event
 from app.observability.tracing import log_event
 
 
@@ -51,6 +52,7 @@ class ConfirmationStore:
                 "status": record.status,
             },
         )
+        record_confirmation_event(action="created", tool_name=record.tool_name, status=record.status, tenant_id=record.tenant_id)
         return record
 
     def get(self, confirmation_id: str) -> ConfirmationRecord | None:
@@ -68,6 +70,7 @@ class ConfirmationStore:
                     "status": record.status,
                 },
             )
+            record_confirmation_event(action="expired", tool_name=record.tool_name, status=record.status, tenant_id=record.tenant_id)
         return record
 
     def consume(self, confirmation_id: str) -> ConfirmationRecord | None:
@@ -83,6 +86,7 @@ class ConfirmationStore:
                         "status": record.status,
                     },
                 )
+                record_confirmation_event(action="approved", tool_name=record.tool_name, status=record.status, tenant_id=record.tenant_id)
             return record
 
     def reject(self, confirmation_id: str) -> ConfirmationRecord | None:
@@ -98,6 +102,7 @@ class ConfirmationStore:
                         "status": record.status,
                     },
                 )
+                record_confirmation_event(action="rejected", tool_name=record.tool_name, status=record.status, tenant_id=record.tenant_id)
             return record
 
     def find_pending_for_user(self, user_id: int, tenant_id: int | None = None) -> ConfirmationRecord | None:
@@ -120,6 +125,7 @@ class ConfirmationStore:
                         "status": record.status,
                     },
                 )
+                record_confirmation_event(action="expired", tool_name=record.tool_name, status=record.status, tenant_id=record.tenant_id)
         return None
 
     def clear_for_user(self, user_id: int) -> None:

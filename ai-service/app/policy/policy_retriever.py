@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from time import perf_counter
 from typing import Any
 
 from config import get_settings
+from app.observability.metrics import record_rag_event
+from app.observability.tracing import log_event, start_span
 
 from .chromadb_retriever import ChromaPolicyRetriever, ChromaUnavailableError
 from .policy_models import PolicyCitation, PolicySearchResult, PolicySource
@@ -68,16 +71,53 @@ class PolicyRetriever(BasePolicyRetriever):
         self._chroma_error: str | None = None
 
     def search(self, *, query: str, tenant_id: int | None, language: str | None = None, limit: int = 3) -> PolicySearchResult:
-        if self._should_use_chroma():
-            try:
-                result = self._get_chroma().search(query=query, tenant_id=tenant_id, language=language, limit=limit)
-                if result.citations:
-                    return result
-            except ChromaUnavailableError as exc:
-                self._chroma_error = str(exc)
-            except Exception as exc:  # noqa: BLE001 - optional retriever boundary
-                self._chroma_error = str(exc)
-        return self.keyword.search(query=query, tenant_id=tenant_id, language=language, limit=limit)
+        started = perf_counter()
+        provider = str(getattr(self.settings, "rag_provider", "local_keyword") or "local_keyword")
+        fallback_used = False
+        success = True
+        with start_span(
+            "rag.search",
+            {
+                "provider": provider,
+                "tenant_id": tenant_id,
+                "language": language,
+                "limit": limit,
+                "query_length": len(query or ""),
+            },
+        ):
+            if self._should_use_chroma():
+                try:
+                    result = self._get_chroma().search(query=query, tenant_id=tenant_id, language=language, limit=limit)
+                    if result.citations:
+                        self._record_rag_result(
+                            result,
+                            provider="chromadb",
+                            tenant_id=tenant_id,
+                            fallback_used=False,
+                            started=started,
+                            success=True,
+                        )
+                        return result
+                    fallback_used = True
+                except ChromaUnavailableError as exc:
+                    self._chroma_error = str(exc)
+                    fallback_used = True
+                    log_event("rag.chroma_unavailable", metadata={"tenant_id": tenant_id, "error_type": exc.__class__.__name__})
+                except Exception as exc:  # noqa: BLE001 - optional retriever boundary
+                    self._chroma_error = str(exc)
+                    fallback_used = True
+                    success = False
+                    log_event("rag.chroma_error", metadata={"tenant_id": tenant_id, "error_type": exc.__class__.__name__})
+            result = self.keyword.search(query=query, tenant_id=tenant_id, language=language, limit=limit)
+            self._record_rag_result(
+                result,
+                provider="local_keyword",
+                tenant_id=tenant_id,
+                fallback_used=fallback_used,
+                started=started,
+                success=success,
+            )
+            return result
 
     def get_source(self, *, source_id: str, tenant_id: int | None) -> PolicySource | None:
         return self.keyword.get_source(source_id=source_id, tenant_id=tenant_id)
@@ -110,6 +150,40 @@ class PolicyRetriever(BasePolicyRetriever):
                 top_k=int(getattr(self.settings, "chroma_top_k", 5)),
             )
         return self._chroma
+
+    @staticmethod
+    def _record_rag_result(
+        result: PolicySearchResult,
+        *,
+        provider: str,
+        tenant_id: int | None,
+        fallback_used: bool,
+        started: float,
+        success: bool,
+    ) -> None:
+        duration_ms = round((perf_counter() - started) * 1000, 2)
+        citation_count = len(result.citations or [])
+        record_rag_event(
+            provider=provider,
+            tenant_id=tenant_id,
+            retrieved_docs_count=citation_count,
+            citation_count=citation_count,
+            fallback_used=fallback_used,
+            duration_ms=duration_ms,
+            success=success,
+        )
+        log_event(
+            "rag.search.result",
+            metadata={
+                "provider": provider,
+                "tenant_id": tenant_id,
+                "retrieved_docs_count": citation_count,
+                "citation_count": citation_count,
+                "fallback_used": fallback_used,
+                "duration_ms": duration_ms,
+                "success": success,
+            },
+        )
 
 
 def _terms(text: str) -> set[str]:

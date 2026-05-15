@@ -8,9 +8,10 @@ import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Literal
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -38,6 +39,7 @@ from app.nlp.language_detector import detect_language as detect_response_languag
 from app.observability.decorators import trace_ai_step
 from app.observability.braintrust_client import flush_braintrust, init_braintrust
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
+from app.observability.request_trace import trace_request_lifecycle
 from app.observability.tracing import log_event, start_span
 
 logger = logging.getLogger(__name__)
@@ -281,6 +283,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def observability_request_middleware(request: Request, call_next):
+    request_id = ensure_request_id(request.headers.get("X-Request-ID"))
+    request_token = set_request_id(request_id)
+    started = perf_counter()
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        trace_request_lifecycle(
+            endpoint=request.url.path,
+            status_code=response.status_code,
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+            request_id=request_id,
+            metadata={"method": request.method},
+        )
+        return response
+    except Exception:
+        trace_request_lifecycle(
+            endpoint=request.url.path,
+            status_code=500,
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+            request_id=request_id,
+            metadata={"method": request.method},
+        )
+        raise
+    finally:
+        reset_request_id(request_token)
+
 register_routers(
     app,
     [

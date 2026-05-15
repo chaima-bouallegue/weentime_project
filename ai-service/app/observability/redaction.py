@@ -8,6 +8,10 @@ from config import get_settings
 JWT_PATTERN = re.compile(r"\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")
 BEARER_PATTERN = re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.IGNORECASE)
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+DB_URL_PATTERN = re.compile(r"\b(?:postgresql|postgres|mysql|mariadb|mongodb|redis)://[^\s\"')]+", re.IGNORECASE)
+SECRET_ASSIGNMENT_PATTERN = re.compile(
+    r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;}]+"
+)
 AUDIO_KEYS = {"audio", "audio_bytes", "raw_audio", "file", "audio_file", "bytes", "content"}
 SECRET_KEYS = {
     "authorization",
@@ -19,6 +23,13 @@ SECRET_KEYS = {
     "x-api-key",
     "braintrust_api_key",
     "braintrust-api-key",
+    "password",
+    "passwd",
+    "secret",
+    "client_secret",
+    "database_url",
+    "db_url",
+    "redis_url",
 }
 
 
@@ -31,6 +42,8 @@ def redact_value(value: Any, *, log_inputs: bool | None = None) -> Any:
     if isinstance(value, str):
         text = BEARER_PATTERN.sub("Bearer [redacted]", value)
         text = JWT_PATTERN.sub("[redacted-jwt]", text)
+        text = DB_URL_PATTERN.sub("[redacted-db-url]", text)
+        text = SECRET_ASSIGNMENT_PATTERN.sub(lambda match: f"{match.group(1)}=[redacted]", text)
         if settings.braintrust_api_key:
             text = text.replace(settings.braintrust_api_key, "[redacted-braintrust-api-key]")
         if settings.braintrust_redact_emails:

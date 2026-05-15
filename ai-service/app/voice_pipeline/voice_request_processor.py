@@ -4,12 +4,14 @@ import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from fastapi import UploadFile
 
 from app.context.current_user import CurrentUserContext
 from app.nlp.language_detector import detect_language
+from app.observability.metrics import record_voice_event
 from app.observability.tracing import log_event, start_span
 from voice.stt import VoiceProcessingResult
 
@@ -42,8 +44,10 @@ class VoiceRequestProcessor:
         context: CurrentUserContext,
         language_hint: str | None = None,
     ) -> VoiceProcessorResult:
+        audio_store_started = perf_counter()
         with start_span("voice.audio.store", {"content_type": upload.content_type}):
             stored = await self.store_upload(upload)
+            audio_store_duration_ms = round((perf_counter() - audio_store_started) * 1000, 2)
             log_event(
                 "voice.audio.store",
                 metadata={
@@ -51,6 +55,7 @@ class VoiceRequestProcessor:
                     "status": "stored",
                 },
             )
+            record_voice_event(stage="audio_store", duration_ms=audio_store_duration_ms, success=True)
         with start_span("voice.audio.validate", {"content_type": upload.content_type, "size_bytes": stored.size_bytes}):
             log_event(
                 "voice.audio.validate",
@@ -60,8 +65,10 @@ class VoiceRequestProcessor:
                 },
             )
 
+        stt_started = perf_counter()
         with start_span("voice.stt", {"size_bytes": stored.size_bytes}):
             stt_result = await self.stt_service.aprocess(stored.path)
+            stt_duration_ms = round((perf_counter() - stt_started) * 1000, 2)
             log_event(
                 "voice.stt",
                 metadata={
@@ -72,6 +79,14 @@ class VoiceRequestProcessor:
                     "status": stt_result.status,
                     "cleaned_empty": not bool(stt_result.cleaned_text),
                 },
+            )
+            record_voice_event(
+                stage="stt",
+                language=stt_result.language,
+                duration_ms=stt_duration_ms,
+                audio_duration_seconds=stt_result.duration_seconds,
+                fallback_path=stt_result.error if stt_result.status != "success" else None,
+                success=stt_result.status == "success",
             )
 
         with start_span(
@@ -108,9 +123,12 @@ class VoiceRequestProcessor:
 
     async def generate_tts(self, text: str, *, language: str | None = None) -> str | None:
         if not text or not self.settings.tts_enabled:
+            record_voice_event(stage="tts", language=language, fallback_path="tts_disabled_or_empty", success=False)
             return None
+        tts_started = perf_counter()
         with start_span("voice.tts", {"text_length": len(text), "language": language or "auto"}):
             audio_path = await self.tts_service.asynthesize(text, language)
+        tts_duration_ms = round((perf_counter() - tts_started) * 1000, 2)
         log_event(
             "voice.tts",
             metadata={
@@ -118,6 +136,13 @@ class VoiceRequestProcessor:
                 "detected_language": language,
                 "cleaned_empty": False,
             },
+        )
+        record_voice_event(
+            stage="tts",
+            language=language,
+            duration_ms=tts_duration_ms,
+            fallback_path=None if audio_path else "tts_unavailable",
+            success=bool(audio_path),
         )
         if not audio_path:
             return None
