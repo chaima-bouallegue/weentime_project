@@ -37,6 +37,20 @@ class RhDashboardControllerTest {
 
     @Test
     @WithMockUser(roles = "RH")
+    void testDashboardEmpty() throws Exception {
+        when(rhDashboardService.getDashboard()).thenReturn(new RhDashboardDTO());
+
+        mockMvc.perform(get("/api/v1/rh/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalEmployees").value(0))
+                .andExpect(jsonPath("$.data.presentCount").value(0))
+                .andExpect(jsonPath("$.data.absentCount").value(0))
+                .andExpect(jsonPath("$.data.pendingRequests").isArray())
+                .andExpect(jsonPath("$.data.pendingRequests.length()").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "RH")
     void getDashboardReturnsAggregatedPayload() throws Exception {
         when(rhDashboardService.getDashboard()).thenReturn(
                 RhDashboardDTO.builder()

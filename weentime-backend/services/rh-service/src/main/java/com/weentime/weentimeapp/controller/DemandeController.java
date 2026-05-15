@@ -202,10 +202,7 @@ public class DemandeController {
         }
 
         Set<StatutDemandeEnum> statuts = StatutDemandeEnum.resolveFilterValues(value);
-        if (statuts == null || statuts.isEmpty()) {
-            throw new IllegalArgumentException("Statut invalide: " + value);
-        }
-        return statuts;
+        return statuts == null ? Set.of() : statuts;
     }
 
     private LocalDateTime resolveDate(DemandeDTO demande) {

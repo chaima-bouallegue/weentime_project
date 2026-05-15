@@ -35,6 +35,17 @@ class TypeCongeControllerTest {
 
     @Test
     @WithMockUser(roles = "RH")
+    void testTypeCongeEmpty() throws Exception {
+        when(typeCongeService.getAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/rh/type-conges"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "RH")
     void getTypeCongesWithPaginationReturnsPageEnvelope() throws Exception {
         when(typeCongeService.getAll()).thenReturn(List.<TypeCongeDTO>of());
 
@@ -49,7 +60,7 @@ class TypeCongeControllerTest {
 
     @Test
     @WithMockUser(roles = "RH")
-    void getTypeCongesWithoutEntrepriseReturnsBadRequest() throws Exception {
+    void testMissingEntreprise() throws Exception {
         when(typeCongeService.getAll()).thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune entreprise associee a ce compte RH."));
 
         mockMvc.perform(get("/api/v1/rh/type-conges"))

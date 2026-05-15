@@ -20,7 +20,7 @@ public class SoldeCongeController {
     @GetMapping("/me/all")
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<List<SoldeCongeDTO>> getMySoldes(@RequestParam(required = false) Integer annee) {
-        return ResponseEntity.ok(service.getByUtilisateur(SecurityUtils.getCurrentUserId()));
+        return ResponseEntity.ok(service.getByUtilisateur(SecurityUtils.getCurrentUserId(), annee));
     }
 
     @GetMapping("/me")
@@ -28,7 +28,7 @@ public class SoldeCongeController {
     public ResponseEntity<SoldeCongeDTO> getMySolde(
             @RequestParam Long typeCongeId,
             @RequestParam(required = false) Integer annee) {
-        return ResponseEntity.ok(service.getByUtilisateurAndType(SecurityUtils.getCurrentUserId(), typeCongeId));
+        return ResponseEntity.ok(service.getByUtilisateurAndType(SecurityUtils.getCurrentUserId(), typeCongeId, annee));
     }
 
     @GetMapping("/users/{utilisateurId}")
@@ -36,7 +36,7 @@ public class SoldeCongeController {
     public ResponseEntity<List<SoldeCongeDTO>> getByUserAlias(
             @PathVariable Long utilisateurId,
             @RequestParam(required = false) Integer annee) {
-        return ResponseEntity.ok(service.getByUtilisateur(utilisateurId));
+        return ResponseEntity.ok(service.getByUtilisateur(utilisateurId, annee));
     }
 
     @GetMapping
@@ -53,7 +53,7 @@ public class SoldeCongeController {
     @GetMapping("/utilisateur/{utilisateurId}")
     @PreAuthorize("hasAnyRole('EMPLOYEE','RH')")
     public ResponseEntity<List<com.weentime.weentimeapp.dto.SoldeCongeDTO>> getByUtilisateur(@PathVariable Long utilisateurId) {
-        return ResponseEntity.ok(service.getByUtilisateur(utilisateurId));
+        return ResponseEntity.ok(service.getByUtilisateur(utilisateurId, null));
     }
 
     @PostMapping

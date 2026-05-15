@@ -45,6 +45,9 @@ public class RhDashboardServiceImpl implements RhDashboardService {
     @Override
     public RhDashboardDTO getDashboard() {
         Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        if (entrepriseId == null) {
+            return RhDashboardDTO.builder().build();
+        }
         List<UserResponse> employees = loadEmployees(entrepriseId);
         Map<Long, UserResponse> employeesById = employees.stream()
                 .filter(user -> user.getId() != null)

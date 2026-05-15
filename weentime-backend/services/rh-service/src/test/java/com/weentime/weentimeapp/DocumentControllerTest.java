@@ -41,7 +41,7 @@ class DocumentControllerTest {
 
     @Test
     @WithMockUser(username = "rh@weentime.com", roles = "RH")
-    void getDocumentDemandesWithPaginationReturnsEmptyPage() throws Exception {
+    void testDocumentsEmpty() throws Exception {
         when(organisationServiceClient.getUtilisateurForAuth("rh@weentime.com"))
                 .thenReturn(UtilisateurAuthResponse.builder().id(2L).email("rh@weentime.com").entrepriseId(3L).build());
         when(documentService.getDemandesEntreprise(3L)).thenReturn(List.of());

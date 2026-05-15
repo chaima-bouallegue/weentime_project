@@ -50,14 +50,15 @@ class DemandeControllerTest {
 
     @Test
     @WithMockUser(roles = "RH")
-    void getDemandesWithInvalidStatutReturnsBadRequest() throws Exception {
+    void testEnumEmpty() throws Exception {
         when(demandeService.getAllForEntreprise(isNull())).thenReturn(List.<DemandeDTO>of());
 
         mockMvc.perform(get("/api/v1/rh/demandes")
                         .param("page", "0")
                         .param("size", "100")
                         .param("statut", "INVALIDE"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Statut invalide: INVALIDE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalElements").value(0));
     }
 }

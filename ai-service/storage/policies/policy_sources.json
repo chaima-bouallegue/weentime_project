@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "source_id": "leave-policy",
+      "tenant_id": 9,
+      "title": "Leave Policy",
+      "language": "en",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "leave-policy.md",
+      "citation_label": "Leave Policy"
+    }
+  ]
+}

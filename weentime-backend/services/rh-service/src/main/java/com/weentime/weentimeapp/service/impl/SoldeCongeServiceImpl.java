@@ -13,7 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.weentime.weentimeapp.security.SecurityUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -26,20 +30,28 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
 
     @Override
     @Transactional(readOnly = true)
-    public SoldeCongeDTO getByUtilisateurAndType(Long utilisateurId, Long typeCongeId) {
+    public SoldeCongeDTO getByUtilisateurAndType(Long utilisateurId, Long typeCongeId, Integer annee) {
+        int targetYear = resolveTargetYear(annee);
         Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
-        return soldeCongeRepository.findByUtilisateurIdAndTypeCongeId(utilisateurId, typeCongeId)
-                .filter(s -> s.getEntrepriseId().equals(entrepriseId))
+        if (entrepriseId == null) {
+            return defaultSolde(utilisateurId, typeCongeId, targetYear);
+        }
+        return soldeCongeRepository.findByUtilisateurIdAndTypeCongeIdAndAnnee(utilisateurId, typeCongeId, targetYear)
+                .filter(s -> canAccessSolde(s, entrepriseId))
                 .map(soldeCongeMapper::toDto)
-                .orElseGet(() -> defaultSolde(utilisateurId, typeCongeId, java.time.LocalDate.now().getYear()));
+                .orElseGet(() -> defaultSolde(utilisateurId, typeCongeId, targetYear));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SoldeCongeDTO> getByUtilisateur(Long utilisateurId) {
+    public List<SoldeCongeDTO> getByUtilisateur(Long utilisateurId, Integer annee) {
+        int targetYear = resolveTargetYear(annee);
         Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
-        return soldeCongeMapper.toDtoList(soldeCongeRepository.findByUtilisateurId(utilisateurId).stream()
-                .filter(s -> s.getEntrepriseId().equals(entrepriseId))
+        if (entrepriseId == null) {
+            return List.of();
+        }
+        return soldeCongeMapper.toDtoList(soldeCongeRepository.findByUtilisateurIdInAndAnnee(List.of(utilisateurId), targetYear).stream()
+                .filter(s -> canAccessSolde(s, entrepriseId))
                 .toList());
     }
 
@@ -57,9 +69,9 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
 
     @Override
     public SoldeCongeDTO updateSolde(Long utilisateurId, Long typeCongeId, Double nouveauSolde) {
-        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        Long entrepriseId = requireEntrepriseId();
         SoldeConge solde = soldeCongeRepository.findByUtilisateurIdAndTypeCongeId(utilisateurId, typeCongeId)
-                .filter(s -> s.getEntrepriseId().equals(entrepriseId))
+                .filter(s -> Objects.equals(s.getEntrepriseId(), entrepriseId))
                 .orElseThrow(() -> new EntityNotFoundException("Solde not found for the given user and type"));
         solde.setJoursRestants(nouveauSolde);
         return soldeCongeMapper.toDto(soldeCongeRepository.save(solde));
@@ -69,8 +81,11 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
     @Transactional(readOnly = true)
     public Double getTotalJoursRestants(Long utilisateurId) {
         Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        if (entrepriseId == null) {
+            return 0.0;
+        }
         return soldeCongeRepository.findByUtilisateurId(utilisateurId).stream()
-                .filter(s -> s.getEntrepriseId().equals(entrepriseId))
+                .filter(s -> canAccessSolde(s, entrepriseId))
                 .mapToDouble(s -> s.getJoursRestants() != null ? s.getJoursRestants() : 0.0)
                 .sum();
     }
@@ -78,7 +93,7 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
     @Override
     @Transactional
     public void initialiserSoldes(List<Long> utilisateurIds, boolean overwrite) {
-        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        Long entrepriseId = requireEntrepriseId();
         List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(entrepriseId);
         int currentYear = java.time.LocalDate.now().getYear();
 
@@ -108,5 +123,22 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
                 soldeCongeRepository.save(solde);
             }
         }
+    }
+
+    private Long requireEntrepriseId() {
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        if (entrepriseId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune entreprise associee a ce compte RH.");
+        }
+        return entrepriseId;
+    }
+
+    private int resolveTargetYear(Integer annee) {
+        return annee != null ? annee : java.time.LocalDate.now().getYear();
+    }
+
+    private boolean canAccessSolde(SoldeConge soldeConge, Long entrepriseId) {
+        return soldeConge != null
+                && (Objects.equals(soldeConge.getEntrepriseId(), entrepriseId) || soldeConge.getEntrepriseId() == null);
     }
 }

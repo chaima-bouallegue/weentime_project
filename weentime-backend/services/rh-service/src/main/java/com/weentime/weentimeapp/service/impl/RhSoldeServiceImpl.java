@@ -63,17 +63,13 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         // or check if organisationServiceClient.getAllUtilisateurs can be used.
 
         log.info(">>> [getGlobalSoldes] Fetching users for enterprise {}", eid);
-        List<UserResponse> allUsers = organisationServiceClient.findUsersByEntreprise(eid);
-        if (allUsers == null) {
-            log.error(">>> [getGlobalSoldes] organisationServiceClient.findUsersByEntreprise returned NULL for eid {}", eid);
-            allUsers = Collections.emptyList();
-        }
+        List<UserResponse> allUsers = loadEntrepriseUsers(eid);
         log.info(">>> [getGlobalSoldes] Found {} users", allUsers.size());
 
         // Filter by query if provided
         List<UserResponse> filteredUsers = allUsers.stream()
-                .filter(u -> query == null || query.isBlank() ||
-                        (u.getNom() + " " + u.getPrenom()).toLowerCase().contains(query.toLowerCase()))
+                .filter(Objects::nonNull)
+                .filter(u -> query == null || query.isBlank() || fullName(u).contains(query.toLowerCase()))
                 .collect(Collectors.toList());
 
         int start = (int) pageable.getOffset();
@@ -130,6 +126,26 @@ public class RhSoldeServiceImpl implements RhSoldeService {
 
         return PageResponse.fromPage(new PageImpl<>(content, pageable, filteredUsers.size()));
 
+    }
+
+    private List<UserResponse> loadEntrepriseUsers(Long entrepriseId) {
+        try {
+            List<UserResponse> users = organisationServiceClient.findUsersByEntreprise(entrepriseId);
+            if (users == null) {
+                log.warn(">>> [getGlobalSoldes] organisationServiceClient.findUsersByEntreprise returned NULL for eid {}", entrepriseId);
+                return Collections.emptyList();
+            }
+            return users;
+        } catch (Exception exception) {
+            log.warn(">>> [getGlobalSoldes] Unable to load users for enterprise {}: {}", entrepriseId, exception.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private String fullName(UserResponse user) {
+        return ((user.getNom() == null ? "" : user.getNom()) + " " + (user.getPrenom() == null ? "" : user.getPrenom()))
+                .trim()
+                .toLowerCase();
     }
 
     @Override

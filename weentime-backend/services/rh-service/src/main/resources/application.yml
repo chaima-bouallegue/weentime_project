@@ -30,7 +30,11 @@ spring:
   config:
     import: optional:configserver:http://localhost:8988
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 18
+    validate-on-migrate: true
+    connect-retries: 2
 
 minio:
   endpoint: ${MINIO_URL:http://localhost:9000}
