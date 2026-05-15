@@ -9,6 +9,7 @@ from app.tools.executor import ToolExecutor
 
 from .digest_builder import RoleDigestBuilder
 from .employee_digest_builder import EmployeeDigestBuilder
+from .manager_digest_builder import ManagerDigestBuilder
 from .role_context import RoleIntelligenceContext
 
 _INTELLIGENCE_MARKERS = (
@@ -37,10 +38,12 @@ class RoleIntelligenceService:
         executor: ToolExecutor | Any,
         digest_builder: RoleDigestBuilder | None = None,
         employee_digest_builder: EmployeeDigestBuilder | None = None,
+        manager_digest_builder: ManagerDigestBuilder | None = None,
     ) -> None:
         self.executor = executor
         self.digest_builder = digest_builder or RoleDigestBuilder(executor)
         self.employee_digest_builder = employee_digest_builder or EmployeeDigestBuilder(executor)
+        self.manager_digest_builder = manager_digest_builder or ManagerDigestBuilder(executor)
 
     def can_handle(self, message: str, context: CurrentUserContext) -> float:
         role_context = RoleIntelligenceContext.from_current_user(context)
@@ -70,7 +73,12 @@ class RoleIntelligenceService:
                 },
             )
         policy_query = _policy_query(message) if _has_policy_focus(message) else None
-        builder = self.employee_digest_builder if role_context.role == "EMPLOYEE" else self.digest_builder
+        if role_context.role == "EMPLOYEE":
+            builder = self.employee_digest_builder
+        elif role_context.role == "MANAGER":
+            builder = self.manager_digest_builder
+        else:
+            builder = self.digest_builder
         digest = await builder.build_digest(context, policy_query=policy_query)
         text = _digest_text(digest.to_dict(), language=role_context.language)
         return AgentResponse(

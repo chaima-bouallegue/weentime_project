@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+from typing import Any
+
+from app.context.current_user import CurrentUserContext
+from app.models.agent_models import ToolCallRecord
+
+from .digest_builder import (
+    RoleDigest,
+    RoleDigestBuilder,
+    RoleDigestSection,
+    ToolReadPlan,
+    _dedupe,
+    _dedupe_citations,
+)
+from .priority_engine import PriorityEngine, PriorityItem
+from .role_context import RoleIntelligenceContext
+from .team_insight_engine import TeamInsightEngine
+
+
+class ManagerDigestBuilder(RoleDigestBuilder):
+    """Contextual manager digest from manager-visible read-only tools."""
+
+    def __init__(
+        self,
+        executor: Any,
+        priority_engine: PriorityEngine | None = None,
+        team_insight_engine: TeamInsightEngine | None = None,
+    ) -> None:
+        super().__init__(executor, priority_engine=priority_engine)
+        self.team_insight_engine = team_insight_engine or TeamInsightEngine()
+
+    async def build_digest(
+        self,
+        context: CurrentUserContext,
+        *,
+        period: str = "today",
+        policy_query: str | None = None,
+    ) -> RoleDigest:
+        role_context = RoleIntelligenceContext.from_current_user(context)
+        plans = list(_manager_plans())
+        if policy_query:
+            plans.append(
+                ToolReadPlan(
+                    title="Guide politique RH",
+                    tool_name="policy.search",
+                    payload={
+                        "query": policy_query,
+                        "language": role_context.language if role_context.language in {"fr", "en", "ar"} else "fr",
+                        "limit": 3,
+                    },
+                )
+            )
+
+        sections: list[RoleDigestSection] = []
+        calls: list[ToolCallRecord] = []
+        warnings: list[str] = []
+        citations: list[dict[str, Any]] = []
+        for plan in plans:
+            section, call, section_warnings = await self._read_section(plan, context)
+            sections.append(section)
+            calls.append(call)
+            warnings.extend(section_warnings)
+            citations.extend(section.citations)
+
+        section_dicts = [section.to_dict() for section in sections]
+        team_insights = self.team_insight_engine.build_manager_insights(section_dicts)
+        insight_priorities = self.team_insight_engine.insights_to_priorities(team_insights)
+        base_priorities = self.priority_engine.prioritize(role=role_context.role, sections=section_dicts)
+        priorities = _dedupe_priorities([*insight_priorities, *base_priorities])
+
+        return RoleDigest(
+            role=role_context.role,
+            tenant_id=role_context.tenant_id,
+            period=period,
+            sections=sections,
+            priorities=priorities,
+            reminders=[item.to_dict() for item in team_insights],
+            warnings=_dedupe(warnings),
+            tool_calls=calls,
+            citations=_dedupe_citations(citations),
+        )
+
+
+def _manager_plans() -> tuple[ToolReadPlan, ...]:
+    return (
+        ToolReadPlan("Presence equipe", "get_team_presence"),
+        ToolReadPlan("Conges equipe", "leave.list_manager_requests"),
+        ToolReadPlan("Teletravail equipe", "telework.list_manager_requests"),
+        ToolReadPlan("Autorisations equipe", "authorization.list_manager_requests"),
+        ToolReadPlan("Communication", "communication.list_channels", {"limit": 10}),
+    )
+
+
+def _dedupe_priorities(values: list[PriorityItem]) -> list[PriorityItem]:
+    seen: set[str] = set()
+    output: list[PriorityItem] = []
+    for item in values:
+        if item.id in seen:
+            continue
+        seen.add(item.id)
+        output.append(item)
+    return output

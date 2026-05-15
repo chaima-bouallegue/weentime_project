@@ -27,6 +27,9 @@ SUPPORTED_STATUSES = {
     "ACTIF",
     "INACTIF",
     "EN_ATTENTE",
+    "EN_ATTENTE_MANAGER",
+    "EN_ATTENTE_RH",
+    "EN_ATTENTE_VALIDATION",
     "PENDING",
     "APPROUVEE",
     "APPROUVE",
@@ -59,6 +62,8 @@ SUPPORTED_STATUSES = {
     "CLOSED",
     "PRESENT",
     "ABSENT",
+    "RETARD",
+    "LATE",
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"

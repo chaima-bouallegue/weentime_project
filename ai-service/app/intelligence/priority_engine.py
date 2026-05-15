@@ -77,7 +77,7 @@ class PriorityEngine:
                 source_tools=[tool_name],
                 recommended_actions=["Consulter le detail avant toute action."],
             )
-        if role == "MANAGER" and _tool_matches(tool_name, ("pending", "team", "presence", "list_manager_requests")):
+        if role == "MANAGER" and "list_manager_requests" in tool_name:
             return PriorityItem(
                 id=f"manager-work-{index}",
                 type="manager_pending_work",
@@ -87,6 +87,28 @@ class PriorityEngine:
                 evidence=evidence,
                 source_tools=[tool_name],
                 recommended_actions=["Ouvrir la liste et examiner les demandes une par une."],
+            )
+        if role == "MANAGER" and tool_name == "get_team_presence":
+            return PriorityItem(
+                id=f"manager-team-visibility-{index}",
+                type="manager_team_visibility",
+                severity="info",
+                title=f"Vue equipe: {title}",
+                summary=str(section.get("summary") or f"{count} membre(s) visibles dans la presence equipe."),
+                evidence=evidence,
+                source_tools=[tool_name],
+                recommended_actions=["Verifier les anomalies avant de replanifier le travail."],
+            )
+        if role == "MANAGER" and tool_name == "communication.list_channels":
+            return PriorityItem(
+                id=f"manager-communication-{index}",
+                type="manager_communication_visibility",
+                severity="info",
+                title=f"Communication: {title}",
+                summary=str(section.get("summary") or f"{count} canal(aux) visibles."),
+                evidence=evidence,
+                source_tools=[tool_name],
+                recommended_actions=["Consulter les canaux visibles selon les priorites de l'equipe."],
             )
         if role == "RH" and _tool_matches(tool_name, ("rh", "all_requests", "document")):
             return PriorityItem(
