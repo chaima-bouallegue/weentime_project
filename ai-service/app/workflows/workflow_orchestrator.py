@@ -320,7 +320,7 @@ class WorkflowOrchestrator:
     ) -> WorkflowResult:
         with start_span("workflow.confirmation.lookup", {"user_id": context.user_id, "tenant_id": context.tenant_id}):
             record = self.confirmation_store.get(confirmation_id)
-        if not record:
+        if record is None:
             state.error_code = "confirmation_not_found"
             response = build_confirmation_status_response(
                 code="confirmation_not_found",
@@ -329,7 +329,12 @@ class WorkflowOrchestrator:
                 confirmation_id=confirmation_id,
                 status="not_found",
             )
-            return await self._finalize_response(response, context=context, state=state, session_id=session_id)
+            return self._controlled_confirmation_result(
+                response=response,
+                context=context,
+                state=state,
+                session_id=session_id,
+            )
         if record.user_id != context.user_id or record.tenant_id != context.tenant_id:
             raise ContextError("confirmation_context_mismatch", "Cette confirmation ne correspond pas a votre session.", 403)
         if record.status == "expired" or record.expired:
@@ -341,8 +346,13 @@ class WorkflowOrchestrator:
                 confirmation_id=record.confirmation_id,
                 status="expired",
             )
-            return await self._finalize_response(response, context=context, state=state, session_id=session_id)
-        if record.status != "pending":
+            return self._controlled_confirmation_result(
+                response=response,
+                context=context,
+                state=state,
+                session_id=session_id,
+            )
+        if record.status in {"consumed", "approved", "rejected"} or record.status != "pending":
             state.error_code = "confirmation_already_used"
             response = build_confirmation_status_response(
                 code="confirmation_already_used",
@@ -352,7 +362,12 @@ class WorkflowOrchestrator:
                 status="already_used",
                 success=True,
             )
-            return await self._finalize_response(response, context=context, state=state, session_id=session_id)
+            return self._controlled_confirmation_result(
+                response=response,
+                context=context,
+                state=state,
+                session_id=session_id,
+            )
 
         if not approved:
             self.confirmation_store.reject(record.confirmation_id)
@@ -390,6 +405,35 @@ class WorkflowOrchestrator:
             state=state,
             session_id=session_id,
             warnings=list(result.warnings or []),
+        )
+
+    def _controlled_confirmation_result(
+        self,
+        *,
+        response: AgentResponse,
+        context: CurrentUserContext,
+        state: WorkflowState,
+        session_id: str | None = None,
+    ) -> WorkflowResult:
+        localized = localize_agent_response(response, context)
+        update_state_from_response(state, localized, context)
+        state.selected_agent = "confirmation"
+        log_event(
+            "workflow.completed",
+            metadata={
+                "request_id": state.request_id,
+                "intent": state.intent,
+                "selected_agent": state.selected_agent,
+                "fallback_used": state.fallback_used,
+                "error_code": state.error_code,
+                "channel": state.channel,
+                "session_id": session_id,
+            },
+        )
+        return WorkflowResult(
+            response=localized,
+            state=state,
+            context=context,
         )
 
     async def _provider_fallback(

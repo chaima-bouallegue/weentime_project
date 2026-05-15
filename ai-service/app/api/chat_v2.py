@@ -87,7 +87,8 @@ async def confirm_chat_action(
 
             if result.state.error_code == "confirmation_not_found":
                 return _controlled_confirmation_response(
-                    code="confirmation_not_found",
+                    code="CONFIRMATION_NOT_FOUND",
+                    intent_code="confirmation_not_found",
                     text="Confirmation introuvable ou expiree.",
                     request_id=request_id,
                     confirmation_id=payload.confirmation_id,
@@ -95,7 +96,8 @@ async def confirm_chat_action(
                 )
             if result.state.error_code == "confirmation_expired":
                 return _controlled_confirmation_response(
-                    code="confirmation_expired",
+                    code="CONFIRMATION_EXPIRED",
+                    intent_code="confirmation_expired",
                     text="Cette confirmation a expire.",
                     request_id=request_id,
                     confirmation_id=payload.confirmation_id,
@@ -103,7 +105,8 @@ async def confirm_chat_action(
                 )
             if result.state.error_code == "confirmation_already_used":
                 return _controlled_confirmation_response(
-                    code="confirmation_already_used",
+                    code="CONFIRMATION_ALREADY_USED",
+                    intent_code="confirmation_already_used",
                     text="Cette action a deja ete traitee.",
                     request_id=request_id,
                     confirmation_id=payload.confirmation_id,
@@ -139,6 +142,7 @@ def _error_response(status_code: int, code: str, message: str, *, request_id: st
 def _controlled_confirmation_response(
     *,
     code: str,
+    intent_code: str | None = None,
     text: str,
     request_id: str | None,
     confirmation_id: str | None,
@@ -148,7 +152,7 @@ def _controlled_confirmation_response(
     response = AgentResponse(
         type="answer" if success else "error",
         text=text,
-        intent=f"confirmation.{code}",
+        intent=f"confirmation.{intent_code or code.lower()}",
         confidence=1.0,
         requiresConfirmation=False,
         confirmationId=confirmation_id,
