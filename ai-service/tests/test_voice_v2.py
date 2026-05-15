@@ -96,6 +96,37 @@ def test_voice_v2_valid_stt_calls_copilot(monkeypatch, tmp_path: Path) -> None:
     assert process_mock.await_count == 1
 
 
+def test_voice_v2_preserves_tunisian_language_metadata(monkeypatch, tmp_path: Path) -> None:
+    stored = StoredAudio(path=tmp_path / "input.webm", directory=tmp_path, size_bytes=100)
+    fake_processed = VoiceProcessorResult(
+        stt=VoiceProcessingResult(status="success", cleaned_text="nheb conge ghodwa", language="fr", language_confidence=0.82),
+        stored_audio=stored,
+        detected_language="tn",
+    )
+    process_mock = AsyncMock(return_value=AgentResponse(type="ask", text="Chnowa el motif?", intent="leave.create", confidence=0.9))
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.process_upload", AsyncMock(return_value=fake_processed))
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.cleanup", lambda self, stored: None)
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.generate_tts", AsyncMock(return_value=None))
+    monkeypatch.setattr("app.api.voice_v2.process_copilot_message", process_mock)
+
+    with TestClient(main.app) as client:
+        prepare_v2_state(client)
+        response = client.post(
+            "/v2/voice",
+            headers=token_header(),
+            files={"audio_file": ("audio.webm", b"fake", "audio/webm")},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["success"] is True
+    assert body["data"]["detectedLanguage"] == "tn"
+    assert body["data"]["languageConfidence"] == 0.82
+    assert body["data"]["responseLocale"] == "tn"
+    assert body["data"]["ttsUnavailable"] is True
+    assert process_mock.call_args.kwargs["metadata"]["language"] == "tn"
+
+
 def test_voice_v2_confirmation_oui_executes_pending_confirmation(monkeypatch, tmp_path: Path) -> None:
     stored = StoredAudio(path=tmp_path / "input.webm", directory=tmp_path, size_bytes=100)
     fake_processed = VoiceProcessorResult(

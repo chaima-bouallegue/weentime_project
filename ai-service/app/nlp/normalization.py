@@ -60,14 +60,20 @@ TUNISIAN_LATIN_SYNONYMS = {
     "n7eb": "je veux",
     "nhib": "je veux",
     "bghit": "je veux",
+    "tounsi": "tunisien",
     "baad ghodwa": "apres demain",
     "ba3d ghodwa": "apres demain",
     "ghodwa": "demain",
     "pointi": "pointage",
-    "npointi": "pointer mon entrÃ©e",
+    "npointi": "pointer mon entree",
+    "dakhla": "pointer mon entree",
+    "dakhel": "pointer mon entree",
+    "khrouj": "pointer ma sortie",
+    "kharrej": "pointer ma sortie",
     "nokhrej": "pointer ma sortie",
     "autorisation nokhrej": "autorisation sortie",
-    "konji": "congÃ©",
+    "konji": "conge",
+    "congi": "conge",
     "conge": "conge",
     "maladie": "conge maladie",
     "rdv medical": "rendez vous medical",
@@ -174,3 +180,4 @@ def normalize_text(text: str | None, language: str | None = None) -> str:
 
 def normalize_for_intent(text: str | None, language: str | None = None) -> str:
     return normalize_text(text, language)
+

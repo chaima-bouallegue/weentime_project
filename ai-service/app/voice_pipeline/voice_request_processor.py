@@ -129,12 +129,30 @@ class VoiceRequestProcessor:
 
     @staticmethod
     def _resolve_language(transcript: str, stt_language: str | None, language_hint: str | None) -> str:
-        for candidate in (language_hint, stt_language):
-            value = (candidate or "").strip().lower()
-            if value.startswith("ar"):
-                return "ar"
-            if value.startswith("en"):
-                return "en"
-            if value.startswith("fr"):
-                return "fr"
-        return detect_language(transcript)
+        hinted = _canonical_voice_language(language_hint)
+        if hinted:
+            return hinted
+
+        transcript_language = detect_language(transcript)
+        if transcript_language in {"tn", "ar", "en"}:
+            return transcript_language
+
+        stt_detected = _canonical_voice_language(stt_language)
+        if stt_detected:
+            return stt_detected
+        return transcript_language
+
+
+def _canonical_voice_language(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"tn", "tounsi", "franco-arabic", "franco_arabic"}:
+        return "tn"
+    if normalized.startswith("ar"):
+        return "ar"
+    if normalized.startswith("en"):
+        return "en"
+    if normalized.startswith("fr"):
+        return "fr"
+    return None

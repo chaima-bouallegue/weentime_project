@@ -164,3 +164,28 @@ def test_voice_v2_returns_audio_url_aliases_when_tts_generates_audio(monkeypatch
     data = response.json()["data"]
     assert data["audioUrl"] == "http://audio/reply.wav"
     assert data["audio_url"] == "http://audio/reply.wav"
+
+
+def test_voice_v2_returns_tts_unavailable_aliases_when_audio_generation_fails(monkeypatch, tmp_path: Path) -> None:
+    patch_voice_processor(monkeypatch, tmp_path, "nheb conge ghodwa")
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.generate_tts", AsyncMock(return_value=None))
+    monkeypatch.setattr(
+        "app.api.voice_v2.process_copilot_message",
+        AsyncMock(return_value=AgentResponse(type="ask", text="Chnowa el motif?", intent="leave.create", confidence=0.9)),
+    )
+
+    with TestClient(main.app) as client:
+        prepare_v2_state(client)
+        response = client.post(
+            "/v2/voice",
+            headers=token_header(),
+            files={"audio_file": ("audio.webm", b"fake", "audio/webm")},
+        )
+
+    data = response.json()["data"]
+    assert data["audioUrl"] is None
+    assert data["audio_url"] is None
+    assert data["audioStatus"] == "unavailable"
+    assert data["audio_status"] == "unavailable"
+    assert data["ttsUnavailable"] is True
+    assert data["tts_unavailable"] is True

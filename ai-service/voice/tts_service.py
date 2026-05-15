@@ -23,6 +23,8 @@ def _supported_language(language: str | None) -> str:
         return "ar"
     if value.startswith("en"):
         return "en"
+    if value in {"tn", "tounsi", "franco-arabic", "franco_arabic"}:
+        return "fr"
     return "fr"
 
 

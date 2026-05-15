@@ -70,6 +70,9 @@ async def voice_v2(
                 processed = await processor.process_upload(audio_file, context=context, language_hint=language_hint)
                 stored = processed.stored_audio
                 stt_result = processed.stt
+                context.language = processed.detected_language
+                context.metadata["language"] = processed.detected_language
+                context.metadata["voice_language_confidence"] = stt_result.language_confidence
                 if stt_result.status == "no_input":
                     return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id))
                 if stt_result.status == "retry":
@@ -120,6 +123,8 @@ async def voice_v2(
                 audio_url = None
                 if generate_tts and text:
                     audio_url = await processor.generate_tts(text, language=processed.detected_language)
+                tts_unavailable = bool(generate_tts and text and not audio_url)
+                tts_status = "generated" if audio_url else "unavailable" if tts_unavailable else "skipped"
 
                 with start_span("voice.response.normalize", {"intent": response_payload.get("intent"), "has_audio": bool(audio_url)}):
                     payload = {
@@ -129,6 +134,10 @@ async def voice_v2(
                         "transcription": transcript,
                         "detectedLanguage": processed.detected_language,
                         "detected_language": processed.detected_language,
+                        "languageConfidence": stt_result.language_confidence,
+                        "language_confidence": stt_result.language_confidence,
+                        "responseLocale": processed.detected_language,
+                        "response_locale": processed.detected_language,
                         "text": text,
                         "response": text,
                         "message": text,
@@ -143,6 +152,10 @@ async def voice_v2(
                         "tool_calls": response_payload.get("toolCalls") or [],
                         "audioUrl": audio_url,
                         "audio_url": audio_url,
+                        "audioStatus": tts_status,
+                        "audio_status": tts_status,
+                        "ttsUnavailable": tts_unavailable,
+                        "tts_unavailable": tts_unavailable,
                     }
                     return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload).model_dump(mode="json"))
             except asyncio.CancelledError:

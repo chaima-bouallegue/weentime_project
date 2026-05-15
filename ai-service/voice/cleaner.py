@@ -2,7 +2,23 @@ from __future__ import annotations
 
 import re
 
-SHORT_COMMANDS = {"oui", "non", "ok", "yes", "no", "نعم", "لا"}
+SHORT_COMMANDS = {
+    "oui",
+    "non",
+    "ok",
+    "yes",
+    "no",
+    "نعم",
+    "لا",
+    "conge",
+    "congé",
+    "ghodwa",
+    "npointi",
+    "pointi",
+    "nokhrej",
+    "teletravail",
+    "autorisation",
+}
 
 
 def _is_repeated_sequence(words: list[str]) -> bool:
@@ -35,6 +51,9 @@ def clean_transcription(text: str | None):
         return None
 
     if len(set(words)) <= 2 and len(words) >= 4:
+        return None
+
+    if normalized.count("bien") > 3:
         return None
 
     if _is_repeated_sequence(words):
