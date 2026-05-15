@@ -24,7 +24,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     req.url.includes('/api/v1/auth/register');
 
   let clonedRequest = req;
-  if (token) {
+  if (token && !req.headers.has('Authorization')) {
     clonedRequest = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`,
