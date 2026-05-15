@@ -241,6 +241,7 @@ class RouterAgent:
 
 def _explicit_domain(text: str) -> str | None:
     has_list = _has_any(text, ("montre", "voir", "liste", "list", "show", "historique", "mes demandes", "mes"))
+    has_create = _has_any(text, ("creer", "cree", "create", "new", "nouveau", "nouvelle", "naamel", "nzid", "أنشئ", "انشئ"))
     if _has_any(text, ("document", "documents", "attestation", "bulletin", "payslip", "certificate")) and has_list:
         return "document"
     if _has_any(text, ("cong", "conge", "conges", "leave", "vacance")) and has_list:
@@ -249,6 +250,13 @@ def _explicit_domain(text: str) -> str | None:
         return "telework"
     if _has_any(text, ("autorisation", "autorisations", "permission")) and has_list:
         return "authorization"
+    # Reunion / planning — read-only domain. Route on topic + my-cue or topic + create-cue isn't relevant here.
+    if _has_any(text, ("reunion", "reunions", "meeting", "meetings", "rendez vous", "rendez-vous", "rdv", "planning", "agenda", "اجتماع", "اجتماعات", "جدول")):
+        return "reunion"
+    # Organisation structure — both list and create are valid explicit-domain hits.
+    if (_has_any(text, ("equipe", "equipes", "team", "teams", "departement", "departements", "department", "departments", "فريق", "فرق", "قسم"))
+            and (has_list or has_create)):
+        return "organisation"
     return None
 
 

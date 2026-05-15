@@ -12,6 +12,8 @@ from app.agents.insight_agent import InsightAgent
 from app.agents.leave_agent import LeaveAgent
 from app.agents.legacy_agent import LegacyAgent
 from app.agents.manager_agent import ManagerAgent
+from app.agents.organisation_agent import OrganisationAgent
+from app.agents.reunion_agent import ReunionAgent
 from app.agents.rh_agent import RHAgent
 from app.agents.router_agent import RouterAgent
 from app.agents.telework_agent import TeleworkAgent
@@ -173,6 +175,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     rh_agent = getattr(state, "copilot_rh_agent", None) or RHAgent(executor, confirmation_store)
     admin_agent = getattr(state, "copilot_admin_agent", None) or AdminAgent(executor, confirmation_store)
     communication_agent = getattr(state, "copilot_communication_agent", None) or CommunicationAgent(executor, confirmation_store)
+    organisation_agent = getattr(state, "copilot_organisation_agent", None) or OrganisationAgent(executor, confirmation_store)
+    reunion_agent = getattr(state, "copilot_reunion_agent", None) or ReunionAgent(executor)
     role_intelligence_agent = getattr(state, "copilot_role_intelligence_agent", None) or RoleIntelligenceAgent(executor)
     employee_copilot = getattr(state, "copilot_employee_copilot", None) or EmployeeCopilot(executor)
     manager_copilot = getattr(state, "copilot_manager_copilot", None) or ManagerCopilot(executor)
@@ -192,6 +196,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             rh_agent,
             admin_agent,
             communication_agent,
+            organisation_agent,
+            reunion_agent,
             insight_agent,
             role_intelligence_agent,
             employee_copilot,
@@ -224,6 +230,8 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_rh_agent = rh_agent
     state.copilot_admin_agent = admin_agent
     state.copilot_communication_agent = communication_agent
+    state.copilot_organisation_agent = organisation_agent
+    state.copilot_reunion_agent = reunion_agent
     state.copilot_insight_agent = insight_agent
     state.copilot_role_intelligence_agent = role_intelligence_agent
     state.copilot_employee_copilot = employee_copilot
