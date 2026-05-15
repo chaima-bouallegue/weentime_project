@@ -13,6 +13,7 @@ from app.models.agent_models import AgentResponse, ToolCallRecord
 from app.models.envelopes import ApiEnvelope
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
+from app.voice import VoiceRoleRouter, optimize_voice_response
 from app.voice_pipeline.voice_errors import voice_error_payload
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceRequestProcessor
 
@@ -93,30 +94,47 @@ async def voice_v2(
                 if confirmation_response is not None:
                     response = confirmation_response
                 else:
-                    with start_span("voice.copilot", {"user_id": context.user_id, "language": processed.detected_language}):
-                        response = await process_copilot_message(
-                            context.user_id,
-                            transcript,
-                            extract_bearer_token(authorization),
-                            context.role,
-                            channel="voice",
-                            metadata={
-                                "app_state": request.app.state,
-                                "session_id": session_id,
-                                "language": processed.detected_language,
-                                "voice_v2": True,
-                                "request_id": resolved_request_id,
-                            },
-                        )
-                        log_event(
-                            "voice.copilot",
-                            metadata={
-                                "detected_language": processed.detected_language,
-                                "status": getattr(response, "type", "unknown"),
-                                "cleaned_empty": False,
-                            },
-                        )
+                    voice_role_router = _voice_role_router(request.app.state, services)
+                    if voice_role_router.can_handle(transcript, context):
+                        with start_span(
+                            "voice.role_intelligence",
+                            {"user_id": context.user_id, "role": context.role, "language": processed.detected_language},
+                        ):
+                            response = await voice_role_router.handle(transcript, context)
+                            log_event(
+                                "voice.role_intelligence",
+                                metadata={
+                                    "role": context.role,
+                                    "intent": getattr(response, "intent", None),
+                                    "requires_confirmation": bool(getattr(response, "requiresConfirmation", False)),
+                                },
+                            )
+                    else:
+                        with start_span("voice.copilot", {"user_id": context.user_id, "language": processed.detected_language}):
+                            response = await process_copilot_message(
+                                context.user_id,
+                                transcript,
+                                extract_bearer_token(authorization),
+                                context.role,
+                                channel="voice",
+                                metadata={
+                                    "app_state": request.app.state,
+                                    "session_id": session_id,
+                                    "language": processed.detected_language,
+                                    "voice_v2": True,
+                                    "request_id": resolved_request_id,
+                                },
+                            )
+                            log_event(
+                                "voice.copilot",
+                                metadata={
+                                    "detected_language": processed.detected_language,
+                                    "status": getattr(response, "type", "unknown"),
+                                    "cleaned_empty": False,
+                                },
+                            )
 
+                response = optimize_voice_response(response, context)
                 response = services["response_guard"].guard_response(response, context)
                 response_payload = _payload_from_response(response)
                 text = str(response_payload.get("text") or response_payload.get("message") or response_payload.get("response") or "")
@@ -238,6 +256,8 @@ def _payload_from_response(response: Any) -> dict[str, Any]:
 
 def _infer_agent(intent: Any) -> str | None:
     value = str(intent or "")
+    if value.startswith("voice_role."):
+        return "role_intelligence"
     if value.startswith("confirmation."):
         return "confirmation"
     if value.startswith("attendance.") or value in {"CHECK_IN", "CHECK_OUT", "GET_STATUS"}:
@@ -255,6 +275,14 @@ def _infer_agent(intent: Any) -> str | None:
     if value.startswith("rh."):
         return "rh"
     return None
+
+
+def _voice_role_router(app_state: Any, services: dict[str, Any]) -> VoiceRoleRouter:
+    router = getattr(app_state, "voice_role_router", None)
+    if router is None:
+        router = VoiceRoleRouter(services["executor"])
+        app_state.voice_role_router = router
+    return router
 
 
 def _voice_error_with_request_id(code: str, request_id: str) -> dict[str, Any]:
