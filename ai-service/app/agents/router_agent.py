@@ -250,8 +250,10 @@ def _explicit_domain(text: str) -> str | None:
         return "telework"
     if _has_any(text, ("autorisation", "autorisations", "permission")) and has_list:
         return "authorization"
-    # Reunion / planning — read-only domain. Route on topic + my-cue or topic + create-cue isn't relevant here.
-    if _has_any(text, ("reunion", "reunions", "meeting", "meetings", "rendez vous", "rendez-vous", "rdv", "planning", "agenda", "اجتماع", "اجتماعات", "جدول")):
+    # Reunion / planning — read-only domain. NOTE: deliberately excludes "rdv"
+    # and "rendez-vous" because those are also valid authorization reasons
+    # ("rendez-vous medical"). Restrict to unambiguous meeting/planning vocabulary.
+    if _has_any(text, ("reunion", "reunions", "meeting", "meetings", "planning", "agenda", "اجتماع", "اجتماعات", "جدول")):
         return "reunion"
     # Organisation structure — both list and create are valid explicit-domain hits.
     if (_has_any(text, ("equipe", "equipes", "team", "teams", "departement", "departements", "department", "departments", "فريق", "فرق", "قسم"))

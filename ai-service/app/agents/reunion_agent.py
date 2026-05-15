@@ -145,8 +145,9 @@ _NEXT_CUES = (
 _MY_CUES = (
     # FR / TN
     "mes", "ma", "mon",
-    # EN
-    "my", "i", "i have", "do i",
+    # EN — deliberately omit bare "i" because it substring-matches "j'ai" /
+    # "rdv" / "médical" and would steal authorization-reason messages.
+    "my", "i have", "do i",
     # TN
     "andi", "3andi", "i7awejli",
     # AR

@@ -5,6 +5,13 @@ from typing import Any
 
 from app.agents.authorization_agent import _infer_authorization_type, _infer_reason
 from app.agents.leave_planner import LeaveRiskAnalyzer
+from app.agents.organisation_agent import (
+    _DEPT_TERMS,
+    _TEAM_TERMS,
+    _extract_code_interne,
+    _extract_int_after,
+    _extract_named_target,
+)
 from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse, ToolCallRecord
@@ -14,12 +21,27 @@ from core.entity_extractor import extract_entities
 from .conversation_state import ConversationStateStore, PendingConversationFlow
 
 
+# Sentinel for flows that do NOT use the shared `core.entity_extractor` schema.
+# Org-create flows do their own field extraction via organisation_agent helpers,
+# because dates/times/leave-types are irrelevant for "create team / department".
+_NO_ENTITY_INTENT = "_NO_ENTITY"
+
 FLOW_CONFIG: dict[str, dict[str, str]] = {
     "leave.create": {"agent": "leave", "entity_intent": "CREATE_LEAVE", "tool": "leave.create_request"},
     "authorization.create": {
         "agent": "authorization",
         "entity_intent": "CREATE_AUTORISATION",
         "tool": "authorization.create_request",
+    },
+    "organisation.create_team": {
+        "agent": "organisation",
+        "entity_intent": _NO_ENTITY_INTENT,
+        "tool": "organisation.create_team",
+    },
+    "organisation.create_department": {
+        "agent": "organisation",
+        "entity_intent": _NO_ENTITY_INTENT,
+        "tool": "organisation.create_department",
     },
 }
 
@@ -29,6 +51,9 @@ FIELD_LABELS = {
     "start_time": "heure de debut",
     "type": "type",
     "reason": "motif",
+    "name": "nom",
+    "departement_id": "departement",
+    "code_interne": "code interne",
 }
 
 
@@ -119,17 +144,51 @@ def capture_pending_flow(
 
 def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: CurrentUserContext) -> None:
     config = FLOW_CONFIG[flow.intent]
+    fields = flow.collected_fields
+    original = message.strip()
+    # Org-create flows skip the shared entity extractor — they have their own
+    # extractors for `nom`, `departement_id`, `code_interne` and would only get
+    # noise (dates, leave types) from the shared one.
+    if config["entity_intent"] == _NO_ENTITY_INTENT:
+        if flow.intent == "organisation.create_team":
+            _merge_team_fields(fields, original)
+        elif flow.intent == "organisation.create_department":
+            _merge_department_fields(fields, original)
+        return
     payload = {
         key: value
         for key, value in extract_entities(message, intent=config["entity_intent"], role=context.role, pending_intent=config["entity_intent"]).items()
         if value not in (None, "", [], {})
     }
-    fields = flow.collected_fields
-    original = message.strip()
     if flow.intent == "leave.create":
         _merge_leave_fields(fields, payload, original)
     elif flow.intent == "authorization.create":
         _merge_authorization_fields(fields, payload, original)
+
+
+def _merge_team_fields(fields: dict[str, Any], original: str) -> None:
+    fields["raw_last_message"] = original
+    if not fields.get("name"):
+        name = _extract_named_target(original, _TEAM_TERMS)
+        if name:
+            fields["name"] = name
+    if not fields.get("departement_id"):
+        dept = _extract_int_after(original, ("departement", "department", "dept", "قسم"))
+        if dept:
+            fields["departement_id"] = int(dept)
+    fields.setdefault("est_active", True)
+
+
+def _merge_department_fields(fields: dict[str, Any], original: str) -> None:
+    fields["raw_last_message"] = original
+    if not fields.get("name"):
+        name = _extract_named_target(original, _DEPT_TERMS)
+        if name:
+            fields["name"] = name
+    if not fields.get("code_interne"):
+        code = _extract_code_interne(original)
+        if code:
+            fields["code_interne"] = code
 
 
 def _merge_leave_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
@@ -187,6 +246,20 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
         if not fields.get("reason"):
             missing.append("reason")
         return missing
+    if flow.intent == "organisation.create_team":
+        missing = []
+        if not fields.get("name"):
+            missing.append("name")
+        if not fields.get("departement_id"):
+            missing.append("departement_id")
+        return missing
+    if flow.intent == "organisation.create_department":
+        missing = []
+        if not fields.get("name"):
+            missing.append("name")
+        if not fields.get("code_interne"):
+            missing.append("code_interne")
+        return missing
     return []
 
 
@@ -209,6 +282,28 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
         if field == "type":
             return "Quel type d'autorisation souhaitez-vous demander ? Par exemple: sortie anticipee, arrivee tardive ou absence temporaire."
         return "Quel motif souhaitez-vous indiquer pour cette autorisation ?"
+    if intent == "organisation.create_team":
+        if field == "name":
+            return "Comment souhaitez-vous nommer cette equipe ?"
+        if field == "departement_id":
+            existing_name = flow.collected_fields.get("name")
+            suffix = f" '{existing_name}'" if existing_name else ""
+            return (
+                f"Pour quel departement (ID numerique) souhaitez-vous creer l'equipe{suffix} ? "
+                "Exemple: 'departement 3'."
+            )
+        return "Pouvez-vous preciser cette information ?"
+    if intent == "organisation.create_department":
+        if field == "name":
+            return "Comment souhaitez-vous nommer ce departement ?"
+        if field == "code_interne":
+            existing_name = flow.collected_fields.get("name")
+            suffix = f" '{existing_name}'" if existing_name else ""
+            return (
+                f"Quel code interne pour le departement{suffix} ? "
+                "Format: lettres majuscules, chiffres et tirets uniquement (ex: TECH, RND-2)."
+            )
+        return "Pouvez-vous preciser cette information ?"
     return "Pouvez-vous preciser cette information ?"
 
 
@@ -230,6 +325,17 @@ def _tool_input(flow: PendingConversationFlow) -> dict[str, Any]:
             "authorization_type": fields.get("authorization_type"),
             "reason": fields.get("reason"),
         }
+    if flow.intent == "organisation.create_team":
+        return {
+            "nom": fields["name"],
+            "departement_id": int(fields["departement_id"]),
+            "est_active": bool(fields.get("est_active", True)),
+        }
+    if flow.intent == "organisation.create_department":
+        return {
+            "nom": fields["name"],
+            "code_interne": fields["code_interne"],
+        }
     return dict(fields)
 
 
@@ -248,13 +354,20 @@ def _slot_result(flow: PendingConversationFlow, *, status: str = "pending") -> d
 
 
 def _confirmation_result(flow: PendingConversationFlow, tool_input: dict[str, Any], analysis: dict[str, Any] | None) -> dict[str, Any]:
-    summary = {
-        "type": tool_input.get("leave_type_label") or tool_input.get("authorization_type"),
-        "date": tool_input.get("start_date") or tool_input.get("request_date"),
-        "endDate": tool_input.get("end_date"),
-        "time": _time_label(tool_input),
-        "motif": tool_input.get("reason"),
-    }
+    if flow.intent.startswith("organisation."):
+        summary: dict[str, Any] = {
+            "nom": tool_input.get("nom"),
+            "departementId": tool_input.get("departement_id"),
+            "codeInterne": tool_input.get("code_interne"),
+        }
+    else:
+        summary = {
+            "type": tool_input.get("leave_type_label") or tool_input.get("authorization_type"),
+            "date": tool_input.get("start_date") or tool_input.get("request_date"),
+            "endDate": tool_input.get("end_date"),
+            "time": _time_label(tool_input),
+            "motif": tool_input.get("reason"),
+        }
     result: dict[str, Any] = {
         "kind": "confirmation_summary",
         "intent": flow.intent,
@@ -273,6 +386,16 @@ def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[s
         return LeaveRiskAnalyzer.build_confirmation_text(base, analysis)
     if intent == "authorization.create":
         return f"Confirmez-vous cette demande d'autorisation pour le {tool_input.get('request_date')} {_time_label(tool_input)} ?"
+    if intent == "organisation.create_team":
+        return (
+            f"Confirmez-vous la creation de l'equipe '{tool_input.get('nom')}' "
+            f"dans le departement {tool_input.get('departement_id')} ?"
+        )
+    if intent == "organisation.create_department":
+        return (
+            f"Confirmez-vous la creation du departement '{tool_input.get('nom')}' "
+            f"(code: {tool_input.get('code_interne')}) ?"
+        )
     return "Confirmez-vous cette action ?"
 
 
@@ -335,6 +458,10 @@ def _add_hours(time_value: str, hours: float) -> str | None:
 _FLOW_DOMAIN_TERMS = {
     "leave.create": ("conge", "congé", "congÃ©", "leave", "vacance", "absence"),
     "authorization.create": ("autorisation", "permission"),
+    # Org-create flows: keep the flow alive when the user is still talking
+    # about teams/departments (e.g. "in departement 5", "code TECH").
+    "organisation.create_team": ("equipe", "team", "departement", "department", "dept"),
+    "organisation.create_department": ("departement", "department", "dept", "code"),
 }
 
 _ESCAPE_PATTERNS: tuple[tuple[str, ...], ...] = (
@@ -415,6 +542,21 @@ _ESCAPE_PATTERNS: tuple[tuple[str, ...], ...] = (
         "good evening",
         "صباح",
         "مرحبا",
+    ),
+    # reunions / planning (lets users pivot from an org-create flow to a meeting
+    # query). Deliberately excludes "rdv" / "rendez-vous" — those are valid
+    # authorization reasons ("rendez-vous medical"), and escaping on them would
+    # break the slot-filling final step of an authorization request.
+    (
+        "reunion",
+        "reunions",
+        "meeting",
+        "meetings",
+        "planning",
+        "agenda",
+        "اجتماع",
+        "اجتماعات",
+        "جدول",
     ),
     # admin / system / RH / manager queries
     (
