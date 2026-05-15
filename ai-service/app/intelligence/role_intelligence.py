@@ -7,6 +7,7 @@ from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
 from app.tools.executor import ToolExecutor
 
+from .admin_digest_builder import AdminDigestBuilder
 from .digest_builder import RoleDigestBuilder
 from .employee_digest_builder import EmployeeDigestBuilder
 from .manager_digest_builder import ManagerDigestBuilder
@@ -39,11 +40,13 @@ class RoleIntelligenceService:
         digest_builder: RoleDigestBuilder | None = None,
         employee_digest_builder: EmployeeDigestBuilder | None = None,
         manager_digest_builder: ManagerDigestBuilder | None = None,
+        admin_digest_builder: AdminDigestBuilder | None = None,
     ) -> None:
         self.executor = executor
         self.digest_builder = digest_builder or RoleDigestBuilder(executor)
         self.employee_digest_builder = employee_digest_builder or EmployeeDigestBuilder(executor)
         self.manager_digest_builder = manager_digest_builder or ManagerDigestBuilder(executor)
+        self.admin_digest_builder = admin_digest_builder or AdminDigestBuilder(executor)
 
     def can_handle(self, message: str, context: CurrentUserContext) -> float:
         role_context = RoleIntelligenceContext.from_current_user(context)
@@ -77,6 +80,8 @@ class RoleIntelligenceService:
             builder = self.employee_digest_builder
         elif role_context.role == "MANAGER":
             builder = self.manager_digest_builder
+        elif role_context.role == "ADMIN":
+            builder = self.admin_digest_builder
         else:
             builder = self.digest_builder
         digest = await builder.build_digest(context, policy_query=policy_query)

@@ -1,7 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from app.context.current_user import CurrentUserContext
-from app.models.agent_models import AgentResponse, ToolCallRecord
+from app.intelligence.admin_digest_builder import AdminDigestBuilder
+from app.models.agent_models import AgentResponse
 
 from .base_role_copilot import BaseRoleCopilot
 
@@ -39,25 +40,31 @@ class AdminCopilot(BaseRoleCopilot):
         intent: str,
         confidence: float,
     ) -> AgentResponse:
-        sections: list[dict] = []
-        calls: list[ToolCallRecord] = []
-        warnings: list[str] = []
-        for title, tool_name in (
-            ("Utilisateurs", "admin.list_users"),
-            ("Entreprises", "admin.list_enterprises"),
-            ("Sante systeme", "admin.system_health"),
-        ):
-            section, call, section_warnings = await self._read_section(title=title, tool_name=tool_name, context=context)
-            sections.append(section)
-            calls.append(call)
-            warnings.extend(section_warnings)
-        return self._role_response(
+        digest = await AdminDigestBuilder(self.executor).build_digest(context)
+        action = digest.to_dict()
+        action["kind"] = "role_summary"
+        action["agent"] = self.name
+        text_lines = ["Resume systeme administrateur."]
+        for section in action.get("sections", [])[:6]:
+            if isinstance(section, dict):
+                text_lines.append(f"- {section.get('title')}: {section.get('summary')}")
+        diagnostics = action.get("reminders") if isinstance(action.get("reminders"), list) else []
+        if diagnostics:
+            text_lines.append("Diagnostics:")
+            text_lines.extend(
+                f"- {item.get('title')}: {item.get('summary')}"
+                for item in diagnostics[:5]
+                if isinstance(item, dict)
+            )
+        if action.get("warnings"):
+            text_lines.append("Certaines donnees sont indisponibles; le resume reste partiel.")
+        return AgentResponse(
+            type="answer",
+            text="\n".join(text_lines),
             intent=intent,
             confidence=confidence,
-            headline="Resume systeme administrateur.",
-            sections=sections,
-            warnings=warnings,
-            tool_calls=calls,
+            toolCalls=digest.tool_calls,
+            actionResult=action,
         )
 
 

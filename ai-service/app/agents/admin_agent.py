@@ -7,7 +7,8 @@ from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse, ToolCallRecord
 from app.tools.executor import ToolExecutor
-from app.tools.result import ToolResult, get_read_result
+from app.tools.result import ToolResult
+from app.intelligence.admin_digest_builder import AdminDigestBuilder
 
 from .base_domain_agent import DomainAgent
 from .hr_agent_utils import ConfirmationMixin
@@ -134,34 +135,31 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
         return response
 
     async def _summary(self, context: CurrentUserContext, *, intent: str, confidence: float) -> AgentResponse:
-        sections: list[dict[str, Any]] = []
-        warnings: list[str] = []
-        calls: list[ToolCallRecord] = []
-        for title, tool_name in (
-            ("Sante systeme", "admin.system_health"),
-            ("Utilisateurs", "admin.list_users"),
-            ("Entreprises", "admin.list_enterprises"),
-            ("Configurations", "admin.misconfigured_users"),
-        ):
-            result = await self.executor.execute(tool_name, {}, context)
-            read_result = get_read_result(result.data)
-            summary = str(read_result.get("summary") if read_result else (result.error_message or "Section indisponible."))
-            status = "ok" if result.success else "unavailable"
-            items = read_result.get("items", []) if isinstance(read_result, dict) else []
-            sections.append({"title": title, "summary": summary, "status": status, "items": items, "toolName": tool_name})
-            calls.append(ToolCallRecord(name=tool_name, arguments={}, status="success" if result.success else "failed"))
-            if not result.success:
-                warnings.append(summary)
-        lines = ["Resume systeme administrateur."] + [f"- {section['title']}: {section['summary']}" for section in sections]
-        if warnings:
+        digest = await AdminDigestBuilder(self.executor).build_digest(context)
+        action = digest.to_dict()
+        action["kind"] = "role_summary"
+        action["agent"] = "AdminAgent"
+        lines = ["Resume systeme administrateur."]
+        for section in action.get("sections", [])[:6]:
+            if isinstance(section, dict):
+                lines.append(f"- {section.get('title')}: {section.get('summary')}")
+        diagnostics = action.get("reminders") if isinstance(action.get("reminders"), list) else []
+        if diagnostics:
+            lines.append("Diagnostics:")
+            lines.extend(
+                f"- {item.get('title')}: {item.get('summary')}"
+                for item in diagnostics[:5]
+                if isinstance(item, dict)
+            )
+        if action.get("warnings"):
             lines.append("Certaines sections admin sont indisponibles; le resume reste partiel.")
         return AgentResponse(
             type="answer",
             text="\n".join(lines),
             intent=intent,
             confidence=confidence,
-            toolCalls=calls,
-            actionResult={"kind": "role_summary", "agent": "AdminAgent", "sections": sections, "warnings": warnings},
+            toolCalls=digest.tool_calls,
+            actionResult=action,
         )
 
     @staticmethod

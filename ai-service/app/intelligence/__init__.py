@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from .admin_diagnostics import AdminDiagnosticItem, AdminDiagnostics
+from .admin_digest_builder import AdminDigestBuilder
 from .digest_builder import RoleDigest, RoleDigestBuilder, RoleDigestSection
 from .employee_digest_builder import EmployeeDigestBuilder
 from .manager_digest_builder import ManagerDigestBuilder
@@ -10,6 +12,9 @@ from .role_intelligence import RoleIntelligenceAgent, RoleIntelligenceService
 from .team_insight_engine import TeamInsightEngine, TeamInsightItem
 
 __all__ = [
+    "AdminDiagnosticItem",
+    "AdminDiagnostics",
+    "AdminDigestBuilder",
     "CANONICAL_ROLES",
     "EmployeeDigestBuilder",
     "ManagerDigestBuilder",

@@ -153,6 +153,7 @@ def test_admin_summary_routes_to_admin_copilot_with_unavailable_sections() -> No
             "admin.list_users": unavailable_result("admin.list_users"),
             "admin.list_enterprises": unavailable_result("admin.list_enterprises"),
             "admin.system_health": unavailable_result("admin.system_health"),
+            "admin.misconfigured_users": unavailable_result("admin.misconfigured_users"),
         }
     )
     router = RouterAgent(EmptyAttendance(), extra_agents=[AdminCopilot(executor)], legacy_agent=None)  # type: ignore[arg-type]
