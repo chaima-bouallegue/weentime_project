@@ -159,14 +159,12 @@ class SpeechToTextService:
                 )
 
             if vad_analysis.used_vad and not vad_analysis.has_speech:
-                return VoiceProcessingResult(
-                    status="no_input",
-                    error="no_voice_detected",
-                    duration_seconds=duration_seconds,
-                    detected_volume=detected_volume,
-                    peak_amplitude=peak_amplitude,
-                    vad_analysis=vad_analysis,
-                    wav_path=str(wav_path),
+                logger.info(
+                    "voice_vad_no_speech_but_signal_present path=%s duration_seconds=%.3f detected_volume=%.3f peak_amplitude=%s",
+                    source_path,
+                    duration_seconds,
+                    detected_volume,
+                    peak_amplitude,
                 )
 
             stt_started = perf_counter()
@@ -185,6 +183,30 @@ class SpeechToTextService:
                     device=self.settings.stt_device,
                     compute_type="int8",
                 )
+                if transcription_result.error == "stt_unavailable":
+                    return VoiceProcessingResult(
+                        status="unavailable",
+                        language=transcription_result.language,
+                        language_confidence=transcription_result.language_probability,
+                        duration_seconds=duration_seconds,
+                        detected_volume=detected_volume,
+                        peak_amplitude=peak_amplitude,
+                        vad_analysis=vad_analysis,
+                        wav_path=str(wav_path),
+                        error="stt_unavailable",
+                    )
+                if transcription_result.error:
+                    return VoiceProcessingResult(
+                        status="error",
+                        language=transcription_result.language,
+                        language_confidence=transcription_result.language_probability,
+                        duration_seconds=duration_seconds,
+                        detected_volume=detected_volume,
+                        peak_amplitude=peak_amplitude,
+                        vad_analysis=vad_analysis,
+                        wav_path=str(wav_path),
+                        error=transcription_result.error,
+                    )
                 raw_text = transcription_result.text
             with start_span("voice.cleaner", {"raw_empty": not bool(raw_text)}):
                 cleaned_text = clean_transcription(
@@ -265,7 +287,11 @@ class SpeechToTextService:
                 wav_path.unlink(missing_ok=True)
 
     async def aprocess(self, audio_file: str | Path) -> VoiceProcessingResult:
-        return await asyncio.to_thread(self.process, audio_file)
+        try:
+            return await asyncio.to_thread(self.process, audio_file)
+        except asyncio.CancelledError:
+            logger.info("voice_pipeline_cancelled path=%s", audio_file)
+            return VoiceProcessingResult(status="cancelled", error="audio_cancelled")
 
     def transcribe(self, audio_file: str | Path) -> str | None:
         result = self.process(audio_file)

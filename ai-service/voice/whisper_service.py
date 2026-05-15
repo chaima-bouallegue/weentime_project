@@ -17,6 +17,7 @@ class WhisperTranscriptionResult:
     text: str
     language: str = "unknown"
     language_probability: float = 0.0
+    error: str | None = None
 
 
 def _load_model(
@@ -73,25 +74,32 @@ def transcribe_audio_result(
         compute_type=compute_type,
     )
     if not model:
-        return WhisperTranscriptionResult(text="")
+        return WhisperTranscriptionResult(text="", error="stt_unavailable")
 
-    segments, info = model.transcribe(
-        str(file_path),
-        language=language or None,
-        vad_filter=True,
-        beam_size=5,
-        temperature=0,
-        condition_on_previous_text=False,
-        vad_parameters={
-            "min_silence_duration_ms": 800,
-            "speech_pad_ms": 200,
-        },
-    )
-    text = " ".join(
-        segment.text.strip()
-        for segment in segments
-        if getattr(segment, "text", "").strip()
-    )
+    try:
+        segments, info = model.transcribe(
+            str(file_path),
+            language=language or None,
+            vad_filter=True,
+            beam_size=5,
+            temperature=0,
+            condition_on_previous_text=False,
+            no_speech_threshold=0.75,
+            vad_parameters={
+                "threshold": 0.35,
+                "min_speech_duration_ms": 100,
+                "min_silence_duration_ms": 1200,
+                "speech_pad_ms": 400,
+            },
+        )
+        text = " ".join(
+            segment.text.strip()
+            for segment in segments
+            if getattr(segment, "text", "").strip()
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("whisper_transcription_failed path=%s error=%s", file_path, exc.__class__.__name__)
+        return WhisperTranscriptionResult(text="", error="stt_failed")
     detected_language = str(getattr(info, "language", "") or "unknown")
     language_probability = float(getattr(info, "language_probability", 0.0) or 0.0)
     logger.info(
@@ -122,25 +130,3 @@ def transcribe_audio(
         device=device,
         compute_type=compute_type,
     ).text
-
-
-def transcribe_partial(
-    audio_path: str | Path,
-) -> str:
-    model = _load_model()
-    if not model:
-        return ""
-
-    segments, _ = model.transcribe(
-        str(audio_path),
-        beam_size=1,
-        best_of=1,
-        temperature=0.2,
-        condition_on_previous_text=False,
-        vad_filter=False,
-    )
-    return " ".join(
-        segment.text.strip()
-        for segment in segments
-        if getattr(segment, "text", "").strip()
-    ).strip()

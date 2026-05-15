@@ -48,6 +48,8 @@ AUDIO_ERROR_MESSAGE = "Erreur audio, veuillez reessayer."
 UNCLEAR_AUDIO_MESSAGE = "Je n'ai entendu que du bruit ou une phrase repetee. Reessayez en parlant clairement."
 INVALID_AUDIO_MESSAGE = "Audio invalide, veuillez reessayer."
 SERVER_ERROR_MESSAGE = "Erreur serveur temporaire."
+STT_UNAVAILABLE_MESSAGE = "Service de transcription indisponible. Reessayez dans quelques instants."
+AUDIO_CANCELLED_MESSAGE = "Traitement audio interrompu. Reessayez."
 
 class SourceItem(BaseModel):
     source: str
@@ -1113,6 +1115,7 @@ async def _append_stream_chunk(
     *,
     detected_volume: float | None = None,
     chunk_index: int | None = None,
+    accept_small: bool = False,
 ) -> str | None:
     """Append one uploaded chunk to the session.
 
@@ -1132,7 +1135,7 @@ async def _append_stream_chunk(
         )
         return None
 
-    if len(payload) < settings.voice_min_chunk_bytes:
+    if len(payload) < settings.voice_min_chunk_bytes and not accept_small:
         logger.info(
             "audio_chunk_skipped session_id=%s reason=chunk_too_small size=%s threshold=%s",
             session.session_id,
@@ -1257,8 +1260,19 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
             )
             return _complete_stream_session(session, payload)
 
-        with start_span("voice.stt", {"session_id": session.session_id, "stt_model": settings.stt_model, "language": settings.stt_language}):
-            stt_result = await stt_service.aprocess(merged_path)
+        try:
+            with start_span("voice.stt", {"session_id": session.session_id, "stt_model": settings.stt_model, "language": settings.stt_language}):
+                stt_result = await stt_service.aprocess(merged_path)
+        except asyncio.CancelledError:
+            logger.info("audio_stream_cancelled session_id=%s total_bytes=%s", session.session_id, session.total_bytes)
+            payload = _audio_error(
+                "audio_cancelled",
+                AUDIO_CANCELLED_MESSAGE,
+                status="audio_cancelled",
+                retryable=True,
+            )
+            payload["session_id"] = session.session_id
+            return _complete_stream_session(session, payload)
         session.detected_volume = max(session.detected_volume, stt_result.detected_volume)
 
         if stt_result.status == "no_input":
@@ -1291,6 +1305,35 @@ async def _finalize_audio_stream(session_id: str) -> dict[str, Any]:
                 detected_volume=session.detected_volume,
                 total_bytes=session.total_bytes,
             )
+            return _complete_stream_session(session, payload)
+        if stt_result.status == "unavailable":
+            logger.warning(
+                "audio_stream_stt_unavailable session_id=%s total_bytes=%s error=%s",
+                session.session_id,
+                session.total_bytes,
+                stt_result.error,
+            )
+            payload = _audio_error(
+                "stt_unavailable",
+                STT_UNAVAILABLE_MESSAGE,
+                status="stt_unavailable",
+                retryable=True,
+            )
+            payload["session_id"] = session.session_id
+            return _complete_stream_session(session, payload)
+        if stt_result.status == "cancelled":
+            logger.info(
+                "audio_stream_stt_cancelled session_id=%s total_bytes=%s",
+                session.session_id,
+                session.total_bytes,
+            )
+            payload = _audio_error(
+                "audio_cancelled",
+                AUDIO_CANCELLED_MESSAGE,
+                status="audio_cancelled",
+                retryable=True,
+            )
+            payload["session_id"] = session.session_id
             return _complete_stream_session(session, payload)
         if stt_result.status != "success" or _is_blank_text(stt_result.cleaned_text):
             logger.warning(
@@ -1570,6 +1613,7 @@ async def audio_stream(
                 file,
                 detected_volume=detected_volume,
                 chunk_index=chunk_index,
+                accept_small=should_finalize,
             )
 
         if (chunk_index is not None and chunk_index > 100) or session.chunk_count > 100:
@@ -1622,6 +1666,17 @@ async def audio_stream(
             "server_error",
             SERVER_ERROR_MESSAGE,
             status="server_error",
+        )
+        payload["session_id"] = session.session_id
+        payload["request_id"] = resolved_request_id
+        payload["requestId"] = resolved_request_id
+        return payload
+    except asyncio.CancelledError:
+        payload = _audio_error(
+            "audio_cancelled",
+            AUDIO_CANCELLED_MESSAGE,
+            status="audio_cancelled",
+            retryable=True,
         )
         payload["session_id"] = session.session_id
         payload["request_id"] = resolved_request_id

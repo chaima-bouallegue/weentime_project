@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, File, Form, Header, Request, UploadFile
@@ -73,6 +74,10 @@ async def voice_v2(
                     return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id))
                 if stt_result.status == "retry":
                     return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "unclean_transcription", resolved_request_id))
+                if stt_result.status == "unavailable":
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "stt_unavailable", resolved_request_id))
+                if stt_result.status == "cancelled":
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_cancelled", resolved_request_id))
                 if stt_result.status != "success" or not (stt_result.cleaned_text or "").strip():
                     return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_processing_failed", resolved_request_id))
 
@@ -140,6 +145,9 @@ async def voice_v2(
                         "audio_url": audio_url,
                     }
                     return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload).model_dump(mode="json"))
+            except asyncio.CancelledError:
+                log_event("voice.v2.cancelled", metadata={"request_id": resolved_request_id})
+                return JSONResponse(status_code=200, content=_voice_error_with_request_id("audio_cancelled", resolved_request_id))
             except Exception as exc:  # noqa: BLE001
                 log_error("voice.v2.unhandled", exc)
                 return JSONResponse(status_code=500, content=_voice_error_with_request_id("audio_processing_failed", resolved_request_id))

@@ -9,6 +9,8 @@ VOICE_ERROR_MESSAGES = {
     "unclean_transcription": "Je n'ai pas bien compris. Pouvez-vous repeter ?",
     "invalid_audio": "Audio invalide, veuillez reessayer.",
     "audio_processing_failed": "Erreur audio, veuillez reessayer.",
+    "audio_cancelled": "Traitement audio interrompu. Reessayez.",
+    "stt_unavailable": "Service de transcription indisponible. Reessayez dans quelques instants.",
 }
 
 

@@ -123,11 +123,21 @@ def analyze_voice(
     min_voiced_ms: int = 300,
 ) -> VadAnalysis:
     source_path = Path(audio_path)
-    analysis, _, _, _ = _scan_frames(
-        source_path,
-        aggressiveness=aggressiveness,
-        frame_ms=frame_ms,
-    )
+    try:
+        analysis, _, _, _ = _scan_frames(
+            source_path,
+            aggressiveness=aggressiveness,
+            frame_ms=frame_ms,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("VAD analysis failed path=%s error=%s", source_path, exc.__class__.__name__)
+        return VadAnalysis(
+            used_vad=False,
+            total_duration_ms=0,
+            voiced_duration_ms=0,
+            total_frames=0,
+            voiced_frames=0,
+        )
     if not analysis.used_vad:
         return analysis
     if analysis.voiced_duration_ms < min_voiced_ms:
@@ -144,7 +154,7 @@ def analyze_voice(
 
 def has_voice(audio_path):
     analysis = analyze_voice(audio_path)
-    return analysis.has_speech and analysis.voiced_duration_ms >= 300
+    return analysis.has_speech
 
 
 def strip_silence_from_wav(
