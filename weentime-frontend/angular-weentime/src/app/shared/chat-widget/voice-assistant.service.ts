@@ -277,7 +277,7 @@ export class VoiceAssistantService {
     const requestContext = withAiChatWidgetContext(new HttpContext());
     this.recordingSessionId = sessionId;
     const extension = this.resolveFileExtension(mimeType);
-    if (!context.token) {
+    if (!context.token && !environment.chatbotPublicMode) {
       throw new Error(VoiceAssistantService.SESSION_EXPIRED_MESSAGE);
     }
 
@@ -288,8 +288,25 @@ export class VoiceAssistantService {
     voiceFormData.append('request_id', requestId);
     const language = this.resolveLanguageHint();
     voiceFormData.append('language_hint', language);
-    voiceFormData.append('metadata', JSON.stringify({ channel: 'voice', language }));
-    const headers = new HttpHeaders({ Authorization: `Bearer ${context.token}`, 'X-Request-ID': requestId });
+    const role = this.resolveRole(context.user);
+    const entrepriseId = context.user.entrepriseId ?? context.user.entreprise?.id;
+    const voiceMetadata: Record<string, unknown> = {
+      channel: 'voice',
+      language,
+      userId: context.user.id,
+    };
+    if (role) {
+      voiceMetadata['role'] = role.toUpperCase();
+    }
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      voiceMetadata['entrepriseId'] = entrepriseId;
+    }
+    voiceFormData.append('metadata', JSON.stringify(voiceMetadata));
+    const headerInit: Record<string, string> = { 'X-Request-ID': requestId };
+    if (context.token) {
+      headerInit['Authorization'] = `Bearer ${context.token}`;
+    }
+    const headers = new HttpHeaders(headerInit);
     this.debugVoiceRequest('v2/voice', requestId);
 
     try {
@@ -324,8 +341,6 @@ export class VoiceAssistantService {
       String(context.user.id)
     );
 
-    const role = this.resolveRole(context.user);
-
     if (role) {
       formData.append(
         'role',
@@ -346,15 +361,17 @@ export class VoiceAssistantService {
       `audio.${extension}`
     );
 
+    const fallbackHeaderInit: Record<string, string> = { 'X-Request-ID': requestId };
+    if (context.token) {
+      fallbackHeaderInit['Authorization'] = `Bearer ${context.token}`;
+    }
+
     return firstValueFrom(
       this.http.post<AudioStreamResponse>(
         `${this.endpoint}/audio-stream`,
         formData,
         {
-          headers: new HttpHeaders({
-            Authorization: `Bearer ${context.token}`,
-            'X-Request-ID': requestId,
-          }),
+          headers: new HttpHeaders(fallbackHeaderInit),
           context: requestContext,
         }
       )
@@ -463,6 +480,10 @@ export class VoiceAssistantService {
   private getUserContext(): { user: User; token: string | null } | null {
     const user = this.authService.currentUser() ?? this.readStoredUser();
     if (!user?.id) {
+      if (environment.chatbotPublicMode) {
+        const fallbackUser: User = { id: 1, email: 'demo@weentime.local', roles: ['EMPLOYEE'], role: 'EMPLOYEE' };
+        return { user: fallbackUser, token: null };
+      }
       return null;
     }
     return { user, token: this.authService.getToken() };

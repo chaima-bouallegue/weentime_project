@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 
+from app.context.anonymous_context import build_chatbot_context_from_metadata
 from app.context.context_builder import ContextError
 from app.context.current_user import CurrentUserContext
 from app.context.jwt_parser import extract_bearer_token
@@ -17,6 +19,7 @@ from app.observability.tracing import log_error, log_event, start_span
 from app.voice import VoiceRoleRouter, optimize_voice_response
 from app.voice_pipeline.voice_errors import voice_error_payload
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceRequestProcessor
+from config import get_settings
 
 router = APIRouter()
 
@@ -37,6 +40,35 @@ POSITIVE_CONFIRMATIONS = {
 NEGATIVE_CONFIRMATIONS = {"non", "no", "لا", "le", "annule", "cancel", "refuse"}
 
 
+def _public_chatbot_mode_enabled() -> bool:
+    return bool(getattr(get_settings(), "chatbot_public_mode", False))
+
+
+def _parse_voice_metadata(raw: str | None) -> dict[str, Any]:
+    if not raw or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _build_anonymous_voice_context(
+    metadata: dict[str, Any],
+    *,
+    language_hint: str | None,
+    request_id: str,
+) -> CurrentUserContext:
+    context = build_chatbot_context_from_metadata(
+        metadata,
+        language=language_hint or "fr",
+        channel="voice",
+    )
+    context.metadata["request_id"] = request_id
+    return context
+
+
 @router.post("/v2/voice")
 async def voice_v2(
     request: Request,
@@ -45,6 +77,7 @@ async def voice_v2(
     request_id: str | None = Form(default=None),
     language_hint: str | None = Form(default=None),
     generate_tts: bool = Form(default=True),
+    metadata: str | None = Form(default=None),
     authorization: str | None = Header(default=None),
     x_request_id: str | None = Header(default=None, alias="X-Request-ID"),
 ) -> JSONResponse:
@@ -53,21 +86,40 @@ async def voice_v2(
     request_token = set_request_id(resolved_request_id)
     stored: StoredAudio | None = None
     processor = VoiceRequestProcessor(request.app.state)
+    parsed_metadata = _parse_voice_metadata(metadata)
     try:
         with start_span("voice.request", {"has_authorization": bool(authorization), "generate_tts": generate_tts}):
             services = ensure_copilot_services(request.app.state)
+            bearer_token = extract_bearer_token(authorization)
             try:
+                if not bearer_token and _public_chatbot_mode_enabled():
+                    raise ContextError("missing_jwt", "Authorization header is required.", 401)
                 context = await services["context_builder"].build(authorization, locale="fr-FR", language=language_hint or "fr")
                 context.metadata["request_id"] = resolved_request_id
             except ContextError as exc:
-                return JSONResponse(
-                    status_code=exc.status_code,
-                    content=ApiEnvelope.fail(
-                        exc.code,
-                        exc.message,
-                        status_details={"request_id": resolved_request_id, "requestId": resolved_request_id},
-                    ).model_dump(mode="json"),
-                )
+                if _public_chatbot_mode_enabled() and exc.status_code == 401:
+                    context = _build_anonymous_voice_context(
+                        parsed_metadata,
+                        language_hint=language_hint,
+                        request_id=resolved_request_id,
+                    )
+                    log_event(
+                        "ai.voice_v2.public_demo",
+                        metadata={
+                            "request_id": resolved_request_id,
+                            "role": context.role,
+                            "user_id": context.user_id,
+                        },
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=exc.status_code,
+                        content=ApiEnvelope.fail(
+                            exc.code,
+                            exc.message,
+                            status_details={"request_id": resolved_request_id, "requestId": resolved_request_id},
+                        ).model_dump(mode="json"),
+                    )
 
             try:
                 processed = await processor.process_upload(audio_file, context=context, language_hint=language_hint)
@@ -126,6 +178,7 @@ async def voice_v2(
                                     "voice_v2": True,
                                     "request_id": resolved_request_id,
                                 },
+                                context=context,
                             )
                             log_event(
                                 "voice.copilot",

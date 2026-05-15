@@ -84,23 +84,43 @@ export function resolveAiServiceEndpoint(
   return 'http://localhost:8000';
 }
 
-export function buildAiChatRequestPayload(message: string, userId?: number): {
+export interface AiChatMetadata {
+  channel: 'chat';
+  language: AiLanguageCode;
+  role?: string;
+  userId?: number;
+  entrepriseId?: number;
+}
+
+export interface AiChatRequestPayload {
   message: string;
   user_id?: number;
-  metadata: {
-    channel: 'chat';
-    language: AiLanguageCode;
+  metadata: AiChatMetadata;
+}
+
+export function buildAiChatRequestPayload(
+  message: string,
+  options?: { userId?: number; role?: string | null; entrepriseId?: number | null },
+): AiChatRequestPayload {
+  const metadata: AiChatMetadata = {
+    channel: 'chat',
+    language: resolvePreferredAiLanguage(
+      typeof navigator !== 'undefined' ? navigator.language : null,
+    ),
   };
-} {
+  if (options?.role && options.role.trim().length > 0) {
+    metadata.role = options.role.trim().replace(/^ROLE_/i, '').toUpperCase();
+  }
+  if (typeof options?.userId === 'number' && options.userId > 0) {
+    metadata.userId = options.userId;
+  }
+  if (typeof options?.entrepriseId === 'number' && options.entrepriseId > 0) {
+    metadata.entrepriseId = options.entrepriseId;
+  }
   return {
     message,
-    user_id: userId,
-    metadata: {
-      channel: 'chat',
-      language: resolvePreferredAiLanguage(
-        typeof navigator !== 'undefined' ? navigator.language : null,
-      ),
-    },
+    user_id: options?.userId,
+    metadata,
   };
 }
 
@@ -114,9 +134,14 @@ export class AiCopilotService {
     const user = this.authService.currentUser();
     const requestId = this.createRequestId('chat');
     this.debugRequest('chat.v2', requestId);
+    const role = this.resolveRole(user);
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat`,
-      buildAiChatRequestPayload(message, user?.id),
+      buildAiChatRequestPayload(message, {
+        userId: user?.id,
+        role,
+        entrepriseId: user?.entrepriseId ?? user?.entreprise?.id,
+      }),
       {
         headers: this.authHeaders(requestId),
         context: withAiChatWidgetContext(),
@@ -127,14 +152,39 @@ export class AiCopilotService {
   confirmAction(confirmationId: string, approved: boolean): Observable<AiCopilotEnvelope> {
     const requestId = this.createRequestId('confirm');
     this.debugRequest('chat.confirm', requestId);
+    const user = this.authService.currentUser();
+    const role = this.resolveRole(user);
+    const metadata: Record<string, unknown> = { channel: 'chat' };
+    if (role) {
+      metadata['role'] = role;
+    }
+    if (user?.id) {
+      metadata['userId'] = user.id;
+    }
+    const entrepriseId = user?.entrepriseId ?? user?.entreprise?.id;
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      metadata['entrepriseId'] = entrepriseId;
+    }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
-      { confirmation_id: confirmationId, approved },
+      { confirmation_id: confirmationId, approved, user_id: user?.id, metadata },
       {
         headers: this.authHeaders(requestId),
         context: withAiChatWidgetContext(),
       },
     );
+  }
+
+  private resolveRole(user: ReturnType<AuthService['currentUser']>): string | null {
+    if (!user) {
+      return null;
+    }
+    const primary = typeof user.role === 'string' && user.role.trim().length > 0
+      ? user.role.trim()
+      : Array.isArray(user.roles) && user.roles.length > 0
+        ? String(user.roles[0]).trim()
+        : '';
+    return primary.length > 0 ? primary.replace(/^ROLE_/i, '').toUpperCase() : null;
   }
 
   private authHeaders(requestId?: string): HttpHeaders {

@@ -30,8 +30,11 @@ class ChatV2Request(BaseModel):
     session_id: str | None = None
     channel: Literal["chat", "voice"] = "chat"
     user_id: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConfirmActionRequest(BaseModel):
     confirmation_id: str
     approved: bool
+    user_id: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)

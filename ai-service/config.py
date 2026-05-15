@@ -112,6 +112,13 @@ class Settings:
         self.rag_tenant_filter_required = _to_bool(os.getenv("RAG_TENANT_FILTER_REQUIRED"), True)
         self.cors_origins = _safe_cors_origins(os.getenv("CORS_ORIGINS"))
 
+        # Demo/public mode for the AI chatbot endpoints only.
+        # When true, /v2/chat, /v2/chat/confirm, /v2/voice accept requests without
+        # a verified Authorization header by building an anonymous context from
+        # the request metadata (role, userId, entrepriseId). All other endpoints
+        # and the Spring backend remain JWT-protected.
+        self.chatbot_public_mode = _to_bool(os.getenv("CHATBOT_PUBLIC_MODE"), False)
+
         self.braintrust_enabled = _to_bool(os.getenv("BRAINTRUST_ENABLED"), False)
         self.braintrust_api_key = os.getenv("BRAINTRUST_API_KEY")
         self.braintrust_project_name = os.getenv("BRAINTRUST_PROJECT_NAME", "WeenTime AI Copilot")

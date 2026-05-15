@@ -1,6 +1,7 @@
 package com.weentime.gateway.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -22,6 +23,24 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
 
     private final JwtUtils jwtUtils;
 
+    // Demo/public mode for the AI chatbot only. Defaults to false so production
+    // behaviour is unchanged. Enable via env CHATBOT_PUBLIC_MODE=true (or the
+    // chatbot.public-mode application property) to allow the AI chatbot
+    // endpoints to be reached without an Authorization header. Backend
+    // services and other AI routes remain JWT-protected.
+    @Value("${chatbot.public-mode:${CHATBOT_PUBLIC_MODE:false}}")
+    private boolean chatbotPublicMode;
+
+    private boolean isPublicChatbotPath(String path) {
+        if (!chatbotPublicMode || path == null) {
+            return false;
+        }
+        return path.equals("/api/v1/ai/v2/chat")
+                || path.equals("/api/v1/ai/v2/voice")
+                || path.equals("/api/v1/ai/v2/chat/confirm")
+                || path.startsWith("/api/v1/ai/chat/history/");
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
@@ -41,7 +60,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.startsWith("/api/v1/organisations/users/register")
                 || path.startsWith("/api/v1/organisations/users/by-email")
                 || path.startsWith("/api/v1/organisations/entreprises/validate-code/")
-                || path.startsWith("/api/v1/organisations/by-code/")) {
+                || path.startsWith("/api/v1/organisations/by-code/")
+                || isPublicChatbotPath(path)) {
             return chain.filter(exchange);
         }
 

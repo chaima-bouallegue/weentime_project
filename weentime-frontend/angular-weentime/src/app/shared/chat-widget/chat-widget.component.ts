@@ -18,6 +18,7 @@ import { finalize } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
 import { DragDropModule, CdkDragEnd } from '@angular/cdk/drag-drop';
 import { Subscription } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { AssistantResponseMeta, AssistantWorkflowState } from '../../core/models/assistant.model';
 import { ChatApiResponse, ChatHistoryMessage, ChatService, TtsResponse } from './chat.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -858,6 +859,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     if (event.kind === 'authExpired') {
+      if (environment.chatbotPublicMode) {
+        this.voiceState.set('idle');
+        this.pushMessage({
+          id: this.createMessageId(),
+          sender: 'assistant',
+          text: "Mode demo public actif : reessayez votre commande vocale.",
+          timestamp: new Date(),
+          origin: 'voice',
+        });
+        this.scheduleAutoListen(300);
+        return;
+      }
       this.voiceState.set('authExpired');
       this.pushSessionExpiredMessage('voice');
       return;
@@ -1300,6 +1313,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private handleRequestFailure(message: string, retryKind: RetryKind): void {
     if (this.isAuthExpiredMessage(message)) {
+      // In public/demo mode the AI service tolerates missing JWTs, so a
+      // transient 401 surfacing here is not a real auth expiry — push a soft
+      // assistant reply and let the user keep chatting.
+      if (environment.chatbotPublicMode) {
+        this.pushMessage({
+          id: this.createMessageId(),
+          sender: 'assistant',
+          text: "Mode demo public actif : continuez votre conversation.",
+          timestamp: new Date(),
+          origin: retryKind === 'voice' ? 'voice' : 'text',
+        });
+        return;
+      }
       this.pushSessionExpiredMessage(retryKind);
       return;
     }

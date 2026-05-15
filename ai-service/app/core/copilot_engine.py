@@ -256,6 +256,7 @@ async def process_copilot_message(
     role: str | None,
     channel: str = "chat",
     metadata: dict | None = None,
+    context: Any | None = None,
 ):
     metadata = metadata or {}
     state = metadata.get("app_state") or _APP_STATE
@@ -281,6 +282,7 @@ async def process_copilot_message(
                 role=role,
                 channel=channel,
                 metadata={**metadata, "request_id": request_id},
+                context=context,
             )
         except ContextError as exc:
             log_error("copilot.context_error", exc, {"code": exc.code, "status_code": exc.status_code})

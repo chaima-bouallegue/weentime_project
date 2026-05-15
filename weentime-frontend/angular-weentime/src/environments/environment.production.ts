@@ -5,6 +5,9 @@ export const environment = {
   // Direct AI URL is a dev-only fallback; runtime calls use aiServiceUrl through the gateway.
   aiUrl: 'http://localhost:8000',
   aiServiceUrl: 'http://localhost:8322/api/v1/ai',
+  // Production keeps the chatbot fully authenticated. Demo/public mode must
+  // remain disabled in production builds.
+  chatbotPublicMode: false,
 
   // WebSocket base URL used when a specific channel URL is not provided.
   wsUrl: 'http://localhost:8322',
