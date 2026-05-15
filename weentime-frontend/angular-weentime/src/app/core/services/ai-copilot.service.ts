@@ -2,6 +2,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { withAiChatWidgetContext } from '../http/request-context.tokens';
 import { AuthService } from './auth.service';
 
 export interface AiCopilotError {
@@ -116,7 +117,10 @@ export class AiCopilotService {
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat`,
       buildAiChatRequestPayload(message, user?.id),
-      { headers: this.authHeaders(requestId) },
+      {
+        headers: this.authHeaders(requestId),
+        context: withAiChatWidgetContext(),
+      },
     );
   }
 
@@ -126,7 +130,10 @@ export class AiCopilotService {
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
       { confirmation_id: confirmationId, approved },
-      { headers: this.authHeaders(requestId) },
+      {
+        headers: this.authHeaders(requestId),
+        context: withAiChatWidgetContext(),
+      },
     );
   }
 

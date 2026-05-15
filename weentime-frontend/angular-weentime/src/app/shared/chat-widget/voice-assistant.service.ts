@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { withAiChatWidgetContext } from '../../core/http/request-context.tokens';
 import { AuthService, User } from '../../core/services/auth.service';
 import { resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
 import { ChatApiResponse } from './chat.service';
@@ -10,9 +11,15 @@ import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-res
 export type VoiceAssistantState =
   | 'idle'
   | 'listening'
-  | 'processing'
+  | 'stopping'
+  | 'uploading'
+  | 'transcribing'
   | 'responding'
-  | 'error';
+  | 'success'
+  | 'authExpired'
+  | 'audioError';
+
+export type VoiceAssistantErrorKind = 'authExpired' | 'audioError';
 
 export interface AudioStreamResponse extends ChatApiResponse {
   session_id?: string;
@@ -35,10 +42,11 @@ export type VoiceAssistantEvent =
   | { type: 'state'; state: VoiceAssistantState }
   | { type: 'partial'; text: string }
   | { type: 'final'; response: AudioStreamResponse }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; kind: VoiceAssistantErrorKind };
 
 @Injectable({ providedIn: 'root' })
 export class VoiceAssistantService {
+  private static readonly SESSION_EXPIRED_MESSAGE = 'Votre session a expire. Veuillez vous reconnecter.';
   private static readonly SOFT_NO_INPUT_MESSAGE = "Je n'ai rien entendu.";
   private static readonly SOFT_RETRY_MESSAGE = "Je n'ai pas bien compris. Pouvez-vous repeter plus clairement ?";
   private static readonly INVALID_AUDIO_MESSAGE = 'Audio invalide. Reessayez avec un nouvel enregistrement.';
@@ -46,7 +54,7 @@ export class VoiceAssistantService {
   private static readonly AUDIO_ERROR_MESSAGE = 'Erreur audio, veuillez reessayer.';
   private static readonly SERVER_ERROR_MESSAGE = 'Erreur serveur temporaire.';
   private static readonly ASSISTANT_UNAVAILABLE_MESSAGE = 'Assistant temporairement indisponible';
-  private static readonly BACKEND_UNAVAILABLE_MESSAGE = 'Le gateway vocal est indisponible pour le moment.';
+  private static readonly BACKEND_UNAVAILABLE_MESSAGE = 'Service vocal temporairement indisponible.';
   private static readonly SOFT_UNCLEAR_MESSAGE =
     "Je n'ai pas bien compris. Pouvez-vous repeter plus clairement ?";
   private static readonly INITIAL_SILENCE_MS = 1500;
@@ -84,7 +92,7 @@ export class VoiceAssistantService {
 
     const context = this.getUserContext();
     if (!context) {
-      this.emitError('Utilisateur non authentifie.');
+      this.emitError(VoiceAssistantService.SESSION_EXPIRED_MESSAGE, 'authExpired');
       return;
     }
 
@@ -119,7 +127,7 @@ export class VoiceAssistantService {
       };
 
       this.recorder.onerror = () => {
-        this.emitError(VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE);
+        this.emitError(VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE, 'audioError');
         void this.stop();
       };
 
@@ -133,7 +141,7 @@ export class VoiceAssistantService {
       this.recorder.start(VoiceAssistantService.RECORDER_TIMESLICE_MS);
     } catch (error) {
       this.cleanupMedia();
-      this.emitError(this.resolveMicrophoneError(error));
+      this.emitError(this.resolveMicrophoneError(error), 'audioError');
     }
   }
 
@@ -144,6 +152,7 @@ export class VoiceAssistantService {
       }
       return;
     }
+    this.emitState('stopping');
     this.recorder.stop();
   }
 
@@ -190,7 +199,7 @@ export class VoiceAssistantService {
         if (this.finalized) {
           return;
         }
-        this.emitError(VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE);
+        this.emitError(VoiceAssistantService.MICROPHONE_BLOCKED_MESSAGE, 'audioError');
         void this.stop();
       };
     });
@@ -220,7 +229,7 @@ export class VoiceAssistantService {
       return;
     }
 
-    this.emitState('processing');
+    this.emitState('uploading');
     this.finalUploadSent = true;
 
     try {
@@ -230,17 +239,21 @@ export class VoiceAssistantService {
       );
 
       if (!response) {
-        this.emitError(VoiceAssistantService.AUDIO_ERROR_MESSAGE);
+        this.emitError(VoiceAssistantService.AUDIO_ERROR_MESSAGE, 'audioError');
         return;
       }
 
+      this.emitState('responding');
       this.finish(response);
     } catch (error) {
+      if (this.isAuthExpiredError(error)) {
+        this.emitError(VoiceAssistantService.SESSION_EXPIRED_MESSAGE, 'authExpired');
+        return;
+      }
+
       this.emitError(
-        this.resolveErrorMessage(
-          error,
-          VoiceAssistantService.AUDIO_ERROR_MESSAGE
-        )
+        this.resolveErrorMessage(error, VoiceAssistantService.AUDIO_ERROR_MESSAGE),
+        'audioError'
       );
     }
   }
@@ -261,10 +274,11 @@ export class VoiceAssistantService {
 
     const sessionId = this.recordingSessionId ?? this.generateSessionId();
     const requestId = this.generateRequestId('voice');
+    const requestContext = withAiChatWidgetContext(new HttpContext());
     this.recordingSessionId = sessionId;
     const extension = this.resolveFileExtension(mimeType);
     if (!context.token) {
-      throw new Error('Session expiree. Reconnectez-vous pour utiliser la voix.');
+      throw new Error(VoiceAssistantService.SESSION_EXPIRED_MESSAGE);
     }
 
     const voiceFormData = new FormData();
@@ -279,11 +293,15 @@ export class VoiceAssistantService {
     this.debugVoiceRequest('v2/voice', requestId);
 
     try {
+      this.emitState('transcribing');
       return await firstValueFrom(
         this.http.post<AudioStreamResponse>(
           `${this.endpoint}/v2/voice`,
           voiceFormData,
-          { headers }
+          {
+            headers,
+            context: requestContext,
+          }
         )
       );
     } catch (error) {
@@ -337,6 +355,7 @@ export class VoiceAssistantService {
             Authorization: `Bearer ${context.token}`,
             'X-Request-ID': requestId,
           }),
+          context: requestContext,
         }
       )
     );
@@ -369,10 +388,11 @@ export class VoiceAssistantService {
       || (normalized.requiresConfirmation ? 'Confirmez-vous cette action ?' : null)
       || this.extractAssistantText(response);
     if (this.isAudioFailure(response.error) || !assistantMessage) {
-      this.emitError(assistantMessage ?? VoiceAssistantService.AUDIO_ERROR_MESSAGE);
+      this.emitError(assistantMessage ?? VoiceAssistantService.AUDIO_ERROR_MESSAGE, 'audioError');
       return;
     }
 
+    this.emitState('success');
     this.eventsSubject.next({
       type: 'final',
       response: this.withNormalizedResponse({
@@ -387,11 +407,7 @@ export class VoiceAssistantService {
 
   private completeSession(): void {
     this.emitState('idle');
-    this.lastPartial = '';
-    this.recordedChunks = [];
-    this.recordingSessionId = null;
-    this.finalUploadSent = false;
-    this.finalizationPromise = null;
+    this.resetFinalizedState();
   }
 
   private emitNoSpeech(): void {
@@ -500,7 +516,7 @@ export class VoiceAssistantService {
         return VoiceAssistantService.BACKEND_UNAVAILABLE_MESSAGE;
       }
       if (error.status === 401) {
-        return 'Votre session a expire. Reconnectez-vous pour utiliser la voix.';
+        return VoiceAssistantService.SESSION_EXPIRED_MESSAGE;
       }
       if (error.status === 403) {
         return "Vous n'avez pas la permission d'utiliser l'assistant vocal.";
@@ -661,12 +677,20 @@ export class VoiceAssistantService {
     this.eventsSubject.next({ type: 'state', state });
   }
 
-  private emitError(message: string): void {
+  private emitError(message: string, kind: VoiceAssistantErrorKind): void {
     this.finalized = true;
-    this.eventsSubject.next({ type: 'error', message });
-    this.emitState('error');
+    this.eventsSubject.next({ type: 'error', message, kind });
+    this.emitState(kind === 'authExpired' ? 'authExpired' : 'audioError');
+    this.resetFinalizedState();
+  }
+
+  private resetFinalizedState(): void {
     this.lastPartial = '';
     this.recordedChunks = [];
+    this.recordingSessionId = null;
+    this.finalUploadSent = false;
+    this.finalizationPromise = null;
+    this.context = null;
   }
 
   private resolveMicrophoneError(error: unknown): string {
@@ -704,6 +728,19 @@ export class VoiceAssistantService {
 
   private shouldFallbackToAudioStream(error: unknown): boolean {
     return error instanceof HttpErrorResponse && (error.status === 0 || error.status === 404);
+  }
+
+  private isAuthExpiredError(error: unknown): boolean {
+    if (error instanceof HttpErrorResponse) {
+      return error.status === 401;
+    }
+
+    if (error instanceof Error) {
+      const normalized = error.message.trim().toLowerCase();
+      return normalized.includes('session') && normalized.includes('expire');
+    }
+
+    return false;
   }
 
   private resolveLanguageHint(): string {

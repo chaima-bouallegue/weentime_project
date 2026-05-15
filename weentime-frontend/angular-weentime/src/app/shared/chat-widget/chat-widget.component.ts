@@ -166,6 +166,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   readonly panelTitle = computed(() => `${this.roleLabel()} AI`);
   readonly recording = computed(() => this.voiceState() === 'listening');
   readonly canSend = computed(() => this.input().trim().length > 0 && !this.loading() && !this.recording());
+  readonly voiceDisabled = computed(() => this.loading() || this.voiceState() === 'authExpired');
   readonly quickActions = computed(() => {
     switch (this.assistantRole()) {
       case 'MANAGER':
@@ -210,8 +211,11 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     if (this.recording()) {
       return 'square';
     }
-    if (this.voiceState() === 'processing' || this.voiceState() === 'responding') {
+    if (this.isVoiceBusyState(this.voiceState())) {
       return 'loader-2';
+    }
+    if (this.voiceState() === 'authExpired') {
+      return 'shield-alert';
     }
     return 'mic';
   });
@@ -219,11 +223,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     switch (this.voiceState()) {
       case 'listening':
         return 'Arreter l enregistrement';
-      case 'processing':
+      case 'stopping':
+        return 'Arret de l enregistrement';
+      case 'uploading':
+        return 'Envoi du message vocal';
+      case 'transcribing':
         return 'Transcription en cours';
       case 'responding':
         return 'Generation de la reponse vocale';
-      case 'error':
+      case 'success':
+        return 'Reponse vocale prete';
+      case 'authExpired':
+        return 'Session expiree';
+      case 'audioError':
         return 'Assistant vocal indisponible';
       default:
         return 'Enregistrer un message vocal';
@@ -233,11 +245,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     switch (this.voiceState()) {
       case 'listening':
         return 'Recording in progress';
-      case 'processing':
-        return 'Uploading and transcribing';
+      case 'stopping':
+        return 'Stopping recording';
+      case 'uploading':
+        return 'Uploading voice message';
+      case 'transcribing':
+        return 'Transcribing your message';
       case 'responding':
         return 'Generating reply';
-      case 'error':
+      case 'success':
+        return 'Voice reply ready';
+      case 'authExpired':
+        return 'Session expired';
+      case 'audioError':
         return 'Voice unavailable';
       default:
         return this.handsFreeMode() ? 'Voice auto ready' : 'Voice manual ready';
@@ -250,11 +270,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     switch (this.voiceState()) {
       case 'listening':
         return 'Recording...';
-      case 'processing':
+      case 'stopping':
+        return 'Stopping recording...';
+      case 'uploading':
+        return 'Uploading voice message...';
+      case 'transcribing':
         return 'Transcribing...';
       case 'responding':
         return 'Preparing answer...';
-      case 'error':
+      case 'success':
+        return 'Voice reply ready';
+      case 'authExpired':
+        return 'Votre session a expire. Veuillez vous reconnecter.';
+      case 'audioError':
         return 'Voice currently unavailable';
       default:
         return this.loading() ? 'Assistant is working...' : `${this.panelTitle()} | ${this.currentUserName()}`;
@@ -756,7 +784,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private handleVoiceEvent(event: VoiceAssistantEvent): void {
     if (event.type === 'state') {
       this.voiceState.set(event.state);
-      this.loading.set(event.state === 'processing' || event.state === 'responding');
+      this.loading.set(this.isVoiceBusyState(event.state));
       return;
     }
     if (event.type === 'partial') {
@@ -819,9 +847,14 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       this.scheduleAutoListen(300);
       return;
     }
-    this.voiceState.set('error');
+    if (event.kind === 'authExpired') {
+      this.voiceState.set('authExpired');
+      this.pushSessionExpiredMessage('voice');
+      return;
+    }
+    this.voiceState.set('audioError');
     this.toast.error(event.message);
-    this.pushSystemError(event.message);
+    this.pushSystemError(event.message, 'voice');
   }
 
   private animateAssistantText(messageId: string, fullText: string): void {
@@ -867,6 +900,20 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       retryable: !!retryKind,
       retryKind,
       retryPayload: retryKind === 'text' ? this.lastSubmittedText ?? undefined : undefined,
+    });
+  }
+
+  private pushSessionExpiredMessage(origin: RetryKind | 'system'): void {
+    this.pushMessage({
+      id: this.createMessageId(),
+      sender: 'system',
+      text: 'Votre session a expire. Veuillez vous reconnecter.',
+      timestamp: new Date(),
+      origin: origin === 'voice' ? 'voice' : origin === 'text' ? 'text' : 'system',
+      isError: true,
+      actionLabel: 'Se reconnecter',
+      actionTarget: '/login',
+      actionKind: 'route',
     });
   }
 
@@ -1242,6 +1289,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   private handleRequestFailure(message: string, retryKind: RetryKind): void {
+    if (this.isAuthExpiredMessage(message)) {
+      this.pushSessionExpiredMessage(retryKind);
+      return;
+    }
     if (this.isSoftNoSpeechMessage(message)) {
       this.pushMessage({
         id: this.createMessageId(),
@@ -1269,7 +1320,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     }
     const normalized = raw.toLowerCase();
     if (normalized.includes('session') && normalized.includes('expire')) {
-      return 'Votre session a expire. Reconnectez-vous pour reprendre la conversation.';
+      return 'Votre session a expire. Veuillez vous reconnecter.';
     }
     if (normalized.includes('permission') || normalized.includes('forbidden') || raw.includes('403')) {
       return "Vous n'avez pas les droits necessaires pour cette action.";
@@ -1301,6 +1352,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       || normalized.includes("je n'ai pas bien compris")
       || normalized.includes("je n'ai rien entendu")
       || normalized.includes("je n'ai pas entendu");
+  }
+
+  private isAuthExpiredMessage(message: string | null | undefined): boolean {
+    const normalized = (message || '').trim().toLowerCase();
+    return normalized.includes('session') && normalized.includes('expire');
+  }
+
+  private isVoiceBusyState(state: VoiceAssistantState): boolean {
+    return state === 'stopping'
+      || state === 'uploading'
+      || state === 'transcribing'
+      || state === 'responding';
   }
 
   private isSoftVoiceResponse(response: ChatApiResponse | null | undefined): boolean {

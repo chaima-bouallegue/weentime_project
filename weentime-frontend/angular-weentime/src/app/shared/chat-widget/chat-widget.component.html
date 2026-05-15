@@ -298,7 +298,7 @@
           class="chat-panel__voice"
           [class.chat-panel__voice--recording]="recording()"
           (click)="toggleRecording()"
-          [disabled]="loading()"
+          [disabled]="voiceDisabled()"
           [attr.aria-label]="voiceButtonLabel()"
         >
           <lucide-icon [name]="voiceButtonIcon()" [size]="18" [class.is-spinning]="voiceButtonIcon() === 'loader-2'"></lucide-icon>

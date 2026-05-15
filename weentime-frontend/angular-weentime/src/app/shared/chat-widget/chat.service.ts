@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { withAiChatWidgetContext } from '../../core/http/request-context.tokens';
 import { AuthService, User } from '../../core/services/auth.service';
 import { AiCopilotEnvelope, AiCopilotService } from '../../core/services/ai-copilot.service';
 import {
@@ -117,7 +118,7 @@ export class ChatService {
             role: this.resolveRole(context.user),
           },
         },
-      })
+      }, { context: withAiChatWidgetContext() })
       .pipe(catchError(error => this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.")));
   }
 
@@ -140,7 +141,7 @@ export class ChatService {
     formData.append('generate_tts', String(generateTts));
 
     return this.http
-      .post<ChatApiResponse>(`${this.endpoint}/voice`, formData)
+      .post<ChatApiResponse>(`${this.endpoint}/voice`, formData, { context: withAiChatWidgetContext() })
       .pipe(map(response => this.normalizeNoSpeechResponse(response)))
       .pipe(catchError(error => this.rethrowApiError(error, "Le message vocal n'a pas pu etre traite.")));
   }
@@ -152,13 +153,15 @@ export class ChatService {
     }
 
     return this.http
-      .get<ChatHistoryResponse>(`${this.endpoint}/chat/history/${context.user.id}`)
+      .get<ChatHistoryResponse>(`${this.endpoint}/chat/history/${context.user.id}`, {
+        context: withAiChatWidgetContext(),
+      })
       .pipe(catchError(error => this.rethrowApiError(error, "L'historique AI n'a pas pu etre charge.")));
   }
 
   textToSpeech(text: string): Observable<TtsResponse> {
     return this.http
-      .post<TtsResponse>(`${this.endpoint}/tts`, { text })
+      .post<TtsResponse>(`${this.endpoint}/tts`, { text }, { context: withAiChatWidgetContext() })
       .pipe(catchError(error => this.rethrowApiError(error, "La lecture audio n'a pas pu etre generee.")));
   }
 
@@ -338,7 +341,7 @@ export class ChatService {
         return new Error("Le gateway AI est indisponible pour le moment.");
       }
       if (error.status === 401) {
-        return new Error('Votre session a expire. Reconnectez-vous pour continuer.');
+        return new Error('Votre session a expire. Veuillez vous reconnecter.');
       }
       if (error.status === 403) {
         return new Error("Vous n'avez pas la permission d'utiliser cette action AI.");

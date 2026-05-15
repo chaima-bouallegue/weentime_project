@@ -2,6 +2,7 @@ import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
+import { SKIP_AUTH_REDIRECT } from '../http/request-context.tokens';
 import { AuthService } from '../services/auth.service';
 import { extractErrorMessage, logWarn } from '../utils/logger';
 
@@ -14,6 +15,7 @@ import { extractErrorMessage, logWarn } from '../utils/logger';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const authService = inject(AuthService);
+  const skipAuthRedirect = req.context.get(SKIP_AUTH_REDIRECT);
 
   const token = authService.getToken();
   const isAuthRequest =
@@ -33,13 +35,15 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(clonedRequest).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401 && !isAuthRequest) {
-        logWarn('Authentication expired', {
+        logWarn(skipAuthRedirect ? 'Protected request unauthorized' : 'Authentication expired', {
           url: req.url,
           status: error.status,
           message: extractErrorMessage(error)
         });
-        authService.clearAuthState();
-        router.navigate(['/login'], { replaceUrl: true });
+        if (!skipAuthRedirect) {
+          authService.clearAuthState();
+          void router.navigate(['/login'], { replaceUrl: true });
+        }
       }
       return throwError(() => error);
     })
