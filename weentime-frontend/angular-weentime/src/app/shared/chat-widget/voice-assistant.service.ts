@@ -502,12 +502,12 @@ export class VoiceAssistantService {
     if (normalized.assistantText) {
       return normalized.assistantText;
     }
-    return response.message?.trim()
-      || response.response?.trim()
-      || response.text?.trim()
-      || this.normalizeAudioErrorMessage(response.error)
-      || response.error?.trim()
-      || null;
+    return safeTrimmedString(response.message)
+      ?? safeTrimmedString(response.response)
+      ?? safeTrimmedString(response.text)
+      ?? this.normalizeAudioErrorMessage(typeof response.error === 'string' ? response.error : null)
+      ?? safeTrimmedString(response.error)
+      ?? null;
   }
 
   private resolveErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -800,4 +800,12 @@ export class VoiceAssistantService {
       console.debug('[voice-assistant]', endpoint, { requestId });
     }
   }
+}
+
+function safeTrimmedString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

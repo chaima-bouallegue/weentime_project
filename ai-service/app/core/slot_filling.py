@@ -53,6 +53,9 @@ async def continue_pending_flow(
             confidence=1.0,
             actionResult=_slot_result(flow, status="cancelled"),
         )
+    if _message_escapes_flow(message, flow.intent):
+        store.clear(context, session_id)
+        return None
 
     _merge_flow_fields(flow, message, context)
     missing = _missing_fields(flow)
@@ -327,3 +330,133 @@ def _add_hours(time_value: str, hours: float) -> str | None:
         return (parsed + timedelta(hours=hours)).strftime("%H:%M:%S")
     except (TypeError, ValueError):
         return None
+
+
+_FLOW_DOMAIN_TERMS = {
+    "leave.create": ("conge", "congé", "congÃ©", "leave", "vacance", "absence"),
+    "authorization.create": ("autorisation", "permission"),
+}
+
+_ESCAPE_PATTERNS: tuple[tuple[str, ...], ...] = (
+    # pointage / attendance
+    (
+        "pointage",
+        "pointe",
+        "pointer",
+        "pointé",
+        "pointer mon entr",
+        "pointer ma sortie",
+        "check in",
+        "check-in",
+        "check out",
+        "check-out",
+        "checked in",
+        "checked out",
+        "did i forget",
+        "ai-je point",
+        "est ce que jai point",
+        "est-ce que j'ai point",
+        "est ce que j ai point",
+        "suis-je point",
+        "npointi",
+        "dakhla",
+        "khrouj",
+        "بصمة",
+        "بصم",
+        "تسجيل الحضور",
+        "تسجيل الخروج",
+    ),
+    # documents
+    (
+        "document",
+        "attestation",
+        "bulletin",
+        "fiche de paie",
+        "payslip",
+        "certificate",
+        "certificat",
+        "contrat",
+        "وثيقة",
+        "شهادة",
+    ),
+    # télétravail
+    (
+        "teletravail",
+        "télétravail",
+        "telework",
+        "remote work",
+        "work from home",
+        "tÃ©lÃ©travail",
+        "travail a distance",
+        "travail à distance",
+    ),
+    # daily summary / role intelligence
+    (
+        "daily summary",
+        "résumé du jour",
+        "resume du jour",
+        "mon résumé",
+        "mon resume",
+        "show my daily",
+        "quoi faire aujourd",
+        "daily briefing",
+        "résumé intelligent",
+        "resume intelligent",
+    ),
+    # greetings / small talk
+    (
+        "bonjour",
+        "salut",
+        "hello",
+        "hi ",
+        "hey",
+        "bonsoir",
+        "good morning",
+        "good evening",
+        "صباح",
+        "مرحبا",
+    ),
+    # admin / system / RH / manager queries
+    (
+        "system health",
+        "santé système",
+        "sante systeme",
+        "ai provider",
+        "tenant configuration",
+        "redis status",
+        "braintrust",
+        "rh backlog",
+        "backlog rh",
+        "pending validations",
+        "validations en attente",
+        "document workload",
+        "workload rh",
+        "team summary",
+        "résumé équipe",
+        "resume equipe",
+        "pending approvals",
+        "approvals pending",
+        "team attendance",
+        "présence équipe",
+        "presence equipe",
+    ),
+)
+
+
+def _message_escapes_flow(message: str, flow_intent: str) -> bool:
+    """Detect if the incoming message clearly belongs to a different domain
+    than the pending slot-filling flow. When True, the orchestrator abandons
+    the pending flow and re-routes the message normally.
+
+    Critically, the message must NOT contain any term tied to the pending
+    flow's own domain (so 'mon congé annuel' still continues the leave flow).
+    """
+    text = (message or "").lower().strip()
+    if not text:
+        return False
+
+    domain_terms = _FLOW_DOMAIN_TERMS.get(flow_intent, ())
+    if domain_terms and any(term in text for term in domain_terms):
+        return False
+
+    return any(term in text for group in _ESCAPE_PATTERNS for term in group)

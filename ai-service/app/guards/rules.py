@@ -21,52 +21,30 @@ GUARD_CATEGORIES = {
 }
 
 SUPPORTED_STATUSES = {
-    "ACTIVE",
-    "INACTIVE",
-    "SUSPENDED",
-    "ACTIF",
-    "INACTIF",
-    "EN_ATTENTE",
-    "EN_ATTENTE_MANAGER",
-    "EN_ATTENTE_RH",
-    "EN_ATTENTE_VALIDATION",
-    "PENDING",
-    "APPROUVEE",
-    "APPROUVE",
-    "APPROVED",
-    "VALIDEE",
-    "VALIDE",
-    "VALIDATED",
-    "REFUSEE",
-    "REFUSE",
-    "REJECTED",
-    "REJETEE",
-    "REJETE",
-    "PRET",
-    "READY",
-    "EN_COURS",
-    "IN_PROGRESS",
-    "BROUILLON",
-    "DRAFT",
-    "ANNULEE",
-    "ANNULE",
-    "CANCELLED",
-    "SUCCESS",
-    "FAILED",
-    "BUSINESS_CONFLICT",
-    "WARNING",
-    "UNAVAILABLE",
-    "OK",
-    "CHECKED_IN",
-    "CHECKED_OUT",
-    "CLOSED",
-    "PRESENT",
-    "ABSENT",
-    "RETARD",
-    "LATE",
+    "ACTIVE", "INACTIVE", "SUSPENDED", "ACTIF", "INACTIF",
+    "EN_ATTENTE", "EN_ATTENTE_MANAGER", "EN_ATTENTE_RH", "EN_ATTENTE_VALIDATION",
+    "PENDING", "APPROUVEE", "APPROUVE", "APPROVED",
+    "VALIDEE", "VALIDE", "VALIDATED",
+    "REFUSEE", "REFUSE", "REJECTED", "REJETEE", "REJETE",
+    "PRET", "READY", "EN_COURS", "IN_PROGRESS",
+    "BROUILLON", "DRAFT", "ANNULEE", "ANNULE", "CANCELLED",
+    "SUCCESS", "FAILED", "BUSINESS_CONFLICT", "WARNING", "UNAVAILABLE", "OK",
+    "CHECKED_IN", "CHECKED_OUT", "CLOSED", "PRESENT", "ABSENT", "RETARD", "LATE",
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"
+
+SAFE_NO_EVIDENCE_INTENTS = {
+    "greeting",
+    "system.greeting",
+    "fallback.unknown",
+    "chat",
+    "leave.cancelled",
+    "leave.create.cancelled",
+    "authorization.create.cancelled",
+    "authorization.cancelled",
+    "conversation.explain_last_error",
+}
 
 
 class GuardRule(ABC):
@@ -75,6 +53,14 @@ class GuardRule(ABC):
     @abstractmethod
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         raise NotImplementedError
+
+
+def _intent(response: AgentResponse) -> str:
+    return (response.intent or "").strip().lower()
+
+
+def _is_safe_no_evidence_response(response: AgentResponse) -> bool:
+    return _intent(response) in SAFE_NO_EVIDENCE_INTENTS
 
 
 class SecretLeakRule(GuardRule):
@@ -102,7 +88,7 @@ class PolicyCitationRule(GuardRule):
     category = "missing_citation"
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
-        intent = (response.intent or "").lower()
+        intent = _intent(response)
         action = response.actionResult if isinstance(response.actionResult, dict) else {}
         if not intent.startswith("policy") and action.get("kind") != "policy_answer":
             return GuardResult.allow()
@@ -121,26 +107,20 @@ class FakeConfirmationRule(GuardRule):
     category = "fake_confirmation"
 
     _success_words = (
-        "action confirmee",
-        "action confirmée",
-        "demande creee",
-        "demande créée",
-        "a ete creee",
-        "a été créée",
-        "a ete approuvee",
-        "a été approuvée",
-        "a ete refusee",
-        "a été refusée",
-        "pointage confirme",
-        "pointage confirmé",
-        "checked in",
-        "checked out",
-        "approved",
-        "rejected",
+        "action confirmee", "action confirmée",
+        "demande creee", "demande créée",
+        "a ete creee", "a été créée",
+        "a ete approuvee", "a été approuvée",
+        "a ete refusee", "a été refusée",
+        "pointage confirme", "pointage confirmé",
+        "checked in", "checked out",
+        "approved", "rejected",
         "created successfully",
     )
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if _is_safe_no_evidence_response(response):
+            return GuardResult.allow()
         if response.requiresConfirmation or response.type == "confirm_action":
             return GuardResult.allow()
         if response.type == "execute_action" and not _has_successful_action_evidence(response):
@@ -158,15 +138,22 @@ def _looks_like_write_success(text: str | None) -> bool:
 class UnsupportedToolClaimRule(GuardRule):
     category = "unsupported_tool_claim"
 
-    _tool_like = re.compile(r"\b(?:admin|leave|document|telework|authorization|attendance|communication|legacy|policy|insights)\.[a-z_]+", re.IGNORECASE)
+    _tool_like = re.compile(
+        r"\b(?:admin|leave|document|telework|authorization|attendance|communication|legacy|policy|insights)\.[a-z_]+",
+        re.IGNORECASE,
+    )
     _claim_words = ("execute", "executed", "appele", "appelé", "called", "success", "succes", "succès")
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if _is_safe_no_evidence_response(response):
+            return GuardResult.allow()
         if response.requiresConfirmation or response.type == "confirm_action":
             return GuardResult.allow()
+
         lowered = (response.text or "").lower()
         if self._tool_like.search(lowered) and any(word in lowered for word in self._claim_words) and not response.toolCalls:
             return GuardResult.reject(self.category, "Response claims an unsupported tool execution.")
+
         for call in response.toolCalls:
             if call.status and call.status not in {"success", "failed", "pending", "business_conflict", "denied"}:
                 return GuardResult.reject(self.category, "Response contains an unsupported tool call status.")
@@ -182,10 +169,18 @@ class HallucinatedHrValueRule(GuardRule):
     _users_count = re.compile(r"\b\d+\s+(?:utilisateurs?|users?|employes|employés|employees?)\b", re.IGNORECASE)
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if _is_safe_no_evidence_response(response):
+            return GuardResult.allow()
         if _has_authoritative_data(response):
             return GuardResult.allow()
+
         text = response.text or ""
-        if self._leave_balance.search(text) or self._attendance_status.search(text) or self._request_status.search(text) or self._users_count.search(text):
+        if (
+            self._leave_balance.search(text)
+            or self._attendance_status.search(text)
+            or self._request_status.search(text)
+            or self._users_count.search(text)
+        ):
             return GuardResult.reject(self.category, "Response contains HR data without authoritative tool evidence.")
         return GuardResult.allow()
 
@@ -196,16 +191,22 @@ class UnsupportedStatusRule(GuardRule):
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         if response.requiresConfirmation or response.type == "confirm_action":
             return GuardResult.allow()
+
         values = []
         if isinstance(response.actionResult, dict):
             values.extend(_status_values(response.actionResult))
         for call in response.toolCalls:
             if call.status:
                 values.append(call.status)
+
         for value in values:
             normalized = str(value or "").strip().upper().replace(" ", "_")
             if normalized and normalized not in SUPPORTED_STATUSES:
-                return GuardResult.reject(self.category, "Response contains an unsupported business status.", details={"status": normalized})
+                return GuardResult.reject(
+                    self.category,
+                    "Response contains an unsupported business status.",
+                    details={"status": normalized},
+                )
         return GuardResult.allow()
 
 
@@ -215,6 +216,7 @@ class UnsafeRoleClaimRule(GuardRule):
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         if context is None:
             return GuardResult.allow()
+
         text = (response.text or "").lower()
         role = (context.role or "").upper().replace("ROLE_", "")
         claims = {
@@ -237,6 +239,7 @@ class UnsafeTenantClaimRule(GuardRule):
             return GuardResult.allow()
         if (context.role or "").upper().replace("ROLE_", "") == "ADMIN":
             return GuardResult.allow()
+
         for value in _tenant_values(response.actionResult):
             try:
                 tenant_value = int(value)
@@ -273,11 +276,13 @@ def _citations_from_action(action: dict[str, Any]) -> list[Any]:
     citations = action.get("citations")
     if isinstance(citations, list):
         return citations
+
     data = action.get("data")
     if isinstance(data, dict):
         citations = data.get("citations")
         if isinstance(citations, list):
             return citations
+
     read_result = action.get("read_result")
     if isinstance(read_result, dict):
         data = read_result.get("data")
@@ -285,6 +290,7 @@ def _citations_from_action(action: dict[str, Any]) -> list[Any]:
             citations = data.get("citations")
             if isinstance(citations, list):
                 return citations
+
     return []
 
 
@@ -294,9 +300,11 @@ def _has_successful_action_evidence(response: AgentResponse) -> bool:
         return True
     if action.get("kind") == "write_result" and not action.get("error"):
         return True
+
     data = action.get("data")
     if isinstance(data, dict) and data.get("kind") == "write_result" and not data.get("error"):
         return True
+
     return any(call.status in {"success", "business_conflict"} for call in response.toolCalls)
 
 
@@ -307,16 +315,27 @@ def _has_any_tool_evidence(response: AgentResponse) -> bool:
 def _has_authoritative_data(response: AgentResponse) -> bool:
     if not isinstance(response.actionResult, dict):
         return False
+
     action = response.actionResult
     if action.get("success") is True:
         return True
-    if action.get("kind") in {"read_result", "write_result", "policy_answer", "role_summary", "role_intelligence_digest", "insight_report"}:
+
+    if action.get("kind") in {
+        "read_result",
+        "write_result",
+        "policy_answer",
+        "role_summary",
+        "role_intelligence_digest",
+        "insight_report",
+    }:
         return True
+
     data = action.get("data")
     if isinstance(data, dict):
         read_result = data.get("read_result")
         if isinstance(read_result, dict) and read_result.get("kind") == "read_result":
             return True
+
     read_result = action.get("read_result")
     return isinstance(read_result, dict) and read_result.get("kind") == "read_result"
 

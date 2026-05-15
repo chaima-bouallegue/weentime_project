@@ -174,24 +174,32 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           "Today's team summary",
           'Pending approvals',
           'Team attendance anomalies',
+          'Did I check in?',
+          'Pointage equipe',
         ];
       case 'RH':
         return [
           'RH backlog',
           'Pending validations',
           'Document workload',
+          'RH stats',
+          'Presence aujourd\'hui',
         ];
       case 'ADMIN':
         return [
           'System health',
           'AI provider status',
           'Tenant configuration issues',
+          'Redis status',
+          'Braintrust status',
         ];
       default:
         return [
           'Show my daily summary',
           'Check my leave balance',
           'Did I forget checkout?',
+          'Request a document',
+          'Check my pointage',
         ];
     }
   });
@@ -813,7 +821,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         return;
       }
 
-      const transcription = normalized.transcript?.trim() ?? event.response.transcription?.trim();
+      const rawTranscription = event.response.transcription;
+      const transcription = normalized.transcript?.trim()
+        ?? (typeof rawTranscription === 'string' ? rawTranscription.trim() : null);
       if (transcription) {
         this.pushMessage({
           id: this.createMessageId(),

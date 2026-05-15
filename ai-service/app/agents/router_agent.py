@@ -38,6 +38,23 @@ class RouterAgent:
             context.metadata["route_intent"] = multilingual_match.route_intent
 
         routing_text = normalized or message
+        greeting_response = self._greeting_response(routing_text, message, context)
+        if greeting_response is not None:
+            context.metadata["selected_agent"] = "greeting"
+            log_event(
+                "router.selected",
+                input=message,
+                output={"agent": "greeting", "confidence": greeting_response.confidence},
+                metadata={
+                    "selected_agent": "greeting",
+                    "intent": greeting_response.intent,
+                    "confidence": greeting_response.confidence,
+                    "language": context.language,
+                    "routing_reason": "deterministic_greeting",
+                },
+            )
+            return greeting_response
+
         role_action_agent = self._role_action_agent(routing_text, context)
         if role_action_agent is not None:
             confidence = role_action_agent.can_handle(routing_text, context)
@@ -199,6 +216,28 @@ class RouterAgent:
                 return agent
         return None
 
+    def _greeting_response(
+        self,
+        routing_text: str,
+        original_message: str,
+        context: CurrentUserContext,
+    ) -> AgentResponse | None:
+        if not _is_greeting(routing_text) and not _is_greeting(original_message):
+            return None
+        role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
+        text = _GREETING_TEXTS.get(role, _GREETING_TEXTS["EMPLOYEE"])
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent="system.greeting",
+            confidence=0.96,
+            actionResult={
+                "kind": "greeting",
+                "agent": "greeting",
+                "role": role,
+            },
+        )
+
 
 def _explicit_domain(text: str) -> str | None:
     has_list = _has_any(text, ("montre", "voir", "liste", "list", "show", "historique", "mes demandes", "mes"))
@@ -215,3 +254,51 @@ def _explicit_domain(text: str) -> str | None:
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
+
+
+_GREETING_TEXTS = {
+    "ADMIN": "Bonjour. Je peux vous aider avec la sante systeme, les utilisateurs, les entreprises ou les diagnostics IA.",
+    "RH": "Bonjour. Je peux vous aider avec le backlog RH, les validations, les documents ou les employes.",
+    "MANAGER": "Bonjour. Je peux vous aider avec votre equipe, les validations et le pointage.",
+    "EMPLOYEE": "Bonjour. Je peux vous aider avec vos conges, documents, teletravail, autorisations et pointage.",
+}
+
+_GREETING_TERMS: tuple[str, ...] = (
+    "bonjour",
+    "bonsoir",
+    "salut",
+    "hello",
+    "hi",
+    "hey",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "salam",
+    "salaam",
+    "sbah",
+    "صباح الخير",
+    "مساء الخير",
+    "مرحبا",
+    "أهلا",
+    "اهلا",
+)
+
+
+def _is_greeting(text: str | None) -> bool:
+    raw = (text or "").strip().lower()
+    if not raw:
+        return False
+    # Strip surrounding punctuation and normalize spaces.
+    stripped = raw.strip(" \t\r\n.,!?:;-")
+    # Short greeting alone.
+    if stripped in _GREETING_TERMS:
+        return True
+    # Very short message (<= 4 words) starting with a greeting term.
+    words = stripped.split()
+    if len(words) <= 4 and any(stripped.startswith(term) for term in _GREETING_TERMS):
+        # But not a greeting followed by a real ask ("hello how do i ...").
+        return not any(action in stripped for action in (
+            "comment", "how", "où", "ou ", "quand", "when", "what", "quoi",
+            "pourquoi", "why", "aide", "help", "puis-je", "can i", "peux-tu",
+        ))
+    return False
