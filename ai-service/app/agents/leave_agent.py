@@ -63,6 +63,12 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
             )
         if intent == "leave.create":
             payload = extract_payload(message, "CREATE_LEAVE", context)
+            # Pre-infer sick-leave type so we don't re-ask "quel type de
+            # conge ?" when the user already said "je suis malade".
+            if not payload.get("leave_type_label") and _looks_like_sick_leave(message):
+                payload["leave_type_label"] = "maladie"
+                if not payload.get("reason"):
+                    payload["reason"] = "maladie"
             if not payload.get("start_date") or not payload.get("end_date"):
                 return AgentResponse(
                     type="ask",
@@ -132,15 +138,26 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
-        if not has_any(text, ("congÃ©", "congé", "conge", "leave", "vacance", "absence", "reste")):
+        # "malade" / "sick" / "marid" trigger sick-leave creation even when
+        # the message does not contain a leave noun ("je suis malade
+        # aujourd'hui"). The leave_type/reason is pre-inferred in handle().
+        sick_terms = ("malade", "maladie", "sick", "marid", "marida", "مريض", "مريضة")
+        if not has_any(text, ("congÃ©", "congé", "conge", "leave", "vacance", "absence", "reste", *sick_terms)):
             return None, 0.0
         if has_any(text, ("combien", "solde", "jours restants", "how many", "balance", "reste")):
             return "leave.balance", 0.91
         if has_any(text, ("statut", "status", "suivi", "historique", "mes demandes", "list", "liste")):
             return "leave.status", 0.82
+        if has_any(text, sick_terms):
+            return "leave.create", 0.88
         if has_any(text, ("je veux", "demande", "demander", "prendre", "create", "request", "want", "need", "tomorrow", "demain")):
             return "leave.create", 0.9
         return "leave.list", 0.65
+
+
+def _looks_like_sick_leave(message: str) -> bool:
+    text = (message or "").lower()
+    return any(term in text for term in ("malade", "maladie", "sick", "marid", "marida", "مريض", "مريضة"))
 
 
 def _reason_from_leave_type(leave_type_label) -> str | None:
