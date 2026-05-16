@@ -73,6 +73,29 @@ SAFE_NO_EVIDENCE_INTENTS = {
     "admin.assign_user_unavailable",
     "authorization.info",
     "authorization.types",
+    # Slot-filling asks (the agent is collecting missing fields, not making
+    # claims). Text comes from a templated "what date / what time?" prompt,
+    # never from LLM-invented HR values. Origins: authorization_agent,
+    # leave_agent, telework_agent, document_agent slot-filling paths.
+    "authorization.create.ask",
+    "leave.create.ask",
+    "telework.create.ask",
+    "document.create.ask",
+    # Manager safe reads. Text summarises tool output deterministically, OR
+    # returns a capability_unavailable card when the wrapped backend endpoint
+    # has no AI tool yet (see docs/superpowers/specs/2026-05-16-backend-
+    # capability-map.md). Never carries free-form LLM HR claims.
+    "manager.pending_approvals",
+    "manager.team_requests",
+    "manager.team_schedule",
+    "manager.team_presence",
+    "manager.team_attendance",
+    # Planning / meetings list success-path intents. Their *.unavailable
+    # siblings are already allowlisted above; allowlisting the success path
+    # too prevents guard_rejected when a real list is returned with a
+    # template wrapper.
+    "planning.list",
+    "meetings.list",
 }
 
 
@@ -156,6 +179,12 @@ class FakeConfirmationRule(GuardRule):
             return GuardResult.reject(self.category, "Response claims execution without successful tool evidence.")
         if _looks_like_write_success(response.text) and not _has_any_tool_evidence(response):
             return GuardResult.reject(self.category, "Response claims a write action succeeded without tool evidence.")
+        # Backend failure must never render as success. If the text reads as a
+        # write-success but the action result / tool calls indicate failure or
+        # error, reject — otherwise the user sees "Action approved" on a
+        # backend 4xx/5xx.
+        if _looks_like_write_success(response.text) and _has_failure_evidence(response):
+            return GuardResult.reject(self.category, "Response claims success while tool evidence indicates failure.")
         return GuardResult.allow()
 
 
@@ -341,6 +370,19 @@ def _has_any_tool_evidence(response: AgentResponse) -> bool:
     return bool(response.toolCalls or response.actionResult)
 
 
+def _has_failure_evidence(response: AgentResponse) -> bool:
+    action = response.actionResult if isinstance(response.actionResult, dict) else {}
+    if action.get("success") is False:
+        return True
+    if action.get("error"):
+        return True
+    data = action.get("data")
+    if isinstance(data, dict):
+        if data.get("success") is False or data.get("error"):
+            return True
+    return any(call.status in {"failed", "denied"} for call in response.toolCalls)
+
+
 def _has_authoritative_data(response: AgentResponse) -> bool:
     if not isinstance(response.actionResult, dict):
         return False
@@ -384,6 +426,11 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
         "slot_filling",
         "confirmation_summary",
         "confirmation_result",
+        # ManagerAgent._read_pending_requests fans out to leave/telework/
+        # authorization list_manager_requests tools and folds the read_results
+        # into `sections`. The wrapper kind name must be whitelisted so the
+        # natural summary text does not trip _request_status / _users_count.
+        "manager_pending_summary",
     }:
         return True
 

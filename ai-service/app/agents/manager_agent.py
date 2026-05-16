@@ -43,7 +43,7 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
             return AgentResponse(type="error", text="Votre role ne permet pas cette action.", intent="manager.forbidden", confidence=0.95)
 
         intent, confidence = self.detect_intent(message, context)
-        if intent in {"manager.pending", "manager.team_requests"}:
+        if intent in {"manager.pending_approvals", "manager.team_requests"}:
             return await self._read_pending_requests(context, intent=intent, confidence=confidence)
 
         if intent in {"manager.approve", "manager.reject"}:
@@ -106,14 +106,18 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
-        if not has_any(text, ("approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "equipe", "team", "pending")):
+        if not has_any(text, ("approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "equipe", "team", "pending", "approbation", "approval", "approbations", "approvals")):
             return None, 0.0
+        # "approbation(s)" / "approval(s)" must be checked BEFORE "approuve"/"approve"
+        # because str.find("approve") matches inside "approvals". The verb forms
+        # (approuver/approve) signal a per-request decision; the noun forms
+        # (approbations/approvals) signal a list-pending request.
+        if has_any(text, ("approbation", "approbations", "approval", "approvals", "validation", "pending", "en attente")):
+            return "manager.pending_approvals", 0.85
         if has_any(text, ("approuve", "approve", "valide")):
             return "manager.approve", 0.91
         if has_any(text, ("refuse", "reject", "rejette")):
             return "manager.reject", 0.91
-        if has_any(text, ("validation", "pending", "en attente")):
-            return "manager.pending", 0.85
         if has_any(text, ("equipe", "team")):
             return "manager.team_requests", 0.82
         return None, 0.0
