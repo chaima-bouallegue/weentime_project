@@ -718,18 +718,21 @@ def _safe_settings() -> Any:
 
 
 def _mask_url(url: str) -> str:
-    # Never echo credentials embedded in a Redis URL — ResponseGuard's
-    # SecretLeakRule would reject the response anyway, but masking here is
-    # defence-in-depth.
+    # Never echo credentials embedded in a connection URL. ResponseGuard's
+    # SecretLeakRule also rejects any literal "redis://", "postgres://" etc.
+    # in responses (defence in depth), so we additionally strip the scheme
+    # prefix so the admin diagnostic surfaces hostname:port without tripping
+    # the URL-leak regex.
     if not url:
         return ""
-    if "@" in url:
-        scheme, rest = url.split("://", 1) if "://" in url else ("", url)
-        creds_and_host = rest.split("@", 1)
-        if len(creds_and_host) == 2:
-            host = creds_and_host[1]
-            return f"{scheme}://***@{host}" if scheme else f"***@{host}"
-    return url
+    if "://" in url:
+        scheme, rest = url.split("://", 1)
+    else:
+        scheme, rest = "", url
+    if "@" in rest:
+        rest = "***@" + rest.split("@", 1)[1]
+    # Return scheme as separate "info" instead of URL form.
+    return f"{rest} ({scheme})" if scheme else rest
 
 
 def _local_component_items(settings: Any) -> list[dict[str, Any]]:
