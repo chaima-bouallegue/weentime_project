@@ -89,7 +89,17 @@ class AttendanceAgent(DomainAgent):
             return "attendance.forgot_checkout", 0.93
         if any(term in text for term in ("je veux pointer", "veux pointer", "souhaite pointer", "nheb npointi", "npointi", "أريد تسجيل الحضور", "اريد تسجيل الحضور")):
             return "attendance.unknown", 0.91
-        if any(term in text for term in ("pointer mon entree", "pointe mon entree", "check in", "check me in", "clock in", "arrivee", "j arrive", "je commence", "checked in")):
+        # "Je viens d'arriver" / "I just arrived" — affirmative arrival
+        # statements that should create a check-in. The infinitive "arriver"
+        # is not caught by "j arrive" (different word) so it needs explicit
+        # entries. "i arrived" is bounded by " " on the right via the
+        # any-substring check so "i arrived late" still routes correctly.
+        if any(term in text for term in (
+            "pointer mon entree", "pointe mon entree", "check in", "check me in",
+            "clock in", "arrivee", "j arrive", "je commence", "checked in",
+            "je viens d arriver", "viens d arriver", "viens darriver",
+            "just arrived", "i arrived",
+        )):
             return "attendance.check_in", 0.94
         if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie")):
             return "attendance.check_out", 0.94

@@ -41,6 +41,10 @@ SUPPORTED_STATUSES = {
     "CONFIGURED", "DISABLED", "ENABLED",
     "CHROMA", "LOCAL_KEYWORD", "NOOP", "INMEMORY",
     "DEGRADED", "OFFLINE", "ONLINE",
+    # Lookup-result statuses emitted by ManagerAgent / RHAgent approval flows
+    # (kind=approval_lookup) — these are deterministic resolution states from
+    # the agent, not LLM-invented business statuses.
+    "NOT_FOUND", "AMBIGUOUS",
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"

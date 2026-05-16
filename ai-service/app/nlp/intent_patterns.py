@@ -69,6 +69,10 @@ INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
     ),
     CHECK_IN: (
         r"\b(pointer mon entrée|pointer mon entree|check in|clock in|sign in|j arrive|je commence|arrivée|arrivee)\b",
+        # Arrival affirmations — "I just arrived" / "je viens d'arriver" /
+        # "viens d arriver" / "viens darriver" (apostrophe stripped). Distinct
+        # from the present-tense "j arrive" above.
+        r"\b(viens d arriver|viens darriver|just arrived|i arrived)\b",
         r"(دخول|نسجل الدخول|نبصم)",
     ),
     CHECK_OUT: (

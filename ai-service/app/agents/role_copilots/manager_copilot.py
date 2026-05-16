@@ -31,7 +31,12 @@ class ManagerCopilot(BaseRoleCopilot):
             return "manager.team_summary", 0.94
         if any(term in text for term in ("resume", "summary", "briefing", "dashboard", "priorites")) and any(term in text for term in ("equipe", "team", "manager")):
             return "manager.team_summary", 0.94
-        if any(term in text for term in ("demandes a valider", "demandes à valider", "approvals pending", "pending approvals", "validations en attente")):
+        # "pending approvals" / "approvals pending" are slice-2
+        # ManagerAgent.pending_approvals territory — don't steal them with the
+        # broader copilot summary path. The French long-form phrases below
+        # remain copilot's responsibility (workload digest, not a focused
+        # list of pending validations).
+        if any(term in text for term in ("demandes a valider", "demandes à valider", "validations en attente")):
             return "manager.pending_work", 0.88
         if any(term in text for term in ("absent", "retard", "late", "risk", "risque")) and any(term in text for term in ("equipe", "team")):
             return "manager.risk_summary", 0.87
