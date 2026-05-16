@@ -149,6 +149,41 @@ export class AiCopilotService {
     );
   }
 
+  resetSession(sessionId?: string): Observable<AiCopilotEnvelope> {
+    // Calls /v2/chat/reset to drop any pending slot-fill flow and confirmation
+    // queue for the current user/session. The chat widget uses this for the
+    // "Effacer la conversation" header button so a stuck flow doesn't keep
+    // eating the user's next prompt across page reloads.
+    const requestId = this.createRequestId('reset');
+    this.debugRequest('chat.reset', requestId);
+    const user = this.authService.currentUser();
+    const role = this.resolveRole(user);
+    const metadata: Record<string, unknown> = {
+      channel: 'chat',
+      language: resolvePreferredAiLanguage(
+        typeof navigator !== 'undefined' ? navigator.language : null,
+      ),
+    };
+    if (role) {
+      metadata['role'] = role;
+    }
+    if (user?.id) {
+      metadata['userId'] = user.id;
+    }
+    const entrepriseId = user?.entrepriseId ?? user?.entreprise?.id;
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      metadata['entrepriseId'] = entrepriseId;
+    }
+    return this.http.post<AiCopilotEnvelope>(
+      `${this.endpoint}/v2/chat/reset`,
+      { message: '', user_id: user?.id, session_id: sessionId, metadata },
+      {
+        headers: this.authHeaders(requestId),
+        context: withAiChatWidgetContext(),
+      },
+    );
+  }
+
   confirmAction(confirmationId: string, approved: boolean): Observable<AiCopilotEnvelope> {
     const requestId = this.createRequestId('confirm');
     this.debugRequest('chat.confirm', requestId);

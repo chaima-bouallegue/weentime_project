@@ -258,6 +258,102 @@ async def confirm_chat_action(
         reset_request_id(request_token)
 
 
+class ResetChatRequest(ChatV2Request):
+    """Same shape as a normal chat request — message is ignored."""
+
+    message: str = ""
+
+
+@router.post("/v2/chat/reset")
+async def reset_chat_session(
+    payload: ResetChatRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_request_id: str | None = Header(default=None, alias="X-Request-ID"),
+) -> JSONResponse:
+    """Drop the pending slot-fill flow + the per-user confirmation queue for
+    this chat session. The Angular chat widget calls this when the user
+    clicks "Effacer la conversation" so a stuck pending flow doesn't keep
+    eating the user's next prompt across page reloads.
+    """
+    request_id = ensure_request_id(x_request_id)
+    request_token = set_request_id(request_id)
+    services = ensure_copilot_services(request.app.state)
+    bearer_token = extract_bearer_token(authorization)
+    payload_metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+    payload_role = None
+    payload_language = None
+    if isinstance(payload_metadata, dict):
+        for key in ("role", "chatbotMode", "chatbot_mode"):
+            value = payload_metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                payload_role = value.strip()
+                break
+        candidate = payload_metadata.get("language")
+        if isinstance(candidate, str) and candidate.strip():
+            payload_language = candidate.strip()
+    try:
+        anonymous_context: CurrentUserContext | None = None
+        if not bearer_token and _public_chatbot_mode_enabled():
+            anonymous_context = _anonymous_chatbot_context(
+                payload_metadata,
+                user_id=payload.user_id or 0,
+                role_hint=payload_role,
+                language=payload_language,
+                channel=payload.channel or "chat",
+            )
+        # If we have neither a real token nor a public-mode metadata context
+        # we cannot identify whose session to clear — refuse loudly so the
+        # client sees a real 401 instead of a silent no-op.
+        if anonymous_context is None and bearer_token is None:
+            return _error_response(401, "missing_jwt", "Authorization header is required.", request_id=request_id)
+
+        # When we DO have a bearer, build the verified context the standard
+        # way; mistakes here should surface, not be swallowed.
+        if anonymous_context is None:
+            context = services["copilot_context_builder"].build(
+                authorization,
+                payload_user_id=payload.user_id,
+                language=payload_language,
+            )
+        else:
+            context = anonymous_context
+
+        conversation_store = services["conversation_store"]
+        confirmation_store = services["confirmation_store"]
+        cleared = conversation_store.reset_session(context, payload.session_id)
+        confirmation_store.clear_for_user(int(context.user_id))
+        log_event(
+            "ai.chat_v2.reset",
+            metadata={
+                "request_id": request_id,
+                "user_id": context.user_id,
+                "session_id": payload.session_id,
+                "cleared_flow": cleared.get("flow", False),
+                "cleared_last_error": cleared.get("lastError", False),
+                "source": "anonymous_chatbot" if anonymous_context else "verified_jwt",
+            },
+        )
+        return JSONResponse(
+            status_code=200,
+            content=ApiEnvelope.ok(
+                {
+                    "cleared": cleared,
+                    "request_id": request_id,
+                    "requestId": request_id,
+                }
+            ).model_dump(mode="json"),
+        )
+    except ContextError as exc:
+        log_error("ai.chat_v2.reset.context_error", exc, {"code": exc.code, "status_code": exc.status_code})
+        return _error_response(exc.status_code, exc.code, exc.message, request_id=request_id)
+    except Exception as exc:  # noqa: BLE001
+        log_error("ai.chat_v2.reset.unhandled", exc)
+        return _error_response(500, "ai_v2_reset_failed", "La reinitialisation de la conversation a echoue.", request_id=request_id)
+    finally:
+        reset_request_id(request_token)
+
+
 def _error_response(status_code: int, code: str, message: str, *, request_id: str | None = None) -> JSONResponse:
     details = {"request_id": request_id, "requestId": request_id} if request_id else None
     return JSONResponse(

@@ -55,6 +55,19 @@ class ConversationStateStore:
     def clear(self, context: CurrentUserContext, session_id: str | None = None) -> None:
         self._flows.pop(self._key(context, session_id), None)
 
+    def reset_session(self, context: CurrentUserContext, session_id: str | None = None) -> dict[str, bool]:
+        """Drop the pending flow AND the last-error breadcrumb for a session.
+
+        Returned dict reports what was cleared (useful for client UX so the
+        widget can say "demande en cours annulee" only when there was one).
+        """
+        key = self._key(context, session_id)
+        had_flow = key in self._flows
+        had_error = key in self._last_errors
+        self._flows.pop(key, None)
+        self._last_errors.pop(key, None)
+        return {"flow": had_flow, "lastError": had_error}
+
     def record_last_error(self, context: CurrentUserContext, message: str, session_id: str | None = None) -> None:
         text = (message or "").strip()
         if text:

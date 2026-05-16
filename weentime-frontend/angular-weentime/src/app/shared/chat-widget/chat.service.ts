@@ -99,6 +99,10 @@ export class ChatService {
     );
   }
 
+  resetSession(sessionId?: string): Observable<unknown> {
+    return this.aiCopilot.resetSession(sessionId);
+  }
+
   private sendLegacyMessage(message: string): Observable<ChatApiResponse> {
     const context = this.getUserContext();
     if (!context) {

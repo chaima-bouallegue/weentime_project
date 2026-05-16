@@ -138,6 +138,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private readonly router = inject(Router);
 
   readonly isOpen = signal(false);
+  readonly resetting = signal(false);
   readonly input = signal('');
   readonly loading = signal(false);
   readonly voiceState = signal<VoiceAssistantState>('idle');
@@ -391,6 +392,37 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.clearAutoListen();
     this.stopAudioPlayback();
     void this.voiceAssistant.stop();
+  }
+
+  clearConversation(): void {
+    // Header button: drop the backend's pending slot-fill flow + per-user
+    // confirmation queue and reset the local message list so the user is
+    // never stuck inside a stale flow after a refresh.
+    if (this.resetting()) {
+      return;
+    }
+    this.resetting.set(true);
+    this.chatService.resetSession().subscribe({
+      next: () => {
+        this.messages.set([this.buildWelcomeMessage()]);
+        this.input.set('');
+        this.loading.set(false);
+        this.shouldScrollToBottom = true;
+      },
+      error: () => {
+        // We don't surface a toast here — the most common failure is the
+        // chatbot service being down, in which case the toast for the next
+        // user message will cover it anyway. Still clear the local UI so
+        // the user sees a fresh slate.
+        this.messages.set([this.buildWelcomeMessage()]);
+        this.input.set('');
+        this.loading.set(false);
+        this.shouldScrollToBottom = true;
+      },
+      complete: () => {
+        this.resetting.set(false);
+      },
+    });
   }
 
   toggleHandsFreeMode(): void {

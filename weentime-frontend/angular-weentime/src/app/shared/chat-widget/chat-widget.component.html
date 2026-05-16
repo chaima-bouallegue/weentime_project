@@ -49,6 +49,16 @@
           <button
             type="button"
             class="chat-panel__icon"
+            (click)="clearConversation()"
+            [disabled]="resetting()"
+            aria-label="Effacer la conversation"
+            title="Effacer la conversation en cours"
+          >
+            <lucide-icon name="trash-2" [size]="16"></lucide-icon>
+          </button>
+          <button
+            type="button"
+            class="chat-panel__icon"
             (click)="closeChat()"
             aria-label="Fermer le chat"
           >
