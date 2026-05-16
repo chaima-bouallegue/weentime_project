@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from app.context.current_user import CurrentUserContext
+from app.context.chatbot_backend_token import mint_chatbot_backend_token
 from app.observability.request_context import get_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from .result import ToolResult
@@ -58,6 +59,16 @@ class BackendClient:
         request_headers = dict(headers or {})
         if context.token:
             request_headers["Authorization"] = f"Bearer {context.token}"
+        else:
+            # Public-mode opt-in: mint a short-lived backend JWT for the
+            # metadata-claimed identity so Spring can authorise the call.
+            # Returns None when the operator hasn't opted in or no signing
+            # secret is configured — in that case the request goes
+            # unauthenticated and Spring 401s, which is the safe default.
+            minted = mint_chatbot_backend_token(context)
+            if minted:
+                request_headers["Authorization"] = f"Bearer {minted}"
+                request_headers.setdefault("X-Weentime-Chatbot-Origin", "ai-chatbot-public")
         request_id = get_request_id() or str(context.metadata.get("request_id") or "") or None
         if request_id:
             request_headers["X-Request-ID"] = request_id

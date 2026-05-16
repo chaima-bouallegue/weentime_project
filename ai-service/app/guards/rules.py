@@ -30,6 +30,10 @@ SUPPORTED_STATUSES = {
     "BROUILLON", "DRAFT", "ANNULEE", "ANNULE", "CANCELLED",
     "SUCCESS", "FAILED", "BUSINESS_CONFLICT", "WARNING", "UNAVAILABLE", "OK",
     "CHECKED_IN", "CHECKED_OUT", "CLOSED", "PRESENT", "ABSENT", "RETARD", "LATE",
+    # Presence session-state values produced by /presence/me/today (Spring
+    # PresenceController). Real backend payloads include both a `status`
+    # (ABSENT/PRESENT/LATE) AND a `state` (NOT_STARTED, COMPLETED, PAUSED, ...).
+    "NOT_STARTED", "COMPLETED", "PAUSED", "OPEN", "EXPIRED",
     # Deterministic local component statuses returned by admin.system_health,
     # admin.provider_status, admin.redis_status, admin.braintrust_status,
     # admin.rag_status — these come from Settings, never from LLM output.
