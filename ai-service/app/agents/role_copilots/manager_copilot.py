@@ -19,6 +19,16 @@ class ManagerCopilot(BaseRoleCopilot):
         text = (message or "").lower()
         if any(term in text for term in ("what can i do", "quoi faire", "aide manager")):
             return "manager.what_can_i_do", 0.84
+        # Team summary — accept "today's team summary" + EN/FR/TN variants
+        # without requiring the words "equipe"/"team" to co-occur with the
+        # summary noun (the role itself is MANAGER so the team scope is implied).
+        team_summary_phrases = (
+            "today's team summary", "todays team summary", "team summary",
+            "resume equipe", "résumé équipe", "résumé de l'équipe",
+            "manager briefing", "my team briefing", "my team summary",
+        )
+        if any(phrase in text for phrase in team_summary_phrases):
+            return "manager.team_summary", 0.94
         if any(term in text for term in ("resume", "summary", "briefing", "dashboard", "priorites")) and any(term in text for term in ("equipe", "team", "manager")):
             return "manager.team_summary", 0.94
         if any(term in text for term in ("demandes a valider", "demandes à valider", "approvals pending", "pending approvals", "validations en attente")):

@@ -20,8 +20,27 @@ class EmployeeAgent(DomainAgent):
         if role != "EMPLOYEE":
             return 0.0
         text = (message or "").lower()
-        if any(marker in text for marker in ("resume intelligent", "mes rappels", "mes priorites", "productivite", "quoi faire aujourd")):
-            return 0.88
+        # Multilingual daily-summary markers. Without this the router falls
+        # through to the legacy/LLM path and — when no provider is reachable —
+        # answers with fallback.unsafe_response for "Show my daily summary".
+        markers = (
+            # FR
+            "resume intelligent", "mes rappels", "mes priorites", "productivite",
+            "quoi faire aujourd", "resume du jour", "resume de ma journee",
+            "ma journee", "mon resume", "resume de la journee",
+            "résumé du jour", "résumé de ma journée", "ma journée",
+            # EN
+            "daily summary", "my daily", "show my daily", "my day",
+            "what should i do today", "today's summary", "my briefing",
+            "daily briefing",
+            # TN
+            "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
+            "naamel tawa",
+            # AR
+            "ملخص يومي", "ماذا أفعل اليوم", "ملخص اليوم",
+        )
+        if any(marker in text for marker in markers):
+            return 0.92
         return 0.0
 
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:

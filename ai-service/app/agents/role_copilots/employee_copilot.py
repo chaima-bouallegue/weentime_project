@@ -17,14 +17,34 @@ class EmployeeCopilot(BaseRoleCopilot):
 
     def detect_intent(self, message: str, context: CurrentUserContext) -> tuple[str, float]:
         text = (message or "").lower()
-        personal = any(term in text for term in ("ma journee", "mon statut", "mes priorites", "my hr", "my status", "my day"))
+        personal = any(term in text for term in (
+            # FR / TN
+            "ma journee", "ma journée", "mon statut", "mes priorites", "mes priorités",
+            # EN
+            "my hr", "my status", "my day", "my daily", "my briefing",
+        ))
         if any(term in text for term in ("que puis-je", "quoi faire", "what can i do", "aide moi", "help me")):
             return "employee.what_can_i_do", 0.86
         if any(term in text for term in ("mes demandes", "pending items", "en attente", "a traiter")) and not any(term in text for term in ("equipe", "team", "rh")):
             return "employee.my_pending_items", 0.84
         if any(term in text for term in ("statut rh", "my hr summary", "mon statut rh")):
             return "employee.my_status", 0.88
-        if personal or any(term in text for term in ("resume de ma journee", "resume ma journee", "daily briefing", "what should i do today")):
+        # Daily briefing — broad EN/FR/TN coverage so "Show my daily summary"
+        # (and equivalents) reach the digest builder instead of hitting the
+        # legacy/LLM path that fallbacks to unsafe_response when no provider
+        # is reachable.
+        briefing_markers = (
+            # FR
+            "resume de ma journee", "resume ma journee", "resume du jour",
+            "résumé du jour", "résumé de ma journée", "résumé de la journée",
+            "mon resume", "mon résumé",
+            # EN
+            "daily briefing", "daily summary", "show my daily", "my daily",
+            "what should i do today", "today's summary", "today summary",
+            # TN
+            "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
+        )
+        if personal or any(term in text for term in briefing_markers):
             return "employee.daily_briefing", 0.92
         if _has_arabic(text):
             return "employee.daily_briefing", 0.78

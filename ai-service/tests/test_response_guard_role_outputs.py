@@ -95,6 +95,29 @@ def test_rh_create_user_unavailable_passes_guard() -> None:
     assert guard.validate(response, _context("RH")).allowed
 
 
+def test_admin_status_tools_pass_unsupported_status_rule() -> None:
+    # Regression: admin.system_health / provider_status / redis_status /
+    # braintrust_status / rag_status return items with literal local statuses
+    # ("REACHABLE", "CONFIGURED", "DISABLED", "ENABLED", "CHROMA",
+    # "LOCAL_KEYWORD"). Those must be whitelisted so the guard doesn't reject
+    # legitimate admin status payloads with category=unsupported_status.
+    guard = ResponseGuard()
+    response = AgentResponse(
+        type="answer",
+        text="Etat systeme local (mode chatbot public).",
+        intent="admin.system_summary",
+        confidence=0.94,
+        actionResult={
+            "kind": "role_summary",
+            "agent": "AdminCopilot",
+            "sections": [
+                {"title": "Sante systeme", "status": "ok", "items": [{"service": "ai_provider", "status": "configured"}, {"service": "redis", "status": "disabled"}, {"service": "rag", "status": "local_keyword"}]},
+            ],
+        },
+    )
+    assert guard.validate(response, _context("ADMIN")).allowed
+
+
 def test_authorization_info_passes_guard() -> None:
     guard = ResponseGuard()
     response = AgentResponse(

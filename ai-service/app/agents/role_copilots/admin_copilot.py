@@ -15,7 +15,12 @@ class AdminCopilot(BaseRoleCopilot):
         text = (message or "").lower()
         if any(term in text for term in ("what can i do", "quoi faire", "aide admin")):
             return "admin.what_can_i_do", 0.84
-        if any(term in text for term in ("resume systeme", "system summary", "systeme", "dashboard admin")):
+        if any(term in text for term in (
+            "resume systeme", "résumé système", "system summary", "systeme",
+            "dashboard admin", "admin summary", "admin briefing",
+            "system health", "santé système", "sante systeme",
+            "platform health",
+        )):
             return "admin.system_summary", 0.94
         if any(term in text for term in ("mal configure", "misconfigured", "roles", "utilisateurs")):
             return "admin.user_config_summary", 0.88

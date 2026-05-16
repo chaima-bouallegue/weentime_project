@@ -14,7 +14,13 @@ class RHCopilot(BaseRoleCopilot):
         text = (message or "").lower()
         if any(term in text for term in ("what can i do", "quoi faire", "aide rh")):
             return "rh.what_can_i_do", 0.84
-        if any(term in text for term in ("resume rh", "rh daily", "daily rh", "briefing rh", "workload rh", "charge rh")):
+        if any(term in text for term in (
+            "resume rh", "rh daily", "daily rh", "briefing rh",
+            "workload rh", "charge rh",
+            # EN/FR daily/summary phrasings that should reach the RH digest
+            "rh backlog", "hr backlog", "rh summary", "hr summary",
+            "rh briefing", "hr briefing", "résumé rh", "résumé du jour rh",
+        )):
             return "rh.daily_briefing", 0.94
         if any(term in text for term in ("statistiques rh", "stats rh", "hr stats", "hr analytics", "analytics rh")):
             return "rh.analytics_summary", 0.92

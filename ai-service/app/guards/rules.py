@@ -30,6 +30,13 @@ SUPPORTED_STATUSES = {
     "BROUILLON", "DRAFT", "ANNULEE", "ANNULE", "CANCELLED",
     "SUCCESS", "FAILED", "BUSINESS_CONFLICT", "WARNING", "UNAVAILABLE", "OK",
     "CHECKED_IN", "CHECKED_OUT", "CLOSED", "PRESENT", "ABSENT", "RETARD", "LATE",
+    # Deterministic local component statuses returned by admin.system_health,
+    # admin.provider_status, admin.redis_status, admin.braintrust_status,
+    # admin.rag_status — these come from Settings, never from LLM output.
+    "REACHABLE", "UNREACHABLE",
+    "CONFIGURED", "DISABLED", "ENABLED",
+    "CHROMA", "LOCAL_KEYWORD", "NOOP", "INMEMORY",
+    "DEGRADED", "OFFLINE", "ONLINE",
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"
