@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from app.context.current_user import CurrentUserContext
@@ -49,10 +51,36 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
         if intent in {"manager.approve", "manager.reject"}:
             payload = extract_payload(message, "APPROVE_REQUEST" if intent == "manager.approve" else "REJECT_REQUEST", context)
             request_id = payload.get("request_id")
-            if not request_id:
-                return AgentResponse(type="ask", text="Quel identifiant de demande souhaitez-vous traiter ?", intent=intent, confidence=confidence)
-
             request_type = _normalize_request_type(payload.get("type_demande") or _infer_request_type(message))
+
+            if not request_id:
+                # Natural-language approval: "valide la demande de <employee>".
+                # Search pending lists by employee name; resolve to an id only
+                # if exactly one match.
+                employee_name = _extract_employee_name(message)
+                if employee_name:
+                    name_match = await self._resolve_by_employee_name(employee_name, request_type, context)
+                    if name_match.get("ambiguous"):
+                        return AgentResponse(
+                            type="ask",
+                            text=_choices_text(name_match["ambiguous"]),
+                            intent=intent,
+                            confidence=confidence,
+                            actionResult={"kind": "approval_lookup", "status": "ambiguous", "choices": name_match["ambiguous"]},
+                        )
+                    if name_match.get("not_found"):
+                        return AgentResponse(
+                            type="ask",
+                            text=f"Je n'ai trouve aucune demande en attente pour {employee_name}. Donnez-moi l'identifiant ou precisez le type de demande.",
+                            intent=intent,
+                            confidence=confidence,
+                            actionResult={"kind": "approval_lookup", "status": "not_found", "query": {"employee": employee_name, "type": request_type}},
+                        )
+                    request_id = name_match["matched_id"]
+                    request_type = name_match.get("type") or request_type
+                if not request_id:
+                    return AgentResponse(type="ask", text="Quel identifiant de demande souhaitez-vous traiter ?", intent=intent, confidence=confidence)
+
             details = await self._resolve_request_details(int(request_id), request_type, context)
             if details.get("ambiguous"):
                 return AgentResponse(
@@ -161,6 +189,53 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
             actionResult={"kind": "manager_pending_summary", "sections": sections, "warnings": warnings},
         )
 
+    async def _resolve_by_employee_name(
+        self,
+        employee_name: str,
+        request_type: str | None,
+        context: CurrentUserContext,
+    ) -> dict[str, Any]:
+        # When a type is inferred (e.g. "autorisation"), only query that list
+        # to avoid pulling all leave/telework rows. Otherwise query all 3.
+        candidate_lists = [
+            (request_type_key, tool_name)
+            for request_type_key, tool_name, _label in MANAGER_LIST_TOOLS
+            if request_type is None or request_type_key == request_type
+        ]
+        if not candidate_lists:
+            # Unknown request_type — fall back to all lists.
+            candidate_lists = [(t, n) for t, n, _ in MANAGER_LIST_TOOLS]
+
+        matches: list[dict[str, Any]] = []
+        normalized_name = _normalize_name(employee_name)
+        for candidate_type, tool_name in candidate_lists:
+            result = await self.executor.execute(tool_name, {}, context)
+            if not result.success:
+                continue
+            read_result = get_read_result(result.data)
+            items = read_result.get("items") if isinstance(read_result, dict) and isinstance(read_result.get("items"), list) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                if _employee_name_matches(item, normalized_name):
+                    matches.append({
+                        "type": candidate_type,
+                        "request": item,
+                        "summary": _request_summary(item, candidate_type),
+                    })
+
+        if len(matches) > 1:
+            return {"ambiguous": matches}
+        if not matches:
+            return {"not_found": True}
+        only = matches[0]
+        rid = only["request"].get("id") or only["request"].get("requestId") or only["request"].get("request_id") or only["request"].get("demandeId")
+        try:
+            matched_id = int(rid)
+        except (TypeError, ValueError):
+            return {"not_found": True}
+        return {"matched_id": matched_id, "type": only["type"]}
+
     async def _resolve_request_details(self, request_id: int, request_type: str | None, context: CurrentUserContext) -> dict[str, Any]:
         if request_type:
             return await self._fetch_detail(request_id, request_type, context)
@@ -199,6 +274,85 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
             "request": item,
             "decision_tool": decision_tool,
         }
+
+
+# Trailing words that signal the end of an employee-name window in a natural
+# approval phrase: "valide la demande de amin dupont POUR pause longue" /
+# "approve the conge of amin SUR ce mois" etc.
+_NAME_STOPWORDS = (
+    "pour", "sur", "le", "la", "les", "une", "un", "de", "du", "des", "et",
+    "ou", "ce", "cette", "ces", "en", "with", "for", "of", "and", "or", "the",
+    "a", "to", "on", "this", "that",
+    # Domain-vocabulary stops — once we hit a leave-type or motif word, the
+    # name window has ended.
+    "conge", "conges", "congé", "congés", "autorisation", "autorisations",
+    "permission", "teletravail", "telework", "remote", "document", "documents",
+    "maladie", "annuel", "exceptionnel", "maternite", "paternite",
+    "pause", "sortie", "absence", "rdv", "medical", "longue", "courte",
+)
+
+
+def _extract_employee_name(message: str) -> str | None:
+    """Pull an employee-name window out of "valide la demande de <name> ..." /
+    "approve the conge of <name>". Returns lowercased name or None.
+
+    Looks for "de" / "of" / "for" / "pour" as the trigger, then collects up
+    to 4 following alphabetic tokens, stopping at the first stopword.
+    """
+    text = _normalize_for_name(message)
+    if not text:
+        return None
+    triggers = re.finditer(r"\b(?:de|of|for|pour)\b", text)
+    for trigger in triggers:
+        tail = text[trigger.end():].strip()
+        tokens = re.findall(r"[a-zà-ÿ'\-]+", tail)
+        collected: list[str] = []
+        for token in tokens[:4]:
+            if token in _NAME_STOPWORDS:
+                break
+            if len(token) < 2:
+                break
+            collected.append(token)
+        if collected:
+            return " ".join(collected)
+    return None
+
+
+def _normalize_for_name(value: str) -> str:
+    if not value:
+        return ""
+    text = unicodedata.normalize("NFKD", value)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text.lower()
+
+
+def _normalize_name(value: str) -> str:
+    return _normalize_for_name(value).strip()
+
+
+def _employee_name_matches(item: dict[str, Any], normalized_query: str) -> bool:
+    if not normalized_query:
+        return False
+    query_tokens = [tok for tok in normalized_query.split() if tok]
+    if not query_tokens:
+        return False
+    candidate_fields = (
+        item.get("employee"),
+        item.get("employe"),
+        item.get("user"),
+        item.get("fullName"),
+        item.get("nom"),
+        item.get("nomComplet"),
+        # Backend sometimes splits first/last name.
+        " ".join(filter(None, (str(item.get("prenom") or ""), str(item.get("nom") or "")))).strip() or None,
+    )
+    for field in candidate_fields:
+        if not field:
+            continue
+        haystack = _normalize_for_name(str(field))
+        if all(token in haystack for token in query_tokens):
+            return True
+    return False
 
 
 def _normalize_request_type(value: Any) -> str | None:

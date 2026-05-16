@@ -39,6 +39,12 @@ class ReunionAgent(DomainAgent):
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
         intent, confidence = self.detect_intent(message, context)
         if intent == "planning.unavailable":
+            # Manager-side team-schedule prompt ("horaires equipe", "team
+            # schedule") routes to the manager-specific capability_unavailable
+            # so the frontend can render a manager-flavoured card. The intent
+            # name matches the slice 2 allowlist entry.
+            if _is_team_schedule_query(message, context):
+                return self._team_schedule_unavailable(confidence)
             return self._planning_unavailable(confidence)
         if intent == "reunion.next":
             result = await self.executor.execute("reunion.next", {}, context)
@@ -81,6 +87,25 @@ class ReunionAgent(DomainAgent):
                 "capability": "reunion",
                 "reason": result.error_code or "backend_unavailable",
                 "status_code": result.status_code,
+            },
+        )
+
+    def _team_schedule_unavailable(self, confidence: float) -> AgentResponse:
+        text = (
+            "Les horaires de l'equipe ne sont pas encore connectes a l'agent IA. "
+            "Consultez les depuis l'onglet 'Planning equipe' de l'application; "
+            "je peux toujours vous aider sur les validations en attente, le pointage "
+            "personnel, vos conges ou vos autorisations."
+        )
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent="manager.team_schedule",
+            confidence=confidence,
+            actionResult={
+                "kind": "capability_unavailable",
+                "capability": "manager.team_schedule",
+                "reason": "tool_not_wired",
             },
         )
 
@@ -183,10 +208,18 @@ _MEETING_TERMS = (
 _PLANNING_TERMS = (
     # FR / TN
     "planning", "agenda", "emploi du temps", "calendrier",
+    "horaire", "horaires",
     # EN
     "schedule", "calendar",
     # AR
     "جدول", "روزنامة",
+)
+
+_TEAM_TERMS = (
+    # FR / TN
+    "equipe", "equipes", "team", "teams",
+    # AR
+    "فريق", "فرق",
 )
 
 _NEXT_CUES = (
@@ -228,3 +261,11 @@ def _normalize(message: str) -> str:
 
 def _has_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
+
+
+def _is_team_schedule_query(message: str, context: CurrentUserContext) -> bool:
+    role = (context.role or "").upper().replace("ROLE_", "")
+    if role != "MANAGER":
+        return False
+    text = _normalize(message)
+    return _has_any(text, _TEAM_TERMS)

@@ -87,6 +87,13 @@ INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\b(statut|status|etat|état)\b.*\b(pointage|presence|présence|attendance)\b",
         r"\b(pointage|presence|présence|attendance)\b.*\b(statut|status|etat|état)\b",
         r"\b(est ce que je suis pointe|suis je pointe|am i checked in)\b",
+        # Question forms — "did I X?" / "have I X-ed" / "am I X-ed" are
+        # status checks, NOT requests to perform X. Must be tried before the
+        # CHECK_IN / CHECK_OUT patterns, otherwise the substring "check in"
+        # inside the question hijacks the intent.
+        r"\b(did i (?:check|clock|sign) (?:in|out)|did i checked in|did i checked out)\b",
+        r"\b(have i (?:checked|clocked|signed) (?:in|out))\b",
+        r"\b(am i (?:checked|clocked|signed) (?:in|out))\b",
         r"(حالة|حاله).*(الحضور|الدخول|البصمة)",
     ),
 }
@@ -97,7 +104,9 @@ def match_intent(text: str | None) -> IntentMatch | None:
     if not value:
         return None
 
-    for intent in (CHECK_IN, CHECK_OUT, CREATE_LEAVE, CREATE_TELEWORK, REQUEST_DOCUMENT, GET_STATUS):
+    # GET_STATUS is tried first so question forms like "did i check in?" are
+    # not hijacked by the CHECK_IN substring "check in".
+    for intent in (GET_STATUS, CHECK_IN, CHECK_OUT, CREATE_LEAVE, CREATE_TELEWORK, REQUEST_DOCUMENT):
         for pattern in INTENT_PATTERNS[intent]:
             if re.search(pattern, value, flags=re.IGNORECASE | re.UNICODE):
                 return IntentMatch(intent=intent, confidence=0.94, route_intent=INTENT_ROUTE_MAP[intent])
