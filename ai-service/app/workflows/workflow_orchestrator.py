@@ -11,6 +11,7 @@ from app.guards.response_guard import ResponseGuard
 from app.i18n.response_localizer import localize_agent_response
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse
+from app.observability.provider_metadata import annotate_provider_metadata
 from app.observability.request_context import ensure_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.providers.provider_request import ProviderRequest
@@ -430,6 +431,11 @@ class WorkflowOrchestrator:
                 "session_id": session_id,
             },
         )
+        annotate_provider_metadata(
+            localized,
+            provider_router=self.provider_router,
+            intent_before_llm=state.intent,
+        )
         return WorkflowResult(
             response=localized,
             state=state,
@@ -610,6 +616,11 @@ class WorkflowOrchestrator:
             },
         )
         tool_warnings = warnings or warnings_from_tool_result(state.tool_result)
+        annotate_provider_metadata(
+            guarded_response,
+            provider_router=self.provider_router,
+            intent_before_llm=state.intent,
+        )
         return WorkflowResult(
             response=guarded_response,
             state=state,
