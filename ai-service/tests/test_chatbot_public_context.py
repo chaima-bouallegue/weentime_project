@@ -10,16 +10,25 @@ must:
     role-permission-gated tool calls.
   * Fall back to EMPLOYEE / user 1 / entreprise 1 when metadata is missing
     or invalid.
+  * Run the full RouterAgent pipeline — public mode MUST NOT short-circuit
+    to a "demo placeholder" reply.
 """
 
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
+import main
+from app.api import chat_v2 as chat_v2_module
 from app.context.anonymous_context import (
     DEFAULT_ENTREPRISE_ID,
     DEFAULT_ROLE,
     DEFAULT_USER_ID,
     build_chatbot_context_from_metadata,
 )
+from app.context.context_builder import ContextBuilder
+from app.tools.result import ToolResult
+from jwt_test_utils import TEST_JWT_SECRET
 
 
 def test_metadata_builds_role_context_with_public_flags() -> None:
@@ -63,3 +72,83 @@ def test_role_aliases_accepted() -> None:
     for hint in ("ROLE_ADMIN", "admin", "Admin"):
         context = build_chatbot_context_from_metadata({"role": hint, "userId": 1})
         assert context.role == "ADMIN", hint
+
+
+class _FakeBackend:
+    async def get(self, path, *, context, params=None):
+        if path == "/users/me":
+            return ToolResult.ok({"id": context.user_id, "role": context.role, "entrepriseId": context.entreprise_id or 1})
+        if path == "/presence/me/today":
+            return ToolResult.ok({"status": "ACTIVE", "checkIn": "09:00"})
+        return ToolResult.ok({})
+
+    async def post(self, path, *, context, json=None, headers=None):
+        return ToolResult.ok({"status": "ACTIVE"})
+
+
+def _prepare_public_mode(client: TestClient, monkeypatch) -> None:
+    # Force public mode on for the duration of the test; resetting copilot
+    # state guarantees a fresh ToolExecutor sees the FakeBackend.
+    monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: True)
+    client.app.state.ai_v2_ready = False
+    client.app.state.ai_v2_backend_client = _FakeBackend()
+    client.app.state.copilot_ready = False
+    client.app.state.copilot_backend_client = _FakeBackend()
+    client.app.state.copilot_context_builder = ContextBuilder(_FakeBackend(), jwt_secret=TEST_JWT_SECRET)
+    for attr in (
+        "ai_v2_context_builder", "ai_v2_tool_registry", "ai_v2_tool_executor",
+        "ai_v2_confirmation_store", "ai_v2_router_agent", "ai_v2_attendance_agent",
+        "copilot_tool_registry", "copilot_tool_executor",
+        "copilot_confirmation_store", "copilot_router_agent", "copilot_attendance_agent",
+    ):
+        if hasattr(client.app.state, attr):
+            delattr(client.app.state, attr)
+
+
+def test_chat_v2_without_jwt_returns_real_router_response(monkeypatch) -> None:
+    # Regression: enabling public mode used to surface a frontend "Mode demo
+    # public actif" placeholder because the backend 401'd. With the public
+    # context wired through, the full RouterAgent must run and return a real
+    # attendance.status response — no placeholder, no fallback.
+    with TestClient(main.app) as client:
+        _prepare_public_mode(client, monkeypatch)
+        response = client.post(
+            "/v2/chat",
+            json={
+                "message": "est ce que jai pointe ?",
+                "user_id": 12,
+                "metadata": {"role": "EMPLOYEE", "userId": 12, "entrepriseId": 9, "channel": "chat", "language": "fr"},
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+
+    data = body["data"]
+    text = (data.get("text") or "").lower()
+    # The placeholder text must never reach the user under public mode.
+    assert "mode demo public" not in text
+    assert "continuez votre conversation" not in text
+    # Real router path must take over: attendance intent for this prompt.
+    assert data.get("intent", "").startswith("attendance.")
+    assert not data.get("intent", "").startswith("fallback.")
+
+
+def test_chat_v2_without_jwt_greeting_returns_real_greeting(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        _prepare_public_mode(client, monkeypatch)
+        response = client.post(
+            "/v2/chat",
+            json={
+                "message": "bonjour",
+                "user_id": 1,
+                "metadata": {"role": "EMPLOYEE", "userId": 1, "entrepriseId": 1, "channel": "chat", "language": "fr"},
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["intent"] == "system.greeting"
+    text = (data.get("text") or "").lower()
+    assert "mode demo" not in text

@@ -864,18 +864,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     if (event.kind === 'authExpired') {
-      if (environment.chatbotPublicMode) {
-        this.voiceState.set('idle');
-        this.pushMessage({
-          id: this.createMessageId(),
-          sender: 'assistant',
-          text: "Mode demo public actif : reessayez votre commande vocale.",
-          timestamp: new Date(),
-          origin: 'voice',
-        });
-        this.scheduleAutoListen(300);
-        return;
-      }
+      // CHATBOT_PUBLIC_MODE only changes how the backend builds the
+      // CurrentUserContext — it does not turn /v2/voice into a demo
+      // endpoint. If an authExpired event still reaches us in public
+      // mode it is a real configuration bug (env var missing, JWT now
+      // required again, ...). Surface it the same way we would in
+      // authenticated mode so it cannot be silently hidden by a
+      // placeholder reply.
       this.voiceState.set('authExpired');
       this.pushSessionExpiredMessage('voice');
       return;
@@ -1318,19 +1313,14 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private handleRequestFailure(message: string, retryKind: RetryKind): void {
     if (this.isAuthExpiredMessage(message)) {
-      // In public/demo mode the AI service tolerates missing JWTs, so a
-      // transient 401 surfacing here is not a real auth expiry — push a soft
-      // assistant reply and let the user keep chatting.
-      if (environment.chatbotPublicMode) {
-        this.pushMessage({
-          id: this.createMessageId(),
-          sender: 'assistant',
-          text: "Mode demo public actif : continuez votre conversation.",
-          timestamp: new Date(),
-          origin: retryKind === 'voice' ? 'voice' : 'text',
-        });
-        return;
-      }
+      // In CHATBOT_PUBLIC_MODE the AI service builds the context from
+      // request metadata (no JWT required), so the 401-as-"session
+      // expired" path must not happen. If it does, it means the backend
+      // public-mode flag is off / mis-set, or the AI service crashed on
+      // the public-context path. Surface the real error to operators
+      // instead of masking it with a "demo placeholder" reply (which is
+      // what the previous behaviour did, hiding live bugs in public
+      // mode and giving every user the same canned message).
       this.pushSessionExpiredMessage(retryKind);
       return;
     }
