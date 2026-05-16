@@ -1,0 +1,77 @@
+ #  ROLE     | INTENT                           | TYPE     | KIND                         | LLM   | PROV    | MODEL        | BEFORE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 1  EMPLOYEE | authorization.create             | ask      | slot_filling                 | False | ollama  | qwen2.5:3b   | authorization.create
+     PROMPT: nheb naamela autorisation de 2h
+     TEXT:   L nhar chnowa t7eb taamel autorisation?
+
+ 2  EMPLOYEE | authorization.create             | ask      | slot_filling                 | False | ollama  | qwen2.5:3b   | authorization.create
+     PROMPT: je veux prendre une autorisation pour 2 heures
+     TEXT:   Pour quelle date souhaitez-vous demander cette autorisation ?
+
+ 3  EMPLOYEE | meeting.unavailable              | answer   | capability_unavailable       | False | ollama  | qwen2.5:3b   | meeting.unavailable
+     PROMPT: aandi reunion?
+     TEXT:   Gestion el reunions mazel moch disponible fel contexte hedha. Najem techouf el demandes RH mteek, el pointage,...
+
+ 4  EMPLOYEE | meeting.unavailable              | answer   | capability_unavailable       | False | ollama  | qwen2.5:3b   | meeting.unavailable
+     PROMPT: est ce que jai une reunion?
+     TEXT:   La gestion des reunions n'est pas encore disponible dans ce contexte. Vous pouvez consulter vos demandes RH, v...
+
+ 5  EMPLOYEE | planning.unavailable             | answer   | capability_unavailable       | False | ollama  | qwen2.5:3b   | planning.unavailable
+     PROMPT: c quoi mon planning
+     TEXT:   Le module planning / horaires n'est pas encore connecte a l'agent IA. Consultez votre planning depuis l'onglet...
+
+ 6  EMPLOYEE | leave.create                     | ask      | slot_filling                 | False | ollama  | qwen2.5:3b   | leave.create
+     PROMPT: nheb conge ghodwa
+     TEXT:   Chnowa l type mtaa l conge? Mathalan: conge annuel, maladie, walla RTT.
+
+ 7  EMPLOYEE | leave.create                     | ask      | slot_filling                 | False | ollama  | qwen2.5:3b   | leave.create
+     PROMPT: Je viens d arriver
+     TEXT:   Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT.
+
+ 8  EMPLOYEE | leave.create                     | ask      | slot_filling                 | False | ollama  | qwen2.5:3b   | leave.create
+     PROMPT: أريد تصريح خروج غدا
+     TEXT:   ما نوع العطلة المطلوبة؟ مثلا: عطلة سنوية، عطلة مرضية، عطلة استثنائية.
+
+ 9  EMPLOYEE | meeting.unavailable              | answer   | capability_unavailable       | False | ollama  | qwen2.5:3b   | meeting.unavailable
+     PROMPT: هل عندي اجتماع اليوم؟
+     TEXT:   إدارة الاجتماعات غير متاحة حاليا في هذا السياق. يمكنك مراجعة طلباتك من الموارد البشرية، الحضور، العطل، العمل ع...
+
+10  EMPLOYEE | leave.create                     | confirm_action | confirmation_summary         | False | ollama  | qwen2.5:3b   | leave.create
+     PROMPT: je suis malade aujourd'hui
+     TEXT:   Je ne peux pas evaluer le risque complet car certaines donnees RH ne sont pas disponibles. Confirmez-vous la c...
+
+11  MANAGER  | attendance.status                | error    | -                            | False | ollama  | qwen2.5:3b   | attendance.status
+     PROMPT: Did I check in?
+     TEXT:   All connection attempts failed
+
+12  MANAGER  | attendance.team_presence         | error    | -                            | False | ollama  | qwen2.5:3b   | attendance.team_presence
+     PROMPT: Pointage equipe
+     TEXT:   All connection attempts failed
+
+13  MANAGER  | manager.team_schedule            | answer   | capability_unavailable       | False | ollama  | qwen2.5:3b   | manager.team_schedule
+     PROMPT: nheb nchouf les horaire de l equipes
+     TEXT:   Horaires el equipe mazel moch marbouta bel agent IA. Echoufhom mel onglet 'Team planning'; najjem n3awnek fel ...
+
+14  MANAGER  | manager.pending_approvals        | answer   | manager_pending_summary      | False | ollama  | qwen2.5:3b   | manager.pending_approvals
+     PROMPT: approbations
+     TEXT:   Voici les demandes manager accessibles : Aucune donnee manager disponible pour le moment. Certaines donnees so...
+
+15  MANAGER  | manager.pending_work             | answer   | role_summary                 | False | ollama  | qwen2.5:3b   | manager.pending_work
+     PROMPT: pending approvals
+     TEXT:   Resume manager de votre equipe. - Presence equipe: All connection attempts failed - Conges equipe: Le service ...
+
+16  MANAGER  | fallback.guard_rejected          | error    | deterministic_fallback       | False | ollama  | qwen2.5:3b   | fallback.guard_rejected
+     PROMPT: je veut valide la demande de autorisation de amin dupont pour pause longue
+     TEXT:   Je ne peux pas confirmer cette information sans donnees verifiees. Reessayez avec une demande basee sur les do...
+
+======================================================================
+TOTAL: 16 prompts
+  fallback.*       : 1
+  capability_unav. : 5
+  ask (slot-fill)  : 5
+  confirm_action   : 1
+  llm_used=True    : 0
+  provider=ollama  : 16
+
+FALLBACK CASES (would have been the bugs from the screenshots):
+  #16  MANAGER 'je veut valide la demande de autorisation de amin dupont pour pause longue' -> fallback.guard_rejected

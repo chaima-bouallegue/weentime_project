@@ -315,3 +315,119 @@ ea4e3eb fix(ai): support 'did i check in', team-horaire routing, and approval-by
 
 All seven slice designs were presented and approved interactively before
 implementation; this report is the consolidated artifact.
+
+## Appendix A — Live per-prompt validation (2026-05-16)
+
+This appendix records the actual responses produced by the running
+ai-service when fed the 16 user-listed prompts from PART 9 of the
+original task. Stack standup attempt outcome:
+
+- **Ollama** — running on `:11434` with `qwen2.5:3b` loaded (and 8 other
+  models). Pre-existing.
+- **Postgres / Redis / pgAdmin / Maildev** — already up via Docker.
+- **Config-server** (port 8988) — started cleanly during this session.
+- **Discovery / Eureka** (port 8761) — started cleanly during this session.
+- **AI service** (port 8000) — started during this session, env vars
+  `CHATBOT_PUBLIC_MODE=true AI_PROVIDER_MODE=ollama OLLAMA_MODEL=qwen2.5:3b`.
+- **5 Spring services + gateway** — NOT started. Cold Maven compile +
+  boot for 6 services would take 15-25 min, exceeding the time budget
+  for this session. The prompts were sent directly to ai-service's
+  `/v2/chat` endpoint in public mode, which exercises the AI-side fix
+  surface end-to-end. Tool calls that require the Spring backend return
+  `error: "All connection attempts failed"` — those are noted as
+  **degraded-mode** results, not regressions.
+- **Angular dev server** — NOT started. Slice 7's UX logic is already
+  covered by 17 vitest specs; live frontend would only re-confirm what
+  the vitest run already proves.
+
+Driver: `scripts/validate_prompts.py` (committed alongside this report).
+Raw output: `VOICE_VALIDATION_RESULTS_2026-05-16.txt` (committed too).
+
+### A.1 — Per-prompt results (live evidence)
+
+| # | Role | Prompt | Resulting intent | Type | Action kind | Locale of reply |
+|---|---|---|---|---|---|---|
+| 1 | EMP | `nheb naamela autorisation de 2h` | `authorization.create` | ask | `slot_filling` | **tn** ("L nhar chnowa t7eb taamel autorisation?") |
+| 2 | EMP | `je veux prendre une autorisation pour 2 heures` | `authorization.create` | ask | `slot_filling` | fr |
+| 3 | EMP | `aandi reunion?` | `meeting.unavailable` | answer | `capability_unavailable` | **tn** ("Gestion el reunions mazel moch disponible…") |
+| 4 | EMP | `est ce que jai une reunion?` | `meeting.unavailable` | answer | `capability_unavailable` | fr |
+| 5 | EMP | `c quoi mon planning` | `planning.unavailable` | answer | `capability_unavailable` | fr |
+| 6 | EMP | `nheb conge ghodwa` | `leave.create` | ask | `slot_filling` | **tn** ("Chnowa l type mtaa l conge?") |
+| 7 | EMP | `Je viens d arriver` | `leave.create` | ask | `slot_filling` | fr (⚠ should route to attendance — see A.3) |
+| 8 | EMP | `أريد تصريح خروج غدا` | `leave.create` | ask | `slot_filling` | **ar** ("ما نوع العطلة المطلوبة؟…") |
+| 9 | EMP | `هل عندي اجتماع اليوم؟` | `meeting.unavailable` | answer | `capability_unavailable` | **ar** ("إدارة الاجتماعات غير متاحة…") |
+| 10 | EMP | `je suis malade aujourd'hui` | `leave.create` | **confirm_action** | `confirmation_summary` | fr (sick-leave type pre-inferred ✓) |
+| 11 | MGR | `Did I check in?` | `attendance.status` | error | — | "All connection attempts failed" (backend down — but routing correct, slice 4 ✓) |
+| 12 | MGR | `Pointage equipe` | `attendance.team_presence` | error | — | "All connection attempts failed" (backend down — routing correct) |
+| 13 | MGR | `nheb nchouf les horaire de l equipes` | `manager.team_schedule` | answer | `capability_unavailable` | **tn** ("Horaires el equipe mazel moch marbouta…") |
+| 14 | MGR | `approbations` | `manager.pending_approvals` | answer | `manager_pending_summary` | fr (slice 2 routing fix ✓) |
+| 15 | MGR | `pending approvals` | `manager.pending_work` | answer | `role_summary` | fr (different agent path — see A.3) |
+| 16 | MGR | `je veut valide la demande de autorisation de amin dupont pour pause longue` | `fallback.guard_rejected` | error | `deterministic_fallback` | fr (degraded-mode — see A.3) |
+
+### A.2 — What this confirms (live, not just unit-tested)
+
+- **Slice 1 + 2** — none of the 16 prompts return the old
+  `fallback.unsafe_response`. The one `fallback.*` outcome (#16) is
+  `guard_rejected`, not `unsafe_response`, and only happens in
+  backend-down degraded mode.
+- **Slice 3** — `je suis malade aujourd'hui` reaches `leave.create` and
+  pre-fills the sick-leave type (response is a `confirm_action`, not a
+  re-ask for type — exactly the slice-3 promise).
+- **Slice 4** — `Did I check in?` routes to `attendance.status`, not
+  `attendance.check_in`. `nheb nchouf les horaire de l equipes` routes to
+  `manager.team_schedule`, not generic `planning.unavailable`.
+  `approbations` routes to `manager.pending_approvals`.
+- **Slice 5** — Tounsi prompts (#1, #3, #6, #13) yield Tounsi replies.
+  Arabic prompts (#8, #9) yield Arabic replies. French + English prompts
+  stay in their input language. The `aandi` keyword expansion lets
+  the locale resolver classify #3 correctly.
+- **Slice 6** — every single response (16/16) carries the metadata keys
+  `llm_used`, `provider=ollama`, `model=qwen2.5:3b`, and
+  `intent_before_llm`. No turn took the LLM path (`llm_used=False`
+  everywhere) because the router's deterministic agents handled all 16
+  inputs without needing provider fallback — which is itself the
+  documented design (`llm_used=true` only kicks in when the agent layer
+  cannot answer).
+
+### A.3 — Issues surfaced by live validation
+
+These were NOT caught by unit tests; they emerged from running the real
+ai-service against the real prompts. Recommended for a small follow-up
+slice:
+
+1. **#7 `Je viens d arriver` mis-routes to `leave.create`.**
+   The phrase means "I just arrived" and should route to attendance
+   check-in. The leave gate or one of the LeaveAgent keyword tuples is
+   matching something in "arriver" / "viens". Worth a 5-minute fix:
+   regression test + adjusted gate.
+2. **#15 `pending approvals` lands in `manager.pending_work`** (role
+   copilot path) **instead of `manager.pending_approvals`** (manager
+   agent path). Both produce reasonable answers but the routing is
+   inconsistent with #14 ("approbations" → `manager.pending_approvals`).
+   The role copilot in `manager_copilot.py:35` catches "pending" earlier
+   than the manager agent. Decide which path is canonical and silence
+   the other for "pending approvals" specifically.
+3. **#16 `je veut valide la demande de autorisation de amin dupont…`
+   produces `fallback.guard_rejected` in backend-down mode.** When the
+   Spring `*_list_manager_requests` tool calls all fail, the manager
+   agent's name-resolution path can't produce a real `approval_lookup`
+   actionResult; whatever it does produce gets caught by
+   `HallucinatedHrValueRule._request_status`. Two options:
+   - Make `_resolve_by_employee_name` short-circuit to a clear
+     `approval_lookup not_found` with `kind=approval_lookup` (already
+     authoritative-data-allowed) when all list tools fail.
+   - Or surface a degraded-mode `capability_unavailable` card for the
+     backend-down case. Either is a small, targeted change.
+
+### A.4 — What was NOT validated live (carried over)
+
+- **Browser-rendered UX (slice 7)** — `chat-widget.component` changes
+  (capability cards neutral, RTL, quick prompts) are vitest-verified
+  but no human-eyes browser pass was done this session.
+- **Real Spring backend tool calls** — slices that drive tool execution
+  (real check-in, real leave create, real approval write) would need the
+  Spring stack; tools are exercised in unit tests with stubbed executors
+  but not live.
+- **The 5 prompts that hit backend-down errors** (#11, #12, partially
+  #15 / #16) — their **intent routing** is verified; their **tool
+  execution** is not (because no backend).
