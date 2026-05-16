@@ -179,6 +179,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           'Team attendance anomalies',
           'Did I check in?',
           'Pointage equipe',
+          'Horaires equipe',
         ];
       case 'RH':
         return [
@@ -206,6 +207,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           'Request a document',
           'Check my pointage',
           'My meetings',
+          'My planning',
         ];
     }
   });
@@ -763,7 +765,15 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       || response.requiresConfirmation === true
       || response.requires_confirmation === true;
     const isWorkflowFailure = response.type === 'workflow' && response.status === 'failed';
-    const isHardError = response.type === 'error' || (normalized.success === false && !requiresConfirmation && !readResult);
+    // capability_unavailable / capability_hint cards are informational, not
+    // hard errors. Some agents return them with type='error' (e.g. manager
+    // approve on an unsupported request type) so we explicitly recognise the
+    // actionResult.kind and prevent the red error rendering.
+    const isCapabilityCard = this.isCapabilityUnavailableKind(
+      normalized.actionResult ?? response.actionResult ?? response.action_result
+    );
+    const isHardError = !isCapabilityCard
+      && (response.type === 'error' || (normalized.success === false && !requiresConfirmation && !readResult));
     const isError = isHardError || isWorkflowFailure || (!!readResult?.error && !readResult.empty);
 
     const message: ChatMessage = {
@@ -1070,6 +1080,33 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       })
       .filter((value): value is string => !!value)
       .slice(0, 3);
+  }
+
+  private isCapabilityUnavailableKind(value: unknown): boolean {
+    const action = this.asRecord(value);
+    if (!action) {
+      return false;
+    }
+    const kind = typeof action['kind'] === 'string' ? (action['kind'] as string).toLowerCase() : '';
+    return kind === 'capability_unavailable' || kind === 'capability_hint';
+  }
+
+  isArabicText(value: string | null | undefined): boolean {
+    if (!value) {
+      return false;
+    }
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      // Arabic + Arabic Supplement + Arabic Extended-A
+      if (code >= 0x0600 && code <= 0x06FF) return true;
+      if (code >= 0x0750 && code <= 0x077F) return true;
+      if (code >= 0x08A0 && code <= 0x08FF) return true;
+    }
+    return false;
+  }
+
+  messageDirection(message: ChatMessage): 'rtl' | 'ltr' {
+    return this.isArabicText(message.text) ? 'rtl' : 'ltr';
   }
 
   private extractActionResultDisplay(value: unknown): ActionResultDisplay | null {

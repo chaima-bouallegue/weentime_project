@@ -14,6 +14,7 @@ import {
   SendHorizontal,
   ShieldAlert,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-angular';
 import { Router } from '@angular/router';
@@ -80,6 +81,7 @@ describe('ChatWidgetComponent', () => {
           MessageSquare,
           SendHorizontal,
           ShieldAlert,
+          Trash2,
         }),
       ],
       providers: [
@@ -113,6 +115,38 @@ describe('ChatWidgetComponent', () => {
 
     expect(button).toBeTruthy();
     expect(button?.type).toBe('button');
+  });
+
+  it('employee quick prompts include "My planning"', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.quickActions()).toContain('My planning');
+  });
+
+  it('isArabicText returns true for Arabic-script strings and false otherwise', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.isArabicText('أريد عطلة')).toBe(true);
+    expect(component.isArabicText('je veux conge')).toBe(false);
+    expect(component.isArabicText('')).toBe(false);
+    expect(component.isArabicText(null)).toBe(false);
+  });
+
+  it('messageDirection yields rtl for Arabic message text, ltr for Latin', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+
+    const arabicMessage = {
+      id: 'a', sender: 'assistant' as const, text: 'أريد إذن', timestamp: new Date(),
+    };
+    const frenchMessage = {
+      id: 'b', sender: 'assistant' as const, text: 'Bonjour', timestamp: new Date(),
+    };
+
+    expect(component.messageDirection(arabicMessage)).toBe('rtl');
+    expect(component.messageDirection(frenchMessage)).toBe('ltr');
   });
 
   it('shows an inline auth-expired state without raising the generic audio toast', () => {

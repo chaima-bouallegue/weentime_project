@@ -106,7 +106,7 @@
               <span class="message-bubble__time">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
 
-            <p class="message-bubble__text">{{ message.text }}</p>
+            <p class="message-bubble__text" [attr.dir]="messageDirection(message)">{{ message.text }}</p>
 
             <section
               *ngIf="message.origin === 'voice' || message.detectedLanguage || message.audioStatusLabel || message.fallbackLabel"
