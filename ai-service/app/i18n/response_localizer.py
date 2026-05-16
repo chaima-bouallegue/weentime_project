@@ -45,12 +45,27 @@ def _template_key(response: AgentResponse) -> str | None:
     if intent == "attendance.unknown":
         return "ask.attendance.choice"
     if intent == "leave.create":
+        if "type" in text:
+            return "ask.type.leave"
         if "date" in text:
             return "ask.date.leave"
         if "motif" in text:
             return "ask.reason.leave"
-    if intent == "authorization.create" and "date" in text:
-        return "ask.date.authorization"
+    if intent == "authorization.create":
+        if "type" in text:
+            return "ask.type.authorization"
+        if "heures" in text or "heure" in text:
+            return "ask.time.authorization"
+        if "date" in text:
+            return "ask.date.authorization"
+        if "motif" in text:
+            return "ask.reason.authorization"
+    if intent == "planning.unavailable":
+        return "unavailable.planning"
+    if intent == "meeting.unavailable":
+        return "unavailable.meeting"
+    if intent == "manager.team_schedule":
+        return "unavailable.team_schedule"
     return None
 
 

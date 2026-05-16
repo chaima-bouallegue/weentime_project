@@ -99,6 +99,18 @@ TN_HINTS = {
     "khirja",
     "dok",
     "taw",
+    # Possessives — "I have" colloquial forms used in "aandi reunion?",
+    # "andi rdv", "3andi reunion".
+    "aandi",
+    "andi",
+    "3andi",
+    "i7awejli",
+    # Verb forms common in slot-filling prompts.
+    "naamel",
+    "naamela",
+    "nzid",
+    "nchouf",
+    "tasrih",
 }
 
 
