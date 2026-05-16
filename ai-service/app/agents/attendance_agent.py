@@ -25,6 +25,9 @@ class AttendanceAgent(DomainAgent):
 
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
         intent, confidence = self.detect_intent(message, context)
+        if intent == "attendance.forgot_checkout":
+            result = await self.executor.execute("get_pointage_status", {}, context)
+            return self._forgot_checkout_response(result, confidence)
         if intent == "attendance.status":
             result = await self.executor.execute("get_pointage_status", {}, context)
             return self._status_response(result, confidence)
@@ -51,6 +54,39 @@ class AttendanceAgent(DomainAgent):
             return "attendance.unknown", 0.0
 
         has_attendance_word = any(term in text for term in ("pointage", "pointe", "pointer", "presence", "present", "attendance"))
+        # Forgot-checkout — must run BEFORE the generic check_out branch
+        # because "j'ai oublié de pointer la sortie" contains "sortie" and
+        # would otherwise create a confirmation for a fresh check_out instead
+        # of answering the question "did I forget checkout?".
+        #
+        # We also check the ORIGINAL message (pre-router-rewrite) because the
+        # upstream multilingual matcher may collapse the user's text to a
+        # canonical "pointer ma sortie" via CHECK_OUT detection, dropping the
+        # "oublié" context. The router stashes the raw text in metadata.
+        forgot_markers = (
+            # EN
+            "did i forget checkout", "did i forget to check out",
+            "forgot checkout", "forgot to check out",
+            "did i forget my checkout", "forgot to clock out",
+            # FR
+            "oublie de pointer la sortie", "oublie la sortie",
+            "ai-je oublie la sortie", "j ai oublie la sortie",
+            "j ai oublie de pointer la sortie",
+            "ai je oublie la sortie", "oublier sortie",
+            "j'ai oublie", "ai-je oublie",
+            # TN
+            "nsit nkharej", "nsit nkharaj", "nsit el khrouj",
+            # AR
+            "نسيت تسجيل الخروج", "نسيت الخروج",
+        )
+        original_normalized = ""
+        if context is not None and isinstance(context.metadata, dict):
+            original_value = context.metadata.get("original_text") or context.metadata.get("normalized_text")
+            if isinstance(original_value, str) and original_value:
+                original_normalized = self._normalize(original_value)
+        haystack = f"{text}\n{original_normalized}" if original_normalized else text
+        if any(marker in haystack for marker in forgot_markers):
+            return "attendance.forgot_checkout", 0.93
         if any(term in text for term in ("je veux pointer", "veux pointer", "souhaite pointer", "nheb npointi", "npointi", "أريد تسجيل الحضور", "اريد تسجيل الحضور")):
             return "attendance.unknown", 0.91
         if any(term in text for term in ("pointer mon entree", "pointe mon entree", "check in", "check me in", "clock in", "arrivee", "j arrive", "je commence", "checked in")):
@@ -101,6 +137,51 @@ class AttendanceAgent(DomainAgent):
             requiresConfirmation=True,
             confirmationId=record.confirmation_id,
             toolCalls=[ToolCallRecord(name=tool_name, arguments={}, status="pending_confirmation")],
+        )
+
+    def _forgot_checkout_response(self, result: ToolResult, confidence: float) -> AgentResponse:
+        if not result.success:
+            return compose_tool_error("attendance.forgot_checkout", result)
+        data = result.data if isinstance(result.data, dict) else {}
+        check_in = data.get("checkIn") or data.get("check_in") or data.get("heureEntree") or data.get("entryTime")
+        check_out = data.get("checkOut") or data.get("check_out") or data.get("heureSortie") or data.get("exitTime")
+        active = data.get("active") or data.get("sessionOpen") or data.get("activeSession")
+        status = data.get("status") or data.get("sessionStatus") or data.get("etat") or data.get("state")
+
+        if not check_in:
+            text = "Vous n'avez pas pointe l'entree aujourd'hui, il n'y a donc pas de sortie a rappeler."
+            outcome = "no_check_in"
+        elif check_out:
+            text = f"Non, votre sortie est enregistree a {compact_value(check_out)} (entree {compact_value(check_in)})."
+            outcome = "checked_out"
+        elif active is True or (status and str(status).upper() in {"ACTIVE", "CHECKED_IN"}):
+            text = (
+                f"Oui, vous avez pointe l'entree a {compact_value(check_in)} mais la sortie n'est pas encore enregistree. "
+                "Voulez-vous pointer la sortie maintenant ?"
+            )
+            outcome = "missing_check_out"
+        else:
+            text = (
+                f"Pointage du jour : entree {compact_value(check_in)}, sortie {compact_value(check_out)}. "
+                "Verifiez aupres de votre manager si une regularisation est necessaire."
+            )
+            outcome = "uncertain"
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent="attendance.forgot_checkout",
+            confidence=confidence,
+            toolCalls=[ToolCallRecord(name="get_pointage_status", status="success")],
+            actionResult={
+                "kind": "read_result",
+                "toolName": "get_pointage_status",
+                "summary": text,
+                "items": [
+                    {"checkIn": check_in, "checkOut": check_out, "active": active, "status": status, "outcome": outcome}
+                ],
+                "count": 1,
+                "data": data,
+            },
         )
 
     def _status_response(self, result: ToolResult, confidence: float) -> AgentResponse:
