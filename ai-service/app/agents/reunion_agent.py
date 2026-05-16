@@ -38,15 +38,17 @@ class ReunionAgent(DomainAgent):
 
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
         intent, confidence = self.detect_intent(message, context)
+        if intent == "planning.unavailable":
+            return self._planning_unavailable(confidence)
         if intent == "reunion.next":
             result = await self.executor.execute("reunion.next", {}, context)
             if not result.success:
-                return self._capability_unavailable(confidence, result)
+                return self._meeting_unavailable(confidence, result)
             return self._answer_response(result, "reunion.next", confidence)
         if intent == "reunion.list_mine":
             result = await self.executor.execute("reunion.list_mine", {}, context)
             if not result.success:
-                return self._capability_unavailable(confidence, result)
+                return self._meeting_unavailable(confidence, result)
             return self._answer_response(result, "reunion.list_mine", confidence)
         return AgentResponse(
             type="ask",
@@ -58,7 +60,7 @@ class ReunionAgent(DomainAgent):
             confidence=confidence,
         )
 
-    def _capability_unavailable(self, confidence: float, result: ToolResult) -> AgentResponse:
+    def _meeting_unavailable(self, confidence: float, result: ToolResult) -> AgentResponse:
         # When the reunion backend is not reachable (404 / 401 / 403 / 5xx) we
         # answer with a deterministic capability_unavailable instead of letting
         # the response surface a tool error — ResponseGuard whitelists
@@ -82,6 +84,30 @@ class ReunionAgent(DomainAgent):
             },
         )
 
+    def _planning_unavailable(self, confidence: float) -> AgentResponse:
+        # Planning / horaires is its own backend module (HoraireController);
+        # the agent doesn't have a friendly "today's schedule" tool wired up
+        # yet, so we return a planning-specific message instead of the meeting
+        # one — otherwise a "c quoi mon planning" prompt incorrectly blamed
+        # the reunion module.
+        text = (
+            "Le module planning / horaires n'est pas encore connecte a l'agent IA. "
+            "Consultez votre planning depuis l'onglet 'Planning' de l'application; "
+            "je peux toujours vous aider sur le pointage, les conges, le teletravail "
+            "ou les autorisations."
+        )
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent="planning.unavailable",
+            confidence=confidence,
+            actionResult={
+                "kind": "capability_unavailable",
+                "capability": "planning",
+                "reason": "tool_not_wired",
+            },
+        )
+
     def detect_intent(
         self,
         message: str,
@@ -96,13 +122,17 @@ class ReunionAgent(DomainAgent):
         if not (mentions_meeting or mentions_planning):
             return "reunion.unknown", 0.0
 
+        # Planning-only (no meeting words) — route to a planning-specific
+        # capability_unavailable. The reunion backend is the wrong target for
+        # "c quoi mon planning" / "mes horaires aujourd'hui" — those are
+        # served by HoraireController, which we don't have a friendly tool
+        # for yet.
+        if mentions_planning and not mentions_meeting:
+            return "planning.unavailable", 0.9
+
         # Next-meeting cues come before list — "ma prochaine reunion" is more specific than "mes reunions".
         if _has_any(text, _NEXT_CUES):
             return "reunion.next", 0.9
-
-        # "c quoi mon planning" / "what is my schedule today" → treat as listing today's meetings.
-        if mentions_planning and _has_any(text, _MY_CUES + ("today", "aujourd hui", "ghodwa", "demain", "اليوم", "غدا")):
-            return "reunion.list_mine", 0.84
 
         if mentions_meeting and _has_any(text, _MY_CUES):
             return "reunion.list_mine", 0.86
@@ -173,11 +203,14 @@ _NEXT_CUES = (
 _MY_CUES = (
     # FR / TN
     "mes", "ma", "mon",
+    # FR yes/no question forms — "est ce que jai", "ai je", "ai-je"
+    "est ce que jai", "est-ce que jai", "est ce que j ai", "est-ce que j ai",
+    "ai je", "ai-je", "j ai", "j'ai",
     # EN — deliberately omit bare "i" because it substring-matches "j'ai" /
     # "rdv" / "médical" and would steal authorization-reason messages.
     "my", "i have", "do i",
     # TN colloquial variants — "aandi" / "3andi" / "andi" all mean "I have"
-    "andi", "aandi", "3andi", "i7awejli", "yest ce que jai",
+    "andi", "aandi", "3andi", "i7awejli",
     # AR
     "لي", "عندي",
 )

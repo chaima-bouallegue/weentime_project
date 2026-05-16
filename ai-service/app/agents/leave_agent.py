@@ -77,6 +77,12 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
                     intent=intent,
                     confidence=confidence,
                 )
+            # Specific leave types ARE their own reason — never re-prompt a user
+            # who already said "conge maladie / maternite / sans solde" etc.
+            if not payload.get("reason"):
+                inferred = _reason_from_leave_type(payload.get("leave_type_label"))
+                if inferred:
+                    payload["reason"] = inferred
             if not payload.get("reason"):
                 return AgentResponse(
                     type="ask",
@@ -135,3 +141,22 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
         if has_any(text, ("je veux", "demande", "demander", "prendre", "create", "request", "want", "need", "tomorrow", "demain")):
             return "leave.create", 0.9
         return "leave.list", 0.65
+
+
+def _reason_from_leave_type(leave_type_label) -> str | None:
+    """Specific leave types ARE their own reason — kept in sync with the
+    same helper in slot_filling._reason_from_leave_type."""
+    label = str(leave_type_label or "").strip().lower()
+    if not label:
+        return None
+    if "maladie" in label or "medical" in label:
+        return "maladie"
+    if "maternite" in label or "maternité" in label:
+        return "maternite"
+    if "paternite" in label or "paternité" in label:
+        return "paternite"
+    if "exceptionnel" in label:
+        return "exceptionnel"
+    if "sans solde" in label:
+        return "sans solde"
+    return None

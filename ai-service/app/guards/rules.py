@@ -63,6 +63,7 @@ SAFE_NO_EVIDENCE_INTENTS = {
     # ("aucune reunion disponible", "non disponible pour votre role", ...).
     "capability.unavailable",
     "planning.unavailable",
+    "planning_horaires.unavailable",
     "meeting.unavailable",
     "meetings.unavailable",
     "reunion.unavailable",

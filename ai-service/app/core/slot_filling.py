@@ -214,6 +214,31 @@ def _merge_leave_fields(fields: dict[str, Any], payload: dict[str, Any], origina
         fields["reason"] = original
     elif "reason" not in fields and _looks_like_reason_followup(original, payload):
         fields["reason"] = original
+    # Sick / medical / specific leave types ARE their own reason — a user who
+    # asks for "conge maladie pour demain" should not be re-prompted for a
+    # motif. Map the known leave-type labels to their canonical reason.
+    if "reason" not in fields:
+        inferred_reason = _reason_from_leave_type(fields.get("leave_type_label"))
+        if inferred_reason:
+            fields["reason"] = inferred_reason
+
+
+def _reason_from_leave_type(leave_type_label: Any) -> str | None:
+    label = str(leave_type_label or "").strip().lower()
+    if not label:
+        return None
+    # Order matters: more specific labels first.
+    if "maladie" in label or "medical" in label:
+        return "maladie"
+    if "maternite" in label or "maternité" in label:
+        return "maternite"
+    if "paternite" in label or "paternité" in label:
+        return "paternite"
+    if "exceptionnel" in label:
+        return "exceptionnel"
+    if "sans solde" in label:
+        return "sans solde"
+    return None
 
 
 def _merge_telework_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
@@ -623,6 +648,16 @@ _ESCAPE_PATTERNS: tuple[tuple[str, ...], ...] = (
         "اجتماع",
         "اجتماعات",
         "جدول",
+    ),
+    # authorization queries — must escape leave/telework flows when a user
+    # pivots to "je veut une autorisation pour 2heures" mid-leave-flow,
+    # otherwise the trailing "pour 2heures" gets merged as the leave reason.
+    # KEEP narrow: only the head-noun "autorisation" / "permission" escapes;
+    # reason-shaped phrases like "rdv medical", "sortie anticipee" must NOT
+    # escape because they're valid motifs INSIDE an authorization flow.
+    (
+        "autorisation",
+        "permission",
     ),
     # admin / system / RH / manager queries
     (
