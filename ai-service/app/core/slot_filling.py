@@ -33,6 +33,15 @@ FLOW_CONFIG: dict[str, dict[str, str]] = {
         "entity_intent": "CREATE_AUTORISATION",
         "tool": "authorization.create_request",
     },
+    # Without this entry, telework follow-ups like "pour demain" after
+    # "je veux un teletravail" lose the pending intent and hit the unsafe
+    # fallback. The telework agent itself replies with type=ask
+    # intent=telework.create, so capture_pending_flow can persist the flow.
+    "telework.create": {
+        "agent": "telework",
+        "entity_intent": "CREATE_TELEWORK",
+        "tool": "telework.create_request",
+    },
     "organisation.create_team": {
         "agent": "organisation",
         "entity_intent": _NO_ENTITY_INTENT,
@@ -164,6 +173,8 @@ def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: Cur
         _merge_leave_fields(fields, payload, original)
     elif flow.intent == "authorization.create":
         _merge_authorization_fields(fields, payload, original)
+    elif flow.intent == "telework.create":
+        _merge_telework_fields(fields, payload, original)
 
 
 def _merge_team_fields(fields: dict[str, Any], original: str) -> None:
@@ -203,6 +214,30 @@ def _merge_leave_fields(fields: dict[str, Any], payload: dict[str, Any], origina
         fields["reason"] = original
     elif "reason" not in fields and _looks_like_reason_followup(original, payload):
         fields["reason"] = original
+
+
+def _merge_telework_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
+    fields["raw_last_message"] = original
+    for key in ("start_date", "end_date", "date_precision", "telework_type", "telework_period"):
+        if payload.get(key):
+            fields[key] = payload[key]
+    if not fields.get("telework_type"):
+        inferred = _infer_telework_type_from_text(original)
+        if inferred:
+            fields["telework_type"] = inferred
+    if payload.get("reason"):
+        fields["reason"] = payload["reason"]
+
+
+def _infer_telework_type_from_text(text: str) -> str | None:
+    lower = (text or "").lower()
+    if any(term in lower for term in ("matin", "morning")):
+        return "DEMI_JOURNEE_MATIN"
+    if any(term in lower for term in ("apres midi", "après midi", "afternoon")):
+        return "DEMI_JOURNEE_APRES_MIDI"
+    if any(term in lower for term in ("semaine", "week")):
+        return "SEMAINE_COMPLETE"
+    return None
 
 
 def _merge_authorization_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
@@ -246,6 +281,13 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
         if not fields.get("reason"):
             missing.append("reason")
         return missing
+    if flow.intent == "telework.create":
+        missing = []
+        if not fields.get("start_date") or not fields.get("end_date") or fields.get("date_precision") == "month_inferred":
+            missing.append("date")
+        if not fields.get("telework_type"):
+            missing.append("type")
+        return missing
     if flow.intent == "organisation.create_team":
         missing = []
         if not fields.get("name"):
@@ -282,6 +324,12 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
         if field == "type":
             return "Quel type d'autorisation souhaitez-vous demander ? Par exemple: sortie anticipee, arrivee tardive ou absence temporaire."
         return "Quel motif souhaitez-vous indiquer pour cette autorisation ?"
+    if intent == "telework.create":
+        if field == "date":
+            return "Pour quelle date souhaitez-vous demander le teletravail ?"
+        if field == "type":
+            return "Souhaitez-vous une journee complete, une matinee, un apres-midi ou une semaine complete ?"
+        return "Pouvez-vous preciser cette information ?"
     if intent == "organisation.create_team":
         if field == "name":
             return "Comment souhaitez-vous nommer cette equipe ?"
@@ -323,6 +371,14 @@ def _tool_input(flow: PendingConversationFlow) -> dict[str, Any]:
             "time_start": fields["time_start"],
             "time_end": fields["time_end"],
             "authorization_type": fields.get("authorization_type"),
+            "reason": fields.get("reason"),
+        }
+    if flow.intent == "telework.create":
+        return {
+            "start_date": fields["start_date"],
+            "end_date": fields["end_date"],
+            "telework_type": fields.get("telework_type"),
+            "period": fields.get("telework_period"),
             "reason": fields.get("reason"),
         }
     if flow.intent == "organisation.create_team":
@@ -386,6 +442,10 @@ def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[s
         return LeaveRiskAnalyzer.build_confirmation_text(base, analysis)
     if intent == "authorization.create":
         return f"Confirmez-vous cette demande d'autorisation pour le {tool_input.get('request_date')} {_time_label(tool_input)} ?"
+    if intent == "telework.create":
+        type_label = tool_input.get("telework_type") or "JOURNEE_COMPLETE"
+        date_label = tool_input.get("start_date") or "la date demandee"
+        return f"Confirmez-vous cette demande de teletravail ({type_label}) pour le {date_label} ?"
     if intent == "organisation.create_team":
         return (
             f"Confirmez-vous la creation de l'equipe '{tool_input.get('nom')}' "
@@ -458,6 +518,12 @@ def _add_hours(time_value: str, hours: float) -> str | None:
 _FLOW_DOMAIN_TERMS = {
     "leave.create": ("conge", "congé", "congÃ©", "leave", "vacance", "absence"),
     "authorization.create": ("autorisation", "permission"),
+    # Telework follow-ups are usually date-only ("pour demain", "ghodwa") with
+    # no telework keyword. The escape patterns include telework terms, so we
+    # don't need to repeat them — but listing core terms here means a user can
+    # say "teletravail aussi" without escaping. Date-only follow-ups carry no
+    # escape match and stay in the flow.
+    "telework.create": ("teletravail", "télétravail", "telework", "remote", "wfh"),
     # Org-create flows: keep the flow alive when the user is still talking
     # about teams/departments (e.g. "in departement 5", "code TECH").
     "organisation.create_team": ("equipe", "team", "departement", "department", "dept"),

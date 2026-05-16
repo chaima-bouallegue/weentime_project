@@ -40,9 +40,13 @@ class ReunionAgent(DomainAgent):
         intent, confidence = self.detect_intent(message, context)
         if intent == "reunion.next":
             result = await self.executor.execute("reunion.next", {}, context)
+            if not result.success:
+                return self._capability_unavailable(confidence, result)
             return self._answer_response(result, "reunion.next", confidence)
         if intent == "reunion.list_mine":
             result = await self.executor.execute("reunion.list_mine", {}, context)
+            if not result.success:
+                return self._capability_unavailable(confidence, result)
             return self._answer_response(result, "reunion.list_mine", confidence)
         return AgentResponse(
             type="ask",
@@ -52,6 +56,30 @@ class ReunionAgent(DomainAgent):
             ),
             intent="reunion.unknown",
             confidence=confidence,
+        )
+
+    def _capability_unavailable(self, confidence: float, result: ToolResult) -> AgentResponse:
+        # When the reunion backend is not reachable (404 / 401 / 403 / 5xx) we
+        # answer with a deterministic capability_unavailable instead of letting
+        # the response surface a tool error — ResponseGuard whitelists
+        # capability_unavailable, so the user gets the explanation rather than
+        # fallback.guard_rejected.
+        text = (
+            "La gestion des reunions n'est pas encore disponible dans ce contexte. "
+            "Vous pouvez consulter vos demandes RH, votre pointage, vos conges, "
+            "votre teletravail ou vos autorisations."
+        )
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent="meeting.unavailable",
+            confidence=confidence,
+            actionResult={
+                "kind": "capability_unavailable",
+                "capability": "reunion",
+                "reason": result.error_code or "backend_unavailable",
+                "status_code": result.status_code,
+            },
         )
 
     def detect_intent(
@@ -148,8 +176,8 @@ _MY_CUES = (
     # EN — deliberately omit bare "i" because it substring-matches "j'ai" /
     # "rdv" / "médical" and would steal authorization-reason messages.
     "my", "i have", "do i",
-    # TN
-    "andi", "3andi", "i7awejli",
+    # TN colloquial variants — "aandi" / "3andi" / "andi" all mean "I have"
+    "andi", "aandi", "3andi", "i7awejli", "yest ce que jai",
     # AR
     "لي", "عندي",
 )

@@ -12,6 +12,14 @@ from .backend_client import BackendClient
 from .registry import ToolRegistry
 from .result import ToolResult, build_read_result, build_write_result
 
+try:  # Settings is the source of truth for diagnostics (no inventions).
+    from config import get_settings
+except Exception:  # pragma: no cover - defensive import for test scaffolding
+    def get_settings():  # type: ignore[misc]
+        class _Empty:
+            pass
+        return _Empty()
+
 ADMIN_ROLE = {"ADMIN"}
 BUSINESS_ROLES = {"ADMIN", "RH", "MANAGER", "EMPLOYEE"}
 VALID_STATUSES = {"ACTIVE", "INACTIVE", "SUSPENDED"}
@@ -20,6 +28,10 @@ VALID_STATUSES = {"ACTIVE", "INACTIVE", "SUSPENDED"}
 class PageInput(BaseModel):
     page: int = Field(default=0, ge=0)
     size: int = Field(default=50, ge=1, le=100)
+
+
+class EmptyAdminInput(BaseModel):
+    pass
 
 
 class CreateUserInput(BaseModel):
@@ -160,6 +172,50 @@ class AdminTools:
                 allowed_roles=ADMIN_ROLE,
             ),
             self.system_health,
+        )
+        registry.register(
+            ToolDefinition(
+                name="admin.provider_status",
+                description="Retourne l'etat configure du fournisseur LLM (Ollama / disabled / cloud).",
+                input_model=EmptyAdminInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ADMIN_ROLE,
+            ),
+            self.provider_status,
+        )
+        registry.register(
+            ToolDefinition(
+                name="admin.redis_status",
+                description="Retourne l'etat configure de Redis pour les evenements temps-reel.",
+                input_model=EmptyAdminInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ADMIN_ROLE,
+            ),
+            self.redis_status,
+        )
+        registry.register(
+            ToolDefinition(
+                name="admin.braintrust_status",
+                description="Retourne l'etat configure de Braintrust (observabilite).",
+                input_model=EmptyAdminInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ADMIN_ROLE,
+            ),
+            self.braintrust_status,
+        )
+        registry.register(
+            ToolDefinition(
+                name="admin.rag_status",
+                description="Retourne l'etat configure du RAG (ChromaDB ou fallback local).",
+                input_model=EmptyAdminInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ADMIN_ROLE,
+            ),
+            self.rag_status,
         )
 
     async def list_users(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
@@ -302,29 +358,170 @@ class AdminTools:
         )
 
     async def system_health(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        # In chatbot_public_context mode we have no backend token, so the
+        # gateway probe would 401 and shadow the local config view. Report
+        # only on what we can introspect deterministically: process mode +
+        # local toggles. Real backend reachability lives in /v2/health.
+        from_chatbot_context = (
+            isinstance(context.metadata, dict)
+            and context.metadata.get("chatbot_public_context") is True
+        )
+        if from_chatbot_context:
+            return self._local_system_health()
         profile = await self.backend_client.get("/users/me", context=context)
         if not profile.success:
             return _read_failure("admin.system_health", profile, "La verification systeme minimale est indisponible.")
+        settings = _safe_settings()
         item = {
             "service": "gateway/organisation",
             "status": "reachable",
             "authenticatedRole": context.role,
             "tenantId": context.tenant_id,
         }
+        components = [item, *_local_component_items(settings)]
         return ToolResult.ok(
             {
                 "read_result": build_read_result(
                     tool_name="admin.system_health",
                     summary="Gateway et organisation-service repondent pour l'utilisateur admin authentifie.",
-                    items=[item],
-                    count=1,
-                    data={"profileAvailable": True, "scope": "minimal"},
+                    items=components,
+                    count=len(components),
+                    data={
+                        "kind": "system_health_report",
+                        "profileAvailable": True,
+                        "scope": "gateway_plus_local",
+                        "components": components,
+                    },
                     backend_status=profile.status_code,
                     empty=False,
                 )
             },
             warnings=profile.warnings,
             status_code=profile.status_code,
+        )
+
+    def _local_system_health(self) -> ToolResult:
+        settings = _safe_settings()
+        components = _local_component_items(settings)
+        summary = "Etat systeme local (mode chatbot public) : " + ", ".join(
+            f"{c['service']}={c['status']}" for c in components
+        )
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="admin.system_health",
+                    summary=summary,
+                    items=components,
+                    count=len(components),
+                    data={
+                        "kind": "system_health_report",
+                        "scope": "local_only",
+                        "components": components,
+                    },
+                    backend_status=None,
+                    empty=False,
+                )
+            },
+        )
+
+    async def provider_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        settings = _safe_settings()
+        mode = str(getattr(settings, "ai_provider_mode", "disabled") or "disabled").strip().lower()
+        item = {
+            "service": "ai_provider",
+            "mode": mode,
+            "status": "configured" if mode != "disabled" else "disabled",
+            "model": str(getattr(settings, "ai_provider_model", "") or ""),
+            "ollamaBaseUrl": str(getattr(settings, "ollama_base_url", "") or ""),
+            "ollamaModel": str(getattr(settings, "ollama_model", "") or ""),
+            "fallbackModel": str(getattr(settings, "ollama_fallback_model", "") or ""),
+        }
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="admin.provider_status",
+                    summary=f"Fournisseur IA configure en mode '{mode}' (modele {item['model'] or item['ollamaModel'] or 'n/a'}).",
+                    items=[item],
+                    count=1,
+                    data={"kind": "provider_status_report", "provider": item},
+                )
+            },
+        )
+
+    async def redis_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        settings = _safe_settings()
+        enabled = bool(getattr(settings, "redis_enabled", False))
+        url = str(getattr(settings, "redis_url", "") or "")
+        item = {
+            "service": "redis",
+            "enabled": enabled,
+            "status": "enabled" if enabled else "disabled",
+            "channel": str(getattr(settings, "redis_ai_events_channel", "") or ""),
+            "url": _mask_url(url),
+        }
+        summary = "Redis active." if enabled else "Redis desactive (les evenements temps-reel utilisent le bus en memoire)."
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="admin.redis_status",
+                    summary=summary,
+                    items=[item],
+                    count=1,
+                    data={"kind": "redis_status_report", "redis": item},
+                )
+            },
+        )
+
+    async def braintrust_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        settings = _safe_settings()
+        enabled = bool(getattr(settings, "braintrust_enabled", False))
+        item = {
+            "service": "braintrust",
+            "enabled": enabled,
+            "status": "enabled" if enabled else "disabled",
+            "project": str(getattr(settings, "braintrust_project_name", "") or ""),
+            "apiKeyConfigured": bool(getattr(settings, "braintrust_api_key", None)),
+            "env": str(getattr(settings, "braintrust_env", "") or ""),
+        }
+        summary = "Braintrust active." if enabled else "Braintrust desactive (aucune trace n'est exportee)."
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="admin.braintrust_status",
+                    summary=summary,
+                    items=[item],
+                    count=1,
+                    data={"kind": "braintrust_status_report", "braintrust": item},
+                )
+            },
+        )
+
+    async def rag_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        settings = _safe_settings()
+        chroma_enabled = bool(getattr(settings, "chroma_enabled", False))
+        item = {
+            "service": "rag",
+            "provider": str(getattr(settings, "rag_provider", "") or ""),
+            "chromaEnabled": chroma_enabled,
+            "status": "chroma" if chroma_enabled else "local_keyword",
+            "collection": str(getattr(settings, "chroma_collection_name", "") or ""),
+            "embeddingModel": str(getattr(settings, "chroma_embedding_model", "") or ""),
+            "requireCitations": bool(getattr(settings, "rag_require_citations", True)),
+        }
+        summary = (
+            "RAG ChromaDB active." if chroma_enabled
+            else "RAG en mode local (mots-cles), aucune base vectorielle active."
+        )
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="admin.rag_status",
+                    summary=summary,
+                    items=[item],
+                    count=1,
+                    data={"kind": "rag_status_report", "rag": item},
+                )
+            },
         )
 
 
@@ -509,6 +706,58 @@ def _misconfiguration(user: dict[str, Any]) -> dict[str, Any] | None:
         "role": role or None,
         "issues": issues,
     }
+
+
+def _safe_settings() -> Any:
+    try:
+        return get_settings()
+    except Exception:  # pragma: no cover - defensive
+        class _Empty:
+            pass
+        return _Empty()
+
+
+def _mask_url(url: str) -> str:
+    # Never echo credentials embedded in a Redis URL — ResponseGuard's
+    # SecretLeakRule would reject the response anyway, but masking here is
+    # defence-in-depth.
+    if not url:
+        return ""
+    if "@" in url:
+        scheme, rest = url.split("://", 1) if "://" in url else ("", url)
+        creds_and_host = rest.split("@", 1)
+        if len(creds_and_host) == 2:
+            host = creds_and_host[1]
+            return f"{scheme}://***@{host}" if scheme else f"***@{host}"
+    return url
+
+
+def _local_component_items(settings: Any) -> list[dict[str, Any]]:
+    provider_mode = str(getattr(settings, "ai_provider_mode", "disabled") or "disabled")
+    return [
+        {
+            "service": "ai_provider",
+            "status": "configured" if provider_mode != "disabled" else "disabled",
+            "mode": provider_mode,
+            "model": str(getattr(settings, "ai_provider_model", "") or ""),
+        },
+        {
+            "service": "redis",
+            "status": "enabled" if getattr(settings, "redis_enabled", False) else "disabled",
+        },
+        {
+            "service": "braintrust",
+            "status": "enabled" if getattr(settings, "braintrust_enabled", False) else "disabled",
+        },
+        {
+            "service": "rag",
+            "status": "chroma" if getattr(settings, "chroma_enabled", False) else "local_keyword",
+        },
+        {
+            "service": "chatbot_public_mode",
+            "status": "enabled" if getattr(settings, "chatbot_public_mode", False) else "disabled",
+        },
+    ]
 
 
 def _extract_name_and_email(text: str) -> tuple[str | None, str | None]:

@@ -113,10 +113,18 @@ class AttendanceTools:
         return await self.backend_client.get("/presence/me/today", context=context)
 
     async def check_in(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
-        return await self.backend_client.post("/presence/me/check-in", context=context, json={})
+        return await self.backend_client.post(
+            "/presence/me/check-in",
+            context=context,
+            json=_attendance_write_body(context, action="check_in"),
+        )
 
     async def check_out(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
-        return await self.backend_client.post("/presence/me/check-out", context=context, json={})
+        return await self.backend_client.post(
+            "/presence/me/check-out",
+            context=context,
+            json=_attendance_write_body(context, action="check_out"),
+        )
 
     async def get_presence_history(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         data = payload.model_dump()
@@ -148,3 +156,19 @@ def register_attendance_tools(registry: ToolRegistry, backend_client: BackendCli
     tools = AttendanceTools(backend_client)
     tools.register(registry)
     return tools
+
+
+def _attendance_write_body(context: CurrentUserContext, *, action: str) -> dict[str, Any]:
+    # Spring backend (PresenceController) requires `source` on every write —
+    # missing it surfaces as "source: La source est obligatoire". Tag rows the
+    # AI copilot wrote so reporting can distinguish them from manual punches.
+    channel = "chat"
+    if isinstance(context.metadata, dict):
+        candidate = context.metadata.get("channel")
+        if isinstance(candidate, str) and candidate.strip():
+            channel = candidate.strip()
+    return {
+        "source": "AI_CHATBOT",
+        "channel": channel,
+        "action": action,
+    }

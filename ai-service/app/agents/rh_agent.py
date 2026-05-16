@@ -76,6 +76,24 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                 success_text="Les statistiques RH sont disponibles.",
                 confidence=confidence,
             )
+        if intent == "rh.document_workload":
+            return await self.read_response(
+                tool_name="document.rh_workload",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici la charge documentaire RH.",
+                confidence=confidence,
+            )
+        if intent == "rh.presence_today":
+            return await self.read_response(
+                tool_name="get_team_presence",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici la presence entreprise aujourd'hui.",
+                confidence=confidence,
+            )
         if intent == "rh.all_requests":
             return await self._read_rh_requests(context, intent=intent, confidence=confidence)
 
@@ -154,11 +172,23 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         # to the legacy/LLM path and the guard rejects it as unsafe_response.
         if _wants_user_creation(text):
             return "rh.create_user_unavailable", 0.92
-        if not has_any(text, ("rh", "stats", "statistiques", "kpi", "toutes les demandes", "process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette", "validation")):
+        # Presence aujourd'hui — RH-scoped company presence. We accept the
+        # prompt with or without the "rh" keyword because the message comes
+        # from the RH chatbot widget (role is already known).
+        if has_any(text, ("presence aujourd", "présence aujourd", "presence today", "presence d'aujourd")):
+            return "rh.presence_today", 0.92
+        # Document workload — explicit RH dashboard prompt.
+        if (("document" in text or "documents" in text) and has_any(text, ("workload", "charge", "backlog", "en attente"))):
+            return "rh.document_workload", 0.92
+        if not has_any(text, ("rh", "stats", "statistiques", "kpi", "toutes les demandes", "process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "pending", "backlog")):
             return None, 0.0
         if has_any(text, ("stats", "statistiques", "kpi")):
             return "rh.stats", 0.9
-        if has_any(text, ("toutes les demandes", "all requests", "demandes rh", "backlog", "validation", "en attente")) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
+        # "Pending validations", "RH backlog" — backlog aggregate. Listed
+        # before the generic validation branch so it stays high-confidence.
+        if has_any(text, ("backlog", "pending validations", "validations en attente", "toutes les demandes", "all requests", "demandes rh", "en attente")) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
+            return "rh.all_requests", 0.93
+        if has_any(text, ("validation",)) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
             return "rh.all_requests", 0.84
         if has_any(text, ("process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette")):
             return "rh.process", 0.91

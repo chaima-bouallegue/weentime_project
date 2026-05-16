@@ -43,7 +43,24 @@ SAFE_NO_EVIDENCE_INTENTS = {
     "leave.create.cancelled",
     "authorization.create.cancelled",
     "authorization.cancelled",
+    "telework.create.cancelled",
+    "telework.cancelled",
     "conversation.explain_last_error",
+    # Capability-unavailable answers carry deterministic text + a
+    # capability_unavailable action; they must never be downgraded to an
+    # unsafe fallback even when their text mentions HR-flavoured terms
+    # ("aucune reunion disponible", "non disponible pour votre role", ...).
+    "capability.unavailable",
+    "planning.unavailable",
+    "meeting.unavailable",
+    "meetings.unavailable",
+    "reunion.unavailable",
+    "rh.create_user_unavailable",
+    "rh.organisation_assignment_unavailable",
+    "admin.create_user_unavailable",
+    "admin.assign_user_unavailable",
+    "authorization.info",
+    "authorization.types",
 }
 
 
@@ -336,6 +353,25 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
         "approval_lookup",
         "approval_confirmation",
         "capability_unavailable",
+        # Greetings + capability hints come from deterministic agents, not LLM
+        # invention. Their text is template-driven, so HR-keyword false
+        # positives must not produce fallback.guard_rejected.
+        "greeting",
+        "capability_hint",
+        # Admin diagnostics — produced by AdminTools.* status tools fed by
+        # local checks (Settings, ProviderRouter health, Redis/Braintrust
+        # toggles). They report tool-backed status, not LLM claims.
+        "system_health_report",
+        "provider_status_report",
+        "redis_status_report",
+        "braintrust_status_report",
+        "rag_status_report",
+        "diagnostics_summary",
+        # Slot-filling intermediate state and confirmation summaries are also
+        # deterministic, not LLM-invented.
+        "slot_filling",
+        "confirmation_summary",
+        "confirmation_result",
     }:
         return True
 

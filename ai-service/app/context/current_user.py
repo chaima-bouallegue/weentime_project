@@ -25,6 +25,12 @@ class CurrentUserContext:
 
     @property
     def is_verified(self) -> bool:
+        # Chatbot public context: no JWT but the role/user/entreprise came from
+        # UI metadata. ToolRegistry treats it as verified so role-based
+        # permission checks (NOT identity checks) keep gating tool calls; write
+        # tools still require explicit confirmation through the standard flow.
+        if self.metadata.get("chatbot_public_context") is True:
+            return True
         if self.metadata.get("jwt_verified") is False:
             return False
         if self.metadata.get("jwt_verified") is True:

@@ -26,7 +26,8 @@ DEFAULT_ROLE = "EMPLOYEE"
 DEFAULT_USER_ID = 1
 DEFAULT_ENTREPRISE_ID = 1
 DEFAULT_LANGUAGE = "fr"
-ANONYMOUS_SOURCE = "anonymous_chatbot_demo"
+ANONYMOUS_SOURCE = "chatbot_metadata"
+LEGACY_ANONYMOUS_SOURCE = "anonymous_chatbot_demo"
 
 
 def _read_int(meta: Mapping[str, Any], *keys: str, default: int) -> int:
@@ -114,7 +115,12 @@ def build_chatbot_context_from_metadata(
         locale=locale,
         language=resolved_language,
         metadata={
-            "jwt_verified": True,
+            # Public-chatbot trust model: the JWT was NOT verified — the role/
+            # user/entreprise came from request metadata and the UI vouches for
+            # them. ToolRegistry honours this via chatbot_public_context.
+            "jwt_verified": False,
+            "role_verified_from_ui": True,
+            "chatbot_public_context": True,
             "anonymous_chatbot": True,
             "source": ANONYMOUS_SOURCE,
             "channel": channel,

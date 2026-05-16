@@ -41,6 +41,23 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             return await self._read("admin.misconfigured_users", {}, context, intent, "Voici les utilisateurs potentiellement mal configures.", confidence)
         if intent == "admin.system_health":
             return await self._read("admin.system_health", {}, context, intent, "Etat systeme minimal disponible.", confidence)
+        if intent == "admin.provider_status":
+            return await self._read("admin.provider_status", {}, context, intent, "Etat du fournisseur IA.", confidence)
+        if intent == "admin.redis_status":
+            return await self._read("admin.redis_status", {}, context, intent, "Etat Redis.", confidence)
+        if intent == "admin.braintrust_status":
+            return await self._read("admin.braintrust_status", {}, context, intent, "Etat Braintrust.", confidence)
+        if intent == "admin.rag_status":
+            return await self._read("admin.rag_status", {}, context, intent, "Etat RAG.", confidence)
+        if intent == "admin.tenant_issues":
+            return await self._read(
+                "admin.misconfigured_users",
+                {},
+                context,
+                intent,
+                "Voici les problemes de configuration tenant detectes.",
+                confidence,
+            )
         if intent == "admin.summary":
             return await self._summary(context, intent=intent, confidence=confidence)
         if intent == "admin.create_user":
@@ -118,11 +135,25 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             return "admin.assign_rh", 0.91
         if any(term in text for term in ("mal configure", "mal configures", "misconfigured")):
             return "admin.misconfigured_users", 0.91
+        if any(term in text for term in ("tenant configuration", "configuration tenant", "tenant issues", "configuration entreprise")):
+            return "admin.tenant_issues", 0.93
+        if any(term in text for term in ("ai provider", "fournisseur ia", "provider status", "etat provider", "etat du provider")):
+            return "admin.provider_status", 0.93
+        if "redis" in text and any(term in text for term in ("status", "etat", "sante", "health")):
+            return "admin.redis_status", 0.93
+        if "redis" in text:
+            return "admin.redis_status", 0.88
+        if "braintrust" in text:
+            return "admin.braintrust_status", 0.93
+        if "rag" in text or "chroma" in text:
+            return "admin.rag_status", 0.9
         if any(term in text for term in ("utilisateurs", "users", "show users", "liste users")):
             return "admin.list_users", 0.88
         if any(term in text for term in ("entreprises", "companies", "company list")):
             return "admin.list_enterprises", 0.88
-        if any(term in text for term in ("health", "sante", "sante systeme", "etat systeme")):
+        if any(term in text for term in ("system health", "sante systeme", "santé système", "etat systeme")):
+            return "admin.system_health", 0.93
+        if any(term in text for term in ("health", "sante")):
             return "admin.system_health", 0.86
         if any(term in text for term in ("resume systeme", "system summary", "dashboard admin", "systeme", "que dois-je verifier")):
             return "admin.summary", 0.97

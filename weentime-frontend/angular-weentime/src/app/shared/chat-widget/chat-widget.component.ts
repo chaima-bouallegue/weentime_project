@@ -186,6 +186,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           'Document workload',
           'RH stats',
           'Presence aujourd\'hui',
+          'Affecter employé équipe',
         ];
       case 'ADMIN':
         return [
@@ -194,6 +195,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           'Tenant configuration issues',
           'Redis status',
           'Braintrust status',
+          'Create user',
         ];
       default:
         return [
@@ -202,6 +204,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           'Did I forget checkout?',
           'Request a document',
           'Check my pointage',
+          'My meetings',
         ];
     }
   });

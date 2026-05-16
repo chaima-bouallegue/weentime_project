@@ -154,7 +154,12 @@ export class AiCopilotService {
     this.debugRequest('chat.confirm', requestId);
     const user = this.authService.currentUser();
     const role = this.resolveRole(user);
-    const metadata: Record<string, unknown> = { channel: 'chat' };
+    const metadata: Record<string, unknown> = {
+      channel: 'chat',
+      language: resolvePreferredAiLanguage(
+        typeof navigator !== 'undefined' ? navigator.language : null,
+      ),
+    };
     if (role) {
       metadata['role'] = role;
     }

@@ -61,6 +61,23 @@ class AttendanceAgent(DomainAgent):
             return "attendance.week_hours", 0.88
         if any(term in text for term in ("equipe", "team")) and any(term in text for term in ("retard", "present", "absent", "presence")):
             return "attendance.team_presence", 0.88
+        # Collective presence prompts ("presence aujourd'hui", "presence equipe")
+        # only make sense for roles with team/company visibility. Without a role
+        # check we'd route an Employee's "presence aujourd'hui" here and the
+        # tool would 403; keep it role-aware.
+        role = ((context.role if context is not None else "EMPLOYEE") or "EMPLOYEE").upper().replace("ROLE_", "")
+        if role in {"MANAGER", "RH", "ADMIN"} and any(
+            phrase in text for phrase in (
+                "presence aujourd",
+                "presence du jour",
+                "presence equipe",
+                "pointage equipe",
+                "chkoun ma pointach",
+                "qui est present",
+                "qui est absent",
+            )
+        ):
+            return "attendance.team_presence", 0.92
         if has_attendance_word or re.search(r"\best ce que je suis\b", text):
             return "attendance.status", 0.86
         if any(term in text for term in ("mes heures", "heures travaillees", "heures aujourd")):

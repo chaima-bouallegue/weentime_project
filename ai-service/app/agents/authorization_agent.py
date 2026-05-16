@@ -42,6 +42,30 @@ class AuthorizationAgent(ConfirmationMixin, DomainAgent):
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
         intent, confidence = self.detect_intent(message, context)
         source_text = _source_text(message, context)
+        if intent == "authorization.info":
+            return AgentResponse(
+                type="answer",
+                text=(
+                    "Types d'autorisation disponibles : "
+                    "SORTIE_ANTICIPEE (partir plus tot), "
+                    "ARRIVEE_TARDIVE (arriver en retard), "
+                    "ABSENCE_TEMPORAIRE (s'absenter le temps d'un rendez-vous), "
+                    "et AUTRE (autre cas). "
+                    "Dites par exemple : \"je veux une autorisation demain de 14h a 16h pour rendez-vous medical\"."
+                ),
+                intent="authorization.info",
+                confidence=confidence,
+                actionResult={
+                    "kind": "capability_hint",
+                    "capability": "authorization.types",
+                    "types": [
+                        {"code": "SORTIE_ANTICIPEE", "label": "Sortie anticipee"},
+                        {"code": "ARRIVEE_TARDIVE", "label": "Arrivee tardive"},
+                        {"code": "ABSENCE_TEMPORAIRE", "label": "Absence temporaire"},
+                        {"code": "AUTRE", "label": "Autre"},
+                    ],
+                },
+            )
         if intent == "authorization.list":
             return await self.read_response(
                 tool_name="authorization.list_my_requests",
@@ -133,6 +157,27 @@ class AuthorizationAgent(ConfirmationMixin, DomainAgent):
         text = _source_text(message, context).lower()
         if not has_any(text, AUTHORIZATION_TERMS):
             return None, 0.0
+        # Info / "what authorizations are available?" queries — must NOT
+        # trigger a create flow. Catch FR/EN/TN phrasings that ask about the
+        # set of supported authorization types.
+        if has_any(text, (
+            "c quoi les autorisation",
+            "quelles autorisations",
+            "quels types d'autorisation",
+            "types d'autorisation",
+            "types autorisation",
+            "what authorizations",
+            "what kind of authorizations",
+            "dispo",
+            "disponible",
+            "available",
+            "supportees",
+            "supportés",
+            "supported",
+            "anwa3",
+            "shnowa",
+        )) and not has_any(text, ("je veux", "je souhaite", "je voudrais", "i want", "i need", "nheb", "demander")):
+            return "authorization.info", 0.92
         if has_any(text, ("statut", "status", "suivi", "etat", "état")):
             return "authorization.status", 0.84
         if has_any(text, ("historique", "list", "liste", "mes demandes", "mes autorisations", "show", "montre")):
