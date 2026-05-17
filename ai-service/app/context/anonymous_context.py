@@ -1,8 +1,9 @@
 """Anonymous chatbot context builder for public/demo mode.
 
 This helper is used ONLY by the AI chatbot endpoints (/v2/chat,
-/v2/chat/confirm, /v2/voice) when CHATBOT_PUBLIC_MODE is enabled and the
-incoming request has no valid Authorization header. It builds a minimal
+/v2/chat/confirm, /v2/chat/reset, /v2/voice) when the incoming request has no
+valid Authorization header and either CHATBOT_PUBLIC_MODE is enabled or the
+payload explicitly opts into chatbotPublicContext. It builds a minimal
 CurrentUserContext from request metadata (role, userId, entrepriseId).
 
 Trust model:
@@ -76,11 +77,11 @@ def build_chatbot_context_from_metadata(
 ) -> CurrentUserContext:
     """Build a CurrentUserContext for anonymous public chatbot requests.
 
-    Only invoked by chatbot endpoints when CHATBOT_PUBLIC_MODE=True and the
-    incoming Authorization header is missing or invalid. The returned context
-    is marked verified so ToolRegistry will accept tool calls; the role-based
-    permission checks still apply, and write actions still go through the
-    confirmation flow and ResponseGuard.
+    Only invoked by chatbot endpoints when the incoming Authorization header is
+    missing/invalid and the request is explicitly scoped to chatbot public
+    context. The returned context is marked verified so ToolRegistry will
+    accept role-gated tool calls; the role-based permission checks still apply,
+    and write actions still go through the confirmation flow and ResponseGuard.
     """
     meta: Mapping[str, Any] = metadata or {}
     role = resolve_anonymous_role(

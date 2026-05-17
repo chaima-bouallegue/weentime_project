@@ -16,6 +16,8 @@ must:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 from fastapi.testclient import TestClient
 
 import main
@@ -27,8 +29,10 @@ from app.context.anonymous_context import (
     build_chatbot_context_from_metadata,
 )
 from app.context.context_builder import ContextBuilder
+from app.context.current_user import CurrentUserContext
+from app.core.copilot_engine import ensure_copilot_services
 from app.tools.result import ToolResult
-from jwt_test_utils import TEST_JWT_SECRET
+from jwt_test_utils import TEST_JWT_SECRET, make_token
 
 
 def test_metadata_builds_role_context_with_public_flags() -> None:
@@ -86,10 +90,8 @@ class _FakeBackend:
         return ToolResult.ok({"status": "ACTIVE"})
 
 
-def _prepare_public_mode(client: TestClient, monkeypatch) -> None:
-    # Force public mode on for the duration of the test; resetting copilot
-    # state guarantees a fresh ToolExecutor sees the FakeBackend.
-    monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: True)
+def _prepare_chatbot_state(client: TestClient) -> None:
+    # Resetting copilot state guarantees a fresh ToolExecutor sees FakeBackend.
     client.app.state.ai_v2_ready = False
     client.app.state.ai_v2_backend_client = _FakeBackend()
     client.app.state.copilot_ready = False
@@ -103,6 +105,25 @@ def _prepare_public_mode(client: TestClient, monkeypatch) -> None:
     ):
         if hasattr(client.app.state, attr):
             delattr(client.app.state, attr)
+
+
+def _prepare_public_mode(client: TestClient, monkeypatch) -> None:
+    # Force global public mode on for legacy compatibility tests.
+    monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: True)
+    _prepare_chatbot_state(client)
+
+
+def _public_metadata(**overrides) -> dict:
+    metadata = {
+        "chatbotPublicContext": True,
+        "role": "EMPLOYEE",
+        "userId": 12,
+        "entrepriseId": 9,
+        "channel": "chat",
+        "language": "fr",
+    }
+    metadata.update(overrides)
+    return metadata
 
 
 def test_chat_v2_without_jwt_returns_real_router_response(monkeypatch) -> None:
@@ -161,6 +182,140 @@ def test_chat_v2_metadata_public_context_works_without_global_flag(monkeypatch) 
 
     assert response.status_code == 200, response.text
     assert response.json()["data"]["intent"] == "system.greeting"
+
+
+def test_chat_v2_invalid_jwt_metadata_public_context_falls_back(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_chatbot_state(client)
+        response = client.post(
+            "/v2/chat",
+            headers={"Authorization": "Bearer invalid.jwt.signature"},
+            json={
+                "message": "bonjour",
+                "user_id": 12,
+                "metadata": _public_metadata(),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["intent"] == "system.greeting"
+
+
+def test_chat_v2_valid_jwt_wins_over_public_metadata(monkeypatch) -> None:
+    token = make_token({"userId": 12, "role": "EMPLOYEE", "entrepriseId": 9})
+    captured = {}
+
+    async def _fake_process(user_id, message, access_token, role, *, channel, metadata, context):
+        captured.update(
+            {
+                "user_id": user_id,
+                "access_token": access_token,
+                "role": role,
+                "context": context,
+                "message": message,
+            }
+        )
+        from app.models.agent_models import AgentResponse
+
+        return AgentResponse(type="answer", text="ok", intent="system.greeting", confidence=1.0)
+
+    with TestClient(main.app) as client:
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_chatbot_state(client)
+        monkeypatch.setattr(chat_v2_module, "process_copilot_message", _fake_process)
+        response = client.post(
+            "/v2/chat",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "message": "bonjour",
+                "metadata": _public_metadata(role="ADMIN", userId=99, entrepriseId=77),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert captured["access_token"] == token
+    assert captured["role"] is None
+    assert captured["context"] is None
+    assert captured["user_id"] == 0
+
+
+def test_chat_v2_write_prompt_public_metadata_creates_confirmation(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_chatbot_state(client)
+        response = client.post(
+            "/v2/chat",
+            json={
+                "message": "je viens d'arriver",
+                "user_id": 12,
+                "metadata": _public_metadata(),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["requiresConfirmation"] is True
+    assert data["confirmationId"]
+    assert data["type"] == "confirm_action"
+    assert data["toolCalls"][0]["status"] == "pending_confirmation"
+    assert data["toolCalls"][0]["name"] == "check_in"
+
+
+def test_chat_confirm_public_metadata_uses_metadata_context(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_chatbot_state(client)
+        services = ensure_copilot_services(client.app.state)
+        context = CurrentUserContext(
+            user_id=12,
+            role="EMPLOYEE",
+            entreprise_id=9,
+            metadata={"chatbot_public_context": True},
+        )
+        record = services["confirmation_store"].create(
+            context,
+            "legacy.create_leave_request",
+            {"payload": {"start_date": "2026-05-18", "end_date": "2026-05-18"}},
+        )
+        services["executor"].execute = AsyncMock(return_value=ToolResult.ok({"id": 123}))
+        response = client.post(
+            "/v2/chat/confirm",
+            json={
+                "confirmation_id": record.confirmation_id,
+                "approved": True,
+                "user_id": 12,
+                "metadata": _public_metadata(),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["requiresConfirmation"] is False
+    services["executor"].execute.assert_awaited_once()
+
+
+def test_chat_reset_public_metadata_works_without_global_flag(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_chatbot_state(client)
+        response = client.post(
+            "/v2/chat/reset",
+            json={
+                "message": "",
+                "user_id": 12,
+                "session_id": "ai-01-session",
+                "metadata": _public_metadata(),
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["cleared"] == {"flow": False, "lastError": False}
 
 
 def test_chat_v2_without_jwt_greeting_returns_real_greeting(monkeypatch) -> None:
