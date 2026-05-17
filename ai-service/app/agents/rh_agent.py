@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.context.current_user import CurrentUserContext
@@ -16,7 +17,7 @@ RH_LIST_TOOLS: tuple[tuple[str, str, str], ...] = (
     ("CONGE", "leave.list_rh_pending", "Conges"),
     ("TELETRAVAIL", "telework.list_rh_pending", "Teletravail"),
     ("AUTORISATION", "authorization.list_rh_requests", "Autorisations"),
-    ("DOCUMENT", "document.list_my_requests", "Documents"),
+    ("DOCUMENT", "document.rh_workload", "Documents"),
 )
 
 RH_DECISION_TOOLS: dict[str, tuple[str, str | None, str | None]] = {
@@ -67,6 +68,27 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                     ],
                 },
             )
+        if intent == "rh.organisation_assignment_unavailable":
+            return AgentResponse(
+                type="answer",
+                text=(
+                    "L'affectation d'un utilisateur a une equipe, un departement ou un manager "
+                    "n'est pas encore connectee a un outil RH verifie. Je peux lister les equipes "
+                    "ou departements, ou creer une structure si les informations sont completes."
+                ),
+                intent=intent,
+                confidence=confidence,
+                actionResult={
+                    "kind": "capability_unavailable",
+                    "agent": "RHAgent",
+                    "capability": "rh.organisation_assignment",
+                    "alternatives": [
+                        "liste les equipes",
+                        "liste les departements",
+                        "creer equipe avec departement",
+                    ],
+                },
+            )
         if intent == "rh.stats":
             return await self.read_response(
                 tool_name="rh.get_stats",
@@ -96,6 +118,58 @@ class RHAgent(ConfirmationMixin, DomainAgent):
             )
         if intent == "rh.all_requests":
             return await self._read_rh_requests(context, intent=intent, confidence=confidence)
+
+        if intent == "rh.document_generate":
+            source_text = _source_text(message, context)
+            payload = extract_payload(source_text, "REQUEST_DOCUMENT", context)
+            document_type = payload.get("document_type") or _infer_document_type(source_text)
+            if not document_type:
+                return AgentResponse(
+                    type="ask",
+                    text="Quel type de document RH souhaitez-vous generer ?",
+                    intent=intent,
+                    confidence=confidence,
+                )
+            employee = _extract_employee_name(source_text)
+            if not employee:
+                return AgentResponse(
+                    type="ask",
+                    text=(
+                        "Pour quel employe souhaitez-vous generer ce document RH ? "
+                        "Indiquez au moins le prenom et le nom."
+                    ),
+                    intent=intent,
+                    confidence=confidence,
+                    actionResult={
+                        "kind": "slot_filling",
+                        "agent": "RHAgent",
+                        "missing": ["employee"],
+                        "toolName": "document.rh_generate",
+                        "documentType": document_type,
+                    },
+                )
+            first_name, last_name = employee
+            label = _document_type_label(document_type)
+            return self.confirmation_response(
+                context=context,
+                tool_name="document.rh_generate",
+                tool_input={
+                    "type": document_type,
+                    "label": label,
+                    "employe_prenom": first_name,
+                    "employe_nom": last_name,
+                },
+                intent=intent,
+                text=f"Confirmez-vous la generation du document RH '{label}' pour {first_name} {last_name} ?",
+                confidence=confidence,
+                action_result={
+                    "kind": "approval_confirmation",
+                    "agent": "RHAgent",
+                    "toolName": "document.rh_generate",
+                    "documentType": document_type,
+                    "employee": {"prenom": first_name, "nom": last_name},
+                },
+            )
 
         if intent == "rh.process":
             payload = extract_payload(message, "PROCESS_REQUEST", context)
@@ -172,21 +246,25 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         # to the legacy/LLM path and the guard rejects it as unsafe_response.
         if _wants_user_creation(text):
             return "rh.create_user_unavailable", 0.92
+        if _wants_organisation_assignment(text):
+            return "rh.organisation_assignment_unavailable", 0.9
         # Presence aujourd'hui — RH-scoped company presence. We accept the
         # prompt with or without the "rh" keyword because the message comes
         # from the RH chatbot widget (role is already known).
-        if has_any(text, ("presence aujourd", "présence aujourd", "presence today", "presence d'aujourd")):
+        if has_any(text, ("presence aujourd", "présence aujourd", "presence today", "presence d'aujourd", "qui n a pas pointe", "qui n'a pas pointe", "qui na pas pointe", "retards aujourd", "retard aujourd", "late today")):
             return "rh.presence_today", 0.95
         # Document workload — explicit RH dashboard prompt.
         if (("document" in text or "documents" in text) and has_any(text, ("workload", "charge", "backlog", "en attente"))):
             return "rh.document_workload", 0.92
-        if not has_any(text, ("rh", "stats", "statistiques", "kpi", "toutes les demandes", "process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "pending", "backlog")):
+        if _wants_rh_document_generation(text):
+            return "rh.document_generate", 0.88
+        if not has_any(text, ("rh", "stats", "statistiques", "kpi", "toutes les demandes", "demandes en attente", "process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "pending", "backlog", "absenteisme", "absenteeism", "document", "attestation")):
             return None, 0.0
-        if has_any(text, ("stats", "statistiques", "kpi")):
+        if has_any(text, ("stats", "statistiques", "kpi", "absenteisme", "absenteeism", "taux absence", "taux de presence")):
             return "rh.stats", 0.9
         # "Pending validations", "RH backlog" — backlog aggregate. Listed
         # before the generic validation branch so it stays high-confidence.
-        if has_any(text, ("backlog", "pending validations", "validations en attente", "toutes les demandes", "all requests", "demandes rh", "en attente")) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
+        if has_any(text, ("backlog", "pending validations", "validations en attente", "toutes les demandes", "all requests", "demandes rh", "demandes en attente", "en attente")) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
             return "rh.all_requests", 0.93
         if has_any(text, ("validation",)) and not has_any(text, ("approuve", "approve", "refuse", "reject", "rejette")):
             return "rh.all_requests", 0.84
@@ -414,3 +492,64 @@ def _choices_text(choices: list[dict[str, Any]]) -> str:
     for index, choice in enumerate(choices, start=1):
         lines.append(f"{index}. {_request_label(choice.get('summary') or {})}")
     return "\n".join(lines)
+
+
+def _source_text(message: str, context: CurrentUserContext | None) -> str:
+    original = ""
+    if context is not None and isinstance(context.metadata, dict):
+        original = str(context.metadata.get("original_text") or "")
+    if original and original != message:
+        return f"{message or ''} {original}".strip()
+    return message or ""
+
+
+def _wants_organisation_assignment(text: str) -> bool:
+    if not text:
+        return False
+    action = has_any(text, ("affecter", "affecte", "assign", "assigner", "changer manager", "change manager", "designer manager", "désigner manager"))
+    target = has_any(text, ("user", "utilisateur", "employe", "employé", "salarie", "salarié", "manager", "equipe", "équipe", "team", "departement", "département"))
+    create_structure = has_any(text, ("creer equipe", "créer equipe", "create team", "creer departement", "créer departement", "create department"))
+    return action and target and not create_structure
+
+
+def _wants_rh_document_generation(text: str) -> bool:
+    if not text:
+        return False
+    mentions_doc = has_any(text, ("document", "attestation", "certificat", "bulletin", "fiche", "certificate"))
+    mentions_rh_create = has_any(text, ("creer", "créer", "cree", "genere", "génère", "generer", "générer", "produire", "create", "generate"))
+    # "document attestation de travail" is a common RH prompt that means
+    # generate/help prepare a RH document, not create an employee request.
+    return mentions_doc and (mentions_rh_create or has_any(text, ("document attestation", "attestation travail", "attestation de travail")))
+
+
+def _infer_document_type(message: str) -> str | None:
+    text = (message or "").lower()
+    if has_any(text, ("bulletin", "paie", "payslip", "pay slip", "fiche de paie")):
+        return "BULLETIN_PAIE"
+    if has_any(text, ("salaire", "salary certificate", "attestation salaire")):
+        return "ATTESTATION_SALAIRE"
+    if has_any(text, ("attestation", "certificat", "certificate", "travail", "work certificate")):
+        return "ATTESTATION_TRAVAIL"
+    return None
+
+
+def _document_type_label(document_type: Any) -> str:
+    labels = {
+        "ATTESTATION_TRAVAIL": "Attestation de travail",
+        "BULLETIN_PAIE": "Bulletin de paie",
+        "ATTESTATION_SALAIRE": "Attestation de salaire",
+    }
+    return labels.get(str(document_type or "").upper(), str(document_type or "Document RH"))
+
+
+def _extract_employee_name(message: str) -> tuple[str, str] | None:
+    text = (message or "").strip()
+    if not text:
+        return None
+    match = re.search(r"\b(?:pour|for)\s+([A-ZÀ-ÖØ-Þ][\wÀ-ÿ'-]+(?:\s+[A-ZÀ-ÖØ-Þ][\wÀ-ÿ'-]+){1,3})", text)
+    if not match:
+        return None
+    tokens = [token.strip(" ,.;:") for token in match.group(1).split() if token.strip(" ,.;:")]
+    if len(tokens) < 2:
+        return None
+    return tokens[0], " ".join(tokens[1:])

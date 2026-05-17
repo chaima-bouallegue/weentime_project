@@ -66,6 +66,20 @@ def choose_priority_route(
     if role == "RH" and _is_rh_presence(text):
         return RoutingDecision("rh", "rh", "rh_presence_marker", 0.94, force=True)
 
+    rh_capability = _unsupported_rh_capability(text, role)
+    if rh_capability:
+        return RoutingDecision(
+            "capability_unavailable",
+            None,
+            "rh_unsupported_feature",
+            0.9,
+            capability=rh_capability,
+        )
+
+    # RH operational prompts must beat generic document/insight routing.
+    if role == "RH" and _is_rh_workflow(text):
+        return RoutingDecision("rh", "rh", "rh_workflow_marker", 0.92, force=True)
+
     # 3/4. Attendance and forgotten checkout. Keep these before authorization so
     # checkout/check-in phrases are not misread as sortie permissions.
     if _is_forgot_checkout(text):
@@ -238,6 +252,10 @@ def _is_rh_presence(text: str) -> bool:
         (
             "presence aujourd", "présence aujourd", "presence today", "company presence",
             "presence rh", "global presence", "presence entreprise",
+            "qui n a pas pointe", "qui n'a pas pointe", "qui na pas pointe",
+            "qui ma pointach", "ma pointach", "chkoun ma pointach",
+            "retards aujourd", "retard aujourd", "late today", "presence du jour",
+            "n a pas pointe", "n'ont pas pointe", "n ont pas pointe",
         ),
     )
 
@@ -358,8 +376,37 @@ def _is_rh_workflow(text: str) -> bool:
             "rh stats", "stats rh", "statistiques rh", "document workload", "charge documents",
             "presence aujourd", "présence aujourd", "creer un nouveau user", "créer un nouveau user",
             "create user", "nouveau user", "nouvel employe", "nouvel employé",
+            "pending rh", "hr pending", "demandes rh", "demandes en attente rh",
+            "demandes en attente",
+            "documents en attente", "documents rh", "taux absenteisme", "absenteisme",
+            "generer document", "genere document", "creer attestation", "créer attestation",
+            "document attestation", "attestation travail", "attestation de travail",
+            "شنوه الطلبات المستنيه", "الطلبات المستنيه",
         ),
     )
+
+
+def _unsupported_rh_capability(text: str, role: str) -> str | None:
+    if role != "RH":
+        return None
+    if _is_rh_organisation_assignment(text):
+        return "rh.organisation_assignment"
+    if _has_any(text, ("contrats expirent", "contrat expire", "contrats finissant", "date expiration contrats", "contract expiry", "expiring contracts")):
+        return "rh.contracts"
+    if _has_any(text, ("signature electronique", "signature électronique", "signer electroniquement", "e-signature", "electronic signature")):
+        return "rh.e_signature"
+    if _has_any(text, ("recrutement", "candidat", "entretien", "formation", "training", "candidate")):
+        return "rh.recruitment_training"
+    if _has_any(text, ("predictif", "prédictif", "prediction", "risque eleve", "risque élevé", "a risque", "à risque", "risk prediction")):
+        return "rh.predictive_analytics"
+    return None
+
+
+def _is_rh_organisation_assignment(text: str) -> bool:
+    action = _has_any(text, ("affecter", "affecte", "assign", "assigner", "changer manager", "change manager", "designer manager", "désigner manager"))
+    target = _has_any(text, ("user", "utilisateur", "employe", "employé", "salarie", "salarié", "manager", "equipe", "équipe", "team", "departement", "département"))
+    create_structure = _has_any(text, ("creer equipe", "créer equipe", "create team", "creer departement", "créer departement", "create department"))
+    return action and target and not create_structure
 
 
 def _is_admin_workflow(text: str) -> bool:

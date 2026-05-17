@@ -193,6 +193,8 @@ ARABIC_SYNONYMS.update(
         "الطلبات المعلقه": "pending approvals",
         "من ينتظر الموافقة": "pending approvals",
         "من ينتظر التحقق": "pending approvals",
+        "شنوه الطلبات المستنيه": "rh backlog",
+        "الطلبات المستنيه": "rh backlog",
         "خروج": "sortie",
     }
 )
