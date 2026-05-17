@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 from app.agents.leave_agent import LeaveAgent
+from app.agents.routing_priority import CENTRAL_ROUTING_PRIORITY, choose_priority_route
 from app.agents.router_agent import RouterAgent
 from app.context.current_user import CurrentUserContext
 from app.intelligence import RoleIntelligenceAgent
@@ -115,3 +116,61 @@ def test_admin_priority_digest_routes_with_admin_context() -> None:
     assert response.actionResult is not None
     assert response.actionResult["role"] == "ADMIN"
     assert any(call.name == "admin.misconfigured_users" for call in response.toolCalls)
+
+
+def test_central_routing_priority_order_is_explicit() -> None:
+    assert CENTRAL_ROUTING_PRIORITY == (
+        "greeting",
+        "role_digest",
+        "attendance",
+        "forgot_checkout",
+        "reunion",
+        "document",
+        "authorization",
+        "telework",
+        "leave",
+        "communication",
+        "policy",
+        "manager",
+        "rh",
+        "admin",
+        "capability_unavailable",
+        "fallback",
+    )
+
+
+def test_central_priority_routes_document_before_leave() -> None:
+    decision = choose_priority_route(
+        normalized_text="je veux une demande de document",
+        original_text="je veux une demande de document",
+        context=context("EMPLOYEE"),
+    )
+    assert decision is not None
+    assert decision.agent_name == "document"
+
+
+def test_central_priority_routes_daily_summary_to_role_intelligence() -> None:
+    decision = choose_priority_route(
+        normalized_text="show my daily summary",
+        original_text="Show my daily summary",
+        context=context("EMPLOYEE"),
+    )
+    assert decision is not None
+    assert decision.agent_name == "role_intelligence"
+    assert decision.category == "role_digest"
+
+
+def test_central_priority_routes_admin_health_only_for_admin_context() -> None:
+    admin_decision = choose_priority_route(
+        normalized_text="system health",
+        original_text="System health",
+        context=context("ADMIN"),
+    )
+    employee_decision = choose_priority_route(
+        normalized_text="system health",
+        original_text="System health",
+        context=context("EMPLOYEE"),
+    )
+    assert admin_decision is not None
+    assert admin_decision.agent_name == "admin"
+    assert employee_decision is None

@@ -11,6 +11,7 @@ from app.observability.tracing import log_event, start_span
 from .attendance_agent import AttendanceAgent
 from .base_domain_agent import DomainAgent
 from .legacy_agent import LegacyAgent
+from .routing_priority import RoutingDecision, choose_priority_route
 
 
 class RouterAgent:
@@ -54,6 +55,22 @@ class RouterAgent:
                 },
             )
             return greeting_response
+
+        priority_decision = choose_priority_route(
+            normalized_text=routing_text,
+            original_text=message,
+            context=context,
+            matched_intent=multilingual_match.intent if multilingual_match else None,
+        )
+        priority_response = await self._handle_priority_decision(
+            priority_decision,
+            routing_text=routing_text,
+            original_message=message,
+            normalized_text=normalized,
+            context=context,
+        )
+        if priority_response is not None:
+            return priority_response
 
         role_action_agent = self._role_action_agent(routing_text, context)
         if role_action_agent is not None:
@@ -188,6 +205,76 @@ class RouterAgent:
             intent="fallback.unknown",
             confidence=0.35,
         )
+
+    async def _handle_priority_decision(
+        self,
+        decision: RoutingDecision | None,
+        *,
+        routing_text: str,
+        original_message: str,
+        normalized_text: str,
+        context: CurrentUserContext,
+    ) -> AgentResponse | None:
+        if decision is None:
+            return None
+
+        context.metadata["routing_priority"] = decision.category
+        context.metadata["routing_priority_reason"] = decision.reason
+
+        if decision.category == "capability_unavailable":
+            response = _capability_unavailable_response(decision)
+            log_event(
+                "router.selected",
+                input=original_message,
+                output={"agent": "capability_unavailable", "confidence": decision.confidence},
+                metadata={
+                    "selected_agent": "capability_unavailable",
+                    "intent": response.intent,
+                    "confidence": decision.confidence,
+                    "language": context.language,
+                    "routing_reason": decision.reason,
+                    "routing_priority": decision.category,
+                },
+            )
+            context.metadata["selected_agent"] = "capability_unavailable"
+            return response
+
+        agent = self._agent_by_name(decision.agent_name)
+        if agent is None:
+            return None
+
+        selected_agent = getattr(agent, "name", agent.__class__.__name__)
+        confidence = max(decision.confidence, agent.can_handle(routing_text, context))
+        if not decision.force and confidence < 0.5:
+            return None
+
+        context.metadata["selected_agent"] = selected_agent
+        entities = extract_basic_entities(normalized_text, context.language)
+        log_event(
+            "router.selected",
+            input=original_message,
+            output={"agent": selected_agent, "confidence": confidence, "entities": entities},
+            metadata={
+                "selected_agent": selected_agent,
+                "intent": context.metadata.get("route_intent") or context.metadata.get("matched_intent"),
+                "confidence": confidence,
+                "language": context.language,
+                "routing_reason": "central_priority",
+                "routing_priority": decision.category,
+            },
+        )
+        agent_text = _priority_agent_text(decision, routing_text, context)
+        return await agent.handle(agent_text, context)
+
+    def _agent_by_name(self, name: str | None) -> DomainAgent | None:
+        if not name:
+            return None
+        if name == "attendance":
+            return self.attendance_agent
+        for agent in self.extra_agents:
+            if getattr(agent, "name", None) == name:
+                return agent
+        return None
 
     def _explicit_domain_agent(self, text: str, context: CurrentUserContext) -> DomainAgent | None:
         """Keep explicit domain reads/actions from being swallowed by broad role summaries."""
@@ -325,3 +412,47 @@ def _is_greeting(text: str | None) -> bool:
             "pourquoi", "why", "aide", "help", "puis-je", "can i", "peux-tu",
         ))
     return False
+
+
+_CAPABILITY_TEXTS = {
+    "meeting.create": "Le module de creation de reunion n'est pas encore connecte a l'agent IA.",
+    "admin.service_control": "Le controle des services n'est pas disponible via l'agent IA.",
+    "admin.database_operations": "Les operations de sauvegarde/restauration base de donnees ne sont pas disponibles via l'agent IA.",
+    "rh.recruitment_training": "Le module recrutement/formation n'est pas encore connecte a l'agent IA.",
+    "rh.predictive_analytics": "Les analyses predictives RH ne sont pas encore connectees a l'agent IA.",
+    "reports.generation": "La generation de rapports n'est pas encore connectee a l'agent IA.",
+    "personal_tasks": "Les rappels, notes et taches personnelles ne sont pas encore connectes a l'agent IA.",
+}
+
+
+def _capability_unavailable_response(decision: RoutingDecision) -> AgentResponse:
+    capability = decision.capability or "unknown"
+    text = _CAPABILITY_TEXTS.get(
+        capability,
+        "Cette capacite n'est pas encore disponible dans l'agent IA.",
+    )
+    return AgentResponse(
+        type="answer",
+        text=text,
+        intent=f"{capability}.unavailable",
+        confidence=decision.confidence,
+        actionResult={
+            "kind": "capability_unavailable",
+            "capability": capability,
+            "reason": decision.reason,
+            "routingPriority": decision.category,
+        },
+    )
+
+
+def _priority_agent_text(decision: RoutingDecision, routing_text: str, context: CurrentUserContext) -> str:
+    if decision.agent_name != "attendance":
+        return routing_text
+    matched_intent = context.metadata.get("matched_intent") if isinstance(context.metadata, dict) else None
+    if matched_intent == GET_STATUS or decision.reason == "attendance_status_marker":
+        return "statut pointage"
+    if matched_intent == CHECK_IN:
+        return "pointer mon entree"
+    if matched_intent == CHECK_OUT:
+        return "pointer ma sortie"
+    return routing_text

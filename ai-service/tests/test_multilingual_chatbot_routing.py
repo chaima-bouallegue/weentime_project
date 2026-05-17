@@ -30,6 +30,64 @@ def test_multilingual_prompts_route_to_domain_agents(message: str, expected: str
 
 
 @pytest.mark.parametrize(
+    "message",
+    [
+        "je veux une demande de document",
+        "I need a work certificate",
+        "nheb document",
+        "أريد وثيقة",
+    ],
+)
+def test_document_request_priority_beats_leave_request_language_variants(message: str) -> None:
+    response, _ = asyncio.run(send_chatbot_message(message, role="EMPLOYEE", language=detect_language(message)))
+    assert response.intent.startswith("document."), response.intent
+    assert not response.intent.startswith("leave.")
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "est ce que jai pointé",
+        "est ce que jai pointe",
+        "Did I check in?",
+        "هل سجلت الحضور؟",
+    ],
+)
+def test_pointage_status_priority_handles_fr_en_ar_questions(message: str) -> None:
+    response, _ = asyncio.run(send_chatbot_message(message, role="EMPLOYEE", language=detect_language(message)))
+    assert response.intent == "attendance.status", response.intent
+    assert not response.intent.startswith("fallback.")
+
+
+def test_daily_summary_routes_to_role_intelligence_before_role_copilot() -> None:
+    response, _ = asyncio.run(send_chatbot_message("Show my daily summary", role="EMPLOYEE", language="en"))
+    assert response.intent == "role_intelligence.employee_digest"
+    assert response.actionResult is not None
+    assert response.actionResult["kind"] == "role_intelligence_digest"
+
+
+def test_authorization_info_query_does_not_start_create() -> None:
+    response, _ = asyncio.run(send_chatbot_message("c quoi les autorisations dispo", role="EMPLOYEE"))
+    assert response.intent == "authorization.info"
+    assert response.type == "answer"
+    assert response.requiresConfirmation is False
+
+
+@pytest.mark.parametrize(
+    ("message", "role", "expected"),
+    [
+        ("Pending approvals", "MANAGER", "manager.pending_approvals"),
+        ("RH backlog", "RH", "rh.all_requests"),
+        ("System health", "ADMIN", "admin.system_health"),
+    ],
+)
+def test_role_direct_prompts_use_central_priority(message: str, role: str, expected: str) -> None:
+    response, _ = asyncio.run(send_chatbot_message(message, role=role, language="en"))
+    assert response.intent == expected
+    assert not response.intent.startswith("fallback.")
+
+
+@pytest.mark.parametrize(
     ("message", "route_intent"),
     [
         ("nheb npointi", CHECK_IN),
