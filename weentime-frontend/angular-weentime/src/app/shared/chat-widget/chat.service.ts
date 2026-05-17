@@ -71,7 +71,6 @@ export interface TtsResponse {
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
-  private static readonly NO_SPEECH_MESSAGE = "Je n'ai pas bien entendu, reessayez";
   private static readonly NO_INPUT_MESSAGE = "Je n'ai rien entendu. Pouvez-vous reessayer ?";
   private static readonly RETRY_MESSAGE = "Je n'ai pas bien compris. Pouvez-vous repeter ?";
 
@@ -124,30 +123,6 @@ export class ChatService {
         },
       }, { context: withAiChatWidgetContext() })
       .pipe(catchError(error => this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.")));
-  }
-
-  sendVoice(audio: Blob, generateTts: boolean = true): Observable<ChatApiResponse> {
-    const context = this.getUserContext();
-    if (!context) {
-      return throwError(() => new Error('Utilisateur non authentifie.'));
-    }
-
-    const formData = new FormData();
-    formData.append('audio_file', audio, 'voice.webm');
-    formData.append('user_id', String(context.user.id));
-    const role = this.resolveRole(context.user);
-    if (role) {
-      formData.append('role', role);
-    }
-    if (context.token) {
-      formData.append('access_token', context.token);
-    }
-    formData.append('generate_tts', String(generateTts));
-
-    return this.http
-      .post<ChatApiResponse>(`${this.endpoint}/voice`, formData, { context: withAiChatWidgetContext() })
-      .pipe(map(response => this.normalizeNoSpeechResponse(response)))
-      .pipe(catchError(error => this.rethrowApiError(error, "Le message vocal n'a pas pu etre traite.")));
   }
 
   getHistory(): Observable<ChatHistoryResponse> {
@@ -456,27 +431,6 @@ export class ChatService {
     }
 
     return null;
-  }
-
-  private normalizeNoSpeechResponse(response: ChatApiResponse): ChatApiResponse {
-    const status = (response.status || '').toLowerCase();
-    if (status !== 'no_speech' && status !== 'no_input' && status !== 'retry') {
-      return response;
-    }
-
-    const message = status === 'retry'
-      ? ChatService.RETRY_MESSAGE
-      : status === 'no_input'
-        ? ChatService.NO_INPUT_MESSAGE
-        : ChatService.NO_SPEECH_MESSAGE;
-
-    return {
-      ...response,
-      text: message,
-      message,
-      response: message,
-      error: undefined,
-    };
   }
 
   private normalizeAudioError(value: string): string | null {
