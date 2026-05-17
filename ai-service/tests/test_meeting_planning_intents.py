@@ -17,6 +17,13 @@ def test_tunisian_meeting_prompt_routes_to_reunion_handler() -> None:
     assert not response.intent.startswith("fallback.")
 
 
+def test_multilingual_meeting_prompts_route_to_reunion_handler() -> None:
+    for message in ["هل لدي اجتماع؟", "fama réunion ?"]:
+        response, _ = asyncio.run(send_chatbot_message(message, role="EMPLOYEE"))
+        assert response.intent in {"reunion.list_mine", "meeting.unavailable"}, message
+        assert not response.intent.startswith("fallback.")
+
+
 def test_next_meeting_routes_to_reunion_next() -> None:
     response, _ = asyncio.run(send_chatbot_message("Quand est ma prochaine reunion ?", role="EMPLOYEE"))
     assert response.intent == "reunion.next"

@@ -169,6 +169,7 @@ def _is_role_digest(text: str) -> bool:
             "resume de ma journee", "résumé de ma journée", "ma journee", "ma journée",
             "digest", "briefing", "priorites", "priorités", "que dois-je faire", "quoi faire",
             "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
+            "donne moi resume", "aatini resume", "que dois je faire aujourd hui",
             "ملخص", "ماذا افعل اليوم", "ماذا أفعل اليوم",
         ),
     )
@@ -181,6 +182,7 @@ def _is_forgot_checkout(text: str) -> bool:
             "did i forget checkout", "did i forget to check out", "forgot checkout", "forgot to check out",
             "oublie de pointer la sortie", "oublié de pointer la sortie", "oublie la sortie", "ai je oublie",
             "ai-je oublie", "j ai oublie", "j'ai oublie", "nsit nkharej", "nsit el khrouj",
+            "oublie de pointer", "نسيت نبوّنتي", "نسيت نبونتي", "هل نسيت تسجيل الخروج",
             "نسيت الخروج", "نسيت تسجيل الخروج",
         ),
     )
@@ -195,7 +197,8 @@ def _is_attendance(text: str) -> bool:
             "did i check in", "did i check out", "check my pointage", "check my attendance",
             "am i checked in", "have i checked in", "je viens d'arriver", "je viens d arriver",
             "viens d'arriver", "viens d arriver", "check me in", "check in", "check out",
-            "npointi", "nheb npointi", "pointit ou nn", "chkoun ma pointach",
+            "npointi", "nheb npointi", "pointit ou nn", "statut pointage", "rani jit", "rani khrajt",
+            "chkoun ma pointach", "شكون ما بوّنتاش",
             "هل سجلت الحضور", "سجلت الحضور", "تسجيل الحضور", "دخول", "خروج",
         ),
     )
@@ -208,6 +211,7 @@ def _is_attendance_status_question(text: str) -> bool:
             "est ce que jai pointe", "est ce que j ai pointe", "est ce que je suis pointe",
             "suis je pointe", "suis-je pointe", "did i check in", "did i check out",
             "have i checked in", "have i checked out", "am i checked in", "am i checked out",
+            "pointit ou nn", "statut pointage", "هل سجلت الحضور", "هل سجلت الحضور اليوم",
             "هل سجلت الحضور", "هل سجلت الخروج", "سجلت الحضور", "حالة الحضور",
         ),
     )
@@ -228,6 +232,8 @@ def _is_meeting_or_planning(text: str) -> bool:
         return True
     if _has_any(text, ("planning", "agenda", "horaire", "horaires", "schedule", "calendar", "calendrier")):
         return True
+    if _has_any(text, ("j ai meeting", "il y a reunion", "fama reunion", "famma reunion", "quoi planningi", "mes reunions")):
+        return True
     return _has_any(text, ("aandi meeting", "3andi meeting", "andi meeting", "عندي اجتماع", "اجتماع", "جدول"))
 
 
@@ -236,7 +242,8 @@ def _is_document(text: str) -> bool:
         text,
         (
             "document", "documents", "demande de document", "attestation", "certificat", "certificate",
-            "bulletin", "fiche de paie", "payslip", "contrat", "contract", "وثيقة", "وثيقه", "مستند", "شهادة", "شهاده", "كشف الراتب",
+            "bulletin", "fiche de paie", "payslip", "contrat", "contract", "war9a khidma",
+            "attestation de travail", "وثيقة", "وثيقه", "مستند", "شهادة", "شهاده", "كشف الراتب",
         ),
     )
 
@@ -258,17 +265,20 @@ def _is_telework(text: str) -> bool:
         text,
         (
             "teletravail", "télétravail", "telework", "remote", "remote work", "work from home", "wfh",
-            "travail a distance", "travail à distance", "عن بعد", "تليترافاي",
+            "travail a distance", "travail à distance", "nkhdem remote", "عن بعد", "تليترافاي",
         ),
     )
 
 
 def _is_leave(text: str) -> bool:
+    if _has_any(text, ("comment declarer", "comment déclarer", "how to declare", "politique", "policy", "faq")):
+        return False
     return _has_any(
         text,
         (
             "conge", "congé", "conges", "congés", "leave", "vacation", "holiday", "time off",
-            "absence", "malade", "maladie", "sick", "nheb conge", "كونجي", "عطلة", "عطله", "اجازة", "اجازه",
+            "absence", "malade", "maladie", "sick", "nheb conge", "repos", "mazeli conge",
+            "combien reste conge", "كونجي", "عطلة", "عطله", "اجازة", "اجازه",
         ),
     )
 

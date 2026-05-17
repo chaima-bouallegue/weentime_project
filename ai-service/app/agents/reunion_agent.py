@@ -239,6 +239,8 @@ _MY_CUES = (
     # FR yes/no question forms — "est ce que jai", "ai je", "ai-je"
     "est ce que jai", "est-ce que jai", "est ce que j ai", "est-ce que j ai",
     "ai je", "ai-je", "j ai", "j'ai",
+    # TN normalized form: "fama reunion" -> "il y a reunion".
+    "il y a",
     # EN — deliberately omit bare "i" because it substring-matches "j'ai" /
     # "rdv" / "médical" and would steal authorization-reason messages.
     "my", "i have", "do i",

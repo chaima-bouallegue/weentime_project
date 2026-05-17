@@ -29,6 +29,17 @@ def test_telework_followup_pour_demain_continues_pending_flow() -> None:
     assert second.requiresConfirmation is True
 
 
+def test_tunisian_telework_followup_keeps_pending_flow() -> None:
+    state = make_state()
+    first = asyncio.run(_send(state, "nheb teletravail"))
+    second = asyncio.run(_send(state, "pour demain"))
+    assert first.intent in {"telework.create.ask", "telework.create"}
+    assert first.type == "ask"
+    assert second.intent == "telework.create"
+    assert second.type == "confirm_action"
+    assert second.requiresConfirmation is True
+
+
 def test_document_request_asks_only_missing_type() -> None:
     state = make_state()
     response = asyncio.run(_send(state, "je veux une demande de document"))

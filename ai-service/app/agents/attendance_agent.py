@@ -72,7 +72,7 @@ class AttendanceAgent(DomainAgent):
             "oublie de pointer la sortie", "oublie la sortie",
             "ai-je oublie la sortie", "j ai oublie la sortie",
             "j ai oublie de pointer la sortie",
-            "ai je oublie la sortie", "oublier sortie",
+            "ai je oublie la sortie", "oublier sortie", "oublie de pointer",
             "j'ai oublie", "ai-je oublie",
             # TN
             "nsit nkharej", "nsit nkharaj", "nsit el khrouj",
@@ -98,10 +98,10 @@ class AttendanceAgent(DomainAgent):
             "pointer mon entree", "pointe mon entree", "check in", "check me in",
             "clock in", "arrivee", "j arrive", "je commence", "checked in",
             "je viens d'arriver", "je viens d arriver", "viens d'arriver", "viens d arriver", "viens darriver",
-            "just arrived", "i arrived",
+            "just arrived", "i arrived", "rani jit",
         )):
             return "attendance.check_in", 0.94
-        if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie")):
+        if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie", "rani khrajt")):
             return "attendance.check_out", 0.94
         if any(term in text for term in ("semaine", "week")) and any(term in text for term in ("heure", "heures", "hours", "temps")):
             return "attendance.week_hours", 0.88
@@ -124,7 +124,7 @@ class AttendanceAgent(DomainAgent):
             )
         ):
             return "attendance.team_presence", 0.92
-        if has_attendance_word or re.search(r"\best ce que je suis\b", text):
+        if has_attendance_word or "statut pointage" in text or re.search(r"\best ce que je suis\b", text):
             return "attendance.status", 0.86
         if any(term in text for term in ("mes heures", "heures travaillees", "heures aujourd")):
             return "attendance.status", 0.72

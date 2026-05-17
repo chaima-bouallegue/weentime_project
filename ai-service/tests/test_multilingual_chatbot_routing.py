@@ -19,8 +19,15 @@ from chatbot_test_helpers import make_context, make_state, send_chatbot_message
         ("I need leave tomorrow", "leave."),
         ("أريد إجازة غدا", "leave."),
         ("nheb conge ghodwa", "leave."),
+        ("nheb repos ghodwa", "leave."),
         ("nheb npointi", "attendance."),
+        ("pointit ou nn", "attendance."),
+        ("rani jit", "attendance."),
         ("Check my pointage", "attendance."),
+        ("أريد العمل عن بعد غدا", "telework."),
+        ("nheb nkhdem remote ghodwa", "telework."),
+        ("أريد شهادة عمل", "document."),
+        ("nheb war9a khidma", "document."),
     ],
 )
 def test_multilingual_prompts_route_to_domain_agents(message: str, expected: str) -> None:
@@ -49,8 +56,10 @@ def test_document_request_priority_beats_leave_request_language_variants(message
     [
         "est ce que jai pointé",
         "est ce que jai pointe",
+        "pointit ou nn",
         "Did I check in?",
         "هل سجلت الحضور؟",
+        "هل سجلت الحضور اليوم؟",
     ],
 )
 def test_pointage_status_priority_handles_fr_en_ar_questions(message: str) -> None:

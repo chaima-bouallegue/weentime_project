@@ -68,7 +68,7 @@ INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
         r"(عطلة|عطله|اجازة|اجازه|رخصة|رخصه|كونجي)",
     ),
     CHECK_IN: (
-        r"\b(pointer mon entrée|pointer mon entree|check in|check me in|clock in|sign in|j arrive|je commence|arrivée|arrivee|nheb npointi|npointi)\b",
+        r"\b(pointer mon entrée|pointer mon entree|check in|check me in|clock in|sign in|j arrive|je commence|arrivée|arrivee|nheb npointi|npointi|rani jit)\b",
         # Arrival affirmations — "I just arrived" / "je viens d'arriver" /
         # "viens d arriver" / "viens darriver" (apostrophe stripped). Distinct
         # from the present-tense "j arrive" above.
@@ -76,15 +76,15 @@ INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
         r"(دخول|نسجل الدخول|نبصم)",
     ),
     CHECK_OUT: (
-        r"\b(pointer ma sortie|check out|clock out|sign out|je pars|départ|depart|sortie)\b",
+        r"\b(pointer ma sortie|check out|clock out|sign out|je pars|départ|depart|sortie|rani khrajt)\b",
         r"(خروج|نسجل الخروج)",
     ),
     REQUEST_DOCUMENT: (
-        r"\b(document|attestation|certificat|bulletin|fiche de paie|payslip|certificate)\b",
+        r"\b(document|attestation|certificat|bulletin|fiche de paie|payslip|certificate|war9a khidma)\b",
         r"(وثيقة|وثيقه|شهادة|شهاده|مستند)",
     ),
     CREATE_TELEWORK: (
-        r"\b(télétravail|teletravail|telework|remote work|work from home|wfh|travail a distance)\b",
+        r"\b(télétravail|teletravail|telework|remote work|work from home|wfh|travail a distance|nkhdem remote)\b",
         r"(تليترافاي|عن بعد|العمل عن بعد)",
     ),
     GET_STATUS: (
@@ -98,6 +98,8 @@ INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
         r"\b(did i (?:check|clock|sign) (?:in|out)|did i checked in|did i checked out)\b",
         r"\b(have i (?:checked|clocked|signed) (?:in|out))\b",
         r"\b(am i (?:checked|clocked|signed) (?:in|out))\b",
+        r"\b(pointit ou nn|statut pointage)\b",
+        r"(هل سجلت الحضور|شكون ما بوّنتاش)",
         r"(حالة|حاله).*(الحضور|الدخول|البصمة)",
     ),
 }
