@@ -1,0 +1,414 @@
+- generic [ref=e58]:
+  - generic [ref=e59]:
+    - complementary [ref=e61]:
+      - generic [ref=e62]:
+        - link "WeenTime WeenTime" [ref=e65] [cursor=pointer]:
+          - /url: /
+          - img "WeenTime" [ref=e67]
+          - generic [ref=e68]: WeenTime
+        - button [ref=e69] [cursor=pointer]:
+          - img [ref=e71]
+      - navigation [ref=e75]:
+        - generic [ref=e76]: Menu Principal
+        - generic [ref=e77]:
+          - link "Tableau de bord Consulter tableau de bord" [ref=e78] [cursor=pointer]:
+            - /url: /app/admin/dashboard
+            - img [ref=e81]
+            - generic [ref=e86]:
+              - generic [ref=e87]: Tableau de bord
+              - generic [ref=e88]: Consulter tableau de bord
+            - img [ref=e90]
+          - link "Messages Consulter messages" [ref=e92] [cursor=pointer]:
+            - /url: /app/messages
+            - img [ref=e95]
+            - generic [ref=e97]:
+              - generic [ref=e98]: Messages
+              - generic [ref=e99]: Consulter messages
+            - img [ref=e101]
+          - link "Réunions Consulter réunions" [ref=e103] [cursor=pointer]:
+            - /url: /app/reunions
+            - img [ref=e106]
+            - generic [ref=e109]:
+              - generic [ref=e110]: Réunions
+              - generic [ref=e111]: Consulter réunions
+            - img [ref=e113]
+          - link "Pointage Consulter pointage" [ref=e115] [cursor=pointer]:
+            - /url: /app/admin/presence
+            - img [ref=e118]
+            - generic [ref=e121]:
+              - generic [ref=e122]: Pointage
+              - generic [ref=e123]: Consulter pointage
+            - img [ref=e125]
+          - link "Utilisateurs Consulter utilisateurs" [ref=e127] [cursor=pointer]:
+            - /url: /app/admin/users
+            - img [ref=e130]
+            - generic [ref=e135]:
+              - generic [ref=e136]: Utilisateurs
+              - generic [ref=e137]: Consulter utilisateurs
+            - img [ref=e139]
+          - link "Roles Consulter roles" [ref=e141] [cursor=pointer]:
+            - /url: /app/admin/roles
+            - img [ref=e144]
+            - generic [ref=e146]:
+              - generic [ref=e147]: Roles
+              - generic [ref=e148]: Consulter roles
+            - img [ref=e150]
+          - link "Entreprises Consulter entreprises" [ref=e152] [cursor=pointer]:
+            - /url: /app/admin/entreprises
+            - img [ref=e155]
+            - generic [ref=e158]:
+              - generic [ref=e159]: Entreprises
+              - generic [ref=e160]: Consulter entreprises
+            - img [ref=e162]
+          - link "Gestionnaires RH Consulter gestionnaires rh" [ref=e164] [cursor=pointer]:
+            - /url: /app/admin/rh-owners
+            - img [ref=e167]
+            - generic [ref=e179]:
+              - generic [ref=e180]: Gestionnaires RH
+              - generic [ref=e181]: Consulter gestionnaires rh
+            - img [ref=e183]
+          - link "Parametres Consulter parametres" [ref=e185] [cursor=pointer]:
+            - /url: /app/admin/parametres
+            - img [ref=e188]
+            - generic [ref=e191]:
+              - generic [ref=e192]: Parametres
+              - generic [ref=e193]: Consulter parametres
+            - img [ref=e195]
+          - link "Profil Consulter profil" [ref=e197] [cursor=pointer]:
+            - /url: /app/admin/profil
+            - img [ref=e200]
+            - generic [ref=e203]:
+              - generic [ref=e204]: Profil
+              - generic [ref=e205]: Consulter profil
+            - img [ref=e207]
+      - generic [ref=e210]:
+        - generic [ref=e213]: WA
+        - generic [ref=e214]:
+          - generic [ref=e215]:
+            - generic [ref=e216]: WeenTime Admin
+            - img [ref=e218]
+          - text: Administrateur
+        - button "Déconnexion" [ref=e222] [cursor=pointer]:
+          - img [ref=e224]
+    - generic [ref=e227]:
+      - banner [ref=e229]:
+        - generic [ref=e231]:
+          - generic [ref=e232]: Weentime
+          - img [ref=e234]
+          - generic [ref=e236]: Tableau de bord
+        - generic [ref=e238]:
+          - img [ref=e240]
+          - textbox "Rechercher…" [ref=e243]
+        - generic [ref=e244]:
+          - button "En activité 12:51:32" [ref=e647] [cursor=pointer]:
+            - generic [ref=e250]: En activité
+            - generic [ref=e251]: 12:51:32
+          - generic [ref=e253]:
+            - generic [ref=e254]:
+              - button [ref=e255] [cursor=pointer]:
+                - img [ref=e257]
+              - link [ref=e259] [cursor=pointer]:
+                - /url: /app/messages
+                - img [ref=e261]
+              - button [ref=e264] [cursor=pointer]:
+                - img [ref=e266]
+            - button "WA" [ref=e270] [cursor=pointer]:
+              - generic [ref=e271]: WA
+              - img [ref=e273]
+      - main [ref=e275]:
+        - generic [ref=e277]:
+          - generic [ref=e280]:
+            - generic [ref=e281]:
+              - generic [ref=e282]:
+                - img [ref=e284]
+                - text: Administration
+              - heading "Bonsoir, WeenTime 👋" [level=1] [ref=e287]:
+                - text: Bonsoir, WeenTime
+                - generic [ref=e288]: 👋
+              - paragraph [ref=e289]:
+                - img [ref=e291]
+                - text: vendredi 15 mai 2026
+                - generic [ref=e293]: ·
+                - img [ref=e295]
+                - text: 21:34
+            - generic [ref=e298]:
+              - button "Actualiser" [ref=e299] [cursor=pointer]:
+                - img [ref=e301]
+                - text: Actualiser
+              - link "Paramètres" [ref=e306] [cursor=pointer]:
+                - /url: /app/admin/parametres
+                - img [ref=e308]
+                - text: Paramètres
+          - generic [ref=e311]:
+            - generic [ref=e312]:
+              - img [ref=e315]
+              - generic [ref=e320]:
+                - generic [ref=e321]: Utilisateurs
+                - generic [ref=e322]: "22"
+                - generic [ref=e323]: 20 actifs · 2 inactifs
+            - generic [ref=e324]:
+              - img [ref=e327]
+              - generic [ref=e331]:
+                - generic [ref=e332]: Entreprises
+                - generic [ref=e333]: "10"
+                - generic [ref=e334]: 6 actives
+            - generic [ref=e335]:
+              - img [ref=e338]
+              - generic [ref=e350]:
+                - generic [ref=e351]: Gestionnaires RH
+                - generic [ref=e352]: "3"
+                - generic [ref=e353]: Responsables actifs
+            - generic [ref=e354]:
+              - img [ref=e357]
+              - generic [ref=e360]:
+                - generic [ref=e361]: Managers
+                - generic [ref=e362]: "4"
+                - generic [ref=e363]: Resp. d'équipes
+            - generic [ref=e364]:
+              - img [ref=e367]
+              - generic [ref=e370]:
+                - generic [ref=e371]: En attente
+                - generic [ref=e372]: "0"
+                - generic [ref=e373]: Demandes à traiter
+            - generic [ref=e374]:
+              - img [ref=e377]
+              - generic [ref=e379]:
+                - generic [ref=e380]: Rôles
+                - generic [ref=e381]: "4"
+                - generic [ref=e382]: Niveaux d'accès
+          - generic [ref=e383]:
+            - generic [ref=e384]:
+              - generic [ref=e385]:
+                - generic [ref=e386]:
+                  - heading "Vue d'ensemble plateforme" [level=2] [ref=e387]
+                  - generic [ref=e388]: Live
+                - generic [ref=e390]:
+                  - generic [ref=e391]:
+                    - generic [ref=e393]:
+                      - generic [ref=e394]: "22"
+                      - generic [ref=e395]: utilisateurs
+                    - list [ref=e396]:
+                      - listitem [ref=e397]:
+                        - generic [ref=e399]: Admin
+                        - generic [ref=e400]: "2"
+                        - generic [ref=e401]: 9%
+                      - listitem [ref=e402]:
+                        - generic [ref=e404]: RH
+                        - generic [ref=e405]: "3"
+                        - generic [ref=e406]: 14%
+                      - listitem [ref=e407]:
+                        - generic [ref=e409]: Manager
+                        - generic [ref=e410]: "4"
+                        - generic [ref=e411]: 18%
+                      - listitem [ref=e412]:
+                        - generic [ref=e414]: Employé
+                        - generic [ref=e415]: "13"
+                        - generic [ref=e416]: 59%
+                  - generic [ref=e417]:
+                    - generic [ref=e418]:
+                      - generic [ref=e421]: 91%
+                      - generic [ref=e422]: Taux d'activité
+                    - generic [ref=e423]:
+                      - generic [ref=e426]: 60%
+                      - generic [ref=e427]: Santé entreprises
+                  - generic [ref=e428]:
+                    - heading "Statut services" [level=3] [ref=e429]
+                    - generic [ref=e430]:
+                      - generic [ref=e431]:
+                        - img [ref=e433]
+                        - generic [ref=e435]: API Gateway
+                      - generic [ref=e437]:
+                        - img [ref=e439]
+                        - generic [ref=e441]: Base de données
+                      - generic [ref=e443]:
+                        - img [ref=e445]
+                        - generic [ref=e447]: Notifications
+                      - generic [ref=e449]:
+                        - img [ref=e451]
+                        - generic [ref=e453]: Réseau
+              - generic [ref=e455]:
+                - generic [ref=e456]:
+                  - heading "Entreprises récentes" [level=2] [ref=e457]
+                  - link "Voir tout" [ref=e458] [cursor=pointer]:
+                    - /url: /app/admin/entreprises
+                    - text: Voir tout
+                    - img [ref=e460]
+                - list [ref=e462]:
+                  - listitem [ref=e463] [cursor=pointer]:
+                    - generic [ref=e464]: T
+                    - generic [ref=e465]:
+                      - generic [ref=e466]: tech
+                      - generic [ref=e467]: it · 21 avr.
+                    - generic [ref=e468]: Active
+                  - listitem [ref=e469] [cursor=pointer]:
+                    - generic [ref=e470]: R
+                    - generic [ref=e471]:
+                      - generic [ref=e472]: rhode
+                      - generic [ref=e473]: skincare · 12 avr.
+                    - generic [ref=e474]: Inactive
+                  - listitem [ref=e475] [cursor=pointer]:
+                    - generic [ref=e476]: T
+                    - generic [ref=e477]:
+                      - generic [ref=e478]: talan
+                      - generic [ref=e479]: it · 11 avr.
+                    - generic [ref=e480]: Active
+                  - listitem [ref=e481] [cursor=pointer]:
+                    - generic [ref=e482]: TF
+                    - generic [ref=e483]:
+                      - generic [ref=e484]: TechCorp France1
+                      - generic [ref=e485]: Technology · 7 avr.
+                    - generic [ref=e486]: Active
+                  - listitem [ref=e487] [cursor=pointer]:
+                    - generic [ref=e488]: E
+                    - generic [ref=e489]:
+                      - generic [ref=e490]: essia
+                      - generic [ref=e491]: Non défini · 6 avr.
+                    - generic [ref=e492]: Inactive
+            - generic [ref=e493]:
+              - generic [ref=e494]:
+                - generic [ref=e495]:
+                  - heading "Activité récente" [level=2] [ref=e496]
+                  - link "Voir tout" [ref=e497] [cursor=pointer]:
+                    - /url: /app/admin/requests
+                    - text: Voir tout
+                    - img [ref=e499]
+                - generic [ref=e501]:
+                  - img [ref=e503]
+                  - paragraph [ref=e505]: Aucune activité récente
+              - generic [ref=e506]:
+                - heading "Accès rapides" [level=2] [ref=e508]
+                - generic [ref=e509]:
+                  - link "Utilisateurs Gérer les comptes" [ref=e510] [cursor=pointer]:
+                    - /url: /app/admin/users
+                    - img [ref=e513]
+                    - generic [ref=e518]:
+                      - generic [ref=e519]: Utilisateurs
+                      - generic [ref=e520]: Gérer les comptes
+                    - img [ref=e522]
+                  - link "Entreprises Sociétés référencées" [ref=e524] [cursor=pointer]:
+                    - /url: /app/admin/entreprises
+                    - img [ref=e527]
+                    - generic [ref=e531]:
+                      - generic [ref=e532]: Entreprises
+                      - generic [ref=e533]: Sociétés référencées
+                    - img [ref=e535]
+                  - link "Gestionnaires Responsables RH" [ref=e537] [cursor=pointer]:
+                    - /url: /app/admin/rh-owners
+                    - img [ref=e540]
+                    - generic [ref=e552]:
+                      - generic [ref=e553]: Gestionnaires
+                      - generic [ref=e554]: Responsables RH
+                    - img [ref=e556]
+                  - link "Rôles Permissions & accès" [ref=e558] [cursor=pointer]:
+                    - /url: /app/admin/roles
+                    - img [ref=e561]
+                    - generic [ref=e563]:
+                      - generic [ref=e564]: Rôles
+                      - generic [ref=e565]: Permissions & accès
+                    - img [ref=e567]
+                  - link "Présence Suivi global" [ref=e569] [cursor=pointer]:
+                    - /url: /app/admin/presence
+                    - img [ref=e572]
+                    - generic [ref=e575]:
+                      - generic [ref=e576]: Présence
+                      - generic [ref=e577]: Suivi global
+                    - img [ref=e579]
+                  - link "Paramètres Configuration système" [ref=e581] [cursor=pointer]:
+                    - /url: /app/admin/parametres
+                    - img [ref=e584]
+                    - generic [ref=e587]:
+                      - generic [ref=e588]: Paramètres
+                      - generic [ref=e589]: Configuration système
+                    - img [ref=e591]
+              - generic [ref=e593]:
+                - heading "Résumé demandes" [level=2] [ref=e595]
+                - generic [ref=e596]:
+                  - generic [ref=e597]:
+                    - img [ref=e599]
+                    - generic [ref=e602]: "0"
+                    - generic [ref=e603]: En attente
+                  - generic [ref=e604]:
+                    - img [ref=e606]
+                    - generic [ref=e609]: "0"
+                    - generic [ref=e610]: Approuvées
+                  - generic [ref=e611]:
+                    - img [ref=e613]
+                    - generic [ref=e616]: "0"
+                    - generic [ref=e617]: Refusées
+      - contentinfo [ref=e619]:
+        - generic [ref=e620]:
+          - link "WeenTime WeenTime" [ref=e622] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e624]
+            - generic [ref=e625]: WeenTime
+          - generic [ref=e627]:
+            - generic [ref=e628]: Weentime App
+            - generic [ref=e629]: Administrateur
+        - generic [ref=e630]:
+          - link "Aide" [ref=e631] [cursor=pointer]:
+            - /url: /help
+          - link "Confidentialité" [ref=e632] [cursor=pointer]:
+            - /url: /privacy
+          - link "Conditions" [ref=e633] [cursor=pointer]:
+            - /url: /terms
+          - link "Contact" [ref=e634] [cursor=pointer]:
+            - /url: /contact
+        - generic [ref=e635]:
+          - generic [ref=e638]: Tous les services actifs
+          - generic [ref=e640]: v1.0.0
+  - generic:
+    - generic:
+      - generic:
+        - dialog:
+          - banner:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+              - generic:
+                - generic: Admin AI
+                - generic: Admin AI | WeenTime
+            - generic:
+              - button [pressed]:
+                - generic:
+                  - img
+                - generic: Auto
+              - button:
+                - generic:
+                  - img
+              - button:
+                - generic:
+                  - img
+          - generic:
+            - generic: Admin
+            - generic: Voice auto
+            - generic: Voice auto ready
+          - generic:
+            - button: System health
+            - button: AI provider status
+            - button: Tenant configuration issues
+            - button: Redis status
+            - button: Braintrust status
+          - generic:
+            - article:
+              - generic:
+                - generic:
+                  - generic: Admin AI
+                  - generic: 21:34
+                - paragraph: Admin AI is ready for system health, provider status, and tenant issues.
+                - generic:
+                  - generic:
+                    - button:
+                      - generic:
+                        - img
+          - generic:
+            - textbox:
+              - /placeholder: Ask about system health, provider status, or tenant issues...
+            - button:
+              - generic:
+                - img
+            - button [disabled]:
+              - generic:
+                - img
+      - button "Ouvrir l'assistant AI" [ref=e641] [cursor=pointer]:
+        - img [ref=e644]

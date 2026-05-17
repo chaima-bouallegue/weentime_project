@@ -1,0 +1,413 @@
+- generic [ref=e2]:
+  - generic [ref=e102]:
+    - generic [ref=e103]:
+      - complementary [ref=e105]:
+        - generic [ref=e106]:
+          - link "WeenTime WeenTime" [ref=e109] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e111]
+            - generic [ref=e112]: WeenTime
+          - button [ref=e113] [cursor=pointer]:
+            - img [ref=e115]
+        - navigation [ref=e119]:
+          - generic [ref=e120]: Menu Principal
+          - generic [ref=e121]:
+            - link "Tableau de bord Consulter tableau de bord" [ref=e122] [cursor=pointer]:
+              - /url: /app/admin/dashboard
+              - img [ref=e125]
+              - generic [ref=e130]:
+                - generic [ref=e131]: Tableau de bord
+                - generic [ref=e132]: Consulter tableau de bord
+              - img [ref=e134]
+            - link "Messages Consulter messages" [ref=e136] [cursor=pointer]:
+              - /url: /app/messages
+              - img [ref=e139]
+              - generic [ref=e141]:
+                - generic [ref=e142]: Messages
+                - generic [ref=e143]: Consulter messages
+              - img [ref=e145]
+            - link "Réunions Consulter réunions" [ref=e147] [cursor=pointer]:
+              - /url: /app/reunions
+              - img [ref=e150]
+              - generic [ref=e153]:
+                - generic [ref=e154]: Réunions
+                - generic [ref=e155]: Consulter réunions
+              - img [ref=e157]
+            - link "Pointage Consulter pointage" [ref=e159] [cursor=pointer]:
+              - /url: /app/admin/presence
+              - img [ref=e162]
+              - generic [ref=e165]:
+                - generic [ref=e166]: Pointage
+                - generic [ref=e167]: Consulter pointage
+              - img [ref=e169]
+            - link "Utilisateurs Consulter utilisateurs" [ref=e171] [cursor=pointer]:
+              - /url: /app/admin/users
+              - img [ref=e174]
+              - generic [ref=e179]:
+                - generic [ref=e180]: Utilisateurs
+                - generic [ref=e181]: Consulter utilisateurs
+              - img [ref=e183]
+            - link "Roles Consulter roles" [ref=e185] [cursor=pointer]:
+              - /url: /app/admin/roles
+              - img [ref=e188]
+              - generic [ref=e190]:
+                - generic [ref=e191]: Roles
+                - generic [ref=e192]: Consulter roles
+              - img [ref=e194]
+            - link "Entreprises Consulter entreprises" [ref=e196] [cursor=pointer]:
+              - /url: /app/admin/entreprises
+              - img [ref=e199]
+              - generic [ref=e202]:
+                - generic [ref=e203]: Entreprises
+                - generic [ref=e204]: Consulter entreprises
+              - img [ref=e206]
+            - link "Gestionnaires RH Consulter gestionnaires rh" [ref=e208] [cursor=pointer]:
+              - /url: /app/admin/rh-owners
+              - img [ref=e211]
+              - generic [ref=e223]:
+                - generic [ref=e224]: Gestionnaires RH
+                - generic [ref=e225]: Consulter gestionnaires rh
+              - img [ref=e227]
+            - link "Parametres Consulter parametres" [ref=e229] [cursor=pointer]:
+              - /url: /app/admin/parametres
+              - img [ref=e232]
+              - generic [ref=e235]:
+                - generic [ref=e236]: Parametres
+                - generic [ref=e237]: Consulter parametres
+              - img [ref=e239]
+            - link "Profil Consulter profil" [ref=e241] [cursor=pointer]:
+              - /url: /app/admin/profil
+              - img [ref=e244]
+              - generic [ref=e247]:
+                - generic [ref=e248]: Profil
+                - generic [ref=e249]: Consulter profil
+              - img [ref=e251]
+        - generic [ref=e254]:
+          - generic [ref=e257]: A
+          - generic [ref=e258]:
+            - generic [ref=e259]:
+              - generic [ref=e260]: admin@weentime.io
+              - img [ref=e262]
+            - text: Administrateur
+          - button "Déconnexion" [ref=e266] [cursor=pointer]:
+            - img [ref=e268]
+      - generic [ref=e271]:
+        - banner [ref=e273]:
+          - generic [ref=e275]:
+            - generic [ref=e276]: Weentime
+            - img [ref=e278]
+            - generic [ref=e280]: Tableau de bord
+          - generic [ref=e282]:
+            - img [ref=e284]
+            - textbox "Rechercher…" [ref=e287]
+          - generic [ref=e288]:
+            - button "Non pointé" [ref=e290] [cursor=pointer]:
+              - generic [ref=e293]: Non pointé
+            - generic [ref=e295]:
+              - generic [ref=e296]:
+                - button [ref=e297] [cursor=pointer]:
+                  - img [ref=e299]
+                - link [ref=e301] [cursor=pointer]:
+                  - /url: /app/messages
+                  - img [ref=e303]
+                - button [ref=e306] [cursor=pointer]:
+                  - img [ref=e308]
+              - button "A" [ref=e312] [cursor=pointer]:
+                - generic [ref=e313]: A
+                - img [ref=e315]
+        - main [ref=e317]
+        - contentinfo [ref=e319]:
+          - generic [ref=e320]:
+            - link "WeenTime WeenTime" [ref=e322] [cursor=pointer]:
+              - /url: /
+              - img "WeenTime" [ref=e324]
+              - generic [ref=e325]: WeenTime
+            - generic [ref=e327]:
+              - generic [ref=e328]: Demo
+              - generic [ref=e329]: Administrateur
+          - generic [ref=e330]:
+            - link "Aide" [ref=e331] [cursor=pointer]:
+              - /url: /help
+            - link "Confidentialité" [ref=e332] [cursor=pointer]:
+              - /url: /privacy
+            - link "Conditions" [ref=e333] [cursor=pointer]:
+              - /url: /terms
+            - link "Contact" [ref=e334] [cursor=pointer]:
+              - /url: /contact
+          - generic [ref=e335]:
+            - generic [ref=e338]: Tous les services actifs
+            - generic [ref=e340]: v1.0.0
+    - generic:
+      - generic:
+        - generic:
+          - dialog:
+            - banner:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                - generic:
+                  - generic: Admin AI
+                  - generic: Admin AI | admin@weentime.io
+              - generic:
+                - button [pressed]:
+                  - generic:
+                    - img
+                  - generic: Auto
+                - button:
+                  - generic:
+                    - img
+                - button:
+                  - generic:
+                    - img
+            - generic:
+              - generic: Admin
+              - generic: Voice auto
+              - generic: Voice auto ready
+            - generic:
+              - button: System health
+              - button: AI provider status
+              - button: Tenant configuration issues
+              - button: Redis status
+              - button: Braintrust status
+              - button: Create user
+            - generic:
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:47
+                  - paragraph: Check my pointage
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:47
+                  - paragraph: "Statut de pointage: ABSENT. Entree: non renseigne. Sortie: non renseigne."
+                  - generic:
+                    - generic: attendance.status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Did I forget checkout?
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: Vous n'avez pas pointe l'entree aujourd'hui, il n'y a donc pas de sortie a rappeler.
+                  - generic:
+                    - generic: attendance.forgot_checkout
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Today's team summary
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: "Resume manager de votre equipe. - Presence equipe: Donnees disponibles depuis le backend. - Conges equipe: Aucune demande de conge d'equipe trouvee. - Teletravail equipe: Le service teletravail est momentanement indisponible. Reessayez dans quelques instants. - Autorisations equipe: Le service autorisations est momentanement indisponible. Reessayez dans quelques instants. - Communication: Aucun canal de communication visible pour votre compte. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: manager.team_summary
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Pending approvals
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: "Resume manager de votre equipe. - Presence equipe: Donnees disponibles depuis le backend. - Conges equipe: Aucune demande de conge d'equipe trouvee. - Teletravail equipe: Le service teletravail est momentanement indisponible. Reessayez dans quelques instants. - Autorisations equipe: Le service autorisations est momentanement indisponible. Reessayez dans quelques instants. - Communication: Aucun canal de communication visible pour votre compte. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: manager.pending_work
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Pointage equipe
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: "Presence team aujourd'hui: total non renseigne, presents non renseigne, absents non renseigne, retards non renseigne."
+                  - generic:
+                    - generic: attendance.team_presence
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: RH backlog
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: "Resume RH du jour. - Statistiques RH: Statistiques RH: 8 employe(s), 0 demande(s) en attente, 0 present(s), 0 absent(s), taux de presence 0.0%. - Conges RH: Aucune demande de conge en attente RH trouvee. - Teletravail RH: Vous avez 2 demande(s) de teletravail en attente RH: 2 en attente rh. - Autorisations RH: Le service autorisations est momentanement indisponible. Reessayez dans quelques instants. - Documents RH: Le service documents est momentanement indisponible. Reessayez dans quelques instants. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: rh.daily_briefing
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Presence aujourd'hui
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:48
+                  - paragraph: "Presence company aujourd'hui: total non renseigne, presents non renseigne, absents non renseigne, retards non renseigne."
+                  - generic:
+                    - generic: attendance.team_presence
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: RH stats
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:49
+                  - paragraph: "Statistiques RH: 8 employe(s), 0 demande(s) en attente, 0 present(s), 0 absent(s), taux de presence 0.0%."
+                  - generic:
+                    - generic: rh.stats
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: System health
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:49
+                  - paragraph: "Resume systeme administrateur. - Sante systeme: Etat systeme local (mode chatbot public) : ai_provider=configured, redis=disabled, braintrust=disabled, rag=local_keyword, chatbot_public_mode=enabled - Utilisateurs mal configures: STATE_CONFLICT - Utilisateurs: STATE_CONFLICT - Entreprises: 10 entreprise(s) trouvee(s), dont 6 active(s). Diagnostics: - Gouvernance entreprises: 10 entreprise(s) trouvee(s), dont 6 active(s). - Sante systeme backend: Etat systeme local (mode chatbot public) : ai_provider=configured, redis=disabled, braintrust=disabled, rag=local_keyword, chatbot_public_mode=enabled - Capacite indisponible: Utilisateurs mal configures: STATE_CONFLICT - Capacite indisponible: Utilisateurs: STATE_CONFLICT - Statut fournisseur IA: Mode IA: ollama. Mode local CPU: True. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: admin.system_summary
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: AI provider status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:49
+                  - paragraph: Fournisseur IA configure en mode 'ollama' (modele qwen2.5:3b).
+                  - generic:
+                    - generic: admin.provider_status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: Redis status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:49
+                  - paragraph: I cannot confirm that without verified data. Please retry with a request based on system data.
+                  - generic:
+                    - generic: fallback.guard_rejected
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: Braintrust status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Admin AI
+                    - generic: 10:49
+                  - paragraph: Braintrust desactive (aucune trace n'est exportee).
+                  - generic:
+                    - generic: admin.braintrust_status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+            - generic:
+              - textbox:
+                - /placeholder: Ask about system health, provider status, or tenant issues...
+              - button:
+                - generic:
+                  - img
+              - button [disabled]:
+                - generic:
+                  - img
+        - button "Ouvrir l'assistant AI" [ref=e341] [cursor=pointer]:
+          - img [ref=e344]
+  - generic [ref=e346]:
+    - generic [ref=e347]:
+      - img [ref=e349]
+      - generic [ref=e351]: L'historique AI n'a pas pu etre charge.
+      - button [ref=e352] [cursor=pointer]:
+        - img [ref=e354]
+    - generic [ref=e357]:
+      - img [ref=e359]
+      - generic [ref=e363]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e364] [cursor=pointer]:
+        - img [ref=e366]
+    - generic [ref=e369]:
+      - img [ref=e371]
+      - generic [ref=e375]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e376] [cursor=pointer]:
+        - img [ref=e378]

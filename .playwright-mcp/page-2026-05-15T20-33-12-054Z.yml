@@ -1,0 +1,41 @@
+- generic [ref=e103]:
+  - button "Changer de theme" [ref=e104] [cursor=pointer]:
+    - img [ref=e106]
+  - generic [ref=e108]:
+    - generic [ref=e109]:
+      - link "WeenTime" [ref=e111] [cursor=pointer]:
+        - /url: /
+        - img "WeenTime" [ref=e113]
+      - generic [ref=e114]:
+        - img [ref=e116]
+        - text: Connexion securisee
+    - generic [ref=e119]:
+      - paragraph [ref=e120]: Bienvenue
+      - heading "Connectez-vous a WeenTime" [level=1] [ref=e121]
+      - paragraph [ref=e122]: Accedez a votre espace RH, manager ou collaborateur avec une experience simple et fiable.
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]: Adresse email
+        - generic [ref=e126]:
+          - img [ref=e128]
+          - textbox "Adresse email" [active] [ref=e131]:
+            - /placeholder: nom@entreprise.com
+      - generic [ref=e132]:
+        - generic [ref=e133]: Mot de passe
+        - generic [ref=e134]:
+          - img [ref=e136]
+          - textbox "Mot de passe Afficher le mot de passe" [ref=e139]:
+            - /placeholder: Votre mot de passe
+          - button "Afficher le mot de passe" [ref=e140] [cursor=pointer]:
+            - img [ref=e142]
+      - generic [ref=e146]:
+        - checkbox "Rester connecte" [checked] [ref=e147]
+        - generic [ref=e148]: Rester connecte
+      - button "Se connecter" [ref=e149] [cursor=pointer]:
+        - generic [ref=e150]:
+          - text: Se connecter
+          - img [ref=e152]
+    - paragraph [ref=e155]:
+      - text: Pas encore de compte ?
+      - link "Creer un compte" [ref=e156] [cursor=pointer]:
+        - /url: /register

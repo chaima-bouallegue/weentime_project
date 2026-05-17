@@ -1,0 +1,403 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - complementary [ref=e6]:
+        - generic [ref=e7]:
+          - link "WeenTime WeenTime" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e12]
+            - generic [ref=e13]: WeenTime
+          - button [ref=e14] [cursor=pointer]:
+            - img [ref=e16]
+        - navigation [ref=e20]:
+          - generic [ref=e21]: Menu Principal
+          - generic [ref=e22]:
+            - link "Tableau de bord Consulter tableau de bord" [ref=e23] [cursor=pointer]:
+              - /url: /app/manager/dashboard
+              - img [ref=e26]
+              - generic [ref=e31]:
+                - generic [ref=e32]: Tableau de bord
+                - generic [ref=e33]: Consulter tableau de bord
+              - img [ref=e35]
+            - link "Messages Consulter messages" [ref=e37] [cursor=pointer]:
+              - /url: /app/messages
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - generic [ref=e43]: Messages
+                - generic [ref=e44]: Consulter messages
+              - img [ref=e46]
+            - link "Réunions Consulter réunions" [ref=e48] [cursor=pointer]:
+              - /url: /app/reunions
+              - img [ref=e51]
+              - generic [ref=e54]:
+                - generic [ref=e55]: Réunions
+                - generic [ref=e56]: Consulter réunions
+              - img [ref=e58]
+            - link "Equipe Consulter equipe" [ref=e60] [cursor=pointer]:
+              - /url: /app/manager/equipe
+              - img [ref=e63]
+              - generic [ref=e68]:
+                - generic [ref=e69]: Equipe
+                - generic [ref=e70]: Consulter equipe
+              - img [ref=e72]
+            - link "Pointage Consulter pointage" [ref=e74] [cursor=pointer]:
+              - /url: /app/manager/pointage
+              - img [ref=e77]
+              - generic [ref=e80]:
+                - generic [ref=e81]: Pointage
+                - generic [ref=e82]: Consulter pointage
+              - img [ref=e84]
+            - link "Presence Consulter presence" [ref=e86] [cursor=pointer]:
+              - /url: /app/manager/presence
+              - img [ref=e89]
+              - generic [ref=e92]:
+                - generic [ref=e93]: Presence
+                - generic [ref=e94]: Consulter presence
+              - img [ref=e96]
+            - link "Horaires Consulter horaires" [ref=e98] [cursor=pointer]:
+              - /url: /app/manager/horaires
+              - img [ref=e101]
+              - generic [ref=e104]:
+                - generic [ref=e105]: Horaires
+                - generic [ref=e106]: Consulter horaires
+              - img [ref=e108]
+            - link "Autorisations Consulter autorisations" [ref=e110] [cursor=pointer]:
+              - /url: /app/manager/autorisations
+              - img [ref=e113]
+              - generic [ref=e116]:
+                - generic [ref=e117]: Autorisations
+                - generic [ref=e118]: Consulter autorisations
+              - img [ref=e120]
+            - link "Teletravail Consulter teletravail" [ref=e122] [cursor=pointer]:
+              - /url: /app/manager/teletravail
+              - img [ref=e125]
+              - generic [ref=e127]:
+                - generic [ref=e128]: Teletravail
+                - generic [ref=e129]: Consulter teletravail
+              - img [ref=e131]
+            - link "Approbations Consulter approbations" [ref=e133] [cursor=pointer]:
+              - /url: /app/manager/approbations
+              - img [ref=e136]
+              - generic [ref=e139]:
+                - generic [ref=e140]: Approbations
+                - generic [ref=e141]: Consulter approbations
+              - img [ref=e143]
+            - link "Profil Consulter profil" [ref=e145] [cursor=pointer]:
+              - /url: /app/manager/profil
+              - img [ref=e148]
+              - generic [ref=e151]:
+                - generic [ref=e152]: Profil
+                - generic [ref=e153]: Consulter profil
+              - img [ref=e155]
+        - generic [ref=e158]:
+          - generic [ref=e161]: M
+          - generic [ref=e162]:
+            - generic [ref=e163]:
+              - generic [ref=e164]: manager@weentime.io
+              - img [ref=e166]
+            - text: Manager
+          - button "Déconnexion" [ref=e170] [cursor=pointer]:
+            - img [ref=e172]
+      - generic [ref=e175]:
+        - banner [ref=e177]:
+          - generic [ref=e179]:
+            - generic [ref=e180]: Weentime
+            - img [ref=e182]
+            - generic [ref=e184]: Tableau de bord
+          - generic [ref=e186]:
+            - img [ref=e188]
+            - textbox "Rechercher…" [ref=e191]
+          - generic [ref=e192]:
+            - button "Non pointé" [ref=e194] [cursor=pointer]:
+              - generic [ref=e197]: Non pointé
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - button [ref=e201] [cursor=pointer]:
+                  - img [ref=e203]
+                - link [ref=e205] [cursor=pointer]:
+                  - /url: /app/messages
+                  - img [ref=e207]
+                - button [ref=e210] [cursor=pointer]:
+                  - img [ref=e212]
+              - button "M" [ref=e216] [cursor=pointer]:
+                - generic [ref=e217]: M
+                - img [ref=e219]
+        - main [ref=e221]
+        - contentinfo [ref=e223]:
+          - generic [ref=e224]:
+            - link "WeenTime WeenTime" [ref=e226] [cursor=pointer]:
+              - /url: /
+              - img "WeenTime" [ref=e228]
+              - generic [ref=e229]: WeenTime
+            - generic [ref=e231]:
+              - generic [ref=e232]: Demo
+              - generic [ref=e233]: Manager
+          - generic [ref=e234]:
+            - link "Aide" [ref=e235] [cursor=pointer]:
+              - /url: /help
+            - link "Confidentialité" [ref=e236] [cursor=pointer]:
+              - /url: /privacy
+            - link "Conditions" [ref=e237] [cursor=pointer]:
+              - /url: /terms
+            - link "Contact" [ref=e238] [cursor=pointer]:
+              - /url: /contact
+          - generic [ref=e239]:
+            - generic [ref=e242]: Tous les services actifs
+            - generic [ref=e244]: v1.0.0
+    - generic:
+      - generic:
+        - generic:
+          - dialog:
+            - banner:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                - generic:
+                  - generic: Manager AI
+                  - generic: Manager AI | manager@weentime.io
+              - generic:
+                - button [pressed]:
+                  - generic:
+                    - img
+                  - generic: Auto
+                - button:
+                  - generic:
+                    - img
+                - button:
+                  - generic:
+                    - img
+            - generic:
+              - generic: Manager
+              - generic: Voice auto
+              - generic: Voice auto ready
+            - generic:
+              - button: Today's team summary
+              - button: Pending approvals
+              - button: Team attendance anomalies
+              - button: Did I check in?
+              - button: Pointage equipe
+            - generic:
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:19
+                  - paragraph: Show my daily summary
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:19
+                  - paragraph: I cannot provide that response safely. I can help with a system-verified request.
+                  - generic:
+                    - generic: fallback.unsafe_response
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:20
+                  - paragraph: bonjour
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:20
+                  - paragraph: Bonjour. Je peux vous aider avec vos conges, documents, teletravail, autorisations et pointage.
+                  - generic:
+                    - generic: system.greeting
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:20
+                  - paragraph: Check my leave balance
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:20
+                  - paragraph: UNAUTHORIZED
+                  - generic:
+                    - generic: leave.balance
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:30
+                  - paragraph: bonjour
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:30
+                  - paragraph: Bonjour. Je peux vous aider avec vos conges, documents, teletravail, autorisations et pointage.
+                  - generic:
+                    - generic: system.greeting
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:30
+                  - paragraph: Did I forget checkout?
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:30
+                  - paragraph: I cannot provide that response safely. I can help with a system-verified request.
+                  - generic:
+                    - generic: fallback.unsafe_response
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:31
+                  - paragraph: Show my daily summary
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:31
+                  - paragraph: "Resume de votre espace personnel. - Pointage: UNAUTHORIZED - Heures semaine: UNAUTHORIZED - Solde conges: UNAUTHORIZED - Demandes conges: UNAUTHORIZED - Teletravail: Vous n'avez pas les droits necessaires pour cette demande de teletravail. - Autorisations: Vous n'avez pas les droits necessaires pour cette demande d'autorisation. - Documents: Vous n'avez pas les droits necessaires pour acceder a ce document. - Communication: Vous n'avez pas les droits necessaires pour consulter ce canal. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: employee.daily_briefing
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:35
+                  - paragraph: Did I forget checkout?
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:35
+                  - paragraph: UNAUTHORIZED
+                  - generic:
+                    - generic: attendance.forgot_checkout
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:35
+                  - paragraph: j'ai oublie de pointer la sortie
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:35
+                  - paragraph: UNAUTHORIZED
+                  - generic:
+                    - generic: attendance.forgot_checkout
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:44
+                  - paragraph: Check my pointage
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:44
+                  - paragraph: "Statut de pointage: ABSENT. Entree: non renseigne. Sortie: non renseigne."
+                  - generic:
+                    - generic: attendance.status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:44
+                  - paragraph: Show my daily summary
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:44
+                  - paragraph: "Resume de votre espace personnel. - Pointage: Donnees disponibles depuis le backend. - Heures semaine: Donnees disponibles depuis le backend. - Solde conges: Aucun solde de conge disponible pour votre compte. - Demandes conges: Aucune demande de conge n'a ete trouvee. - Teletravail: Le service teletravail est momentanement indisponible. Reessayez dans quelques instants. - Autorisations: Le service autorisations est momentanement indisponible. Reessayez dans quelques instants. - Documents: Le service documents est momentanement indisponible. Reessayez dans quelques instants. - Communication: Aucun canal de communication visible pour votre compte. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: employee.daily_briefing
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:47
+                  - paragraph: Check my pointage
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:47
+                  - paragraph: "Statut de pointage: ABSENT. Entree: non renseigne. Sortie: non renseigne."
+                  - generic:
+                    - generic: attendance.status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Did I forget checkout?
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Manager AI
+                    - generic: 10:48
+                  - paragraph: Vous n'avez pas pointe l'entree aujourd'hui, il n'y a donc pas de sortie a rappeler.
+                  - generic:
+                    - generic: attendance.forgot_checkout
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+            - generic:
+              - textbox:
+                - /placeholder: Ask about approvals, team presence, or today's team summary...
+              - button:
+                - generic:
+                  - img
+              - button [disabled]:
+                - generic:
+                  - img
+        - button "Ouvrir l'assistant AI" [ref=e245] [cursor=pointer]:
+          - img [ref=e248]
+  - generic [ref=e250]:
+    - generic [ref=e251]:
+      - img [ref=e253]
+      - generic [ref=e257]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e258] [cursor=pointer]:
+        - img [ref=e260]
+    - generic [ref=e263]:
+      - img [ref=e265]
+      - generic [ref=e267]: L'historique AI n'a pas pu etre charge.
+      - button [ref=e268] [cursor=pointer]:
+        - img [ref=e270]
+    - generic [ref=e273]:
+      - img [ref=e275]
+      - generic [ref=e279]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e280] [cursor=pointer]:
+        - img [ref=e282]

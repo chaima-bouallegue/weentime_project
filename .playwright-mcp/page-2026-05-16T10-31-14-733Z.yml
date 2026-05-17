@@ -1,0 +1,411 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - complementary [ref=e6]:
+        - generic [ref=e7]:
+          - link "WeenTime WeenTime" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e12]
+            - generic [ref=e13]: WeenTime
+          - button [ref=e14] [cursor=pointer]:
+            - img [ref=e16]
+        - navigation [ref=e20]:
+          - generic [ref=e21]: Menu Principal
+          - generic [ref=e22]:
+            - link "Tableau de bord Consulter tableau de bord" [ref=e23] [cursor=pointer]:
+              - /url: /app/employee/dashboard
+              - img [ref=e26]
+              - generic [ref=e31]:
+                - generic [ref=e32]: Tableau de bord
+                - generic [ref=e33]: Consulter tableau de bord
+              - img [ref=e35]
+            - link "Messages Consulter messages" [ref=e37] [cursor=pointer]:
+              - /url: /app/messages
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - generic [ref=e43]: Messages
+                - generic [ref=e44]: Consulter messages
+              - img [ref=e46]
+            - link "Réunions Consulter réunions" [ref=e48] [cursor=pointer]:
+              - /url: /app/reunions
+              - img [ref=e51]
+              - generic [ref=e54]:
+                - generic [ref=e55]: Réunions
+                - generic [ref=e56]: Consulter réunions
+              - img [ref=e58]
+            - link "Planning Consulter planning" [ref=e60] [cursor=pointer]:
+              - /url: /app/employee/horaires
+              - img [ref=e63]
+              - generic [ref=e66]:
+                - generic [ref=e67]: Planning
+                - generic [ref=e68]: Consulter planning
+              - img [ref=e70]
+            - link "Conges Consulter conges" [ref=e72] [cursor=pointer]:
+              - /url: /app/employee/conges
+              - img [ref=e75]
+              - generic [ref=e77]:
+                - generic [ref=e78]: Conges
+                - generic [ref=e79]: Consulter conges
+              - img [ref=e81]
+            - link "Pointage Consulter pointage" [ref=e83] [cursor=pointer]:
+              - /url: /app/employee/pointage
+              - img [ref=e86]
+              - generic [ref=e89]:
+                - generic [ref=e90]: Pointage
+                - generic [ref=e91]: Consulter pointage
+              - img [ref=e93]
+            - link "Autorisations Consulter autorisations" [ref=e95] [cursor=pointer]:
+              - /url: /app/employee/autorisations
+              - img [ref=e98]
+              - generic [ref=e101]:
+                - generic [ref=e102]: Autorisations
+                - generic [ref=e103]: Consulter autorisations
+              - img [ref=e105]
+            - link "Teletravail Consulter teletravail" [ref=e107] [cursor=pointer]:
+              - /url: /app/employee/teletravail
+              - img [ref=e110]
+              - generic [ref=e112]:
+                - generic [ref=e113]: Teletravail
+                - generic [ref=e114]: Consulter teletravail
+              - img [ref=e116]
+            - link "Documents Consulter documents" [ref=e118] [cursor=pointer]:
+              - /url: /app/employee/documents
+              - img [ref=e121]
+              - generic [ref=e123]:
+                - generic [ref=e124]: Documents
+                - generic [ref=e125]: Consulter documents
+              - img [ref=e127]
+            - link "Profil Consulter profil" [ref=e129] [cursor=pointer]:
+              - /url: /app/employee/profil
+              - img [ref=e132]
+              - generic [ref=e135]:
+                - generic [ref=e136]: Profil
+                - generic [ref=e137]: Consulter profil
+              - img [ref=e139]
+        - generic [ref=e142]:
+          - generic [ref=e145]: D
+          - generic [ref=e146]:
+            - generic [ref=e147]:
+              - generic [ref=e148]: demo@weentime.io
+              - img [ref=e150]
+            - text: Collaborateur
+          - button "Déconnexion" [ref=e154] [cursor=pointer]:
+            - img [ref=e156]
+      - generic [ref=e159]:
+        - banner [ref=e162]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: Weentime
+            - img [ref=e167]
+            - generic [ref=e169]: Tableau de bord
+          - generic [ref=e171]:
+            - img [ref=e173]
+            - textbox "Rechercher…" [ref=e176]
+          - generic [ref=e177]:
+            - button "Non pointé" [ref=e179] [cursor=pointer]:
+              - generic [ref=e182]: Non pointé
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - button [ref=e186] [cursor=pointer]:
+                  - img [ref=e188]
+                - link [ref=e190] [cursor=pointer]:
+                  - /url: /app/messages
+                  - img [ref=e192]
+                - button [ref=e195] [cursor=pointer]:
+                  - img [ref=e197]
+              - button "D" [ref=e201] [cursor=pointer]:
+                - generic [ref=e202]: D
+                - img [ref=e204]
+        - main [ref=e206]
+        - contentinfo [ref=e208]:
+          - generic [ref=e209]:
+            - link "WeenTime WeenTime" [ref=e211] [cursor=pointer]:
+              - /url: /
+              - img "WeenTime" [ref=e213]
+              - generic [ref=e214]: WeenTime
+            - generic [ref=e216]:
+              - generic [ref=e217]: Demo
+              - generic [ref=e218]: Collaborateur
+          - generic [ref=e219]:
+            - link "Aide" [ref=e220] [cursor=pointer]:
+              - /url: /help
+            - link "Confidentialité" [ref=e221] [cursor=pointer]:
+              - /url: /privacy
+            - link "Conditions" [ref=e222] [cursor=pointer]:
+              - /url: /terms
+            - link "Contact" [ref=e223] [cursor=pointer]:
+              - /url: /contact
+          - generic [ref=e224]:
+            - generic [ref=e227]: Tous les services actifs
+            - generic [ref=e229]: v1.0.0
+    - generic:
+      - generic:
+        - generic:
+          - dialog:
+            - banner:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                - generic:
+                  - generic: Employee AI
+                  - generic: Employee AI | demo@weentime.io
+              - generic:
+                - button [pressed]:
+                  - generic:
+                    - img
+                  - generic: Auto
+                - button:
+                  - generic:
+                    - img
+                - button:
+                  - generic:
+                    - img
+            - generic:
+              - generic: Employee
+              - generic: Voice auto
+              - generic: Voice auto ready
+            - generic:
+              - button: Show my daily summary
+              - button: Check my leave balance
+              - button: Did I forget checkout?
+              - button: Request a document
+              - button: Check my pointage
+              - button: My meetings
+            - generic:
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:48
+                  - paragraph: "Presence team aujourd'hui: total non renseigne, presents non renseigne, absents non renseigne, retards non renseigne."
+                  - generic:
+                    - generic: attendance.team_presence
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: RH backlog
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:48
+                  - paragraph: "Resume RH du jour. - Statistiques RH: Statistiques RH: 8 employe(s), 0 demande(s) en attente, 0 present(s), 0 absent(s), taux de presence 0.0%. - Conges RH: Aucune demande de conge en attente RH trouvee. - Teletravail RH: Vous avez 2 demande(s) de teletravail en attente RH: 2 en attente rh. - Autorisations RH: Le service autorisations est momentanement indisponible. Reessayez dans quelques instants. - Documents RH: Le service documents est momentanement indisponible. Reessayez dans quelques instants. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: rh.daily_briefing
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:48
+                  - paragraph: Presence aujourd'hui
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:48
+                  - paragraph: "Presence company aujourd'hui: total non renseigne, presents non renseigne, absents non renseigne, retards non renseigne."
+                  - generic:
+                    - generic: attendance.team_presence
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: RH stats
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:49
+                  - paragraph: "Statistiques RH: 8 employe(s), 0 demande(s) en attente, 0 present(s), 0 absent(s), taux de presence 0.0%."
+                  - generic:
+                    - generic: rh.stats
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: System health
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:49
+                  - paragraph: "Resume systeme administrateur. - Sante systeme: Etat systeme local (mode chatbot public) : ai_provider=configured, redis=disabled, braintrust=disabled, rag=local_keyword, chatbot_public_mode=enabled - Utilisateurs mal configures: STATE_CONFLICT - Utilisateurs: STATE_CONFLICT - Entreprises: 10 entreprise(s) trouvee(s), dont 6 active(s). Diagnostics: - Gouvernance entreprises: 10 entreprise(s) trouvee(s), dont 6 active(s). - Sante systeme backend: Etat systeme local (mode chatbot public) : ai_provider=configured, redis=disabled, braintrust=disabled, rag=local_keyword, chatbot_public_mode=enabled - Capacite indisponible: Utilisateurs mal configures: STATE_CONFLICT - Capacite indisponible: Utilisateurs: STATE_CONFLICT - Statut fournisseur IA: Mode IA: ollama. Mode local CPU: True. Certaines donnees sont indisponibles; le resume reste partiel."
+                  - generic:
+                    - generic: admin.system_summary
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: AI provider status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:49
+                  - paragraph: Fournisseur IA configure en mode 'ollama' (modele qwen2.5:3b).
+                  - generic:
+                    - generic: admin.provider_status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: Redis status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: System
+                    - generic: 10:49
+                  - paragraph: I cannot confirm that without verified data. Please retry with a request based on system data.
+                  - generic:
+                    - generic: fallback.guard_rejected
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:49
+                  - paragraph: Braintrust status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:49
+                  - paragraph: Braintrust desactive (aucune trace n'est exportee).
+                  - generic:
+                    - generic: admin.braintrust_status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 10:50
+                  - paragraph: Redis status
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:50
+                  - paragraph: Redis desactive (les evenements temps-reel utilisent le bus en memoire).
+                  - generic:
+                    - generic: admin.redis_status
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 11:28
+                  - paragraph: je veut un conge de maladie pour demain
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 11:28
+                  - paragraph: Je ne peux pas evaluer le risque complet car certaines donnees RH ne sont pas disponibles. Confirmez-vous cette demande de conge Conge maladie pour le 2026-05-17 ?
+                  - generic:
+                    - generic: leave.create
+                    - generic:
+                      - generic: Action cancelled
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 11:28
+                  - paragraph: c quoi mon planning
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 11:28
+                  - paragraph: Le module planning / horaires n'est pas encore connecte a l'agent IA. Consultez votre planning depuis l'onglet 'Planning' de l'application; je peux toujours vous aider sur le pointage, les conges, le teletravail ou les autorisations.
+                  - generic:
+                    - generic: planning.unavailable
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: You
+                    - generic: 11:29
+                  - paragraph: je veut une demande de contart de travaille
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 11:29
+                  - paragraph: Voulez-vous confirmer la demande de contrat de travail ?
+                  - generic:
+                    - generic: document.create
+                    - generic:
+                      - generic: Action cancelled
+                      - button:
+                        - generic:
+                          - img
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 11:29
+                  - paragraph: Action annulee.
+                  - generic:
+                    - generic: confirmation.rejected
+                    - generic:
+                      - generic: Action approved
+                      - button:
+                        - generic:
+                          - img
+            - generic:
+              - textbox:
+                - /placeholder: Ask about leave, attendance, documents, or use voice...
+              - button:
+                - generic:
+                  - img
+              - button [disabled]:
+                - generic:
+                  - img
+        - button "Ouvrir l'assistant AI" [ref=e230] [cursor=pointer]:
+          - img [ref=e233]
+  - generic [ref=e236]:
+    - img [ref=e238]
+    - generic [ref=e240]: L'historique AI n'a pas pu etre charge.
+    - button [ref=e241] [cursor=pointer]:
+      - img [ref=e243]

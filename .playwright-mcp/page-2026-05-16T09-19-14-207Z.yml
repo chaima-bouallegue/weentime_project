@@ -1,0 +1,212 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - complementary [ref=e6]:
+        - generic [ref=e7]:
+          - link "WeenTime WeenTime" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e12]
+            - generic [ref=e13]: WeenTime
+          - button [ref=e14] [cursor=pointer]:
+            - img [ref=e16]
+        - navigation [ref=e20]:
+          - generic [ref=e21]: Menu Principal
+          - generic [ref=e22]:
+            - link "Tableau de bord Consulter tableau de bord" [ref=e23] [cursor=pointer]:
+              - /url: /app/employee/dashboard
+              - img [ref=e26]
+              - generic [ref=e31]:
+                - generic [ref=e32]: Tableau de bord
+                - generic [ref=e33]: Consulter tableau de bord
+              - img [ref=e35]
+            - link "Messages Consulter messages" [ref=e37] [cursor=pointer]:
+              - /url: /app/messages
+              - img [ref=e40]
+              - generic [ref=e42]:
+                - generic [ref=e43]: Messages
+                - generic [ref=e44]: Consulter messages
+              - img [ref=e46]
+            - link "Réunions Consulter réunions" [ref=e48] [cursor=pointer]:
+              - /url: /app/reunions
+              - img [ref=e51]
+              - generic [ref=e54]:
+                - generic [ref=e55]: Réunions
+                - generic [ref=e56]: Consulter réunions
+              - img [ref=e58]
+            - link "Planning Consulter planning" [ref=e60] [cursor=pointer]:
+              - /url: /app/employee/horaires
+              - img [ref=e63]
+              - generic [ref=e66]:
+                - generic [ref=e67]: Planning
+                - generic [ref=e68]: Consulter planning
+              - img [ref=e70]
+            - link "Conges Consulter conges" [ref=e72] [cursor=pointer]:
+              - /url: /app/employee/conges
+              - img [ref=e75]
+              - generic [ref=e77]:
+                - generic [ref=e78]: Conges
+                - generic [ref=e79]: Consulter conges
+              - img [ref=e81]
+            - link "Pointage Consulter pointage" [ref=e83] [cursor=pointer]:
+              - /url: /app/employee/pointage
+              - img [ref=e86]
+              - generic [ref=e89]:
+                - generic [ref=e90]: Pointage
+                - generic [ref=e91]: Consulter pointage
+              - img [ref=e93]
+            - link "Autorisations Consulter autorisations" [ref=e95] [cursor=pointer]:
+              - /url: /app/employee/autorisations
+              - img [ref=e98]
+              - generic [ref=e101]:
+                - generic [ref=e102]: Autorisations
+                - generic [ref=e103]: Consulter autorisations
+              - img [ref=e105]
+            - link "Teletravail Consulter teletravail" [ref=e107] [cursor=pointer]:
+              - /url: /app/employee/teletravail
+              - img [ref=e110]
+              - generic [ref=e112]:
+                - generic [ref=e113]: Teletravail
+                - generic [ref=e114]: Consulter teletravail
+              - img [ref=e116]
+            - link "Documents Consulter documents" [ref=e118] [cursor=pointer]:
+              - /url: /app/employee/documents
+              - img [ref=e121]
+              - generic [ref=e123]:
+                - generic [ref=e124]: Documents
+                - generic [ref=e125]: Consulter documents
+              - img [ref=e127]
+            - link "Profil Consulter profil" [ref=e129] [cursor=pointer]:
+              - /url: /app/employee/profil
+              - img [ref=e132]
+              - generic [ref=e135]:
+                - generic [ref=e136]: Profil
+                - generic [ref=e137]: Consulter profil
+              - img [ref=e139]
+        - generic [ref=e142]:
+          - generic [ref=e145]: D
+          - generic [ref=e146]:
+            - generic [ref=e147]:
+              - generic [ref=e148]: demo@weentime.io
+              - img [ref=e150]
+            - text: Collaborateur
+          - button "Déconnexion" [ref=e154] [cursor=pointer]:
+            - img [ref=e156]
+      - generic [ref=e159]:
+        - banner [ref=e161]:
+          - generic [ref=e163]:
+            - generic [ref=e164]: Weentime
+            - img [ref=e166]
+            - generic [ref=e168]: Tableau de bord
+          - generic [ref=e170]:
+            - img [ref=e172]
+            - textbox "Rechercher…" [ref=e175]
+          - generic [ref=e176]:
+            - button "Non pointé" [ref=e178] [cursor=pointer]:
+              - generic [ref=e181]: Non pointé
+            - generic [ref=e183]:
+              - generic [ref=e184]:
+                - button [ref=e185] [cursor=pointer]:
+                  - img [ref=e187]
+                - link [ref=e189] [cursor=pointer]:
+                  - /url: /app/messages
+                  - img [ref=e191]
+                - button [ref=e194] [cursor=pointer]:
+                  - img [ref=e196]
+              - button "D" [ref=e200] [cursor=pointer]:
+                - generic [ref=e201]: D
+                - img [ref=e203]
+        - main [ref=e205]
+        - contentinfo [ref=e207]:
+          - generic [ref=e208]:
+            - link "WeenTime WeenTime" [ref=e210] [cursor=pointer]:
+              - /url: /
+              - img "WeenTime" [ref=e212]
+              - generic [ref=e213]: WeenTime
+            - generic [ref=e215]:
+              - generic [ref=e216]: Demo
+              - generic [ref=e217]: Collaborateur
+          - generic [ref=e218]:
+            - link "Aide" [ref=e219] [cursor=pointer]:
+              - /url: /help
+            - link "Confidentialité" [ref=e220] [cursor=pointer]:
+              - /url: /privacy
+            - link "Conditions" [ref=e221] [cursor=pointer]:
+              - /url: /terms
+            - link "Contact" [ref=e222] [cursor=pointer]:
+              - /url: /contact
+          - generic [ref=e223]:
+            - generic [ref=e226]: Tous les services actifs
+            - generic [ref=e228]: v1.0.0
+    - generic:
+      - generic:
+        - generic:
+          - dialog:
+            - banner:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                - generic:
+                  - generic: Employee AI
+                  - generic: Employee AI | demo@weentime.io
+              - generic:
+                - button [pressed]:
+                  - generic:
+                    - img
+                  - generic: Auto
+                - button:
+                  - generic:
+                    - img
+                - button:
+                  - generic:
+                    - img
+            - generic:
+              - generic: Employee
+              - generic: Voice auto
+              - generic: Voice auto ready
+            - generic:
+              - button: Show my daily summary
+              - button: Check my leave balance
+              - button: Did I forget checkout?
+              - button: Request a document
+              - button: Check my pointage
+              - button: My meetings
+            - generic:
+              - article:
+                - generic:
+                  - generic:
+                    - generic: Employee AI
+                    - generic: 10:19
+                  - paragraph: Employee AI is ready for daily summaries, leave balance, and attendance help.
+                  - generic:
+                    - generic:
+                      - button:
+                        - generic:
+                          - img
+            - generic:
+              - textbox:
+                - /placeholder: Ask about leave, attendance, documents, or use voice...
+              - button:
+                - generic:
+                  - img
+              - button [disabled]:
+                - generic:
+                  - img
+        - button "Ouvrir l'assistant AI" [ref=e229] [cursor=pointer]:
+          - img [ref=e232]
+  - generic [ref=e234]:
+    - generic [ref=e235]:
+      - img [ref=e237]
+      - generic [ref=e241]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e242] [cursor=pointer]:
+        - img [ref=e244]
+    - generic [ref=e247]:
+      - img [ref=e249]
+      - generic [ref=e251]: L'historique AI n'a pas pu etre charge.
+      - button [ref=e252] [cursor=pointer]:
+        - img [ref=e254]
+    - generic [ref=e257]:
+      - img [ref=e259]
+      - generic [ref=e263]: Votre session a expire. Veuillez vous reconnecter.
+      - button [ref=e264] [cursor=pointer]:
+        - img [ref=e266]

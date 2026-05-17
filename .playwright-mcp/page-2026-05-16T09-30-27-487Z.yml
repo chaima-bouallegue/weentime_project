@@ -1,0 +1,508 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - link "WeenTime WeenTime Gérez · Simplifiez · Évoluez" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - link "WeenTime" [ref=e9]:
+          - /url: /
+          - img "WeenTime" [ref=e11]
+        - generic [ref=e12]:
+          - generic [ref=e13]: WeenTime
+          - generic [ref=e14]: Gérez · Simplifiez · Évoluez
+      - generic [ref=e15]:
+        - link "Accueil" [ref=e16] [cursor=pointer]:
+          - /url: /
+          - text: Accueil
+        - link "Présentation" [ref=e17] [cursor=pointer]:
+          - /url: /#presentation
+          - text: Présentation
+        - link "Fonctionnalités" [ref=e18] [cursor=pointer]:
+          - /url: /#features
+          - text: Fonctionnalités
+        - link "Tarif" [ref=e19] [cursor=pointer]:
+          - /url: /pricing
+          - text: Tarif
+        - link "Blog" [ref=e20] [cursor=pointer]:
+          - /url: /blog
+          - text: Blog
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - button "FR" [ref=e24] [cursor=pointer]
+            - button "EN" [ref=e25] [cursor=pointer]
+            - button "AR" [ref=e26] [cursor=pointer]
+          - button [ref=e27] [cursor=pointer]:
+            - img [ref=e29]
+        - generic [ref=e32]:
+          - link "Connexion" [ref=e33] [cursor=pointer]:
+            - /url: /login
+          - link "Essai gratuit" [ref=e34] [cursor=pointer]:
+            - /url: /register
+            - generic [ref=e35]: Essai gratuit
+            - img [ref=e37]
+  - generic [ref=e41]:
+    - main [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - img [ref=e47]
+            - generic [ref=e49]: "Plateforme RH #1 en Afrique du Nord"
+          - heading "La RH qui comprend votre équipe." [level=1] [ref=e51]:
+            - text: La RH qui
+            - text: comprend votre
+            - text: équipe.
+          - paragraph [ref=e52]: La plateforme tout-en-un pour moderniser votre gestion RH. Congés, pointage, équipes et assistant IA vocal multilingue.
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]: 🎙️
+              - generic [ref=e56]: Assistant IA Vocal
+            - generic [ref=e57]:
+              - generic [ref=e58]: ⏰
+              - generic [ref=e59]: Pointage Smart
+            - generic [ref=e60]:
+              - generic [ref=e61]: 🌍
+              - generic [ref=e62]: FR · EN · AR · TN
+          - generic [ref=e63]:
+            - link "Commencer gratuitement" [ref=e64] [cursor=pointer]:
+              - /url: /register
+              - text: Commencer gratuitement
+              - img [ref=e66]
+            - button "Voir la démo" [ref=e68] [cursor=pointer]:
+              - img [ref=e70]
+              - text: Voir la démo
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]: AK
+              - generic [ref=e75]: HB
+              - generic [ref=e76]: YM
+              - generic [ref=e77]: FA
+              - generic [ref=e78]: SB
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - img [ref=e83]
+                - img [ref=e86]
+                - img [ref=e89]
+                - img [ref=e92]
+                - img [ref=e95]
+              - paragraph [ref=e97]: 4.9/5 · 500+ entreprises
+        - generic [ref=e98]:
+          - generic [ref=e102]: 🎙️ Assistant vocal actif
+          - generic [ref=e105]:
+            - img [ref=e107]
+            - generic [ref=e110]: +23% productivité
+          - generic [ref=e112]:
+            - generic [ref=e119]: 🔒 app.weentime.io/dashboard
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - generic [ref=e122]:
+                  - heading "Bonjour Chaimae 👋" [level=3] [ref=e123]
+                  - paragraph [ref=e124]: Mercredi 8 Mars 2026
+                - generic [ref=e125]:
+                  - img [ref=e127]
+                  - generic [ref=e130]: SB
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - generic [ref=e133]: 👥
+                  - generic [ref=e134]: "247"
+                  - generic [ref=e135]: Employés
+                - generic [ref=e136]:
+                  - generic [ref=e137]: 📋
+                  - generic [ref=e138]: "12"
+                  - generic [ref=e139]: Demandes
+                - generic [ref=e140]:
+                  - generic [ref=e141]: ✅
+                  - generic [ref=e142]: "8"
+                  - generic [ref=e143]: Approuvées
+                - generic [ref=e144]:
+                  - generic [ref=e145]: ⏰
+                  - generic [ref=e146]: "3"
+                  - generic [ref=e147]: En attente
+              - generic [ref=e148]:
+                - generic [ref=e149]:
+                  - heading "Présences semaine" [level=4] [ref=e150]
+                  - generic [ref=e151]:
+                    - generic [ref=e154]: L
+                    - generic [ref=e157]: M
+                    - generic [ref=e160]: M
+                    - generic [ref=e163]: J
+                    - generic [ref=e166]: V
+                    - generic [ref=e169]: S
+                    - generic [ref=e172]: D
+                - generic [ref=e173]:
+                  - heading "Demandes récentes" [level=4] [ref=e174]
+                  - generic [ref=e175]:
+                    - generic [ref=e176]:
+                      - generic [ref=e177]: AK
+                      - generic [ref=e178]:
+                        - paragraph [ref=e179]: Ahmed K.
+                        - paragraph [ref=e180]: Congé
+                      - generic [ref=e181]: Approuvé
+                    - generic [ref=e182]:
+                      - generic [ref=e183]: HB
+                      - generic [ref=e184]:
+                        - paragraph [ref=e185]: Hayet B.
+                        - paragraph [ref=e186]: Remote
+                      - generic [ref=e187]: En attente
+                    - generic [ref=e188]:
+                      - generic [ref=e189]: YM
+                      - generic [ref=e190]:
+                        - paragraph [ref=e191]: Youssef M.
+                        - paragraph [ref=e192]: Congé
+                      - generic [ref=e193]: Refusé
+          - generic [ref=e195]:
+            - generic [ref=e196]: ✓ Congé approuvé
+            - generic [ref=e197]: Chaima Bouallegue · 3 jours
+      - generic [ref=e198]:
+        - generic [ref=e199]: Découvrir
+        - img [ref=e201]
+    - generic [ref=e203]:
+      - generic [ref=e204]: Ils nous font confiance
+      - generic [ref=e205]:
+        - generic [ref=e206]:
+          - generic [ref=e207] [cursor=pointer]:
+            - generic [ref=e208]: T
+            - generic [ref=e209]: Tunisair
+          - generic [ref=e210] [cursor=pointer]:
+            - generic [ref=e211]: S
+            - generic [ref=e212]: STEG
+          - generic [ref=e213] [cursor=pointer]:
+            - generic [ref=e214]: O
+            - generic [ref=e215]: Ooredoo
+          - generic [ref=e216] [cursor=pointer]:
+            - generic [ref=e217]: A
+            - generic [ref=e218]: Attijari
+          - generic [ref=e219] [cursor=pointer]:
+            - generic [ref=e220]: B
+            - generic [ref=e221]: BIAT
+          - generic [ref=e222] [cursor=pointer]:
+            - generic [ref=e223]: P
+            - generic [ref=e224]: Poulina
+          - generic [ref=e225] [cursor=pointer]:
+            - generic [ref=e226]: G
+            - generic [ref=e227]: GFI
+          - generic [ref=e228] [cursor=pointer]:
+            - generic [ref=e229]: T
+            - generic [ref=e230]: Telnet
+          - generic [ref=e231] [cursor=pointer]:
+            - generic [ref=e232]: T
+            - generic [ref=e233]: Tunisair
+          - generic [ref=e234] [cursor=pointer]:
+            - generic [ref=e235]: S
+            - generic [ref=e236]: STEG
+          - generic [ref=e237] [cursor=pointer]:
+            - generic [ref=e238]: O
+            - generic [ref=e239]: Ooredoo
+          - generic [ref=e240] [cursor=pointer]:
+            - generic [ref=e241]: A
+            - generic [ref=e242]: Attijari
+          - generic [ref=e243] [cursor=pointer]:
+            - generic [ref=e244]: B
+            - generic [ref=e245]: BIAT
+          - generic [ref=e246] [cursor=pointer]:
+            - generic [ref=e247]: P
+            - generic [ref=e248]: Poulina
+          - generic [ref=e249] [cursor=pointer]:
+            - generic [ref=e250]: G
+            - generic [ref=e251]: GFI
+          - generic [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: T
+            - generic [ref=e254]: Telnet
+        - generic [ref=e255]:
+          - generic [ref=e256] [cursor=pointer]:
+            - generic [ref=e257]: T
+            - generic [ref=e258]: Tunisair
+          - generic [ref=e259] [cursor=pointer]:
+            - generic [ref=e260]: S
+            - generic [ref=e261]: STEG
+          - generic [ref=e262] [cursor=pointer]:
+            - generic [ref=e263]: O
+            - generic [ref=e264]: Ooredoo
+          - generic [ref=e265] [cursor=pointer]:
+            - generic [ref=e266]: A
+            - generic [ref=e267]: Attijari
+          - generic [ref=e268] [cursor=pointer]:
+            - generic [ref=e269]: B
+            - generic [ref=e270]: BIAT
+          - generic [ref=e271] [cursor=pointer]:
+            - generic [ref=e272]: P
+            - generic [ref=e273]: Poulina
+          - generic [ref=e274] [cursor=pointer]:
+            - generic [ref=e275]: G
+            - generic [ref=e276]: GFI
+          - generic [ref=e277] [cursor=pointer]:
+            - generic [ref=e278]: T
+            - generic [ref=e279]: Telnet
+          - generic [ref=e280] [cursor=pointer]:
+            - generic [ref=e281]: T
+            - generic [ref=e282]: Tunisair
+          - generic [ref=e283] [cursor=pointer]:
+            - generic [ref=e284]: S
+            - generic [ref=e285]: STEG
+          - generic [ref=e286] [cursor=pointer]:
+            - generic [ref=e287]: O
+            - generic [ref=e288]: Ooredoo
+          - generic [ref=e289] [cursor=pointer]:
+            - generic [ref=e290]: A
+            - generic [ref=e291]: Attijari
+          - generic [ref=e292] [cursor=pointer]:
+            - generic [ref=e293]: B
+            - generic [ref=e294]: BIAT
+          - generic [ref=e295] [cursor=pointer]:
+            - generic [ref=e296]: P
+            - generic [ref=e297]: Poulina
+          - generic [ref=e298] [cursor=pointer]:
+            - generic [ref=e299]: G
+            - generic [ref=e300]: GFI
+          - generic [ref=e301] [cursor=pointer]:
+            - generic [ref=e302]: T
+            - generic [ref=e303]: Telnet
+    - generic [ref=e305]:
+      - generic [ref=e306]:
+        - heading "Tout ce dont vous avez besoin." [level=2] [ref=e307]
+        - paragraph [ref=e308]: Une plateforme complète pour moderniser votre RH de A à Z.
+      - generic [ref=e309]:
+        - generic [ref=e312]:
+          - img [ref=e315]
+          - generic [ref=e318]:
+            - heading "Assistant IA Vocal Multilingue" [level=3] [ref=e319]
+            - paragraph [ref=e320]: Commandez WeenTime à la voix. Demandez un congé, pointez votre entrée, consultez votre solde — sans toucher le clavier.
+          - generic [ref=e321]:
+            - generic [ref=e322]: 🇫🇷 FR
+            - generic [ref=e323]: 🇬🇧 EN
+            - generic [ref=e324]: 🇸🇦 عربي
+            - generic [ref=e325]: 🇹🇳 تونسي
+        - generic [ref=e337]:
+          - generic [ref=e339]:
+            - img [ref=e343]
+            - generic [ref=e350]:
+              - heading "Pointage Intelligent" [level=3] [ref=e351]
+              - paragraph [ref=e352]: Check-in/out en un clic. Détection automatique des retards et gestion du temps réel.
+          - generic [ref=e354]:
+            - generic [ref=e355]:
+              - img [ref=e358]
+              - generic [ref=e361]:
+                - img [ref=e364]
+                - generic [ref=e366]: RH
+                - img [ref=e368]
+            - generic [ref=e371]:
+              - heading "Workflow de Validation" [level=3] [ref=e372]
+              - paragraph [ref=e373]: Employé → Manager → RH → Approuvé. Un circuit de validation limpide et automatisé.
+    - generic [ref=e377]:
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - img [ref=e381]
+          - text: Solution sectorielle
+        - heading "Une solution adaptée à tous les métiers." [level=2] [ref=e384]
+        - paragraph [ref=e385]: Que vous soyez une startup en pleine croissance ou un grand groupe industriel, WeenTime s'adapte à vos contraintes réglementaires et opérationnelles.
+        - generic [ref=e386]:
+          - generic [ref=e388] [cursor=pointer]:
+            - img [ref=e391]
+            - generic [ref=e393]: Industrie
+          - generic [ref=e395] [cursor=pointer]:
+            - img [ref=e398]
+            - generic [ref=e401]: Services
+          - generic [ref=e403] [cursor=pointer]:
+            - img [ref=e406]
+            - generic [ref=e408]: Santé
+          - generic [ref=e410] [cursor=pointer]:
+            - img [ref=e413]
+            - generic [ref=e417]: Retail
+          - generic [ref=e419] [cursor=pointer]:
+            - img [ref=e422]
+            - generic [ref=e425]: Tech
+          - generic [ref=e427] [cursor=pointer]:
+            - img [ref=e430]
+            - generic [ref=e432]: Hôtellerie
+      - generic [ref=e435]:
+        - img [ref=e446]
+        - generic [ref=e468]:
+          - paragraph [ref=e469]: "\"WeenTime a divisé par deux le temps de gestion administrative.\""
+          - generic [ref=e470]:
+            - generic [ref=e471]: JD
+            - generic [ref=e472]:
+              - generic [ref=e473]: Jean Dupont
+              - generic [ref=e474]: DRH, Groupe Industriel
+    - generic [ref=e476]:
+      - generic [ref=e477]:
+        - heading "Pourquoi choisir WeenTime ?" [level=2] [ref=e478]
+        - paragraph [ref=e479]: L'alliance parfaite entre simplicité technologique et conformité métier.
+      - generic [ref=e480]:
+        - generic [ref=e481]:
+          - generic [ref=e482]:
+            - img [ref=e485]
+            - heading "Productivité Boostée" [level=3] [ref=e487]
+            - paragraph [ref=e488]: +23% de gain de temps admin.
+          - generic [ref=e489]:
+            - generic [ref=e490]: +23% Productivité
+            - img [ref=e492]
+        - generic [ref=e494]:
+          - generic [ref=e495]:
+            - img [ref=e498]
+            - heading "Conformité Totale" [level=3] [ref=e500]
+            - paragraph [ref=e501]: Code du travail tunisien intégré.
+          - generic [ref=e502]:
+            - generic [ref=e503]: 100% Juridique
+            - img [ref=e505]
+        - generic [ref=e507]:
+          - generic [ref=e508]:
+            - img [ref=e511]
+            - heading "Zéro Papier" [level=3] [ref=e514]
+            - paragraph [ref=e515]: Processus 100% digitalisés.
+          - generic [ref=e516]:
+            - generic [ref=e517]: "-40% Coûts"
+            - img [ref=e519]
+        - generic [ref=e521]:
+          - generic [ref=e522]:
+            - img [ref=e525]
+            - heading "Mobile First" [level=3] [ref=e527]
+            - paragraph [ref=e528]: App iOS & Android ultra-rapide.
+          - generic [ref=e529]:
+            - generic [ref=e530]: Disponible 24/7
+            - img [ref=e532]
+        - generic [ref=e534]:
+          - generic [ref=e535]:
+            - img [ref=e538]
+            - heading "Analytics RH" [level=3] [ref=e539]
+            - paragraph [ref=e540]: Tableaux de bord en temps réel.
+          - generic [ref=e541]:
+            - generic [ref=e542]: +15 KPI Suivis
+            - img [ref=e544]
+        - generic [ref=e546]:
+          - generic [ref=e547]:
+            - img [ref=e550]
+            - heading "Support Local" [level=3] [ref=e553]
+            - paragraph [ref=e554]: Équipe basée à Tunis à votre écoute.
+          - generic [ref=e555]:
+            - generic [ref=e556]: < 2h Réponse
+            - img [ref=e558]
+    - generic [ref=e561]:
+      - generic [ref=e562]:
+        - generic [ref=e563]:
+          - heading "Ce que disent nos clients." [level=2] [ref=e564]
+          - paragraph [ref=e565]: Plus de 500 entreprises transforment leur quotidien avec WeenTime.
+        - generic [ref=e573]:
+          - generic [ref=e574]: 4.9/5
+          - generic [ref=e575]:
+            - img [ref=e577]
+            - img [ref=e580]
+            - img [ref=e583]
+            - img [ref=e586]
+            - img [ref=e589]
+      - generic [ref=e591]:
+        - generic [ref=e592]:
+          - generic [ref=e593]:
+            - generic [ref=e594]: S
+            - generic [ref=e595]:
+              - heading "Sami Ben Ali" [level=4] [ref=e596]
+              - paragraph [ref=e597]: DRH, Poulina
+          - paragraph [ref=e598]: "\"WeenTime a révolutionné notre gestion de paie.\""
+        - generic [ref=e599]:
+          - generic [ref=e600]:
+            - generic [ref=e601]: L
+            - generic [ref=e602]:
+              - heading "Leila Mansour" [level=4] [ref=e603]
+              - paragraph [ref=e604]: CEO, GFI Tunis
+          - paragraph [ref=e605]: "\"L'assistant vocal est un game changer pour nos équipes.\""
+        - generic [ref=e606]:
+          - generic [ref=e607]:
+            - generic [ref=e608]: M
+            - generic [ref=e609]:
+              - heading "Mehdi Karray" [level=4] [ref=e610]
+              - paragraph [ref=e611]: Ops Manager, Ooredoo
+          - paragraph [ref=e612]: "\"Une interface intuitive qui ne nécessite aucune formation.\""
+        - generic [ref=e613]:
+          - generic [ref=e614]:
+            - generic [ref=e615]: I
+            - generic [ref=e616]:
+              - heading "Ines Dridi" [level=4] [ref=e617]
+              - paragraph [ref=e618]: HR Manager, Telnet
+          - paragraph [ref=e619]: "\"Le support local est ultra réactif, c'est rassurant.\""
+        - generic [ref=e620]:
+          - generic [ref=e621]:
+            - generic [ref=e622]: "Y"
+            - generic [ref=e623]:
+              - heading "Yassine Belhadj" [level=4] [ref=e624]
+              - paragraph [ref=e625]: Directeur, BIAT
+          - paragraph [ref=e626]: "\"La sécurité des données est au top niveau bancaire.\""
+        - generic [ref=e627]:
+          - generic [ref=e628]:
+            - generic [ref=e629]: F
+            - generic [ref=e630]:
+              - heading "Fatma Ayed" [level=4] [ref=e631]
+              - paragraph [ref=e632]: Admin, Attijari
+          - paragraph [ref=e633]: "\"Simplifie énormément la gestion des shifts.\""
+    - generic [ref=e637]:
+      - generic [ref=e638]:
+        - generic [ref=e639]: 0+
+        - paragraph [ref=e640]: Entreprises
+      - generic [ref=e641]:
+        - generic [ref=e642]: 0K
+        - paragraph [ref=e643]: Utilisateurs
+      - generic [ref=e644]:
+        - generic [ref=e645]: 0%
+        - paragraph [ref=e646]: Satisfaction
+      - generic [ref=e647]:
+        - generic [ref=e648]: 0h
+        - paragraph [ref=e649]: Support 7j/7
+    - generic [ref=e653]:
+      - heading "Prêt à transformer vos RH ?" [level=2] [ref=e654]
+      - paragraph [ref=e655]: Rejoignez les entreprises qui gagnent du temps chaque jour avec WeenTime.
+      - generic [ref=e656]:
+        - button "Démarrer gratuitement" [ref=e657] [cursor=pointer]
+        - button "Réserver une démo" [ref=e658] [cursor=pointer]
+  - contentinfo [ref=e660]:
+    - generic [ref=e661]:
+      - generic [ref=e662]:
+        - generic [ref=e663]:
+          - link "WeenTime" [ref=e665] [cursor=pointer]:
+            - /url: /
+            - img "WeenTime" [ref=e667]
+          - paragraph [ref=e668]: La plateforme RH tout-en-un pour les entreprises d'Afrique du Nord. Modernisez, gérez, grandissez.
+          - generic [ref=e669]:
+            - img [ref=e672] [cursor=pointer]
+            - img [ref=e676] [cursor=pointer]
+            - img [ref=e680] [cursor=pointer]
+            - img [ref=e686] [cursor=pointer]
+        - generic [ref=e689]:
+          - heading "Produit" [level=4] [ref=e690]
+          - list [ref=e691]:
+            - listitem [ref=e692]:
+              - link "Fonctionnalités" [ref=e693] [cursor=pointer]:
+                - /url: /%23features
+            - listitem [ref=e694]:
+              - link "Tarif" [ref=e695] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e696]:
+              - link "Blog" [ref=e697] [cursor=pointer]:
+                - /url: /blog
+        - generic [ref=e698]:
+          - heading "Ressources" [level=4] [ref=e699]
+          - list [ref=e700]:
+            - listitem [ref=e701]:
+              - link "Guide" [ref=e702] [cursor=pointer]:
+                - /url: /guide
+            - listitem [ref=e703]:
+              - link "Support" [ref=e704] [cursor=pointer]:
+                - /url: /support
+            - listitem [ref=e705]:
+              - link "API" [ref=e706] [cursor=pointer]:
+                - /url: /api
+        - generic [ref=e707]:
+          - heading "Entreprise" [level=4] [ref=e708]
+          - list [ref=e709]:
+            - listitem [ref=e710]:
+              - link "À propos" [ref=e711] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e712]:
+              - link "Contact" [ref=e713] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=e714]:
+              - link "Careers" [ref=e715] [cursor=pointer]:
+                - /url: /careers
+      - generic [ref=e716]:
+        - paragraph [ref=e717]: © 2026 WeenTime · Conçu avec ❤️ en Tunisie 🇹🇳
+        - generic [ref=e718]:
+          - link "Confidentialité" [ref=e719] [cursor=pointer]:
+            - /url: /privacy
+          - link "CGU" [ref=e720] [cursor=pointer]:
+            - /url: /terms
