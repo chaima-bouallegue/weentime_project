@@ -75,6 +75,9 @@ def choose_priority_route(
     if matched_intent in {CHECK_IN, CHECK_OUT} or _is_attendance(text):
         return RoutingDecision("attendance", "attendance", "attendance_marker", 0.96, force=True)
 
+    if role == "MANAGER" and _is_manager_decision(text):
+        return RoutingDecision("manager", "manager", "manager_decision_marker", 0.94, force=True)
+
     # 5. Meeting/planning. Unsupported meeting creation is explicit capability
     # unavailable; read-only meeting/planning goes to ReunionAgent.
     if _is_meeting_or_planning(text):
@@ -87,6 +90,16 @@ def choose_priority_route(
                 capability="meeting.create",
             )
         return RoutingDecision("reunion", "reunion", "meeting_or_planning_marker", 0.9, force=True)
+
+    manager_capability = _unsupported_manager_capability(text, role)
+    if manager_capability:
+        return RoutingDecision(
+            "capability_unavailable",
+            None,
+            "manager_unsupported_feature",
+            0.88,
+            capability=manager_capability,
+        )
 
     # 6. Documents before leave. "demande de document" contains "demande" but
     # must never be routed to LeaveAgent just because leave also creates requests.
@@ -170,6 +183,8 @@ def _is_role_digest(text: str) -> bool:
             "digest", "briefing", "priorites", "priorités", "que dois-je faire", "quoi faire",
             "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
             "donne moi resume", "aatini resume", "que dois je faire aujourd hui",
+            "today's team summary", "todays team summary", "today s team summary", "team summary", "manager briefing",
+            "resume equipe", "resume de mon equipe", "résumé équipe", "résumé de mon équipe",
             "ملخص", "ماذا افعل اليوم", "ماذا أفعل اليوم",
         ),
     )
@@ -310,9 +325,29 @@ def _is_manager_workflow(text: str) -> bool:
         text,
         (
             "pending approvals", "approvals", "approbations", "validation", "validations", "en attente",
-            "approuve", "approve", "valide", "refuse", "reject", "rejette", "equipe", "team",
+            "approuve", "approve", "valide", "refuse", "reject", "rejette", "accepte", "accept",
+            "montre demandes", "demandes en attente", "qui attend validation", "attend validation",
+            "pending validations", "equipe", "team",
         ),
     )
+
+
+def _is_manager_decision(text: str) -> bool:
+    return _has_any(text, ("approuve", "approve", "valide", "refuse", "reject", "rejette", "accepte", "accept"))
+
+
+def _unsupported_manager_capability(text: str, role: str) -> str | None:
+    if role != "MANAGER":
+        return None
+    if _has_any(text, ("rapport equipe", "rapport d equipe", "team report", "genere rapport", "génère rapport", "generer rapport", "générer rapport")):
+        return "manager.reports"
+    if _has_any(text, ("qui est disponible", "who is available", "team availability", "disponibilite equipe", "disponibilité équipe")):
+        return "manager.availability"
+    if _has_any(text, ("assigner mission", "assigne mission", "assign mission", "missions ouvertes", "qui travaille sur quoi", "who works on what")):
+        return "manager.missions"
+    if _has_any(text, ("team analytics", "analytics equipe", "statistiques avancees equipe", "ml anomalies")):
+        return "manager.analytics"
+    return None
 
 
 def _is_rh_workflow(text: str) -> bool:

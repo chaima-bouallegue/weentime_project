@@ -134,15 +134,28 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
-        if not has_any(text, ("approuve", "approve", "valide", "refuse", "reject", "rejette", "validation", "equipe", "team", "pending", "approbation", "approval", "approbations", "approvals")):
+        if not has_any(
+            text,
+            (
+                "approuve", "approve", "valide", "refuse", "reject", "rejette", "accepte", "accept",
+                "validation", "validations", "equipe", "team", "pending", "approbation", "approval",
+                "approbations", "approvals", "demande", "demandes", "en attente", "attend validation",
+            ),
+        ):
             return None, 0.0
         # "approbation(s)" / "approval(s)" must be checked BEFORE "approuve"/"approve"
         # because str.find("approve") matches inside "approvals". The verb forms
         # (approuver/approve) signal a per-request decision; the noun forms
         # (approbations/approvals) signal a list-pending request.
-        if has_any(text, ("approbation", "approbations", "approval", "approvals", "validation", "pending", "en attente")):
+        if has_any(
+            text,
+            (
+                "approbation", "approbations", "approval", "approvals", "validation", "validations",
+                "pending", "en attente", "demandes en attente", "attend validation",
+            ),
+        ):
             return "manager.pending_approvals", 0.85
-        if has_any(text, ("approuve", "approve", "valide")):
+        if has_any(text, ("approuve", "approve", "valide", "accepte", "accept")):
             return "manager.approve", 0.91
         if has_any(text, ("refuse", "reject", "rejette")):
             return "manager.reject", 0.91
@@ -302,7 +315,7 @@ def _extract_employee_name(message: str) -> str | None:
     text = _normalize_for_name(message)
     if not text:
         return None
-    triggers = re.finditer(r"\b(?:de|of|for|pour)\b", text)
+    triggers = re.finditer(r"\b(?:de|d'|d|of|for|pour)\b", text)
     for trigger in triggers:
         tail = text[trigger.end():].strip()
         tokens = re.findall(r"[a-zà-ÿ'\-]+", tail)
@@ -323,6 +336,7 @@ def _normalize_for_name(value: str) -> str:
         return ""
     text = unicodedata.normalize("NFKD", value)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.replace("’", "'").replace("‘", "'").replace("´", "'")
     return text.lower()
 
 

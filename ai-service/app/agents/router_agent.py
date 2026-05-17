@@ -416,6 +416,10 @@ def _is_greeting(text: str | None) -> bool:
 
 _CAPABILITY_TEXTS = {
     "meeting.create": "Le module de creation de reunion n'est pas encore connecte a l'agent IA.",
+    "manager.reports": "La generation de rapports equipe n'est pas encore connectee a l'agent IA.",
+    "manager.availability": "La disponibilite equipe n'est pas encore connectee a l'agent IA.",
+    "manager.missions": "Le module missions n'est pas encore connecte a l'agent IA.",
+    "manager.analytics": "Les analyses avancees equipe ne sont pas encore connectees a l'agent IA.",
     "admin.service_control": "Le controle des services n'est pas disponible via l'agent IA.",
     "admin.database_operations": "Les operations de sauvegarde/restauration base de donnees ne sont pas disponibles via l'agent IA.",
     "rh.recruitment_training": "Le module recrutement/formation n'est pas encore connecte a l'agent IA.",

@@ -105,7 +105,9 @@ class AttendanceAgent(DomainAgent):
             return "attendance.check_out", 0.94
         if any(term in text for term in ("semaine", "week")) and any(term in text for term in ("heure", "heures", "hours", "temps")):
             return "attendance.week_hours", 0.88
-        if any(term in text for term in ("equipe", "team")) and any(term in text for term in ("retard", "present", "absent", "presence", "pointage")):
+        if any(term in text for term in ("equipe", "team")) and any(
+            term in text for term in ("retard", "present", "absent", "presence", "pointage", "attendance", "anomalie", "anomaly")
+        ):
             return "attendance.team_presence", 0.88
         # Collective presence prompts ("presence aujourd'hui", "presence equipe")
         # only make sense for roles with team/company visibility. Without a role
@@ -118,6 +120,11 @@ class AttendanceAgent(DomainAgent):
                 "presence du jour",
                 "presence equipe",
                 "pointage equipe",
+                "qui n a pas pointe",
+                "qui n'a pas pointe",
+                "qui na pas pointe",
+                "qui ma pointach",
+                "ma pointach",
                 "chkoun ma pointach",
                 "qui est present",
                 "qui est absent",
