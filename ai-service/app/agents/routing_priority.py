@@ -80,6 +80,16 @@ def choose_priority_route(
     if role == "RH" and _is_rh_workflow(text):
         return RoutingDecision("rh", "rh", "rh_workflow_marker", 0.92, force=True)
 
+    admin_capability = _unsupported_admin_capability(text, role)
+    if admin_capability:
+        return RoutingDecision(
+            "capability_unavailable",
+            None,
+            "admin_unsupported_feature",
+            0.9,
+            capability=admin_capability,
+        )
+
     # 3/4. Attendance and forgotten checkout. Keep these before authorization so
     # checkout/check-in phrases are not misread as sortie permissions.
     if _is_forgot_checkout(text):
@@ -413,11 +423,36 @@ def _is_admin_workflow(text: str) -> bool:
     return _has_any(
         text,
         (
-            "system health", "sante systeme", "santé système", "etat systeme", "ai provider", "provider status",
-            "redis", "braintrust", "chroma", "rag status", "users", "utilisateurs", "entreprises", "companies",
-            "tenant configuration", "configuration tenant", "donne role", "donne rôle", "create user", "creer utilisateur",
+            "system health", "sante systeme", "santé système", "etat systeme", "etat backend", "backend status",
+            "ai provider", "provider status", "ollama status", "fournisseur ia",
+            "redis", "braintrust", "chroma", "rag status", "chroma status",
+            "users", "utilisateurs", "lister utilisateurs", "liste utilisateurs",
+            "entreprises", "companies", "lister entreprises",
+            "tenant configuration", "configuration tenant", "tenant configuration issues", "configuration issues",
+            "donne role", "donne rôle", "changer role", "changer rôle", "create user", "creer utilisateur",
+            "créer utilisateur", "assigner manager", "assign manager", "affecte rh", "assign rh",
+            "حالة النظام", "حاله النظام", "المستخدمين", "الشركات",
         ),
     )
+
+
+def _unsupported_admin_capability(text: str, role: str) -> str | None:
+    if role != "ADMIN":
+        return None
+    if _has_any(text, ("redemarrer service", "redémarrer service", "restart service", "deconnecte utilisateur", "disconnect user")):
+        return "admin.service_control"
+    if _has_any(text, ("backup", "sauvegarde", "restore", "restauration", "base de donnees", "base de données", "database backup", "database restore")):
+        return "admin.database_operations"
+    if (
+        _has_any(text, ("creer entreprise", "créer entreprise", "create enterprise", "create company", "nouvelle entreprise"))
+        and not _has_any(text, ("utilisateur", "user"))
+    ):
+        return "admin.enterprise_creation"
+    if _has_any(text, ("changer modele", "changer modèle", "change model", "switch model", "switch provider", "passe sur", "anthropic", "openai", "activer memoire", "activer mémoire", "enable memory", "activer stt", "disable ollama", "provider mutation")):
+        return "admin.ai_config_mutation"
+    if _has_any(text, ("reconstruire index", "rebuild index", "reindex", "réindex", "reindexer", "réindexer", "supprimer document rag", "supprimer documents rag", "delete rag", "ajouter pdf", "add pdf", "ajoute reglement rh", "ajoute règlement rh")):
+        return "admin.rag_mutation"
+    return None
 
 
 def _unsupported_capability(text: str, role: str) -> str | None:

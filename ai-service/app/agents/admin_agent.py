@@ -33,6 +33,11 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             return AgentResponse(type="error", text="Votre role ne permet pas les actions admin.", intent="admin.forbidden", confidence=0.95)
 
         intent, confidence = self.detect_intent(message, context)
+        source_text = (
+            str(context.metadata.get("original_text") or message)
+            if isinstance(context.metadata, dict)
+            else message
+        )
         if intent == "admin.list_users":
             return await self._read("admin.list_users", {}, context, intent, "Voici les utilisateurs.", confidence)
         if intent == "admin.list_enterprises":
@@ -60,8 +65,20 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             )
         if intent == "admin.summary":
             return await self._summary(context, intent=intent, confidence=confidence)
+        if intent == "admin.create_enterprise_unavailable":
+            return AgentResponse(
+                type="answer",
+                text="La creation d'entreprise n'est pas encore connectee a un outil admin verifie.",
+                intent="admin.enterprise_creation.unavailable",
+                confidence=confidence,
+                actionResult={
+                    "kind": "capability_unavailable",
+                    "capability": "admin.enterprise_creation",
+                    "agent": "AdminAgent",
+                },
+            )
         if intent == "admin.create_user":
-            payload = self._extract_create_user(message)
+            payload = self._extract_create_user(source_text)
             missing = [label for label, value in payload.items() if label in {"first_name", "last_name", "email", "password", "role", "company_id"} and value in (None, "")]
             if missing:
                 return AgentResponse(
@@ -79,8 +96,8 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if intent == "admin.update_role":
-            user_id = _extract_int_after(message, ("user", "utilisateur", "id"))
-            role = _extract_role(message)
+            user_id = _extract_int_after(source_text, ("user", "utilisateur", "id"))
+            role = _extract_role(source_text)
             if not user_id or not role:
                 return AgentResponse(type="ask", text="Precisez l'identifiant utilisateur et le nouveau role.", intent=intent, confidence=confidence)
             return self.confirmation_response(
@@ -92,8 +109,8 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if intent == "admin.assign_manager":
-            user_id = _extract_int_after(message, ("user", "utilisateur", "employee", "employe"))
-            manager_id = _extract_int_after(message, ("manager", "responsable"))
+            user_id = _extract_int_after(source_text, ("user", "utilisateur", "employee", "employe"))
+            manager_id = _extract_int_after(source_text, ("manager", "responsable"))
             if not user_id or not manager_id:
                 return AgentResponse(type="ask", text="Precisez l'identifiant utilisateur et l'identifiant manager.", intent=intent, confidence=confidence)
             return self.confirmation_response(
@@ -105,8 +122,8 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if intent == "admin.assign_rh":
-            rh_user_id = _extract_int_after(message, ("rh", "hr"))
-            entreprise_id = _extract_int_after(message, ("entreprise", "company"))
+            rh_user_id = _extract_int_after(source_text, ("rh", "hr"))
+            entreprise_id = _extract_int_after(source_text, ("entreprise", "company"))
             if not rh_user_id or not entreprise_id:
                 return AgentResponse(type="ask", text="Precisez l'identifiant RH et l'identifiant entreprise.", intent=intent, confidence=confidence)
             return self.confirmation_response(
@@ -122,22 +139,38 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
         if _has_arabic(text):
+            if any(term in text for term in ("حالة النظام", "حاله النظام", "النظام")):
+                return "admin.system_health", 0.94
+            if "ريديس" in text:
+                return "admin.redis_status", 0.93
+            if "براينترست" in text:
+                return "admin.braintrust_status", 0.93
+            if any(term in text for term in ("كروم", "كروما", "راغ")):
+                return "admin.rag_status", 0.9
             if any(term in text for term in ("المستخدم", "مستخدم")):
                 return "admin.list_users", 0.86
+            if any(term in text for term in ("الشركات", "شركة", "مؤسسة")):
+                return "admin.list_enterprises", 0.86
             return "admin.summary", 0.84
-        if any(term in text for term in ("cree", "create")) and any(term in text for term in ("utilisateur", "user")):
+        if (
+            any(term in text for term in ("cree", "creer", "créer", "create"))
+            and any(term in text for term in ("entreprise", "company"))
+            and not any(term in text for term in ("utilisateur", "user"))
+        ):
+            return "admin.create_enterprise_unavailable", 0.9
+        if any(term in text for term in ("cree", "creer", "créer", "create")) and any(term in text for term in ("utilisateur", "user")):
             return "admin.create_user", 0.93
-        if "role" in text and any(term in text for term in ("change", "update", "modifier", "remplace", "replace")):
+        if any(term in text for term in ("role", "rôle")) and any(term in text for term in ("change", "changer", "update", "modifier", "remplace", "replace")):
             return "admin.update_role", 0.92
-        if any(term in text for term in ("assign", "assigne", "affecte")) and any(term in text for term in ("manager", "responsable")):
+        if any(term in text for term in ("assign", "assigner", "assigne", "affecte")) and any(term in text for term in ("manager", "responsable")):
             return "admin.assign_manager", 0.92
-        if any(term in text for term in ("assign", "assigne", "affecte")) and any(term in text for term in ("rh", "hr")):
+        if any(term in text for term in ("assign", "assigner", "assigne", "affecte")) and any(term in text for term in ("rh", "hr")):
             return "admin.assign_rh", 0.91
         if any(term in text for term in ("mal configure", "mal configures", "misconfigured")):
             return "admin.misconfigured_users", 0.91
         if any(term in text for term in ("tenant configuration", "configuration tenant", "tenant issues", "configuration entreprise")):
             return "admin.tenant_issues", 0.93
-        if any(term in text for term in ("ai provider", "fournisseur ia", "provider status", "etat provider", "etat du provider")):
+        if any(term in text for term in ("ai provider", "fournisseur ia", "provider status", "etat provider", "etat du provider", "ollama status", "ollama")):
             return "admin.provider_status", 0.93
         if "redis" in text and any(term in text for term in ("status", "etat", "sante", "health")):
             return "admin.redis_status", 0.93
@@ -147,11 +180,11 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             return "admin.braintrust_status", 0.93
         if "rag" in text or "chroma" in text:
             return "admin.rag_status", 0.9
-        if any(term in text for term in ("utilisateurs", "users", "show users", "liste users")):
+        if any(term in text for term in ("utilisateurs", "users", "show users", "liste users", "lister utilisateurs", "liste utilisateurs")):
             return "admin.list_users", 0.88
-        if any(term in text for term in ("entreprises", "companies", "company list")):
+        if any(term in text for term in ("entreprises", "companies", "company list", "lister entreprises", "liste entreprises")):
             return "admin.list_enterprises", 0.88
-        if any(term in text for term in ("system health", "sante systeme", "santé système", "etat systeme")):
+        if any(term in text for term in ("system health", "sante systeme", "santé système", "etat systeme", "etat backend", "backend status")):
             return "admin.system_health", 0.93
         if any(term in text for term in ("health", "sante")):
             return "admin.system_health", 0.86
