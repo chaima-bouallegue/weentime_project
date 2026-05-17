@@ -50,3 +50,127 @@ def test_guard_accepts_role_digest() -> None:
     )
     guarded = ResponseGuard().guard_response(response, _ctx())
     assert guarded.intent == "employee_intelligence.digest"
+
+
+def test_guard_accepts_no_data_contract() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Aucune reunion prevue aujourd'hui.",
+        intent="meeting.no_data",
+        confidence=0.9,
+        actionResult={"kind": "no_data", "capability": "meetings", "count": 0},
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "meeting.no_data"
+
+
+def test_guard_accepts_system_status_contract() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="System health: provider configured, Redis disabled.",
+        intent="admin.system_health",
+        confidence=0.9,
+        actionResult={
+            "kind": "system_status",
+            "components": [
+                {"name": "provider", "status": "CONFIGURED"},
+                {"name": "redis", "status": "DISABLED"},
+            ],
+        },
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx("ADMIN"))
+    assert guarded.intent == "admin.system_health"
+
+
+def test_guard_accepts_approval_confirmation_contract() -> None:
+    response = AgentResponse(
+        type="confirm_action",
+        text="Demande 42 trouvee. Confirmez-vous cette decision manager ?",
+        intent="manager.process",
+        confidence=0.95,
+        requiresConfirmation=True,
+        toolCalls=[ToolCallRecord(name="leave.manager_decide", status="pending_confirmation")],
+        actionResult={"kind": "approval_confirmation", "request": {"id": 42, "statut": "EN_ATTENTE_MANAGER"}},
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx("MANAGER"))
+    assert guarded.intent == "manager.process"
+
+
+def test_guard_accepts_policy_citation_result() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="La politique conge exige une demande avec justification. Source: POL-1.",
+        intent="policy.answer",
+        confidence=0.9,
+        actionResult={
+            "kind": "citation_result",
+            "policyAvailable": True,
+            "citations": [{"source_id": "POL-1", "title": "Politique conges", "chunk_id": "c1"}],
+        },
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "policy.answer"
+
+
+def test_guard_accepts_tool_safe_summary_contract() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Synthese outil: aucune demande en attente.",
+        intent="manager.safe_summary",
+        confidence=0.9,
+        actionResult={"kind": "tool_safe_summary", "tool": "leave.list_manager_requests", "count": 0},
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx("MANAGER"))
+    assert guarded.intent == "manager.safe_summary"
+
+
+def test_guard_rejects_fake_attendance_without_tool_evidence() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Statut de pointage: PRESENT. Entree: 08:30.",
+        intent="attendance.status",
+        confidence=0.9,
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "fallback.guard_rejected"
+
+
+def test_guard_rejects_fake_system_status_without_tool_evidence() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="System health: every service is online and healthy.",
+        intent="admin.system_health",
+        confidence=0.9,
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx("ADMIN"))
+    assert guarded.intent == "fallback.guard_rejected"
+
+
+def test_guard_rejects_fake_user_creation_success_without_tool_evidence() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Utilisateur cree avec succes.",
+        intent="admin.create_user",
+        confidence=0.9,
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx("ADMIN"))
+    assert guarded.intent == "fallback.guard_rejected"
+
+
+def test_guard_rejects_secret_and_raw_sql() -> None:
+    secret_response = AgentResponse(
+        type="answer",
+        text="Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature",
+        intent="admin.audit",
+        confidence=0.9,
+    )
+    sql_response = AgentResponse(
+        type="answer",
+        text="Run SELECT * FROM users to inspect employees.",
+        intent="admin.database",
+        confidence=0.9,
+    )
+
+    guard = ResponseGuard()
+    assert guard.guard_response(secret_response, _ctx("ADMIN")).intent == "fallback.guard_rejected"
+    assert guard.guard_response(sql_response, _ctx("ADMIN")).intent == "fallback.guard_rejected"

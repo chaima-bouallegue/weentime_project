@@ -7,7 +7,9 @@ from typing import Any
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
 
+from .contracts import SAFE_NO_EVIDENCE_INTENTS, SAFE_TOOL_CALL_STATUSES
 from .guard_result import GuardResult
+from .validators import has_safe_response_contract, nested_read_result
 
 GUARD_CATEGORIES = {
     "hallucinated_hr_value",
@@ -24,6 +26,7 @@ SUPPORTED_STATUSES = {
     "ACTIVE", "INACTIVE", "SUSPENDED", "ACTIF", "INACTIF",
     "EN_ATTENTE", "EN_ATTENTE_MANAGER", "EN_ATTENTE_RH", "EN_ATTENTE_VALIDATION",
     "PENDING", "APPROUVEE", "APPROUVE", "APPROVED",
+    "PENDING_CONFIRMATION",
     "VALIDEE", "VALIDE", "VALIDATED",
     "REFUSEE", "REFUSE", "REJECTED", "REJETEE", "REJETE",
     "PRET", "READY", "EN_COURS", "IN_PROGRESS",
@@ -41,6 +44,7 @@ SUPPORTED_STATUSES = {
     "CONFIGURED", "DISABLED", "ENABLED",
     "CHROMA", "LOCAL_KEYWORD", "NOOP", "INMEMORY",
     "DEGRADED", "OFFLINE", "ONLINE",
+    "HEALTHY", "UNHEALTHY", "AVAILABLE", "UNKNOWN", "PARTIAL", "SKIPPED",
     # Lookup-result statuses emitted by ManagerAgent / RHAgent approval flows
     # (kind=approval_lookup) — these are deterministic resolution states from
     # the agent, not LLM-invented business statuses.
@@ -48,60 +52,6 @@ SUPPORTED_STATUSES = {
 }
 
 UNAVAILABLE_POLICY_TEXT = "Je n'ai pas trouve de source RH approuvee"
-
-SAFE_NO_EVIDENCE_INTENTS = {
-    "greeting",
-    "system.greeting",
-    "fallback.unknown",
-    "chat",
-    "leave.cancelled",
-    "leave.create.cancelled",
-    "authorization.create.cancelled",
-    "authorization.cancelled",
-    "telework.create.cancelled",
-    "telework.cancelled",
-    "conversation.explain_last_error",
-    # Capability-unavailable answers carry deterministic text + a
-    # capability_unavailable action; they must never be downgraded to an
-    # unsafe fallback even when their text mentions HR-flavoured terms
-    # ("aucune reunion disponible", "non disponible pour votre role", ...).
-    "capability.unavailable",
-    "planning.unavailable",
-    "planning_horaires.unavailable",
-    "meeting.unavailable",
-    "meetings.unavailable",
-    "reunion.unavailable",
-    "rh.create_user_unavailable",
-    "rh.organisation_assignment_unavailable",
-    "admin.create_user_unavailable",
-    "admin.assign_user_unavailable",
-    "authorization.info",
-    "authorization.types",
-    # Slot-filling asks (the agent is collecting missing fields, not making
-    # claims). Text comes from a templated "what date / what time?" prompt,
-    # never from LLM-invented HR values. Origins: authorization_agent,
-    # leave_agent, telework_agent, document_agent slot-filling paths.
-    "authorization.create.ask",
-    "leave.create.ask",
-    "telework.create.ask",
-    "document.create.ask",
-    # Manager safe reads. Text summarises tool output deterministically, OR
-    # returns a capability_unavailable card when the wrapped backend endpoint
-    # has no AI tool yet (see docs/superpowers/specs/2026-05-16-backend-
-    # capability-map.md). Never carries free-form LLM HR claims.
-    "manager.pending_approvals",
-    "manager.team_requests",
-    "manager.team_schedule",
-    "manager.team_presence",
-    "manager.team_attendance",
-    # Planning / meetings list success-path intents. Their *.unavailable
-    # siblings are already allowlisted above; allowlisting the success path
-    # too prevents guard_rejected when a real list is returned with a
-    # template wrapper.
-    "planning.list",
-    "meetings.list",
-}
-
 
 class GuardRule(ABC):
     category: str
@@ -172,6 +122,11 @@ class FakeConfirmationRule(GuardRule):
         "checked in", "checked out",
         "approved", "rejected",
         "created successfully",
+        "user created",
+        "utilisateur cree",
+        "utilisateur creee",
+        "compte cree",
+        "compte creee",
     )
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
@@ -217,18 +172,33 @@ class UnsupportedToolClaimRule(GuardRule):
             return GuardResult.reject(self.category, "Response claims an unsupported tool execution.")
 
         for call in response.toolCalls:
-            if call.status and call.status not in {"success", "failed", "pending", "business_conflict", "denied"}:
+            if call.status and call.status not in SAFE_TOOL_CALL_STATUSES:
                 return GuardResult.reject(self.category, "Response contains an unsupported tool call status.")
+        return GuardResult.allow()
+
+
+class RawSqlClaimRule(GuardRule):
+    category = "unsupported_tool_claim"
+
+    _sql = re.compile(
+        r"\b(?:select|insert|update|delete|drop|alter|truncate)\b.{0,160}\b(?:from|into|table|users?|employe|employees?|conges?|presence|pointage|documents?)\b",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
+        if self._sql.search(_response_scan_text(response)):
+            return GuardResult.reject(self.category, "Response contains raw SQL or direct database instructions.")
         return GuardResult.allow()
 
 
 class HallucinatedHrValueRule(GuardRule):
     category = "hallucinated_hr_value"
 
-    _leave_balance = re.compile(r"\b(?:reste|remaining|left)\s+\d+(?:[,.]\d+)?\s+(?:jours?|days?)\b", re.IGNORECASE)
-    _attendance_status = re.compile(r"\b(?:vous\s+etes\s+(?:pointe|pointé|present|présent|absent)|you\s+are\s+(?:checked\s+in|present|absent))\b", re.IGNORECASE)
+    _leave_balance = re.compile(r"\b(?:(?:reste|remaining|left)\s+\d+(?:[,.]\d+)?\s+(?:jours?|days?)|(?:solde|balance).{0,40}\d+(?:[,.]\d+)?\s+(?:jours?|days?))\b", re.IGNORECASE)
+    _attendance_status = re.compile(r"\b(?:vous\s+etes\s+(?:pointe|pointee|present|absent)|you\s+are\s+(?:checked\s+in|present|absent)|(?:statut\s+de\s+pointage|pointage\s+status|attendance\s+status).{0,80}(?:present|absent|checked_in|checked\s+in|checked_out|checked\s+out|open|closed))\b", re.IGNORECASE)
     _request_status = re.compile(r"\b(?:demande|request)\b.{0,80}\b(?:approuvee|approuvée|approved|refusee|refusée|rejected|en attente|pending)\b", re.IGNORECASE)
     _users_count = re.compile(r"\b\d+\s+(?:utilisateurs?|users?|employes|employés|employees?)\b", re.IGNORECASE)
+    _system_status = re.compile(r"\b(?:system health|etat systeme|sante systeme|service|provider|redis|braintrust|rag)\b.{0,100}\b(?:online|offline|healthy|unhealthy|reachable|unreachable|configured|disabled|enabled|down|up)\b", re.IGNORECASE)
 
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         if _is_safe_no_evidence_response(response):
@@ -242,8 +212,9 @@ class HallucinatedHrValueRule(GuardRule):
             or self._attendance_status.search(text)
             or self._request_status.search(text)
             or self._users_count.search(text)
+            or self._system_status.search(text)
         ):
-            return GuardResult.reject(self.category, "Response contains HR data without authoritative tool evidence.")
+            return GuardResult.reject(self.category, "Response contains data/status claims without authoritative tool evidence.")
         return GuardResult.allow()
 
 
@@ -318,6 +289,7 @@ def default_guard_rules() -> list[GuardRule]:
         PolicyCitationRule(),
         FakeConfirmationRule(),
         UnsupportedToolClaimRule(),
+        RawSqlClaimRule(),
         HallucinatedHrValueRule(),
         UnsupportedStatusRule(),
         UnsafeRoleClaimRule(),
@@ -395,57 +367,10 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
     if action.get("success") is True:
         return True
 
-    if action.get("kind") in {
-        "read_result",
-        "write_result",
-        "policy_answer",
-        "role_summary",
-        "role_intelligence_digest",
-        "insight_report",
-        # RH-specific aggregator kinds. RHAgent._read_rh_requests fans out to
-        # 4 tools and folds their read_results into `sections`, which are the
-        # real evidence. The wrapper kind names must be whitelisted so the
-        # natural text "X demandes en attente" does not trip the regex check.
-        "rh_request_summary",
-        "rh_capability_unavailable",
-        "approval_lookup",
-        "approval_confirmation",
-        "capability_unavailable",
-        # Greetings + capability hints come from deterministic agents, not LLM
-        # invention. Their text is template-driven, so HR-keyword false
-        # positives must not produce fallback.guard_rejected.
-        "greeting",
-        "capability_hint",
-        # Admin diagnostics — produced by AdminTools.* status tools fed by
-        # local checks (Settings, ProviderRouter health, Redis/Braintrust
-        # toggles). They report tool-backed status, not LLM claims.
-        "system_health_report",
-        "provider_status_report",
-        "redis_status_report",
-        "braintrust_status_report",
-        "rag_status_report",
-        "diagnostics_summary",
-        # Slot-filling intermediate state and confirmation summaries are also
-        # deterministic, not LLM-invented.
-        "slot_filling",
-        "confirmation_summary",
-        "confirmation_result",
-        # ManagerAgent._read_pending_requests fans out to leave/telework/
-        # authorization list_manager_requests tools and folds the read_results
-        # into `sections`. The wrapper kind name must be whitelisted so the
-        # natural summary text does not trip _request_status / _users_count.
-        "manager_pending_summary",
-    }:
+    if has_safe_response_contract(response):
         return True
 
-    data = action.get("data")
-    if isinstance(data, dict):
-        read_result = data.get("read_result")
-        if isinstance(read_result, dict) and read_result.get("kind") == "read_result":
-            return True
-
-    read_result = action.get("read_result")
-    return isinstance(read_result, dict) and read_result.get("kind") == "read_result"
+    return nested_read_result(action) is not None
 
 
 def _status_values(value: Any) -> list[Any]:
