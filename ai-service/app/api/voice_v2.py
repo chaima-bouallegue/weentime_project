@@ -44,6 +44,14 @@ def _public_chatbot_mode_enabled() -> bool:
     return bool(getattr(get_settings(), "chatbot_public_mode", False))
 
 
+def _metadata_requests_public_context(metadata: dict[str, Any] | None) -> bool:
+    if _public_chatbot_mode_enabled():
+        return True
+    if not isinstance(metadata, dict):
+        return False
+    return metadata.get("chatbotPublicContext") is True or metadata.get("chatbot_public_context") is True
+
+
 def _parse_voice_metadata(raw: str | None) -> dict[str, Any]:
     if not raw or not raw.strip():
         return {}
@@ -91,13 +99,14 @@ async def voice_v2(
         with start_span("voice.request", {"has_authorization": bool(authorization), "generate_tts": generate_tts}):
             services = ensure_copilot_services(request.app.state)
             bearer_token = extract_bearer_token(authorization)
+            public_context_requested = _metadata_requests_public_context(parsed_metadata)
             try:
-                if not bearer_token and _public_chatbot_mode_enabled():
+                if not bearer_token and public_context_requested:
                     raise ContextError("missing_jwt", "Authorization header is required.", 401)
                 context = await services["context_builder"].build(authorization, locale="fr-FR", language=language_hint or "fr")
                 context.metadata["request_id"] = resolved_request_id
             except ContextError as exc:
-                if _public_chatbot_mode_enabled() and exc.status_code == 401:
+                if public_context_requested and exc.status_code == 401:
                     context = _build_anonymous_voice_context(
                         parsed_metadata,
                         language_hint=language_hint,

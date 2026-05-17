@@ -300,6 +300,19 @@ def _is_greeting(text: str | None) -> bool:
         return False
     # Strip surrounding punctuation and normalize spaces.
     stripped = raw.strip(" \t\r\n.,!?:;-")
+    # Friendly small-talk greetings should not fall through to the provider /
+    # unsafe fallback path. Keep this narrow so real domain questions still
+    # route to domain agents.
+    if any(stripped.startswith(term) for term in _GREETING_TERMS) and any(
+        marker in stripped
+        for marker in (
+            "comment ca va",
+            "comment ça va",
+            "how are you",
+            "how's it going",
+        )
+    ):
+        return True
     # Short greeting alone.
     if stripped in _GREETING_TERMS:
         return True

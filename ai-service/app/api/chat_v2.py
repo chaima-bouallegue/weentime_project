@@ -23,6 +23,20 @@ def _public_chatbot_mode_enabled() -> bool:
     return bool(getattr(get_settings(), "chatbot_public_mode", False))
 
 
+def _metadata_requests_public_context(metadata: Any) -> bool:
+    """Allow public/demo chatbot context only when the request opts in.
+
+    CHATBOT_PUBLIC_MODE remains a global dev switch, but the chatbot widget can
+    also send an explicit metadata marker. This keeps the fallback scoped to
+    chatbot endpoints without weakening the verified JWT path.
+    """
+    if _public_chatbot_mode_enabled():
+        return True
+    if not isinstance(metadata, dict):
+        return False
+    return metadata.get("chatbotPublicContext") is True or metadata.get("chatbot_public_context") is True
+
+
 def _anonymous_chatbot_context(
     payload_metadata: Any,
     *,
@@ -70,7 +84,8 @@ async def chat_v2(
         with start_span("ai.chat_v2.request", {"channel": payload.channel, "session_id": payload.session_id}):
             try:
                 anonymous_context: CurrentUserContext | None = None
-                if not bearer_token and _public_chatbot_mode_enabled():
+                public_context_requested = _metadata_requests_public_context(payload_metadata)
+                if not bearer_token and public_context_requested:
                     anonymous_context = _anonymous_chatbot_context(
                         payload_metadata,
                         user_id=payload.user_id or 0,
@@ -112,7 +127,7 @@ async def chat_v2(
                 )
                 return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload_data).model_dump(mode="json"))
             except ContextError as exc:
-                if _public_chatbot_mode_enabled() and exc.status_code == 401:
+                if _metadata_requests_public_context(payload_metadata) and exc.status_code == 401:
                     fallback_context = _anonymous_chatbot_context(
                         payload_metadata,
                         user_id=payload.user_id or 0,
@@ -162,7 +177,8 @@ async def confirm_chat_action(
     try:
         with start_span("ai.confirmation.request", {"approved": payload.approved}):
             anonymous_context: CurrentUserContext | None = None
-            if not bearer_token and _public_chatbot_mode_enabled():
+            public_context_requested = _metadata_requests_public_context(confirm_metadata)
+            if not bearer_token and public_context_requested:
                 anonymous_context = _anonymous_chatbot_context(
                     confirm_metadata,
                     user_id=getattr(payload, "user_id", None),
@@ -188,7 +204,7 @@ async def confirm_chat_action(
                     metadata={"request_id": request_id, "locale": "fr-FR"},
                 )
             except ContextError as exc:
-                if _public_chatbot_mode_enabled() and exc.status_code == 401 and anonymous_context is None:
+                if public_context_requested and exc.status_code == 401 and anonymous_context is None:
                     fallback_context = _anonymous_chatbot_context(
                         confirm_metadata,
                         user_id=getattr(payload, "user_id", None),
@@ -294,7 +310,8 @@ async def reset_chat_session(
             payload_language = candidate.strip()
     try:
         anonymous_context: CurrentUserContext | None = None
-        if not bearer_token and _public_chatbot_mode_enabled():
+        public_context_requested = _metadata_requests_public_context(payload_metadata)
+        if not bearer_token and public_context_requested:
             anonymous_context = _anonymous_chatbot_context(
                 payload_metadata,
                 user_id=payload.user_id or 0,
@@ -311,7 +328,7 @@ async def reset_chat_session(
         # When we DO have a bearer, build the verified context the standard
         # way; mistakes here should surface, not be swallowed.
         if anonymous_context is None:
-            context = services["copilot_context_builder"].build(
+            context = await services["context_builder"].build(
                 authorization,
                 payload_user_id=payload.user_id,
                 language=payload_language,

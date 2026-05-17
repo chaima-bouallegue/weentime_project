@@ -18,8 +18,6 @@ class AdminCopilot(BaseRoleCopilot):
         if any(term in text for term in (
             "resume systeme", "résumé système", "system summary", "systeme",
             "dashboard admin", "admin summary", "admin briefing",
-            "system health", "santé système", "sante systeme",
-            "platform health",
         )):
             return "admin.system_summary", 0.94
         if any(term in text for term in ("mal configure", "misconfigured", "roles", "utilisateurs")):

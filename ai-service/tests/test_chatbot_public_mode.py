@@ -97,7 +97,7 @@ def test_build_chatbot_context_uses_metadata_values() -> None:
     assert context.language == "en"
     assert context.is_verified is True
     assert context.metadata.get("anonymous_chatbot") is True
-    assert context.metadata.get("source") == "anonymous_chatbot_demo"
+    assert context.metadata.get("source") == "chatbot_metadata"
 
 
 def test_build_chatbot_context_falls_back_when_metadata_missing() -> None:

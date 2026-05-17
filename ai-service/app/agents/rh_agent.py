@@ -176,7 +176,7 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         # prompt with or without the "rh" keyword because the message comes
         # from the RH chatbot widget (role is already known).
         if has_any(text, ("presence aujourd", "présence aujourd", "presence today", "presence d'aujourd")):
-            return "rh.presence_today", 0.92
+            return "rh.presence_today", 0.95
         # Document workload — explicit RH dashboard prompt.
         if (("document" in text or "documents" in text) and has_any(text, ("workload", "charge", "backlog", "en attente"))):
             return "rh.document_workload", 0.92

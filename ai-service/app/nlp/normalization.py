@@ -136,6 +136,7 @@ ARABIC_SYNONYMS.update(
         "عطلة": "congé",
         "عطله": "congé",
         "اجازة": "congé",
+        "اجازه": "congé",
         "غدا": "demain",
         "غدوة": "demain",
         "بعد غدوة": "apres demain",

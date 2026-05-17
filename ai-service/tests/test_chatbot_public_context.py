@@ -135,6 +135,34 @@ def test_chat_v2_without_jwt_returns_real_router_response(monkeypatch) -> None:
     assert not data.get("intent", "").startswith("fallback.")
 
 
+def test_chat_v2_metadata_public_context_works_without_global_flag(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        # The explicit metadata flag is enough for the chatbot endpoint; this
+        # keeps local/demo testing from being blocked by a missing JWT while
+        # preserving strict auth for non-chatbot routes.
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        _prepare_public_mode(client, monkeypatch)
+        monkeypatch.setattr(chat_v2_module, "_public_chatbot_mode_enabled", lambda: False)
+        response = client.post(
+            "/v2/chat",
+            json={
+                "message": "bonjour",
+                "user_id": 12,
+                "metadata": {
+                    "chatbotPublicContext": True,
+                    "role": "EMPLOYEE",
+                    "userId": 12,
+                    "entrepriseId": 9,
+                    "channel": "chat",
+                    "language": "fr",
+                },
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["intent"] == "system.greeting"
+
+
 def test_chat_v2_without_jwt_greeting_returns_real_greeting(monkeypatch) -> None:
     with TestClient(main.app) as client:
         _prepare_public_mode(client, monkeypatch)

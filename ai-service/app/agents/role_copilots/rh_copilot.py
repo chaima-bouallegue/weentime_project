@@ -18,13 +18,13 @@ class RHCopilot(BaseRoleCopilot):
             "resume rh", "rh daily", "daily rh", "briefing rh",
             "workload rh", "charge rh",
             # EN/FR daily/summary phrasings that should reach the RH digest
-            "rh backlog", "hr backlog", "rh summary", "hr summary",
+            "rh summary", "hr summary",
             "rh briefing", "hr briefing", "résumé rh", "résumé du jour rh",
         )):
             return "rh.daily_briefing", 0.94
         if any(term in text for term in ("statistiques rh", "stats rh", "hr stats", "hr analytics", "analytics rh")):
             return "rh.analytics_summary", 0.92
-        if any(term in text for term in ("validations finales", "pending final", "demandes rh", "backlog rh")):
+        if any(term in text for term in ("validations finales", "pending final", "demandes rh", "backlog rh", "rh backlog", "hr backlog")):
             return "rh.pending_final_validations", 0.88
         if any(term in text for term in ("documents rh", "document workload", "charge documents")):
             return "rh.document_workload", 0.84

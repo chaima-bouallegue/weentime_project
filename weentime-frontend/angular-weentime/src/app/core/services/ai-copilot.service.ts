@@ -87,6 +87,7 @@ export function resolveAiServiceEndpoint(
 export interface AiChatMetadata {
   channel: 'chat';
   language: AiLanguageCode;
+  chatbotPublicContext?: boolean;
   role?: string;
   userId?: number;
   entrepriseId?: number;
@@ -107,6 +108,7 @@ export function buildAiChatRequestPayload(
     language: resolvePreferredAiLanguage(
       typeof navigator !== 'undefined' ? navigator.language : null,
     ),
+    chatbotPublicContext: environment.chatbotPublicMode === true,
   };
   if (options?.role && options.role.trim().length > 0) {
     metadata.role = options.role.trim().replace(/^ROLE_/i, '').toUpperCase();
@@ -163,6 +165,7 @@ export class AiCopilotService {
       language: resolvePreferredAiLanguage(
         typeof navigator !== 'undefined' ? navigator.language : null,
       ),
+      chatbotPublicContext: environment.chatbotPublicMode === true,
     };
     if (role) {
       metadata['role'] = role;
@@ -194,6 +197,7 @@ export class AiCopilotService {
       language: resolvePreferredAiLanguage(
         typeof navigator !== 'undefined' ? navigator.language : null,
       ),
+      chatbotPublicContext: environment.chatbotPublicMode === true,
     };
     if (role) {
       metadata['role'] = role;

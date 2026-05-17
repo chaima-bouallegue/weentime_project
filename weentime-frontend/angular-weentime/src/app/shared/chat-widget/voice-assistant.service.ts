@@ -294,6 +294,7 @@ export class VoiceAssistantService {
     const voiceMetadata: Record<string, unknown> = {
       channel: 'voice',
       language,
+      chatbotPublicContext: environment.chatbotPublicMode === true,
       userId: context.user.id,
     };
     if (role) {

@@ -97,7 +97,7 @@ class AttendanceAgent(DomainAgent):
         if any(term in text for term in (
             "pointer mon entree", "pointe mon entree", "check in", "check me in",
             "clock in", "arrivee", "j arrive", "je commence", "checked in",
-            "je viens d arriver", "viens d arriver", "viens darriver",
+            "je viens d'arriver", "je viens d arriver", "viens d'arriver", "viens d arriver", "viens darriver",
             "just arrived", "i arrived",
         )):
             return "attendance.check_in", 0.94
@@ -105,7 +105,7 @@ class AttendanceAgent(DomainAgent):
             return "attendance.check_out", 0.94
         if any(term in text for term in ("semaine", "week")) and any(term in text for term in ("heure", "heures", "hours", "temps")):
             return "attendance.week_hours", 0.88
-        if any(term in text for term in ("equipe", "team")) and any(term in text for term in ("retard", "present", "absent", "presence")):
+        if any(term in text for term in ("equipe", "team")) and any(term in text for term in ("retard", "present", "absent", "presence", "pointage")):
             return "attendance.team_presence", 0.88
         # Collective presence prompts ("presence aujourd'hui", "presence equipe")
         # only make sense for roles with team/company visibility. Without a role
