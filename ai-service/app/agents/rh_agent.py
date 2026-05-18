@@ -311,6 +311,23 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if raw_intent == "rh.schedule.create":
+            source_text = _source_text(message, context)
+            schedule_payload = _extract_schedule_create_payload(source_text)
+            if schedule_payload is not None:
+                label = schedule_payload.get("nom") or "Horaire WeenTime"
+                return self.confirmation_response(
+                    context=context,
+                    tool_name="rh.schedule.create",
+                    tool_input=schedule_payload,
+                    intent=raw_intent,
+                    text=f"Confirmez-vous la creation de l'horaire '{label}' ?",
+                    confidence=confidence,
+                    action_result={
+                        "kind": "approval_confirmation",
+                        "agent": "RHAgent",
+                        "toolName": "rh.schedule.create",
+                    },
+                )
             return AgentResponse(
                 type="ask",
                 text="Quel horaire souhaitez-vous creer ? Indiquez au minimum le nom, les heures de debut/fin et les jours concernes.",
@@ -319,6 +336,25 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                 actionResult={"kind": "slot_filling", "missing": ["schedule_details"], "toolName": "schedule.create"},
             )
         if raw_intent == "rh.schedule.assign":
+            source_text = _source_text(message, context)
+            assign_payload = _extract_schedule_assign_payload(source_text)
+            if assign_payload is not None:
+                return self.confirmation_response(
+                    context=context,
+                    tool_name="rh.schedule.assign",
+                    tool_input=assign_payload,
+                    intent=raw_intent,
+                    text=(
+                        f"Confirmez-vous l'affectation de l'horaire {assign_payload['horaire_id']} "
+                        f"a {assign_payload['cible_type']} {assign_payload['cible_id']} ?"
+                    ),
+                    confidence=confidence,
+                    action_result={
+                        "kind": "approval_confirmation",
+                        "agent": "RHAgent",
+                        "toolName": "rh.schedule.assign",
+                    },
+                )
             return AgentResponse(
                 type="ask",
                 text="Quel horaire faut-il affecter, et a quel employe ou equipe ?",
@@ -760,3 +796,93 @@ def _extract_employee_name(message: str) -> tuple[str, str] | None:
     if len(tokens) < 2:
         return None
     return tokens[0], " ".join(tokens[1:])
+
+
+def _extract_schedule_create_payload(message: str) -> dict[str, Any] | None:
+    text = message or ""
+    normalized = text.lower()
+    hours = _extract_hours(normalized)
+    name = _extract_schedule_name(text, hours)
+    if not name and hours is None:
+        return None
+    payload: dict[str, Any] = {
+        "nom": name or f"Horaire {hours:g}h",
+        "type": "FIXE",
+        "statut": "ACTIF",
+        "is_defaut": False,
+    }
+    if hours is not None:
+        payload["heures_hebdo"] = hours
+    return payload
+
+
+def _extract_schedule_assign_payload(message: str) -> dict[str, Any] | None:
+    text = message or ""
+    horaire_id = _extract_id_after(text, ("horaire", "schedule", "planning"))
+    cible_type = "UTILISATEUR"
+    cible_id = _extract_id_after(text, ("employe", "employé", "employee", "user", "utilisateur"))
+    team_id = _extract_id_after(text, ("equipe", "équipe", "team"))
+    if team_id is not None:
+        cible_type = "EQUIPE"
+        cible_id = team_id
+    enterprise_id = _extract_id_after(text, ("entreprise", "company", "tenant"))
+    if enterprise_id is not None:
+        cible_type = "ENTREPRISE"
+        cible_id = enterprise_id
+    if horaire_id is None or cible_id is None:
+        return None
+    payload: dict[str, Any] = {
+        "horaire_id": horaire_id,
+        "cible_type": cible_type,
+        "cible_id": cible_id,
+    }
+    date_value = _extract_iso_date(text)
+    if date_value:
+        payload["date_debut"] = date_value
+    return payload
+
+
+def _extract_hours(text: str) -> float | None:
+    match = re.search(r"(?<!\d)(\d{1,3})(?:[,.](\d{1,2}))?\s*h\b", text)
+    if not match:
+        return None
+    value = f"{match.group(1)}.{match.group(2) or '0'}"
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return number if 1 <= number <= 168 else None
+
+
+def _extract_schedule_name(text: str, hours: float | None) -> str | None:
+    quoted = re.search(r"""["'“”«»]([^"'“”«»]{1,80})["'“”«»]""", text)
+    if quoted:
+        return quoted.group(1).strip()
+    normalized = text.lower()
+    match = re.search(r"\b(?:horaire|schedule|planning)\s+([A-Za-zÀ-ÿ0-9][\wÀ-ÿ0-9'-]{1,80})", text, re.IGNORECASE)
+    if match:
+        candidate = match.group(1).strip()
+        if not re.fullmatch(r"\d+\s*h?", candidate.lower()):
+            return candidate
+    if hours is not None:
+        return f"Horaire {hours:g}h"
+    if "default" in normalized or "defaut" in normalized or "défaut" in normalized:
+        return "Horaire par defaut"
+    return None
+
+
+def _extract_id_after(message: str, anchors: tuple[str, ...]) -> int | None:
+    text = (message or "").lower()
+    for anchor in anchors:
+        match = re.search(rf"{re.escape(anchor.lower())}\s*(?:#|id\s*)?(\d{{1,7}})", text)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                continue
+    return None
+
+
+def _extract_iso_date(message: str) -> str | None:
+    match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", message or "")
+    return match.group(1) if match else None

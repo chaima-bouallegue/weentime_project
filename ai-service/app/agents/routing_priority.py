@@ -227,6 +227,8 @@ def _rh_hybrid_route(
 
 def _agent_for_rh_hybrid_intent(hybrid: HybridIntentResult) -> str | None:
     intent = hybrid.intent or ""
+    if intent in {"rh.structure.employee.assign_team", "rh.structure.manager.assign_team"}:
+        return "organisation"
     if intent.startswith("rh.structure.department") or intent.startswith("rh.structure.team"):
         if intent in {"rh.structure.team.members"}:
             return "rh"

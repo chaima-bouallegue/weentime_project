@@ -69,6 +69,31 @@ class ChatbotFakeBackend:
             return ToolResult.ok({"uuid": "r1", "titre": "Daily", "dateHeure": "2026-05-17T09:00:00"})
         if path == "/horaires":
             return ToolResult.ok({"content": [{"id": 7, "nom": "Standard 35h", "heuresHebdomadaires": 35}], "totalElements": 1})
+        if path == "/organisations/departements":
+            return ToolResult.ok({"content": [{"id": 3, "nom": "Engineering", "codeInterne": "ENG", "entrepriseId": context.tenant_id}], "totalElements": 1})
+        if path.startswith("/organisations/departements/") and path.count("/") == 3:
+            department_id = int(path.rsplit("/", 1)[-1])
+            return ToolResult.ok({"id": department_id, "nom": "Engineering", "codeInterne": "ENG", "entrepriseId": context.tenant_id})
+        if path == "/organisations/equipes":
+            return ToolResult.ok({"content": [{"id": 8, "nom": "Frontend", "departementId": 3, "estActive": True}], "totalElements": 1})
+        if path.startswith("/organisations/equipes/") and path.count("/") == 3:
+            team_id = int(path.rsplit("/", 1)[-1])
+            return ToolResult.ok({"id": team_id, "nom": "Frontend", "departementId": 3, "responsableId": None, "estActive": True})
+        if path.startswith("/organisations/users/") and path.count("/") == 3:
+            user_id = int(path.rsplit("/", 1)[-1])
+            return ToolResult.ok(
+                {
+                    "id": user_id,
+                    "nom": "Ben Ali",
+                    "prenom": "Amin",
+                    "email": "amin@example.com",
+                    "statut": "ACTIF",
+                    "entrepriseId": context.tenant_id,
+                    "departementId": 3,
+                    "equipeId": None,
+                    "role": "EMPLOYEE",
+                }
+            )
         return ToolResult.fail("capability_unavailable", "Cette capacite n'est pas encore disponible dans le backend.", status_code=404)
 
     async def post(self, path: str, *, context: CurrentUserContext, json: dict[str, Any] | None = None, headers=None) -> ToolResult:
