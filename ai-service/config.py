@@ -149,10 +149,10 @@ class Settings:
         )
 
         # ── AI Providers Configuration ──
-        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "AIzaSyB2NMVh_dPxLkmPXdUh7eYqkVMLicaNPVs")
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "gemini")
+        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
 
 
         self.data_dir.mkdir(parents=True, exist_ok=True)

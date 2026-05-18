@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.agents.response_composer import enhance_safe_response_wording
 from app.context.context_builder import ContextBuilder, ContextError
 from app.context.current_user import CurrentUserContext
 from app.core.conversation_state import PendingConversationFlow
@@ -581,6 +582,15 @@ class WorkflowOrchestrator:
         warnings: list[str] | None = None,
     ) -> WorkflowResult:
         update_state_from_response(state, response, context)
+        response = await enhance_safe_response_wording(
+            response,
+            user_message=message,
+            channel=state.channel,
+            context=context,
+            provider_router=self.provider_router,
+            response_guard=self.response_guard,
+            request_id=state.request_id,
+        )
         guard_result = self.response_guard.validate(response, context)
         state.guard_result = guard_result_payload(guard_result)
         guarded_response = self.response_guard.guard_response(response, context)

@@ -165,6 +165,8 @@ def test_settings_default_to_ollama_cpu_qwen3b(monkeypatch) -> None:
     monkeypatch.delenv("OLLAMA_CODER_MODEL", raising=False)
     monkeypatch.delenv("OLLAMA_FALLBACK_MODEL", raising=False)
     monkeypatch.delenv("AI_LOCAL_DEVICE", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("DEFAULT_AI_PROVIDER", raising=False)
 
     current = Settings()
 
@@ -173,6 +175,8 @@ def test_settings_default_to_ollama_cpu_qwen3b(monkeypatch) -> None:
     assert current.ollama_coder_model == "qwen2.5-coder:3b-instruct"
     assert current.ollama_fallback_model == "phi3"
     assert current.ai_local_device == "cpu"
+    assert current.gemini_api_key is None
+    assert current.default_ai_provider == "ollama"
 
 
 def test_provider_router_registers_ollama_only_when_mode_ollama() -> None:

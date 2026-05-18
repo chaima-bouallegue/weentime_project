@@ -203,6 +203,9 @@ class HallucinatedHrValueRule(GuardRule):
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         if _is_safe_no_evidence_response(response):
             return GuardResult.allow()
+        enhanced_rejection = _enhanced_claim_rejection(response)
+        if enhanced_rejection:
+            return GuardResult.reject(self.category, enhanced_rejection)
         if _has_authoritative_data(response):
             return GuardResult.allow()
 
@@ -371,6 +374,42 @@ def _has_authoritative_data(response: AgentResponse) -> bool:
         return True
 
     return nested_read_result(action) is not None
+
+
+def _enhanced_claim_rejection(response: AgentResponse) -> str | None:
+    action = response.actionResult if isinstance(response.actionResult, dict) else {}
+    if action.get("enhancementApplied") is not True:
+        return None
+
+    text = response.text or ""
+    action_blob = str(action).lower()
+    text_numbers = _numeric_tokens(text)
+    action_numbers = _numeric_tokens(action_blob)
+
+    if HallucinatedHrValueRule._leave_balance.search(text):
+        if not _action_matches_domain(action_blob, {"leave", "conge", "conges", "solde"}) or not text_numbers.issubset(action_numbers):
+            return "LLM rewrite introduced unsupported leave-balance data."
+    if HallucinatedHrValueRule._users_count.search(text):
+        if not _action_matches_domain(action_blob, {"user", "utilisateur", "employe", "employee"}) or not text_numbers.issubset(action_numbers):
+            return "LLM rewrite introduced unsupported user-count data."
+    if HallucinatedHrValueRule._system_status.search(text):
+        if not _action_matches_domain(action_blob, {"system", "health", "provider", "redis", "braintrust", "rag", "diagnostic"}):
+            return "LLM rewrite introduced unsupported system-status data."
+    if HallucinatedHrValueRule._attendance_status.search(text):
+        if not _action_matches_domain(action_blob, {"attendance", "presence", "pointage", "checked", "present", "absent"}):
+            return "LLM rewrite introduced unsupported attendance data."
+    if HallucinatedHrValueRule._request_status.search(text):
+        if not _action_matches_domain(action_blob, {"request", "demande", "conge", "telework", "authorization", "document"}):
+            return "LLM rewrite introduced unsupported request-status data."
+    return None
+
+
+def _numeric_tokens(value: str) -> set[str]:
+    return set(re.findall(r"\b\d+(?:[,.]\d+)?\b", value or ""))
+
+
+def _action_matches_domain(action_blob: str, markers: set[str]) -> bool:
+    return any(marker in action_blob for marker in markers)
 
 
 def _status_values(value: Any) -> list[Any]:

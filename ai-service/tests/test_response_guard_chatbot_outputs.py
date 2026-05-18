@@ -40,6 +40,34 @@ def test_guard_rejects_fake_leave_balance_without_tool_evidence() -> None:
     assert guarded.intent == "fallback.guard_rejected"
 
 
+def test_guard_rejects_unsafe_llm_enhanced_value_not_in_tool_evidence() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Il vous reste 99 jours de conge.",
+        intent="attendance.status",
+        confidence=0.9,
+        actionResult={
+            "success": True,
+            "data": {
+                "read_result": {
+                    "kind": "read_result",
+                    "toolName": "get_pointage_status",
+                    "summary": "Pointage ouvert.",
+                    "data": {"status": "PRESENT", "state": "OPEN"},
+                }
+            },
+            "enhancementApplied": True,
+            "providerUsed": "ollama",
+            "fallbackUsed": False,
+        },
+    )
+
+    guarded = ResponseGuard().guard_response(response, _ctx())
+
+    assert guarded.intent == "fallback.guard_rejected"
+    assert guarded.actionResult["guard_status"] == "hallucinated_hr_value"
+
+
 def test_guard_accepts_role_digest() -> None:
     response = AgentResponse(
         type="answer",

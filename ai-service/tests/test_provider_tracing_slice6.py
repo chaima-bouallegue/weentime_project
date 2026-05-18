@@ -109,6 +109,31 @@ def test_provider_response_kind_gets_llm_used_true() -> None:
     assert out.actionResult["intent_after_llm"] == "provider.response"
 
 
+def test_wording_enhancement_gets_llm_used_true_without_changing_intent() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Texte ameliore par Ollama.",
+        intent="attendance.status",
+        confidence=0.9,
+        actionResult={
+            "kind": "read_result",
+            "providerUsed": "ollama",
+            "model": "qwen2.5:3b",
+            "enhancementApplied": True,
+            "fallbackUsed": False,
+        },
+    )
+
+    out = annotate_provider_metadata(response, provider_router=_router(), intent_before_llm="attendance.status")
+
+    assert out.actionResult["llm_used"] is True
+    assert out.actionResult["enhancementApplied"] is True
+    assert out.actionResult["provider"] == "ollama"
+    assert out.actionResult["model"] == "qwen2.5:3b"
+    assert out.actionResult["intent_before_llm"] == "attendance.status"
+    assert out.actionResult["intent_after_llm"] == "attendance.status"
+
+
 # ---------- Disabled provider mode ------------------------------------------
 
 

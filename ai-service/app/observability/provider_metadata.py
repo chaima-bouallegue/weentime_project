@@ -45,12 +45,15 @@ def annotate_provider_metadata(
 
     provider_name = provider_router.mode or "disabled"
     configured_model = provider_router.default_model
-    llm_used = action.get("kind") == "provider_response"
+    llm_used = action.get("kind") == "provider_response" or action.get("enhancementApplied") is True
 
     if llm_used:
         # Prefer the model the provider actually used over the configured one.
         action["model"] = action.get("model") or configured_model
-        action["intent_after_llm"] = response.intent
+        if action.get("kind") == "provider_response":
+            action["intent_after_llm"] = response.intent
+        else:
+            action.setdefault("intent_after_llm", response.intent)
     else:
         action["model"] = configured_model
 
