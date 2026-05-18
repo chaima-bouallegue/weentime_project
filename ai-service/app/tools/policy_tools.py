@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.context.current_user import CurrentUserContext
 from app.models.tool_models import ToolDefinition
 from app.policy import LocalPolicyStore, PolicyRetriever
-from app.policy.source_citation import citations_to_dicts
+from app.policy.source_citation import citations_to_dicts, valid_citation_dicts
 
 from .registry import ToolRegistry
 from .result import ToolResult, build_read_result
@@ -101,7 +101,7 @@ class PolicyTools:
         language = str(getattr(payload, "language", None) or context.language or "fr").lower()
         limit = int(getattr(payload, "limit", 3))
         result = self.retriever.search(query=query, tenant_id=context.tenant_id, language=language, limit=limit)
-        citations = citations_to_dicts(result.citations)
+        citations = valid_citation_dicts(citations_to_dicts(result.citations))
         if not citations:
             return _policy_unavailable(tool_name, query=query)
         answer = _answer_from_citations(citations, language=language)

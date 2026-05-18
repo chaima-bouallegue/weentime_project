@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from app.policy import LocalPolicyStore, PolicyRetriever
+from app.policy.source_citation import citations_to_dicts, valid_citation_dicts
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "policies"
 
@@ -53,3 +54,4 @@ def test_citation_metadata_is_returned() -> None:
     assert citation.title == "Remote work policy"
     assert citation.location == "tenant42_remote_work.json"
     assert 0 < citation.score <= 1
+    assert valid_citation_dicts(citations_to_dicts(result.citations))

@@ -14,6 +14,7 @@ from app.tools.audit import ToolAuditLogger
 from app.tools.executor import ToolExecutor
 from app.tools.policy_tools import register_policy_tools
 from app.tools.registry import ToolRegistry
+from app.tools.result import ToolResult, build_read_result
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "policies"
 
@@ -26,6 +27,27 @@ class EmptyAttendance:
 
     async def handle(self, message, context):
         return AgentResponse(type="answer", text="attendance", intent="attendance.status", confidence=1.0)
+
+
+class MalformedCitationExecutor:
+    async def execute(self, tool_name, payload, ctx):
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name=tool_name,
+                    summary="Invented cited answer.",
+                    items=[{"sourceId": "policy-without-location", "title": "Malformed policy"}],
+                    count=1,
+                    data={
+                        "answer": "Invented cited answer.",
+                        "citations": [{"sourceId": "policy-without-location", "title": "Malformed policy"}],
+                        "confidence": 0.9,
+                        "policyAvailable": True,
+                    },
+                    empty=False,
+                )
+            }
+        )
 
 
 def context(role: str = "EMPLOYEE", tenant_id: int | None = 42) -> CurrentUserContext:
@@ -89,6 +111,17 @@ def test_no_invented_answer_when_citations_empty() -> None:
     assert response.actionResult["citations"] == []
 
 
+def test_malformed_citation_returns_unavailable_answer() -> None:
+    agent = HRPolicyAgent(MalformedCitationExecutor())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("Quelle est la politique interne ?", context()))
+
+    assert response.text == POLICY_UNAVAILABLE_TEXT
+    assert response.actionResult is not None
+    assert response.actionResult["policyAvailable"] is False
+    assert response.actionResult["citations"] == []
+
+
 def test_cross_tenant_policy_source_is_not_used() -> None:
     agent = HRPolicyAgent(make_executor())
 
@@ -96,6 +129,20 @@ def test_cross_tenant_policy_source_is_not_used() -> None:
 
     assert response.actionResult is not None
     assert response.actionResult["policyAvailable"] is False
+
+
+def test_live_leave_balance_question_does_not_route_to_policy_agent() -> None:
+    agent = HRPolicyAgent(make_executor())
+
+    assert agent.can_handle("What is my leave balance?", context()) == 0.0
+    assert agent.can_handle("Combien me reste de conge ?", context()) == 0.0
+
+
+def test_live_pointage_question_does_not_route_to_policy_agent() -> None:
+    agent = HRPolicyAgent(make_executor())
+
+    assert agent.can_handle("What is my pointage status?", context()) == 0.0
+    assert agent.can_handle("هل سجلت الحضور اليوم؟", context()) == 0.0
 
 
 def test_english_policy_question_routes_and_cites_source() -> None:

@@ -338,12 +338,29 @@ def _is_communication(text: str) -> bool:
 
 
 def _is_policy(text: str) -> bool:
+    if _is_live_data_request(text):
+        return False
     return _has_any(
         text,
         (
             "politique", "policy", "regle", "règle", "faq", "comment fonctionne", "comment declarer",
             "comment déclarer", "jours feries", "jours fériés", "maternite", "maternité", "remboursement",
             "سياسة", "قانون", "كيف",
+        ),
+    )
+
+
+def _is_live_data_request(text: str) -> bool:
+    if _has_any(text, ("politique", "policy", "regle", "règle", "faq", "comment declarer", "comment déclarer")):
+        return False
+    return _has_any(
+        text,
+        (
+            "leave balance", "solde conge", "combien me reste", "combien il me reste", "jours restants",
+            "pointage", "attendance status", "did i check", "checked in", "presence aujourd",
+            "pending approvals", "approvals", "validations", "rh backlog",
+            "system health", "provider status", "redis status", "braintrust status", "chroma status",
+            "users", "utilisateurs", "entreprises", "حالة النظام", "المستخدمين", "الحضور", "كم بقي",
         ),
     )
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
+from app.policy.source_citation import valid_citation_dicts
 
 from .contracts import SAFE_NO_EVIDENCE_INTENTS, SAFE_TOOL_CALL_STATUSES
 from .guard_result import GuardResult
@@ -96,15 +97,16 @@ class PolicyCitationRule(GuardRule):
     def evaluate(self, response: AgentResponse, context: CurrentUserContext | None = None) -> GuardResult:
         intent = _intent(response)
         action = response.actionResult if isinstance(response.actionResult, dict) else {}
-        if not intent.startswith("policy") and action.get("kind") != "policy_answer":
+        if not intent.startswith("policy") and action.get("kind") not in {"policy_answer", "citation_result"}:
             return GuardResult.allow()
 
         citations = _citations_from_action(action)
+        valid_citations = valid_citation_dicts(citations)
         policy_available = action.get("policyAvailable")
         unavailable_text = UNAVAILABLE_POLICY_TEXT.lower() in (response.text or "").lower()
-        if policy_available is False or unavailable_text:
+        if policy_available is False or (unavailable_text and policy_available is not True):
             return GuardResult.allow()
-        if not citations:
+        if not valid_citations:
             return GuardResult.reject(self.category, "Policy response has no approved source citations.")
         return GuardResult.allow()
 

@@ -140,6 +140,55 @@ def test_guard_accepts_policy_citation_result() -> None:
     assert guarded.intent == "policy.answer"
 
 
+def test_guard_rejects_policy_answer_with_malformed_citation() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Selon une source RH approuvee, cette regle s'applique.",
+        intent="policy.answer",
+        confidence=0.9,
+        actionResult={
+            "kind": "policy_answer",
+            "policyAvailable": True,
+            "citations": [{"sourceId": "POL-1", "title": "Politique conges"}],
+        },
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "fallback.guard_rejected"
+    assert guarded.actionResult["guard_status"] == "missing_citation"
+
+
+def test_guard_rejects_ollama_policy_rewrite_without_citation() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Selon la politique RH, vous avez droit a 30 jours de conge.",
+        intent="policy.answer",
+        confidence=0.9,
+        actionResult={
+            "kind": "policy_answer",
+            "policyAvailable": True,
+            "citations": [],
+            "enhancementApplied": True,
+            "providerUsed": "ollama",
+        },
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "fallback.guard_rejected"
+    assert guarded.actionResult["guard_status"] == "missing_citation"
+
+
+def test_guard_rejects_contradictory_policy_available_without_citation() -> None:
+    response = AgentResponse(
+        type="answer",
+        text="Je n'ai pas trouve de source RH approuvee pour repondre a cette question.",
+        intent="policy.answer",
+        confidence=0.9,
+        actionResult={"kind": "policy_answer", "policyAvailable": True, "citations": []},
+    )
+    guarded = ResponseGuard().guard_response(response, _ctx())
+    assert guarded.intent == "fallback.guard_rejected"
+    assert guarded.actionResult["guard_status"] == "missing_citation"
+
+
 def test_guard_accepts_tool_safe_summary_contract() -> None:
     response = AgentResponse(
         type="answer",
