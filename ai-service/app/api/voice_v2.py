@@ -204,7 +204,12 @@ async def voice_v2(
                 text = str(response_payload.get("text") or response_payload.get("message") or response_payload.get("response") or "")
                 audio_url = None
                 if generate_tts and text:
-                    audio_url = await processor.generate_tts(text, language=processed.detected_language)
+                    audio_url = await _safe_generate_tts(
+                        processor,
+                        text,
+                        language=processed.detected_language,
+                        request_id=resolved_request_id,
+                    )
                 tts_unavailable = bool(generate_tts and text and not audio_url)
                 tts_status = "generated" if audio_url else "unavailable" if tts_unavailable else "skipped"
 
@@ -316,6 +321,24 @@ def _voice_role_router(app_state: Any, services: dict[str, Any]) -> VoiceRoleRou
         router = VoiceRoleRouter(services["executor"])
         app_state.voice_role_router = router
     return router
+
+
+async def _safe_generate_tts(
+    processor: VoiceRequestProcessor,
+    text: str,
+    *,
+    language: str | None,
+    request_id: str,
+) -> str | None:
+    try:
+        return await processor.generate_tts(text, language=language)
+    except Exception as exc:  # noqa: BLE001
+        log_error("voice.v2.tts_failed", exc)
+        log_event(
+            "voice.v2.tts_unavailable",
+            metadata={"request_id": request_id, "language": language or "auto"},
+        )
+        return None
 
 
 def _voice_error_with_request_id(code: str, request_id: str) -> dict[str, Any]:

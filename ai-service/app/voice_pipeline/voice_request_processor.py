@@ -12,7 +12,7 @@ from fastapi import UploadFile
 from app.context.current_user import CurrentUserContext
 from app.nlp.language_detector import detect_language
 from app.observability.metrics import record_voice_event
-from app.observability.tracing import log_event, start_span
+from app.observability.tracing import log_error, log_event, start_span
 from voice.stt import VoiceProcessingResult
 
 
@@ -127,7 +127,11 @@ class VoiceRequestProcessor:
             return None
         tts_started = perf_counter()
         with start_span("voice.tts", {"text_length": len(text), "language": language or "auto"}):
-            audio_path = await self.tts_service.asynthesize(text, language)
+            try:
+                audio_path = await self.tts_service.asynthesize(text, language)
+            except Exception as exc:  # noqa: BLE001
+                audio_path = None
+                log_error("voice.tts.failed", exc)
         tts_duration_ms = round((perf_counter() - tts_started) * 1000, 2)
         log_event(
             "voice.tts",

@@ -100,6 +100,11 @@ class Settings:
         self.tts_enabled = _to_bool(os.getenv("TTS_ENABLED"), True)
         self.tts_model = os.getenv("TTS_MODEL", "tts_models/fr/css10/vits")
         self.tts_use_gpu = _to_bool(os.getenv("TTS_USE_GPU"), False)
+        self.tts_max_chars_per_chunk = max(120, int(os.getenv("TTS_MAX_CHARS_PER_CHUNK", "420")))
+        self.tts_piper_binary = os.getenv("TTS_PIPER_BINARY", "piper").strip()
+        self.tts_piper_model_fr = os.getenv("TTS_PIPER_MODEL_FR")
+        self.tts_piper_model_en = os.getenv("TTS_PIPER_MODEL_EN")
+        self.tts_piper_model_ar = os.getenv("TTS_PIPER_MODEL_AR")
 
         self.rag_keywords = _split_csv(os.getenv("RAG_KEYWORDS", "politique,reglement,procedure"))
         self.rag_search_limit = max(1, int(os.getenv("RAG_SEARCH_LIMIT", "3")))
