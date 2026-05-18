@@ -69,6 +69,44 @@ def test_vad_negative_with_real_signal_continues_to_stt(monkeypatch, tmp_path: P
     assert result.vad_analysis.has_speech is False
 
 
+def test_valid_short_hr_command_can_continue_to_stt(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "short.webm"
+    source.write_bytes(b"audio" * 100)
+    settings = build_settings(tmp_path)
+    settings.voice_min_duration_seconds = 1.5
+    settings.voice_short_command_min_duration_seconds = 0.45
+    service = SpeechToTextService(settings)
+
+    def fake_convert_to_wav(_source, target, *, ffmpeg_binary="ffmpeg"):
+        write_wav(Path(target), seconds=0.7, amplitude=2500)
+
+    monkeypatch.setattr("voice.stt.convert_to_wav", fake_convert_to_wav)
+    monkeypatch.setattr(
+        "voice.stt.analyze_voice",
+        lambda *args, **kwargs: VadAnalysis(
+            used_vad=True,
+            total_duration_ms=690,
+            voiced_duration_ms=210,
+            total_frames=23,
+            voiced_frames=7,
+        ),
+    )
+    monkeypatch.setattr(
+        "voice.stt.transcribe_audio_result",
+        lambda *args, **kwargs: WhisperTranscriptionResult(
+            text="npointi",
+            language="fr",
+            language_probability=0.51,
+        ),
+    )
+
+    result = service.process(source)
+
+    assert result.status == "success"
+    assert result.cleaned_text == "npointi"
+    assert result.details["short_command_candidate"] is True
+
+
 def test_ffmpeg_conversion_failure_raises_clean_audio_conversion_error(monkeypatch, tmp_path: Path) -> None:
     source = tmp_path / "input.webm"
     source.write_bytes(b"audio" * 100)

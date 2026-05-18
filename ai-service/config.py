@@ -83,6 +83,7 @@ class Settings:
         self.voice_min_buffer_seconds = float(os.getenv("VOICE_MIN_BUFFER_SECONDS", "1.0"))
         self.voice_min_words = max(1, int(os.getenv("VOICE_MIN_WORDS", "2")))
         self.voice_min_duration_seconds = float(os.getenv("VOICE_MIN_DURATION_SECONDS", "1.5"))
+        self.voice_short_command_min_duration_seconds = float(os.getenv("VOICE_SHORT_COMMAND_MIN_DURATION_SECONDS", "0.45"))
         self.voice_min_detected_volume = float(os.getenv("VOICE_MIN_DETECTED_VOLUME", "0.15"))
         self.voice_min_peak_amplitude = int(os.getenv("VOICE_MIN_PEAK_AMPLITUDE", "180"))
         self.voice_silence_seconds = float(os.getenv("VOICE_SILENCE_SECONDS", "1.0"))

@@ -121,3 +121,7 @@ def test_voice_language_resolution_prefers_transcript_tunisian_markers(
     expected: str,
 ) -> None:
     assert VoiceRequestProcessor._resolve_language(transcript, stt_language, None) == expected
+
+
+def test_voice_language_resolution_falls_back_safely_when_uncertain() -> None:
+    assert VoiceRequestProcessor._resolve_language("hmm", "unknown", None) == "fr"

@@ -127,6 +127,40 @@ def test_voice_v2_preserves_tunisian_language_metadata(monkeypatch, tmp_path: Pa
     assert process_mock.call_args.kwargs["metadata"]["language"] == "tn"
 
 
+def test_voice_v2_stt_unavailable_returns_clean_error(monkeypatch, tmp_path: Path) -> None:
+    stored = StoredAudio(path=tmp_path / "input.webm", directory=tmp_path, size_bytes=100)
+    fake_processed = VoiceProcessorResult(
+        stt=VoiceProcessingResult(
+            status="unavailable",
+            cleaned_text=None,
+            language="unknown",
+            language_confidence=0.0,
+            error="stt_unavailable",
+        ),
+        stored_audio=stored,
+        detected_language="fr",
+    )
+    process_mock = AsyncMock(return_value=AgentResponse(type="answer", text="should not run", intent="test", confidence=0.1))
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.process_upload", AsyncMock(return_value=fake_processed))
+    monkeypatch.setattr("app.api.voice_v2.VoiceRequestProcessor.cleanup", lambda self, stored: None)
+    monkeypatch.setattr("app.api.voice_v2.process_copilot_message", process_mock)
+
+    with TestClient(main.app) as client:
+        prepare_v2_state(client)
+        response = client.post(
+            "/v2/voice",
+            headers=token_header(),
+            files={"audio_file": ("audio.webm", b"fake", "audio/webm")},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["success"] is False
+    assert body["error"]["code"] == "stt_unavailable"
+    assert "indisponible" in body["error"]["message"].lower()
+    assert process_mock.await_count == 0
+
+
 def test_voice_v2_confirmation_oui_executes_pending_confirmation(monkeypatch, tmp_path: Path) -> None:
     stored = StoredAudio(path=tmp_path / "input.webm", directory=tmp_path, size_bytes=100)
     fake_processed = VoiceProcessorResult(

@@ -133,7 +133,15 @@ class SpeechToTextService:
                 vad_analysis.voiced_duration_ms if vad_analysis else 0,
             )
 
+            short_command_candidate = False
             if duration_seconds < self.settings.voice_min_duration_seconds:
+                short_command_candidate = self._allows_short_command_audio(
+                    duration_seconds=duration_seconds,
+                    detected_volume=detected_volume,
+                    peak_amplitude=peak_amplitude,
+                    vad_analysis=vad_analysis,
+                )
+            if duration_seconds < self.settings.voice_min_duration_seconds and not short_command_candidate:
                 return VoiceProcessingResult(
                     status="no_input",
                     error="short_audio",
@@ -276,6 +284,7 @@ class SpeechToTextService:
                 peak_amplitude=peak_amplitude,
                 vad_analysis=vad_analysis,
                 wav_path=str(wav_path),
+                details={"short_command_candidate": short_command_candidate},
             )
         except AudioConversionError:
             raise
@@ -327,4 +336,26 @@ class SpeechToTextService:
         return (
             detected_volume >= self.settings.voice_min_detected_volume
             or peak_amplitude >= self.settings.voice_min_peak_amplitude
+        )
+
+    def _allows_short_command_audio(
+        self,
+        *,
+        duration_seconds: float,
+        detected_volume: float,
+        peak_amplitude: int,
+        vad_analysis: VadAnalysis | None,
+    ) -> bool:
+        minimum = float(getattr(self.settings, "voice_short_command_min_duration_seconds", 0.45))
+        if duration_seconds < minimum:
+            return False
+        if not self._has_meaningful_audio(detected_volume=detected_volume, peak_amplitude=peak_amplitude):
+            return False
+        if vad_analysis is not None and vad_analysis.used_vad and vad_analysis.has_speech:
+            return True
+        # WebRTC VAD is intentionally not authoritative for short HR commands;
+        # allow a strong signal to reach Whisper instead of producing "no input".
+        return (
+            detected_volume >= self.settings.voice_min_detected_volume * 2
+            or peak_amplitude >= self.settings.voice_min_peak_amplitude * 3
         )
