@@ -336,9 +336,20 @@ async def reset_chat_session(
         else:
             context = anonymous_context
 
+        context.metadata["channel"] = payload.channel or "chat"
+        context.metadata["session_id"] = payload.session_id or "default"
         conversation_store = services["conversation_store"]
         confirmation_store = services["confirmation_store"]
         cleared = conversation_store.reset_session(context, payload.session_id)
+        session_store = services.get("session_store")
+        if session_store is not None:
+            await session_store.clear(
+                user_id=int(context.user_id),
+                tenant_id=context.tenant_id,
+                channel=payload.channel or "chat",
+                session_id=payload.session_id or "default",
+                role=context.role,
+            )
         confirmation_store.clear_for_user(int(context.user_id))
         log_event(
             "ai.chat_v2.reset",

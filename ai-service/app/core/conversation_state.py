@@ -29,8 +29,8 @@ class PendingConversationFlow:
 class ConversationStateStore:
     def __init__(self, ttl_minutes: int = DEFAULT_FLOW_TTL_MINUTES) -> None:
         self.ttl = timedelta(minutes=ttl_minutes)
-        self._flows: dict[tuple[int, int | None, str], PendingConversationFlow] = {}
-        self._last_errors: dict[tuple[int, int | None, str], str] = {}
+        self._flows: dict[tuple[int, int | None, str, str, str], PendingConversationFlow] = {}
+        self._last_errors: dict[tuple[int, int | None, str, str, str], str] = {}
 
     def get(self, context: CurrentUserContext, session_id: str | None = None) -> PendingConversationFlow | None:
         key = self._key(context, session_id)
@@ -77,5 +77,14 @@ class ConversationStateStore:
         return self._last_errors.get(self._key(context, session_id))
 
     @staticmethod
-    def _key(context: CurrentUserContext, session_id: str | None) -> tuple[int, int | None, str]:
-        return (int(context.user_id), context.tenant_id, (session_id or "default").strip() or "default")
+    def _key(context: CurrentUserContext, session_id: str | None) -> tuple[int, int | None, str, str, str]:
+        metadata = context.metadata if isinstance(context.metadata, dict) else {}
+        channel = str(metadata.get("channel") or "chat").strip().lower() or "chat"
+        role = str(context.role or "EMPLOYEE").upper().replace("ROLE_", "") or "EMPLOYEE"
+        return (
+            int(context.user_id),
+            context.tenant_id,
+            channel,
+            (session_id or "default").strip() or "default",
+            role,
+        )

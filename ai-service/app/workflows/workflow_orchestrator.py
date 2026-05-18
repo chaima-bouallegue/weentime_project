@@ -94,6 +94,7 @@ class WorkflowOrchestrator:
                 context=context,
             )
             verified_context.metadata["request_id"] = request_id
+            verified_context.metadata["channel"] = channel
             state = WorkflowState.from_context(
                 request_id,
                 verified_context,
@@ -146,6 +147,7 @@ class WorkflowOrchestrator:
                 context=context,
             )
             verified_context.metadata["request_id"] = request_id
+            verified_context.metadata["channel"] = channel
             state = WorkflowState.from_context(
                 request_id,
                 verified_context,
@@ -200,6 +202,7 @@ class WorkflowOrchestrator:
             user_id=context.user_id,
             tenant_id=context.tenant_id,
             channel=channel,
+            role=context.role,
         )
         confirmation_id = _session_confirmation_id(session)
         if confirmation_id is None:
@@ -223,9 +226,12 @@ class WorkflowOrchestrator:
         state: WorkflowState,
     ) -> WorkflowResult:
         session_id = _normalized_session_id(metadata.get("session_id")) or DEFAULT_SESSION_ID
+        context.metadata["channel"] = channel
+        context.metadata["session_id"] = session_id
         recovered_session = await self._recover_session_state(context=context, session_id=session_id, channel=channel)
         if recovered_session is not None:
             session_id = recovered_session.session_id or session_id
+            context.metadata["session_id"] = session_id
 
         recovery = classify_recovery_message(message)
         if recovery.matched:
@@ -534,12 +540,14 @@ class WorkflowOrchestrator:
             tenant_id=context.tenant_id,
             channel=channel,
             session_id=session_id,
+            role=context.role,
         )
         if session is None:
             session = await self.session_store.load_latest_for_user(
                 user_id=context.user_id,
                 tenant_id=context.tenant_id,
                 channel=channel,
+                role=context.role,
             )
         if session is None:
             return None
@@ -652,6 +660,7 @@ class WorkflowOrchestrator:
             tenant_id=context.tenant_id,
             channel=state.channel,
             session_id=session_id,
+            role=context.role,
         )
         if session is None:
             session = SessionState.from_context(

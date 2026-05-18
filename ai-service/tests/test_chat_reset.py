@@ -12,6 +12,8 @@ state cleanly without forcing the user to type "annuler".
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi.testclient import TestClient
 
 import main
@@ -20,6 +22,7 @@ from app.context.context_builder import ContextBuilder
 from app.context.current_user import CurrentUserContext
 from app.core.conversation_state import ConversationStateStore, PendingConversationFlow
 from app.tools.result import ToolResult
+from app.workflows.session_state import SessionState
 from jwt_test_utils import TEST_JWT_SECRET
 
 
@@ -46,6 +49,7 @@ def _prepare_public_mode(client: TestClient, monkeypatch) -> None:
         "copilot_tool_registry", "copilot_tool_executor",
         "copilot_confirmation_store", "copilot_router_agent", "copilot_attendance_agent",
         "copilot_conversation_store",
+        "copilot_session_store",
     ):
         if hasattr(client.app.state, attr):
             delattr(client.app.state, attr)
@@ -95,6 +99,43 @@ def test_reset_endpoint_clears_pending_flow_in_public_mode(monkeypatch) -> None:
     body = response.json()
     assert body["success"] is True
     assert body["data"]["cleared"] == {"flow": True, "lastError": True}
+
+
+def test_reset_endpoint_clears_persisted_session_flow_in_public_mode(monkeypatch) -> None:
+    with TestClient(main.app) as client:
+        _prepare_public_mode(client, monkeypatch)
+        from app.core.copilot_engine import ensure_copilot_services
+        services = ensure_copilot_services(client.app.state)
+        ctx = CurrentUserContext(
+            user_id=7,
+            role="EMPLOYEE",
+            entreprise_id=3,
+            language="fr",
+            metadata={"chatbot_public_context": True, "channel": "chat"},
+        )
+        session = SessionState.from_context(
+            request_id="req-reset",
+            session_id="session-1",
+            context=ctx,
+            channel="chat",
+            language="fr",
+        )
+        session.intent = "leave.create"
+
+        asyncio.run(services["session_store"].save(session))
+        response = client.post("/v2/chat/reset", json=_public_payload())
+        loaded = asyncio.run(
+            services["session_store"].load(
+                user_id=7,
+                tenant_id=3,
+                channel="chat",
+                session_id="session-1",
+                role="EMPLOYEE",
+            )
+        )
+
+    assert response.status_code == 200
+    assert loaded is None
 
 
 def test_reset_endpoint_no_op_returns_false_flags(monkeypatch) -> None:

@@ -36,6 +36,12 @@ def verified_context() -> CurrentUserContext:
     )
 
 
+def role_context(role: str) -> CurrentUserContext:
+    context = verified_context()
+    context.role = role
+    return context
+
+
 def test_session_store_memory_round_trip() -> None:
     context = verified_context()
     store = SessionStore(redis_enabled=False, ttl_seconds=1200)
@@ -58,6 +64,37 @@ def test_session_store_memory_round_trip() -> None:
     assert loaded.session_id == "sess-1"
     assert loaded.intent == "attendance.status"
     assert loaded.pending_confirmation["confirmation_id"] == "conf-1"
+
+
+def test_session_store_separates_same_public_user_by_role() -> None:
+    store = SessionStore(redis_enabled=False, ttl_seconds=1200)
+    employee_session = SessionState.from_context(
+        request_id="req-employee",
+        session_id="shared",
+        context=role_context("EMPLOYEE"),
+        channel="chat",
+        language="fr",
+    )
+    employee_session.intent = "telework.create"
+    manager_session = SessionState.from_context(
+        request_id="req-manager",
+        session_id="shared",
+        context=role_context("MANAGER"),
+        channel="chat",
+        language="fr",
+    )
+    manager_session.intent = "manager.pending_approvals"
+
+    asyncio.run(store.save(employee_session))
+    asyncio.run(store.save(manager_session))
+
+    loaded_employee = asyncio.run(store.load(user_id=12, tenant_id=9, channel="chat", session_id="shared", role="EMPLOYEE"))
+    loaded_manager = asyncio.run(store.load(user_id=12, tenant_id=9, channel="chat", session_id="shared", role="MANAGER"))
+
+    assert loaded_employee is not None
+    assert loaded_employee.intent == "telework.create"
+    assert loaded_manager is not None
+    assert loaded_manager.intent == "manager.pending_approvals"
 
 
 def test_session_store_tracks_latest_and_confirmation_index_with_redis() -> None:

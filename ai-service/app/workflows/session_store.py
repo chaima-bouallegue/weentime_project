@@ -33,8 +33,11 @@ class SessionStore:
 
     async def save(self, state: SessionState) -> SessionState:
         state.touch(self.ttl_seconds)
-        storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id)
-        latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel)
+        role = _role_key(state.role)
+        storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id, role=role)
+        legacy_storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id)
+        latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel, role=role)
+        legacy_latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel)
         confirmation_key = self._confirmation_key(
             state.user_id,
             state.tenant_id,
@@ -44,11 +47,20 @@ class SessionStore:
 
         with self._lock:
             self._memory_sessions[storage_key] = state
+            self._memory_sessions[legacy_storage_key] = state
             self._memory_latest[latest_key] = storage_key
+            self._memory_latest[legacy_latest_key] = storage_key
             if confirmation_key is not None:
                 self._memory_confirmations[confirmation_key] = storage_key
 
-        await self._write_redis(storage_key, payload, latest_key=latest_key, confirmation_key=confirmation_key)
+        await self._write_redis(
+            storage_key,
+            payload,
+            latest_key=latest_key,
+            confirmation_key=confirmation_key,
+            alias_storage_keys=[legacy_storage_key],
+            alias_latest_keys=[legacy_latest_key],
+        )
         return state
 
     async def load(
@@ -58,8 +70,13 @@ class SessionStore:
         tenant_id: int | None,
         channel: str,
         session_id: str,
+        role: str | None = None,
     ) -> SessionState | None:
-        return await self._load_by_storage_key(self._session_key(user_id, tenant_id, channel, session_id))
+        for storage_key in self._candidate_session_keys(user_id, tenant_id, channel, session_id, role=role):
+            state = await self._load_by_storage_key(storage_key)
+            if state is not None:
+                return state
+        return None
 
     async def load_latest_for_user(
         self,
@@ -67,22 +84,27 @@ class SessionStore:
         user_id: int,
         tenant_id: int | None,
         channel: str,
+        role: str | None = None,
     ) -> SessionState | None:
-        latest_key = self._latest_key(user_id, tenant_id, channel)
-        with self._lock:
-            storage_key = self._memory_latest.get(latest_key)
-        if storage_key:
-            state = await self._load_by_storage_key(storage_key)
-            if state is not None:
-                return state
+        for latest_key in self._candidate_latest_keys(user_id, tenant_id, channel, role=role):
+            with self._lock:
+                storage_key = self._memory_latest.get(latest_key)
+            if storage_key:
+                state = await self._load_by_storage_key(storage_key)
+                if state is not None:
+                    return state
         if not self._redis_available():
             return None
         try:
             client = await self._client()
-            storage_key = await client.get(latest_key)
-            if not storage_key:
-                return None
-            return await self._load_by_storage_key(str(storage_key))
+            for latest_key in self._candidate_latest_keys(user_id, tenant_id, channel, role=role):
+                storage_key = await client.get(latest_key)
+                if not storage_key:
+                    continue
+                state = await self._load_by_storage_key(str(storage_key))
+                if state is not None:
+                    return state
+            return None
         except Exception as exc:  # noqa: BLE001
             logger.warning("Workflow session latest lookup failed: %s", exc)
             return None
@@ -124,15 +146,22 @@ class SessionStore:
         tenant_id: int | None,
         channel: str,
         session_id: str,
+        role: str | None = None,
     ) -> None:
-        storage_key = self._session_key(user_id, tenant_id, channel, session_id)
+        storage_keys = self._candidate_session_keys(user_id, tenant_id, channel, session_id, role=role)
+        latest_keys = self._candidate_latest_keys(user_id, tenant_id, channel, role=role)
         with self._lock:
-            self._memory_sessions.pop(storage_key, None)
+            for storage_key in storage_keys:
+                self._memory_sessions.pop(storage_key, None)
+            for latest_key in latest_keys:
+                if self._memory_latest.get(latest_key) in storage_keys:
+                    self._memory_latest.pop(latest_key, None)
         if not self._redis_available():
             return
         try:
             client = await self._client()
-            await client.delete(storage_key)
+            for key in [*storage_keys, *latest_keys]:
+                await client.delete(key)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Workflow session delete failed: %s", exc)
 
@@ -167,13 +196,19 @@ class SessionStore:
         *,
         latest_key: str,
         confirmation_key: str | None,
+        alias_storage_keys: list[str] | None = None,
+        alias_latest_keys: list[str] | None = None,
     ) -> None:
         if not self._redis_available():
             return
         try:
             client = await self._client()
             await client.set(storage_key, payload, ex=self.ttl_seconds)
+            for alias_key in alias_storage_keys or []:
+                await client.set(alias_key, payload, ex=self.ttl_seconds)
             await client.set(latest_key, storage_key, ex=self.ttl_seconds)
+            for alias_key in alias_latest_keys or []:
+                await client.set(alias_key, storage_key, ex=self.ttl_seconds)
             if confirmation_key is not None:
                 await client.set(confirmation_key, storage_key, ex=self.ttl_seconds)
             log_event(
@@ -202,11 +237,15 @@ class SessionStore:
         return True
 
     @staticmethod
-    def _session_key(user_id: int, tenant_id: int | None, channel: str, session_id: str) -> str:
+    def _session_key(user_id: int, tenant_id: int | None, channel: str, session_id: str, *, role: str | None = None) -> str:
+        if role:
+            return f"workflow:session:{tenant_id}:{user_id}:{_role_key(role)}:{channel}:{session_id}"
         return f"workflow:session:{tenant_id}:{user_id}:{channel}:{session_id}"
 
     @staticmethod
-    def _latest_key(user_id: int, tenant_id: int | None, channel: str) -> str:
+    def _latest_key(user_id: int, tenant_id: int | None, channel: str, *, role: str | None = None) -> str:
+        if role:
+            return f"workflow:latest:{tenant_id}:{user_id}:{_role_key(role)}:{channel}"
         return f"workflow:latest:{tenant_id}:{user_id}:{channel}"
 
     @staticmethod
@@ -215,9 +254,48 @@ class SessionStore:
             return None
         return f"workflow:confirmation:{tenant_id}:{user_id}:{confirmation_id}"
 
+    def _candidate_session_keys(
+        self,
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        session_id: str,
+        *,
+        role: str | None = None,
+    ) -> list[str]:
+        if role:
+            return [self._session_key(user_id, tenant_id, channel, session_id, role=role)]
+        keys = [self._session_key(user_id, tenant_id, channel, session_id)]
+        keys.extend(
+            self._session_key(user_id, tenant_id, channel, session_id, role=candidate)
+            for candidate in ("EMPLOYEE", "MANAGER", "RH", "ADMIN")
+        )
+        return keys
+
+    def _candidate_latest_keys(
+        self,
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        *,
+        role: str | None = None,
+    ) -> list[str]:
+        if role:
+            return [self._latest_key(user_id, tenant_id, channel, role=role)]
+        keys = [self._latest_key(user_id, tenant_id, channel)]
+        keys.extend(
+            self._latest_key(user_id, tenant_id, channel, role=candidate)
+            for candidate in ("EMPLOYEE", "MANAGER", "RH", "ADMIN")
+        )
+        return keys
+
 
 def _pending_confirmation_id(state: SessionState | None) -> str | None:
     if state is None or not isinstance(state.pending_confirmation, dict):
         return None
     confirmation_id = str(state.pending_confirmation.get("confirmation_id") or "").strip()
     return confirmation_id or None
+
+
+def _role_key(role: str | None) -> str:
+    return str(role or "EMPLOYEE").upper().replace("ROLE_", "") or "EMPLOYEE"

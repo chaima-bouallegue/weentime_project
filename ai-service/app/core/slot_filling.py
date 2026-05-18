@@ -42,6 +42,11 @@ FLOW_CONFIG: dict[str, dict[str, str]] = {
         "entity_intent": "CREATE_TELEWORK",
         "tool": "telework.create_request",
     },
+    "document.create": {
+        "agent": "document",
+        "entity_intent": "REQUEST_DOCUMENT",
+        "tool": "document.create_request",
+    },
     "organisation.create_team": {
         "agent": "organisation",
         "entity_intent": _NO_ENTITY_INTENT,
@@ -175,6 +180,8 @@ def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: Cur
         _merge_authorization_fields(fields, payload, original)
     elif flow.intent == "telework.create":
         _merge_telework_fields(fields, payload, original)
+    elif flow.intent == "document.create":
+        _merge_document_fields(fields, payload, original)
 
 
 def _merge_team_fields(fields: dict[str, Any], original: str) -> None:
@@ -284,6 +291,15 @@ def _merge_authorization_fields(fields: dict[str, Any], payload: dict[str, Any],
         fields["reason"] = original
 
 
+def _merge_document_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
+    fields["raw_last_message"] = original
+    for key in ("document_type", "month"):
+        if payload.get(key):
+            fields[key] = payload[key]
+    if payload.get("reason"):
+        fields["reason"] = payload["reason"]
+
+
 def _missing_fields(flow: PendingConversationFlow) -> list[str]:
     fields = flow.collected_fields
     if flow.intent == "leave.create":
@@ -311,6 +327,11 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
         if not fields.get("start_date") or not fields.get("end_date") or fields.get("date_precision") == "month_inferred":
             missing.append("date")
         if not fields.get("telework_type"):
+            missing.append("type")
+        return missing
+    if flow.intent == "document.create":
+        missing = []
+        if not fields.get("document_type"):
             missing.append("type")
         return missing
     if flow.intent == "organisation.create_team":
@@ -354,6 +375,10 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
             return "Pour quelle date souhaitez-vous demander le teletravail ?"
         if field == "type":
             return "Souhaitez-vous une journee complete, une matinee, un apres-midi ou une semaine complete ?"
+        return "Pouvez-vous preciser cette information ?"
+    if intent == "document.create":
+        if field == "type":
+            return "Quel type de document souhaitez-vous demander ? Par exemple: attestation de travail, bulletin de paie ou contrat."
         return "Pouvez-vous preciser cette information ?"
     if intent == "organisation.create_team":
         if field == "name":
@@ -406,6 +431,12 @@ def _tool_input(flow: PendingConversationFlow) -> dict[str, Any]:
             "period": fields.get("telework_period"),
             "reason": fields.get("reason"),
         }
+    if flow.intent == "document.create":
+        return {
+            "document_type": fields["document_type"],
+            "reason": fields.get("reason"),
+            "month": fields.get("month"),
+        }
     if flow.intent == "organisation.create_team":
         return {
             "nom": fields["name"],
@@ -435,7 +466,13 @@ def _slot_result(flow: PendingConversationFlow, *, status: str = "pending") -> d
 
 
 def _confirmation_result(flow: PendingConversationFlow, tool_input: dict[str, Any], analysis: dict[str, Any] | None) -> dict[str, Any]:
-    if flow.intent.startswith("organisation."):
+    if flow.intent == "document.create":
+        summary: dict[str, Any] = {
+            "type": tool_input.get("document_type"),
+            "month": tool_input.get("month"),
+            "motif": tool_input.get("reason"),
+        }
+    elif flow.intent.startswith("organisation."):
         summary: dict[str, Any] = {
             "nom": tool_input.get("nom"),
             "departementId": tool_input.get("departement_id"),
@@ -471,6 +508,8 @@ def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[s
         type_label = tool_input.get("telework_type") or "JOURNEE_COMPLETE"
         date_label = tool_input.get("start_date") or "la date demandee"
         return f"Confirmez-vous cette demande de teletravail ({type_label}) pour le {date_label} ?"
+    if intent == "document.create":
+        return f"Voulez-vous confirmer la demande de {_document_label(tool_input.get('document_type'))} ?"
     if intent == "organisation.create_team":
         return (
             f"Confirmez-vous la creation de l'equipe '{tool_input.get('nom')}' "
@@ -490,6 +529,20 @@ def _time_label(tool_input: dict[str, Any]) -> str | None:
     if start and end:
         return f"{start} - {end}"
     return None
+
+
+def _document_label(document_type: Any) -> str:
+    labels = {
+        "ATTESTATION_TRAVAIL": "l'attestation de travail",
+        "BULLETIN_PAIE": "bulletin de paie",
+        "ATTESTATION_SALAIRE": "l'attestation de salaire",
+        "CONTRAT_TRAVAIL": "contrat de travail",
+        "CERTIFICAT_CONGE": "certificat de conge",
+        "ATTESTATION_ANCIENNETE": "l'attestation d'anciennete",
+        "FICHE_POSTE": "fiche de poste",
+    }
+    value = str(document_type or "document").upper()
+    return labels.get(value, "ce document")
 
 
 def _looks_like_reason_followup(original: str, payload: dict[str, Any]) -> bool:
@@ -549,6 +602,17 @@ _FLOW_DOMAIN_TERMS = {
     # say "teletravail aussi" without escaping. Date-only follow-ups carry no
     # escape match and stay in the flow.
     "telework.create": ("teletravail", "télétravail", "telework", "remote", "wfh"),
+    "document.create": (
+        "document",
+        "attestation",
+        "bulletin",
+        "fiche de paie",
+        "payslip",
+        "certificate",
+        "certificat",
+        "contrat",
+        "war9a",
+    ),
     # Org-create flows: keep the flow alive when the user is still talking
     # about teams/departments (e.g. "in departement 5", "code TECH").
     "organisation.create_team": ("equipe", "team", "departement", "department", "dept"),

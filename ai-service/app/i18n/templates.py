@@ -56,7 +56,7 @@ PHRASES: Final[dict[str, dict[str, str]]] = {
         "fr": "Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT.",
         "en": "Which leave type? For example: annual leave, sick leave, RTT.",
         "ar": "ما نوع العطلة المطلوبة؟ مثلا: عطلة سنوية، عطلة مرضية، عطلة استثنائية.",
-        "tn": "Chnowa l type mtaa l conge? Mathalan: conge annuel, maladie, walla RTT.",
+        "tn": "Chnowa l type de conge? Mathalan: conge annuel, maladie, walla RTT.",
     },
     "unavailable.planning": {
         "fr": "Le module planning / horaires n'est pas encore connecte a l'agent IA. Consultez votre planning depuis l'onglet 'Planning' de l'application; je peux toujours vous aider sur le pointage, les conges, le teletravail ou les autorisations.",
