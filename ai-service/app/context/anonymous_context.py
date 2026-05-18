@@ -102,6 +102,25 @@ def build_chatbot_context_from_metadata(
     resolved_language = (
         _read_str(meta, "language") or (language.strip().lower() if isinstance(language, str) else None) or DEFAULT_LANGUAGE
     )
+    current_page = _read_str(meta, "current_page", "currentPage", "page", "route")
+    conversation_id = _read_str(meta, "conversation_id", "conversationId", "conversation", "session_id", "sessionId")
+    company_id = _read_int(meta, "companyId", "company_id", default=entreprise_id)
+    context_metadata: dict[str, Any] = {
+        "jwt_verified": False,
+        "role_verified_from_ui": True,
+        "chatbot_public_context": True,
+        "anonymous_chatbot": True,
+        "source": ANONYMOUS_SOURCE,
+        "channel": channel,
+        "chatbot_public_mode": True,
+        "language": resolved_language,
+        "entreprise_id": entreprise_id,
+        "company_id": company_id,
+    }
+    if current_page:
+        context_metadata["current_page"] = current_page
+    if conversation_id:
+        context_metadata["conversation_id"] = conversation_id
 
     return CurrentUserContext(
         user_id=user_id,
@@ -115,16 +134,5 @@ def build_chatbot_context_from_metadata(
         token=None,
         locale=locale,
         language=resolved_language,
-        metadata={
-            # Public-chatbot trust model: the JWT was NOT verified — the role/
-            # user/entreprise came from request metadata and the UI vouches for
-            # them. ToolRegistry honours this via chatbot_public_context.
-            "jwt_verified": False,
-            "role_verified_from_ui": True,
-            "chatbot_public_context": True,
-            "anonymous_chatbot": True,
-            "source": ANONYMOUS_SOURCE,
-            "channel": channel,
-            "chatbot_public_mode": True,
-        },
+        metadata=context_metadata,
     )

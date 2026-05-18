@@ -48,6 +48,7 @@ from app.tools.organisation_structure_tools import register_organisation_structu
 from app.tools.policy_tools import register_policy_tools
 from app.tools.reunion_tools import register_reunion_tools
 from app.tools.rh_tools import register_rh_tools
+from app.tools.schedule_tools import register_schedule_tools
 from app.tools.registry import ToolRegistry
 from app.tools.telework_tools import register_telework_tools
 from app.workflows import SessionStore, WorkflowOrchestrator
@@ -146,6 +147,9 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     if not getattr(state, "copilot_reunion_tools_registered", False):
         register_reunion_tools(registry, backend_client)
         state.copilot_reunion_tools_registered = True
+    if not getattr(state, "copilot_schedule_tools_registered", False):
+        register_schedule_tools(registry, backend_client)
+        state.copilot_schedule_tools_registered = True
     if not getattr(state, "copilot_policy_tools_registered", False):
         register_policy_tools(registry, policy_retriever)
         state.copilot_policy_tools_registered = True

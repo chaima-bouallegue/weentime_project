@@ -67,6 +67,8 @@ class ChatbotFakeBackend:
             return ToolResult.ok([{"uuid": "r1", "titre": "Daily", "dateHeure": "2026-05-17T09:00:00"}])
         if path == "/rh/reunions/prochaine":
             return ToolResult.ok({"uuid": "r1", "titre": "Daily", "dateHeure": "2026-05-17T09:00:00"})
+        if path == "/horaires":
+            return ToolResult.ok({"content": [{"id": 7, "nom": "Standard 35h", "heuresHebdomadaires": 35}], "totalElements": 1})
         return ToolResult.fail("capability_unavailable", "Cette capacite n'est pas encore disponible dans le backend.", status_code=404)
 
     async def post(self, path: str, *, context: CurrentUserContext, json: dict[str, Any] | None = None, headers=None) -> ToolResult:
@@ -91,6 +93,25 @@ def make_context(role: str = "EMPLOYEE", *, user_id: int = 12, tenant_id: int = 
     )
 
 
+def make_context_with_metadata(
+    role: str = "EMPLOYEE",
+    *,
+    user_id: int = 12,
+    tenant_id: int = 9,
+    language: str = "fr",
+    current_page: str | None = None,
+    conversation_id: str | None = None,
+    channel: str = "chat",
+) -> CurrentUserContext:
+    context = make_context(role, user_id=user_id, tenant_id=tenant_id, language=language)
+    context.metadata["channel"] = channel
+    if current_page:
+        context.metadata["current_page"] = current_page
+    if conversation_id:
+        context.metadata["conversation_id"] = conversation_id
+    return context
+
+
 def make_state(backend: ChatbotFakeBackend | None = None) -> SimpleNamespace:
     return SimpleNamespace(
         copilot_ready=False,
@@ -113,15 +134,31 @@ async def send_chatbot_message(
     session_id: str = "chatbot-test",
     language: str = "fr",
     backend: ChatbotFakeBackend | None = None,
+    current_page: str | None = None,
+    conversation_id: str | None = None,
+    channel: str = "chat",
 ):
     state = make_state(backend)
-    context = make_context(role, language=language)
+    context = make_context_with_metadata(
+        role,
+        language=language,
+        current_page=current_page,
+        conversation_id=conversation_id,
+        channel=channel,
+    )
     response = await process_copilot_message(
         context.user_id,
         message,
         None,
         role,
-        metadata={"app_state": state, "session_id": session_id, "language": language},
+        channel=channel,
+        metadata={
+            "app_state": state,
+            "session_id": session_id,
+            "language": language,
+            "current_page": current_page,
+            "conversation_id": conversation_id or session_id,
+        },
         context=context,
     )
     return response, state

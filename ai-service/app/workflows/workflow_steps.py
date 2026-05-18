@@ -23,6 +23,48 @@ def resolve_workflow_language(message: str, metadata: dict[str, Any] | None = No
     return detect_language(message)
 
 
+SAFE_CONTEXT_METADATA_ALIASES: dict[str, tuple[str, ...]] = {
+    "current_page": ("current_page", "currentPage", "page", "route"),
+    "conversation_id": ("conversation_id", "conversationId", "conversation"),
+    "company_id": ("company_id", "companyId"),
+    "entreprise_id": ("entreprise_id", "entrepriseId", "tenant_id", "tenantId"),
+    "session_id": ("session_id", "sessionId"),
+    "channel": ("channel",),
+    "language": ("language",),
+}
+
+
+def apply_safe_request_metadata(
+    context: CurrentUserContext,
+    metadata: dict[str, Any] | None,
+    *,
+    language: str | None = None,
+) -> CurrentUserContext:
+    """Copy only UI continuity hints into the verified chatbot context.
+
+    This preserves the security boundary: Authorization, JWTs, permissions and
+    arbitrary frontend claims are never copied. The values here are routing and
+    session hints only; ToolRegistry/backend authority still decides actions.
+    """
+    resolved_metadata = metadata or {}
+    for canonical, aliases in SAFE_CONTEXT_METADATA_ALIASES.items():
+        value = _first_metadata_value(resolved_metadata, aliases)
+        if value is not None:
+            context.metadata[canonical] = value
+    if language:
+        context.metadata["language"] = language
+    current_page = _normalized_text(context.metadata.get("current_page"))
+    if current_page:
+        context.metadata["current_page"] = current_page
+    conversation_id = _normalized_text(context.metadata.get("conversation_id") or context.metadata.get("session_id"))
+    if conversation_id:
+        context.metadata["conversation_id"] = conversation_id
+    company_id = _normalized_text(context.metadata.get("company_id"))
+    if company_id:
+        context.metadata["company_id"] = company_id
+    return context
+
+
 async def build_workflow_context(
     *,
     context_builder: ContextBuilder,
@@ -44,7 +86,7 @@ async def build_workflow_context(
             raise ContextError("unverified_context", "Verified user context is required.", 403)
         context.locale = locale
         context.language = language or context.language
-        return context
+        return apply_safe_request_metadata(context, resolved_metadata, language=language)
 
     if not access_token and resolved_metadata.get("allow_legacy_without_token"):
         legacy_context = context_builder._from_claims(
@@ -64,14 +106,32 @@ async def build_workflow_context(
             language=language,
         )
         legacy_context.metadata["legacy_context"] = True
-        return legacy_context
+        return apply_safe_request_metadata(legacy_context, resolved_metadata, language=language)
 
-    return await context_builder.build(
+    verified_context = await context_builder.build(
         f"Bearer {access_token}" if access_token and not access_token.lower().startswith("bearer ") else access_token,
         payload_user_id=payload_user_id,
         locale=locale,
         language=language,
     )
+    return apply_safe_request_metadata(verified_context, resolved_metadata, language=language)
+
+
+def _first_metadata_value(metadata: dict[str, Any], aliases: tuple[str, ...]) -> str | int | None:
+    for key in aliases:
+        value = metadata.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, (str, int)):
+            text = str(value).strip()
+            if text:
+                return value
+    return None
+
+
+def _normalized_text(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
 
 
 def guard_result_payload(result: GuardResult | None) -> dict[str, Any] | None:

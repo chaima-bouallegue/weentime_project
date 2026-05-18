@@ -44,6 +44,10 @@ class RHAgent(ConfirmationMixin, DomainAgent):
             return AgentResponse(type="error", text="Votre role ne permet pas cette action RH.", intent="rh.forbidden", confidence=0.95)
 
         intent, confidence = self.detect_intent(message, context)
+        hybrid_response = await self._handle_hybrid_intent(intent, confidence, message, context)
+        if hybrid_response is not None:
+            return hybrid_response
+
         if intent == "rh.create_user_unavailable":
             return AgentResponse(
                 type="answer",
@@ -239,6 +243,11 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         return AgentResponse(type="ask", text="Que souhaitez-vous faire cote RH ?", intent="rh.unknown", confidence=0.35)
 
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
+        hybrid_intent = _metadata_hybrid_intent(context)
+        if hybrid_intent:
+            confidence = _metadata_hybrid_confidence(context) or 0.9
+            return _map_hybrid_intent(hybrid_intent), confidence
+
         text = (message or "").lower()
         # Capability question: "can RH create a platform user?" — answered locally
         # with a deterministic capability response. RH cannot create users; that's
@@ -271,6 +280,142 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         if has_any(text, ("process", "traiter", "approuve", "approve", "valide", "refuse", "reject", "rejette")):
             return "rh.process", 0.91
         return None, 0.0
+
+    async def _handle_hybrid_intent(
+        self,
+        intent: str | None,
+        confidence: float,
+        message: str,
+        context: CurrentUserContext,
+    ) -> AgentResponse | None:
+        if not intent or not _metadata_hybrid_intent(context):
+            return None
+        raw_intent = _metadata_hybrid_intent(context) or intent
+        missing = _metadata_hybrid_missing(context)
+        if raw_intent in {
+            "rh.structure.employee.assign_team",
+            "rh.structure.manager.assign_team",
+            "rh.validation.clarify_type",
+            "rh.structure.clarify_add_target",
+            "rh.validation.clarify_request",
+        } and missing:
+            return _clarification_response(raw_intent, confidence, missing)
+
+        if raw_intent in {"rh.schedule.list", "rh.schedule.default"}:
+            return await self.read_response(
+                tool_name="schedule.list",
+                tool_input={},
+                context=context,
+                intent="rh.schedule.list",
+                success_text="Voici les horaires RH disponibles.",
+                confidence=confidence,
+            )
+        if raw_intent == "rh.schedule.create":
+            return AgentResponse(
+                type="ask",
+                text="Quel horaire souhaitez-vous creer ? Indiquez au minimum le nom, les heures de debut/fin et les jours concernes.",
+                intent=raw_intent,
+                confidence=confidence,
+                actionResult={"kind": "slot_filling", "missing": ["schedule_details"], "toolName": "schedule.create"},
+            )
+        if raw_intent == "rh.schedule.assign":
+            return AgentResponse(
+                type="ask",
+                text="Quel horaire faut-il affecter, et a quel employe ou equipe ?",
+                intent=raw_intent,
+                confidence=confidence,
+                actionResult={"kind": "slot_filling", "missing": ["schedule_id", "target"], "toolName": "schedule.assign"},
+            )
+
+        if raw_intent in {"rh.attendance.today", "rh.attendance.missing", "rh.attendance.absent", "rh.attendance.late"}:
+            return await self.read_response(
+                tool_name="get_team_presence",
+                tool_input={},
+                context=context,
+                intent="rh.presence_today",
+                success_text="Voici la presence entreprise aujourd'hui.",
+                confidence=confidence,
+            )
+        if raw_intent in {"rh.attendance.sync", "rh.attendance.manual_fix"}:
+            return _capability_response(
+                raw_intent,
+                "Cette action pointage RH n'est pas encore connectee a un outil ToolRegistry verifie.",
+                confidence,
+            )
+
+        if raw_intent in {"rh.dashboard.backlog", "rh.leave.list", "rh.leave.pending", "rh.telework.list", "rh.telework.pending", "rh.authorization.list", "rh.authorization.urgent"}:
+            return await self._read_rh_requests(context, intent="rh.all_requests", confidence=confidence)
+        if raw_intent in {"rh.leave.approve", "rh.leave.reject", "rh.telework.approve", "rh.telework.reject", "rh.authorization.approve", "rh.authorization.reject"}:
+            return AgentResponse(
+                type="ask",
+                text="Quelle demande souhaitez-vous traiter ? Donnez-moi l'identifiant ou le type de demande.",
+                intent=raw_intent,
+                confidence=confidence,
+                actionResult={"kind": "approval_lookup", "status": "missing_identifier"},
+            )
+
+        if raw_intent in {"rh.document.list", "rh.document.urgent"}:
+            return await self.read_response(
+                tool_name="document.rh_workload",
+                tool_input={},
+                context=context,
+                intent="rh.document_workload",
+                success_text="Voici la charge documentaire RH.",
+                confidence=confidence,
+            )
+        if raw_intent == "rh.document.generate":
+            return None
+        if raw_intent == "rh.analytics.summary":
+            return await self.read_response(
+                tool_name="rh.get_stats",
+                tool_input={},
+                context=context,
+                intent="rh.stats",
+                success_text="Les statistiques RH sont disponibles.",
+                confidence=confidence,
+            )
+
+        if raw_intent == "rh.structure.employee.create":
+            return AgentResponse(
+                type="answer",
+                text=(
+                    "La creation de comptes utilisateurs est reservee aux administrateurs. "
+                    "En tant que RH, vous pouvez gerer les affectations et consulter les structures connectees."
+                ),
+                intent="rh.create_user_unavailable",
+                confidence=confidence,
+                actionResult={
+                    "kind": "rh_capability_unavailable",
+                    "agent": "RHAgent",
+                    "capability": "create_user",
+                    "allowedRoles": ["ADMIN"],
+                },
+            )
+
+        if raw_intent in {
+            "rh.structure.employee.assign_team",
+            "rh.structure.manager.assign_team",
+            "rh.structure.manager.show",
+            "rh.structure.manager.create",
+            "rh.structure.manager.list",
+            "rh.structure.team.members",
+        }:
+            return _capability_response(
+                "rh.organisation_assignment",
+                (
+                    "L'affectation ou la consultation organisationnelle RH demandee "
+                    "n'est pas encore connectee a un outil ToolRegistry verifie."
+                ),
+                confidence,
+            )
+
+        if raw_intent.startswith("rh.structure."):
+            return _capability_response(
+                raw_intent,
+                "Cette action de structure RH n'est pas encore connectee a un outil ToolRegistry verifie.",
+                confidence,
+            )
+        return None
 
     async def _read_rh_requests(self, context: CurrentUserContext, *, intent: str, confidence: float) -> AgentResponse:
         sections: list[dict[str, Any]] = []
@@ -510,6 +655,68 @@ def _wants_organisation_assignment(text: str) -> bool:
     target = has_any(text, ("user", "utilisateur", "employe", "employé", "salarie", "salarié", "manager", "equipe", "équipe", "team", "departement", "département"))
     create_structure = has_any(text, ("creer equipe", "créer equipe", "create team", "creer departement", "créer departement", "create department"))
     return action and target and not create_structure
+
+
+def _metadata_hybrid_intent(context: CurrentUserContext | None) -> str | None:
+    metadata = context.metadata if context is not None and isinstance(context.metadata, dict) else {}
+    value = metadata.get("rh_hybrid_intent")
+    return str(value).strip() if value else None
+
+
+def _metadata_hybrid_confidence(context: CurrentUserContext | None) -> float | None:
+    metadata = context.metadata if context is not None and isinstance(context.metadata, dict) else {}
+    try:
+        return float(metadata.get("rh_hybrid_confidence"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _metadata_hybrid_missing(context: CurrentUserContext | None) -> list[str]:
+    metadata = context.metadata if context is not None and isinstance(context.metadata, dict) else {}
+    missing = metadata.get("rh_hybrid_missing")
+    if isinstance(missing, list):
+        return [str(item) for item in missing]
+    return []
+
+
+def _map_hybrid_intent(intent: str) -> str:
+    if intent == "rh.document.generate":
+        return "rh.document_generate"
+    if intent == "rh.analytics.summary":
+        return "rh.stats"
+    if intent == "rh.dashboard.backlog":
+        return "rh.all_requests"
+    return intent
+
+
+def _clarification_response(intent: str, confidence: float, missing: list[str]) -> AgentResponse:
+    if intent == "rh.validation.clarify_type":
+        text = "Souhaitez-vous valider un conge, un teletravail ou une autorisation ?"
+    elif intent == "rh.structure.clarify_add_target":
+        text = "Voulez-vous ajouter cette personne comme employe, manager ou equipe ?"
+    elif intent == "rh.validation.clarify_request":
+        text = "Quelle demande souhaitez-vous refuser ? Donnez-moi l'identifiant ou le type de demande."
+    elif "assign_team" in intent:
+        text = "Quel employe souhaitez-vous affecter et dans quelle equipe ?"
+    else:
+        text = "Pouvez-vous preciser les informations manquantes ?"
+    return AgentResponse(
+        type="ask",
+        text=text,
+        intent=intent,
+        confidence=confidence,
+        actionResult={"kind": "slot_filling", "missing": missing, "intent": intent},
+    )
+
+
+def _capability_response(intent: str, text: str, confidence: float) -> AgentResponse:
+    return AgentResponse(
+        type="answer",
+        text=text,
+        intent=f"{intent}.unavailable" if not intent.endswith(".unavailable") else intent,
+        confidence=confidence,
+        actionResult={"kind": "capability_unavailable", "capability": intent},
+    )
 
 
 def _wants_rh_document_generation(text: str) -> bool:

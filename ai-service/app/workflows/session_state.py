@@ -22,6 +22,9 @@ class SessionState:
     role: str
     language: str
     channel: SessionChannel
+    current_page: str | None = None
+    conversation_id: str | None = None
+    company_id: str | None = None
     intent: str | None = None
     selected_agent: str | None = None
     pending_confirmation: dict[str, Any] | None = None
@@ -42,6 +45,7 @@ class SessionState:
         channel: SessionChannel,
         language: str | None = None,
     ) -> "SessionState":
+        metadata = context.metadata if isinstance(context.metadata, dict) else {}
         return cls(
             request_id=request_id,
             session_id=session_id,
@@ -50,6 +54,9 @@ class SessionState:
             role=context.role,
             language=str(language or context.language or context.metadata.get("language") or "unknown"),
             channel=channel,
+            current_page=_optional_text(metadata.get("current_page")),
+            conversation_id=_optional_text(metadata.get("conversation_id") or session_id),
+            company_id=_optional_text(metadata.get("company_id") or metadata.get("entreprise_id") or context.entreprise_id),
         )
 
     def touch(self, ttl_seconds: int) -> None:
@@ -74,3 +81,8 @@ class SessionState:
         self.tool_history.append(dict(entry))
         if limit > 0 and len(self.tool_history) > limit:
             self.tool_history = self.tool_history[-limit:]
+
+
+def _optional_text(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None

@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpContext, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { withAiChatWidgetContext } from '../../core/http/request-context.tokens';
 import { AuthService, User } from '../../core/services/auth.service';
-import { resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
+import { resolveAiConversationId, resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
 import { ChatApiResponse } from './chat.service';
 import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-response-normalizer';
 import { safeDisplayText, safeTrimmedString } from './safe-text.util';
@@ -64,6 +65,7 @@ export class VoiceAssistantService {
 
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
   private readonly eventsSubject = new Subject<VoiceAssistantEvent>();
 
@@ -165,7 +167,7 @@ export class VoiceAssistantService {
     this.finalized = false;
     this.lastPartial = '';
     this.recordedChunks = [];
-    this.recordingSessionId = this.generateSessionId();
+    this.recordingSessionId = resolveAiConversationId();
     this.finalUploadSent = false;
     this.finalizationPromise = null;
     this.hasHeardVoice = false;
@@ -273,7 +275,7 @@ export class VoiceAssistantService {
       type: mimeType
     });
 
-    const sessionId = this.recordingSessionId ?? this.generateSessionId();
+    const sessionId = this.recordingSessionId ?? resolveAiConversationId();
     const requestId = this.generateRequestId('voice');
     const requestContext = withAiChatWidgetContext(new HttpContext());
     this.recordingSessionId = sessionId;
@@ -291,17 +293,24 @@ export class VoiceAssistantService {
     voiceFormData.append('language_hint', language);
     const role = this.resolveRole(context.user);
     const entrepriseId = context.user.entrepriseId ?? context.user.entreprise?.id;
+    const currentPage = this.currentPage();
     const voiceMetadata: Record<string, unknown> = {
       channel: 'voice',
       language,
       chatbotPublicContext: environment.chatbotPublicMode === true,
       userId: context.user.id,
+      current_page: currentPage,
+      currentPage,
+      conversation_id: sessionId,
+      conversationId: sessionId,
+      session_id: sessionId,
     };
     if (role) {
       voiceMetadata['role'] = role.toUpperCase();
     }
     if (typeof entrepriseId === 'number' && entrepriseId > 0) {
       voiceMetadata['entrepriseId'] = entrepriseId;
+      voiceMetadata['companyId'] = entrepriseId;
     }
     voiceFormData.append('metadata', JSON.stringify(voiceMetadata));
     const headerInit: Record<string, string> = { 'X-Request-ID': requestId };
@@ -806,11 +815,14 @@ export class VoiceAssistantService {
     };
   }
 
-  private generateSessionId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
+  private currentPage(): string {
+    if (this.router.url) {
+      return this.router.url;
     }
-    return `voice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    if (typeof window !== 'undefined') {
+      return `${window.location.pathname}${window.location.search || ''}` || 'unknown';
+    }
+    return 'unknown';
   }
 
   private generateRequestId(prefix: string): string {

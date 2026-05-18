@@ -144,6 +144,10 @@ def capture_pending_flow(
         intent=response.intent,
         agent=FLOW_CONFIG[response.intent]["agent"],
         last_question=response.text,
+        language=context.language,
+        role=context.role,
+        current_page=str(context.metadata.get("current_page") or "global") if isinstance(context.metadata, dict) else "global",
+        last_action=response.intent,
     )
     _merge_flow_fields(flow, message, context)
     flow.missing_fields = _missing_fields(flow)
@@ -456,11 +460,18 @@ def _slot_result(flow: PendingConversationFlow, *, status: str = "pending") -> d
         "kind": "slot_filling",
         "pendingFlow": {
             "intent": flow.intent,
+            "pendingIntent": flow.intent,
             "agent": flow.agent,
             "status": status,
             "collectedFields": dict(flow.collected_fields),
+            "filledSlots": dict(flow.collected_fields),
             "missingFields": list(flow.missing_fields),
+            "requiredSlots": list(flow.missing_fields),
             "lastQuestion": flow.last_question,
+            "language": flow.language,
+            "role": flow.role,
+            "currentPage": flow.current_page,
+            "lastAction": flow.last_action,
         },
     }
 
@@ -573,9 +584,22 @@ def _has_date_or_time(payload: dict[str, Any]) -> bool:
 
 
 def _is_cancel_message(message: str) -> bool:
-    text = (message or "").strip().lower()
-    return text in {"annuler", "annule", "cancel", "stop", "la", "le", "no", "non merci", "لا"}
-
+    text = " ".join((message or "").strip().lower().strip(" \t\r\n?!?.,;:").split())
+    return text in {
+        "annuler",
+        "annule",
+        "cancel",
+        "stop",
+        "la",
+        "le",
+        "no",
+        "non merci",
+        "batel",
+        "sa7bi batel",
+        "\u0625\u0644\u063a\u0627\u0621",
+        "\u0627\u0644\u063a\u0627\u0621",
+        "لا",
+    }
 
 def _is_no_reason(value: Any) -> bool:
     return str(value or "").strip().lower() in {"nn", "non", "no"}

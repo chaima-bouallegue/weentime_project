@@ -26,6 +26,7 @@ from .session_store import SessionStore
 from .workflow_result import WorkflowResult
 from .workflow_state import WorkflowState
 from .workflow_steps import (
+    apply_safe_request_metadata,
     build_confirmation_execution_response,
     build_confirmation_status_response,
     build_workflow_context,
@@ -95,6 +96,7 @@ class WorkflowOrchestrator:
             )
             verified_context.metadata["request_id"] = request_id
             verified_context.metadata["channel"] = channel
+            apply_safe_request_metadata(verified_context, resolved_metadata, language=language)
             state = WorkflowState.from_context(
                 request_id,
                 verified_context,
@@ -148,6 +150,7 @@ class WorkflowOrchestrator:
             )
             verified_context.metadata["request_id"] = request_id
             verified_context.metadata["channel"] = channel
+            apply_safe_request_metadata(verified_context, resolved_metadata, language=language)
             state = WorkflowState.from_context(
                 request_id,
                 verified_context,
@@ -203,6 +206,8 @@ class WorkflowOrchestrator:
             tenant_id=context.tenant_id,
             channel=channel,
             role=context.role,
+            current_page=_context_current_page(context),
+            conversation_id=_context_conversation_id(context),
         )
         confirmation_id = _session_confirmation_id(session)
         if confirmation_id is None:
@@ -228,6 +233,8 @@ class WorkflowOrchestrator:
         session_id = _normalized_session_id(metadata.get("session_id")) or DEFAULT_SESSION_ID
         context.metadata["channel"] = channel
         context.metadata["session_id"] = session_id
+        context.metadata.setdefault("conversation_id", _context_conversation_id(context) or session_id)
+        context.metadata.setdefault("current_page", _context_current_page(context) or "global")
         recovered_session = await self._recover_session_state(context=context, session_id=session_id, channel=channel)
         if recovered_session is not None:
             session_id = recovered_session.session_id or session_id
@@ -541,6 +548,8 @@ class WorkflowOrchestrator:
             channel=channel,
             session_id=session_id,
             role=context.role,
+            current_page=_context_current_page(context),
+            conversation_id=_context_conversation_id(context, session_id),
         )
         if session is None:
             session = await self.session_store.load_latest_for_user(
@@ -548,6 +557,8 @@ class WorkflowOrchestrator:
                 tenant_id=context.tenant_id,
                 channel=channel,
                 role=context.role,
+                current_page=_context_current_page(context),
+                conversation_id=_context_conversation_id(context, session_id),
             )
         if session is None:
             return None
@@ -661,6 +672,8 @@ class WorkflowOrchestrator:
             channel=state.channel,
             session_id=session_id,
             role=context.role,
+            current_page=_context_current_page(context),
+            conversation_id=_context_conversation_id(context, session_id),
         )
         if session is None:
             session = SessionState.from_context(
@@ -674,6 +687,9 @@ class WorkflowOrchestrator:
         session.request_id = state.request_id
         session.role = context.role
         session.language = context.language or state.language
+        session.current_page = _context_current_page(context)
+        session.conversation_id = _context_conversation_id(context, session_id)
+        session.company_id = _context_company_id(context)
         session.intent = state.intent
         session.selected_agent = state.selected_agent
         session.pending_confirmation = state.pending_confirmation
@@ -747,5 +763,35 @@ def _normalized_session_id(value: Any) -> str | None:
 
 
 def _is_why_message(message: str | None) -> bool:
-    text = (message or "").strip().lower()
-    return text in {"pourquoi", "why", "Ø¹Ù„Ø§Ø´", "Ù„Ù…Ø§Ø°Ø§", "علاش", "لماذا"}
+    text = " ".join((message or "").strip().lower().strip(" \t\r\n?!\u061f.,;:").split())
+    return text in {
+        "pourquoi",
+        "why",
+        "3leh",
+        "3lech",
+        "aleh",
+        "\u0639\u0644\u0627\u0634",
+        "\u0644\u0645\u0627\u0630\u0627",
+        "Ø¹Ù„Ø§Ø´",
+        "Ù„Ù…Ø§Ø°Ø§",
+        "علاش",
+        "لماذا",
+    }
+
+
+def _context_current_page(context: CurrentUserContext) -> str | None:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    text = str(metadata.get("current_page") or "").strip()
+    return text or None
+
+
+def _context_conversation_id(context: CurrentUserContext, session_id: str | None = None) -> str | None:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    text = str(metadata.get("conversation_id") or session_id or metadata.get("session_id") or "").strip()
+    return text or None
+
+
+def _context_company_id(context: CurrentUserContext) -> str | None:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    text = str(metadata.get("company_id") or metadata.get("entreprise_id") or context.entreprise_id or "").strip()
+    return text or None

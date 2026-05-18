@@ -19,6 +19,9 @@ def serialize_session_state(state: SessionState) -> str:
         "role": state.role,
         "language": state.language,
         "channel": state.channel,
+        "current_page": state.current_page,
+        "conversation_id": state.conversation_id,
+        "company_id": state.company_id,
         "intent": state.intent,
         "selected_agent": state.selected_agent,
         "pending_confirmation": state.pending_confirmation,
@@ -48,6 +51,9 @@ def deserialize_session_state(payload: str | bytes | None) -> SessionState | Non
         role=str(data.get("role") or "EMPLOYEE"),
         language=str(data.get("language") or "unknown"),
         channel=str(data.get("channel") or "chat"),
+        current_page=_to_optional_str(data.get("current_page")),
+        conversation_id=_to_optional_str(data.get("conversation_id")),
+        company_id=_to_optional_str(data.get("company_id")),
         intent=_to_optional_str(data.get("intent")),
         selected_agent=_to_optional_str(data.get("selected_agent")),
         pending_confirmation=_as_dict(data.get("pending_confirmation")),
@@ -70,6 +76,10 @@ def serialize_pending_flow(flow: PendingConversationFlow | None) -> dict[str, An
         "missing_fields": list(flow.missing_fields),
         "last_question": flow.last_question,
         "status": flow.status,
+        "language": flow.language,
+        "role": flow.role,
+        "current_page": flow.current_page,
+        "last_action": flow.last_action,
         "created_at": _datetime_to_string(flow.created_at),
         "expires_at": _datetime_to_string(flow.expires_at),
     }
@@ -85,6 +95,10 @@ def deserialize_pending_flow(data: dict[str, Any] | None) -> PendingConversation
         missing_fields=[str(item) for item in data.get("missing_fields") or []],
         last_question=_to_optional_str(data.get("last_question")),
         status=str(data.get("status") or "pending"),
+        language=_to_optional_str(data.get("language")),
+        role=_to_optional_str(data.get("role")),
+        current_page=_to_optional_str(data.get("current_page")),
+        last_action=_to_optional_str(data.get("last_action")),
     )
     created_at = _parse_datetime(data.get("created_at"))
     expires_at = _parse_datetime(data.get("expires_at"))

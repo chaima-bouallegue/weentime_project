@@ -220,6 +220,14 @@ class RouterAgent:
 
         context.metadata["routing_priority"] = decision.category
         context.metadata["routing_priority_reason"] = decision.reason
+        if decision.intent:
+            context.metadata["rh_hybrid_intent"] = decision.intent
+            context.metadata["route_intent"] = decision.intent
+            context.metadata["rh_hybrid_confidence"] = decision.confidence
+        if decision.entities:
+            context.metadata["rh_hybrid_entities"] = decision.entities
+        if decision.missing:
+            context.metadata["rh_hybrid_missing"] = list(decision.missing)
 
         if decision.category == "capability_unavailable":
             response = _capability_unavailable_response(decision)
@@ -456,9 +464,29 @@ def _capability_unavailable_response(decision: RoutingDecision) -> AgentResponse
 
 
 def _priority_agent_text(decision: RoutingDecision, routing_text: str, context: CurrentUserContext) -> str:
+    if decision.agent_name == "organisation" and decision.intent:
+        entities = decision.entities or {}
+        if decision.intent == "rh.structure.department.create":
+            name = entities.get("department_name") or _tail_after_topic(routing_text, ("departement", "department"))
+            return f"creer departement {name}".strip()
+        if decision.intent == "rh.structure.department.list":
+            return "liste departements"
+        if decision.intent == "rh.structure.team.create":
+            name = entities.get("team_name") or _tail_after_topic(routing_text, ("equipe", "team"))
+            return f"creer equipe {name}".strip()
+        if decision.intent == "rh.structure.team.list":
+            return "liste equipes"
     if decision.agent_name != "attendance":
         return routing_text
     matched_intent = context.metadata.get("matched_intent") if isinstance(context.metadata, dict) else None
+    if decision.intent == "attendance.self.check_in":
+        return "pointer mon entree"
+    if decision.intent == "attendance.self.check_out":
+        return "pointer ma sortie"
+    if decision.intent == "attendance.self.status":
+        return "statut pointage"
+    if decision.intent == "attendance.self.clarify":
+        return "pointe"
     if matched_intent == GET_STATUS or decision.reason == "attendance_status_marker":
         return "statut pointage"
     if matched_intent == CHECK_IN:
@@ -466,3 +494,14 @@ def _priority_agent_text(decision: RoutingDecision, routing_text: str, context: 
     if matched_intent == CHECK_OUT:
         return "pointer ma sortie"
     return routing_text
+
+
+def _tail_after_topic(text: str, topics: tuple[str, ...]) -> str:
+    normalized = (text or "").strip()
+    lower = normalized.lower()
+    for topic in topics:
+        index = lower.find(topic)
+        if index >= 0:
+            tail = normalized[index + len(topic):].strip()
+            return tail.split(",", 1)[0].split(";", 1)[0].strip()
+    return ""

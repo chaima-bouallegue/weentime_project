@@ -16,6 +16,7 @@ from app.models.agent_models import AgentResponse
 from app.models.envelopes import ApiEnvelope
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
+from app.workflows.workflow_steps import apply_safe_request_metadata
 from app.voice import VoiceRoleRouter, optimize_voice_response
 from app.voice_pipeline.voice_errors import voice_error_payload
 from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceRequestProcessor
@@ -37,7 +38,7 @@ POSITIVE_CONFIRMATIONS = {
     "ey",
     "behi",
 }
-NEGATIVE_CONFIRMATIONS = {"non", "no", "لا", "le", "annule", "cancel", "refuse"}
+NEGATIVE_CONFIRMATIONS = {"non", "no", "لا", "le", "annule", "cancel", "refuse", "batel", "sa7bi batel", "إلغاء", "الغاء"}
 
 
 def _public_chatbot_mode_enabled() -> bool:
@@ -60,6 +61,29 @@ def _parse_voice_metadata(raw: str | None) -> dict[str, Any]:
     except (TypeError, ValueError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _voice_workflow_metadata(
+    metadata: dict[str, Any],
+    *,
+    app_state: Any,
+    session_id: str | None,
+    request_id: str,
+    language: str | None,
+) -> dict[str, Any]:
+    resolved = dict(metadata or {})
+    resolved_session = str(session_id or resolved.get("session_id") or resolved.get("sessionId") or "default").strip() or "default"
+    resolved["session_id"] = resolved_session
+    resolved.setdefault("sessionId", resolved_session)
+    resolved.setdefault("conversation_id", resolved.get("conversationId") or resolved.get("conversation") or resolved_session)
+    resolved.setdefault("conversationId", resolved.get("conversation_id"))
+    resolved["channel"] = "voice"
+    resolved["request_id"] = request_id
+    resolved["requestId"] = request_id
+    resolved["app_state"] = app_state
+    if language:
+        resolved.setdefault("language", language)
+    return resolved
 
 
 def _build_anonymous_voice_context(
@@ -89,12 +113,17 @@ async def voice_v2(
     authorization: str | None = Header(default=None),
     x_request_id: str | None = Header(default=None, alias="X-Request-ID"),
 ) -> JSONResponse:
-    _ = session_id
     resolved_request_id = ensure_request_id(x_request_id or request_id)
     request_token = set_request_id(resolved_request_id)
     stored: StoredAudio | None = None
     processor = VoiceRequestProcessor(request.app.state)
-    parsed_metadata = _parse_voice_metadata(metadata)
+    parsed_metadata = _voice_workflow_metadata(
+        _parse_voice_metadata(metadata),
+        app_state=request.app.state,
+        session_id=session_id,
+        request_id=resolved_request_id,
+        language=language_hint,
+    )
     try:
         with start_span("voice.request", {"has_authorization": bool(authorization), "generate_tts": generate_tts}):
             services = ensure_copilot_services(request.app.state)
@@ -105,6 +134,7 @@ async def voice_v2(
                     raise ContextError("missing_jwt", "Authorization header is required.", 401)
                 context = await services["context_builder"].build(authorization, locale="fr-FR", language=language_hint or "fr")
                 context.metadata["request_id"] = resolved_request_id
+                apply_safe_request_metadata(context, parsed_metadata, language=language_hint)
             except ContextError as exc:
                 if public_context_requested and exc.status_code == 401:
                     context = _build_anonymous_voice_context(
@@ -136,6 +166,7 @@ async def voice_v2(
                 stt_result = processed.stt
                 context.language = processed.detected_language
                 context.metadata["language"] = processed.detected_language
+                apply_safe_request_metadata(context, parsed_metadata, language=processed.detected_language)
                 context.metadata["voice_language_confidence"] = stt_result.language_confidence
                 if stt_result.status == "no_input":
                     return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id))
@@ -180,13 +211,7 @@ async def voice_v2(
                                 extract_bearer_token(authorization),
                                 context.role,
                                 channel="voice",
-                                metadata={
-                                    "app_state": request.app.state,
-                                    "session_id": session_id,
-                                    "language": processed.detected_language,
-                                    "voice_v2": True,
-                                    "request_id": resolved_request_id,
-                                },
+                                metadata={**parsed_metadata, "language": processed.detected_language, "voice_v2": True},
                                 context=context,
                             )
                             log_event(
@@ -271,7 +296,13 @@ async def _maybe_handle_voice_confirmation(
         approved=normalized in POSITIVE_CONFIRMATIONS,
         context=context,
         channel="voice",
-        metadata={"request_id": context.metadata.get("request_id"), "language": context.language},
+        metadata={
+            "request_id": context.metadata.get("request_id"),
+            "language": context.language,
+            "session_id": context.metadata.get("session_id"),
+            "conversation_id": context.metadata.get("conversation_id"),
+            "current_page": context.metadata.get("current_page"),
+        },
     )
     if result is None:
         return None

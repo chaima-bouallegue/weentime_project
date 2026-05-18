@@ -34,7 +34,7 @@ class AttendanceAgent(DomainAgent):
         if intent == "attendance.check_in":
             return self._confirmation_response("check_in", "Confirmez-vous le pointage d'entree ?", intent, confidence, context)
         if intent == "attendance.check_out":
-            return self._confirmation_response("check_out", "Confirmez-vous le pointage de sortie ?", intent, confidence, context)
+            return await self._check_out_after_status(confidence, context)
         if intent == "attendance.week_hours":
             result = await self.executor.execute("get_week_hours", {}, context)
             return self._week_hours_response(result, confidence)
@@ -155,6 +155,51 @@ class AttendanceAgent(DomainAgent):
             confirmationId=record.confirmation_id,
             toolCalls=[ToolCallRecord(name=tool_name, arguments={}, status="pending_confirmation")],
         )
+
+    async def _check_out_after_status(self, confidence: float, context: CurrentUserContext) -> AgentResponse:
+        result = await self.executor.execute("get_pointage_status", {}, context)
+        if not result.success:
+            return compose_tool_error("attendance.check_out", result)
+        data = result.data if isinstance(result.data, dict) else {}
+        check_in = data.get("checkIn") or data.get("check_in") or data.get("heureEntree") or data.get("entryTime")
+        check_out = data.get("checkOut") or data.get("check_out") or data.get("heureSortie") or data.get("exitTime")
+        active = data.get("active") or data.get("sessionOpen") or data.get("activeSession")
+        status = str(data.get("status") or data.get("sessionStatus") or data.get("etat") or data.get("state") or "").upper()
+        if not check_in and active is not True and status not in {"ACTIVE", "CHECKED_IN", "OPEN", "PRESENT"}:
+            text = "Aucun pointage d'entree detecte aujourd'hui."
+            return AgentResponse(
+                type="answer",
+                text=text,
+                intent="attendance.check_out",
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="get_pointage_status", status="success")],
+                actionResult={
+                    "kind": "no_data",
+                    "toolName": "get_pointage_status",
+                    "summary": text,
+                    "data": data,
+                    "empty": True,
+                },
+            )
+        if check_out:
+            text = f"Votre sortie est deja enregistree a {compact_value(check_out)}."
+            return AgentResponse(
+                type="answer",
+                text=text,
+                intent="attendance.check_out",
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="get_pointage_status", status="success")],
+                actionResult={
+                    "kind": "no_data",
+                    "toolName": "get_pointage_status",
+                    "summary": text,
+                    "data": data,
+                    "empty": True,
+                },
+            )
+        response = self._confirmation_response("check_out", "Confirmez-vous le pointage de sortie ?", "attendance.check_out", confidence, context)
+        response.toolCalls.insert(0, ToolCallRecord(name="get_pointage_status", status="success"))
+        return response
 
     def _forgot_checkout_response(self, result: ToolResult, confidence: float) -> AgentResponse:
         if not result.success:

@@ -1,5 +1,6 @@
-﻿import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { withAiChatWidgetContext } from '../http/request-context.tokens';
@@ -84,6 +85,35 @@ export function resolveAiServiceEndpoint(
   return 'http://localhost:8000';
 }
 
+export const AI_CHAT_SESSION_STORAGE_KEY = 'weentime.ai.chat.session_id';
+
+export function resolveAiConversationId(): string {
+  const generated = createBrowserRequestId('chat-session');
+  if (typeof window === 'undefined') {
+    return generated;
+  }
+  const existing = window.sessionStorage.getItem(AI_CHAT_SESSION_STORAGE_KEY);
+  if (existing && existing.trim().length > 0) {
+    return existing;
+  }
+  window.sessionStorage.setItem(AI_CHAT_SESSION_STORAGE_KEY, generated);
+  return generated;
+}
+
+function createBrowserRequestId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function resolveCurrentPage(): string {
+  if (typeof window === 'undefined') {
+    return 'unknown';
+  }
+  return `${window.location.pathname}${window.location.search || ''}` || 'unknown';
+}
+
 export interface AiChatMetadata {
   channel: 'chat';
   language: AiLanguageCode;
@@ -91,24 +121,45 @@ export interface AiChatMetadata {
   role?: string;
   userId?: number;
   entrepriseId?: number;
+  companyId?: number;
+  current_page?: string;
+  currentPage?: string;
+  conversation_id?: string;
+  conversationId?: string;
+  session_id?: string;
 }
 
 export interface AiChatRequestPayload {
   message: string;
+  session_id?: string;
   user_id?: number;
   metadata: AiChatMetadata;
 }
 
 export function buildAiChatRequestPayload(
   message: string,
-  options?: { userId?: number; role?: string | null; entrepriseId?: number | null },
+  options?: {
+    userId?: number;
+    role?: string | null;
+    entrepriseId?: number | null;
+    companyId?: number | null;
+    currentPage?: string | null;
+    sessionId?: string | null;
+  },
 ): AiChatRequestPayload {
+  const sessionId = options?.sessionId || resolveAiConversationId();
+  const currentPage = options?.currentPage?.trim() || resolveCurrentPage();
   const metadata: AiChatMetadata = {
     channel: 'chat',
     language: resolvePreferredAiLanguage(
       typeof navigator !== 'undefined' ? navigator.language : null,
     ),
     chatbotPublicContext: environment.chatbotPublicMode === true,
+    current_page: currentPage,
+    currentPage,
+    conversation_id: sessionId,
+    conversationId: sessionId,
+    session_id: sessionId,
   };
   if (options?.role && options.role.trim().length > 0) {
     metadata.role = options.role.trim().replace(/^ROLE_/i, '').toUpperCase();
@@ -119,8 +170,13 @@ export function buildAiChatRequestPayload(
   if (typeof options?.entrepriseId === 'number' && options.entrepriseId > 0) {
     metadata.entrepriseId = options.entrepriseId;
   }
+  const companyId = options?.companyId ?? options?.entrepriseId;
+  if (typeof companyId === 'number' && companyId > 0) {
+    metadata.companyId = companyId;
+  }
   return {
     message,
+    session_id: sessionId,
     user_id: options?.userId,
     metadata,
   };
@@ -130,6 +186,7 @@ export function buildAiChatRequestPayload(
 export class AiCopilotService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
 
   sendChatV2(message: string): Observable<AiCopilotEnvelope> {
@@ -143,6 +200,9 @@ export class AiCopilotService {
         userId: user?.id,
         role,
         entrepriseId: user?.entrepriseId ?? user?.entreprise?.id,
+        companyId: user?.entrepriseId ?? user?.entreprise?.id,
+        currentPage: this.currentPage(),
+        sessionId: resolveAiConversationId(),
       }),
       {
         headers: this.authHeaders(requestId),
@@ -160,12 +220,19 @@ export class AiCopilotService {
     this.debugRequest('chat.reset', requestId);
     const user = this.authService.currentUser();
     const role = this.resolveRole(user);
+    const sessionIdValue = sessionId || resolveAiConversationId();
+    const currentPage = this.currentPage();
     const metadata: Record<string, unknown> = {
       channel: 'chat',
       language: resolvePreferredAiLanguage(
         typeof navigator !== 'undefined' ? navigator.language : null,
       ),
       chatbotPublicContext: environment.chatbotPublicMode === true,
+      current_page: currentPage,
+      currentPage,
+      conversation_id: sessionIdValue,
+      conversationId: sessionIdValue,
+      session_id: sessionIdValue,
     };
     if (role) {
       metadata['role'] = role;
@@ -176,10 +243,11 @@ export class AiCopilotService {
     const entrepriseId = user?.entrepriseId ?? user?.entreprise?.id;
     if (typeof entrepriseId === 'number' && entrepriseId > 0) {
       metadata['entrepriseId'] = entrepriseId;
+      metadata['companyId'] = entrepriseId;
     }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/reset`,
-      { message: '', user_id: user?.id, session_id: sessionId, metadata },
+      { message: '', user_id: user?.id, session_id: sessionIdValue, metadata },
       {
         headers: this.authHeaders(requestId),
         context: withAiChatWidgetContext(),
@@ -192,12 +260,19 @@ export class AiCopilotService {
     this.debugRequest('chat.confirm', requestId);
     const user = this.authService.currentUser();
     const role = this.resolveRole(user);
+    const sessionId = resolveAiConversationId();
+    const currentPage = this.currentPage();
     const metadata: Record<string, unknown> = {
       channel: 'chat',
       language: resolvePreferredAiLanguage(
         typeof navigator !== 'undefined' ? navigator.language : null,
       ),
       chatbotPublicContext: environment.chatbotPublicMode === true,
+      current_page: currentPage,
+      currentPage,
+      conversation_id: sessionId,
+      conversationId: sessionId,
+      session_id: sessionId,
     };
     if (role) {
       metadata['role'] = role;
@@ -208,6 +283,7 @@ export class AiCopilotService {
     const entrepriseId = user?.entrepriseId ?? user?.entreprise?.id;
     if (typeof entrepriseId === 'number' && entrepriseId > 0) {
       metadata['entrepriseId'] = entrepriseId;
+      metadata['companyId'] = entrepriseId;
     }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
@@ -244,10 +320,11 @@ export class AiCopilotService {
   }
 
   private createRequestId(prefix: string): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return `${prefix}-${crypto.randomUUID()}`;
-    }
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return createBrowserRequestId(prefix);
+  }
+
+  private currentPage(): string {
+    return this.router.url || resolveCurrentPage();
   }
 
   private debugRequest(flow: string, requestId: string): void {

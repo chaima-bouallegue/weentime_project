@@ -34,9 +34,26 @@ class SessionStore:
     async def save(self, state: SessionState) -> SessionState:
         state.touch(self.ttl_seconds)
         role = _role_key(state.role)
-        storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id, role=role)
+        current_page = _page_key(state.current_page)
+        conversation_id = _conversation_key(state.conversation_id, state.session_id)
+        storage_key = self._session_key(
+            state.user_id,
+            state.tenant_id,
+            state.channel,
+            state.session_id,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        )
         legacy_storage_key = self._session_key(state.user_id, state.tenant_id, state.channel, state.session_id)
-        latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel, role=role)
+        latest_key = self._latest_key(
+            state.user_id,
+            state.tenant_id,
+            state.channel,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        )
         legacy_latest_key = self._latest_key(state.user_id, state.tenant_id, state.channel)
         confirmation_key = self._confirmation_key(
             state.user_id,
@@ -71,8 +88,18 @@ class SessionStore:
         channel: str,
         session_id: str,
         role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
     ) -> SessionState | None:
-        for storage_key in self._candidate_session_keys(user_id, tenant_id, channel, session_id, role=role):
+        for storage_key in self._candidate_session_keys(
+            user_id,
+            tenant_id,
+            channel,
+            session_id,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        ):
             state = await self._load_by_storage_key(storage_key)
             if state is not None:
                 return state
@@ -85,8 +112,17 @@ class SessionStore:
         tenant_id: int | None,
         channel: str,
         role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
     ) -> SessionState | None:
-        for latest_key in self._candidate_latest_keys(user_id, tenant_id, channel, role=role):
+        for latest_key in self._candidate_latest_keys(
+            user_id,
+            tenant_id,
+            channel,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        ):
             with self._lock:
                 storage_key = self._memory_latest.get(latest_key)
             if storage_key:
@@ -97,7 +133,14 @@ class SessionStore:
             return None
         try:
             client = await self._client()
-            for latest_key in self._candidate_latest_keys(user_id, tenant_id, channel, role=role):
+            for latest_key in self._candidate_latest_keys(
+                user_id,
+                tenant_id,
+                channel,
+                role=role,
+                current_page=current_page,
+                conversation_id=conversation_id,
+            ):
                 storage_key = await client.get(latest_key)
                 if not storage_key:
                     continue
@@ -147,9 +190,26 @@ class SessionStore:
         channel: str,
         session_id: str,
         role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
     ) -> None:
-        storage_keys = self._candidate_session_keys(user_id, tenant_id, channel, session_id, role=role)
-        latest_keys = self._candidate_latest_keys(user_id, tenant_id, channel, role=role)
+        storage_keys = self._candidate_session_keys(
+            user_id,
+            tenant_id,
+            channel,
+            session_id,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        )
+        latest_keys = self._candidate_latest_keys(
+            user_id,
+            tenant_id,
+            channel,
+            role=role,
+            current_page=current_page,
+            conversation_id=conversation_id,
+        )
         with self._lock:
             for storage_key in storage_keys:
                 self._memory_sessions.pop(storage_key, None)
@@ -237,13 +297,40 @@ class SessionStore:
         return True
 
     @staticmethod
-    def _session_key(user_id: int, tenant_id: int | None, channel: str, session_id: str, *, role: str | None = None) -> str:
+    def _session_key(
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        session_id: str,
+        *,
+        role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
+    ) -> str:
+        if role and (current_page or conversation_id):
+            return (
+                f"workflow:session:{tenant_id}:{user_id}:{_role_key(role)}:{_channel_key(channel)}:"
+                f"{_conversation_key(conversation_id, session_id)}:{_page_key(current_page)}:{session_id}"
+            )
         if role:
             return f"workflow:session:{tenant_id}:{user_id}:{_role_key(role)}:{channel}:{session_id}"
         return f"workflow:session:{tenant_id}:{user_id}:{channel}:{session_id}"
 
     @staticmethod
-    def _latest_key(user_id: int, tenant_id: int | None, channel: str, *, role: str | None = None) -> str:
+    def _latest_key(
+        user_id: int,
+        tenant_id: int | None,
+        channel: str,
+        *,
+        role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
+    ) -> str:
+        if role and (current_page or conversation_id):
+            return (
+                f"workflow:latest:{tenant_id}:{user_id}:{_role_key(role)}:{_channel_key(channel)}:"
+                f"{_conversation_key(conversation_id, 'default')}:{_page_key(current_page)}"
+            )
         if role:
             return f"workflow:latest:{tenant_id}:{user_id}:{_role_key(role)}:{channel}"
         return f"workflow:latest:{tenant_id}:{user_id}:{channel}"
@@ -262,9 +349,22 @@ class SessionStore:
         session_id: str,
         *,
         role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
     ) -> list[str]:
+        page = _page_key(current_page)
+        conversation = _conversation_key(conversation_id, session_id)
+        alternate_channel = "voice" if _channel_key(channel) == "chat" else "chat"
         if role:
-            return [self._session_key(user_id, tenant_id, channel, session_id, role=role)]
+            keys = [
+                self._session_key(user_id, tenant_id, channel, session_id, role=role, current_page=page, conversation_id=conversation),
+                self._session_key(user_id, tenant_id, alternate_channel, session_id, role=role, current_page=page, conversation_id=conversation),
+                self._session_key(user_id, tenant_id, channel, session_id, role=role, current_page="global", conversation_id=conversation),
+                self._session_key(user_id, tenant_id, alternate_channel, session_id, role=role, current_page="global", conversation_id=conversation),
+                self._session_key(user_id, tenant_id, channel, session_id, role=role),
+                self._session_key(user_id, tenant_id, alternate_channel, session_id, role=role),
+            ]
+            return list(dict.fromkeys(keys))
         keys = [self._session_key(user_id, tenant_id, channel, session_id)]
         keys.extend(
             self._session_key(user_id, tenant_id, channel, session_id, role=candidate)
@@ -279,9 +379,22 @@ class SessionStore:
         channel: str,
         *,
         role: str | None = None,
+        current_page: str | None = None,
+        conversation_id: str | None = None,
     ) -> list[str]:
+        page = _page_key(current_page)
+        conversation = _conversation_key(conversation_id, "default")
+        alternate_channel = "voice" if _channel_key(channel) == "chat" else "chat"
         if role:
-            return [self._latest_key(user_id, tenant_id, channel, role=role)]
+            keys = [
+                self._latest_key(user_id, tenant_id, channel, role=role, current_page=page, conversation_id=conversation),
+                self._latest_key(user_id, tenant_id, alternate_channel, role=role, current_page=page, conversation_id=conversation),
+                self._latest_key(user_id, tenant_id, channel, role=role, current_page="global", conversation_id=conversation),
+                self._latest_key(user_id, tenant_id, alternate_channel, role=role, current_page="global", conversation_id=conversation),
+                self._latest_key(user_id, tenant_id, channel, role=role),
+                self._latest_key(user_id, tenant_id, alternate_channel, role=role),
+            ]
+            return list(dict.fromkeys(keys))
         keys = [self._latest_key(user_id, tenant_id, channel)]
         keys.extend(
             self._latest_key(user_id, tenant_id, channel, role=candidate)
@@ -299,3 +412,20 @@ def _pending_confirmation_id(state: SessionState | None) -> str | None:
 
 def _role_key(role: str | None) -> str:
     return str(role or "EMPLOYEE").upper().replace("ROLE_", "") or "EMPLOYEE"
+
+
+def _channel_key(channel: str | None) -> str:
+    value = str(channel or "chat").strip().lower()
+    return value if value in {"chat", "voice"} else "chat"
+
+
+def _page_key(current_page: str | None) -> str:
+    raw = str(current_page or "global").strip().lower() or "global"
+    safe = "".join(char if char.isalnum() else "_" for char in raw)
+    return safe.strip("_") or "global"
+
+
+def _conversation_key(conversation_id: str | None, session_id: str) -> str:
+    raw = str(conversation_id or session_id or "default").strip() or "default"
+    safe = "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in raw)
+    return safe.strip("_") or "default"

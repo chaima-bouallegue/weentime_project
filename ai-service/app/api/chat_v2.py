@@ -14,6 +14,7 @@ from app.models.agent_models import AgentResponse, ChatV2Request, ConfirmActionR
 from app.models.envelopes import ApiEnvelope
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
+from app.workflows.workflow_steps import apply_safe_request_metadata
 from config import get_settings
 
 router = APIRouter()
@@ -57,6 +58,28 @@ def _anonymous_chatbot_context(
     return build_chatbot_context_from_metadata(metadata, language=language, channel=channel)
 
 
+def _workflow_metadata(
+    payload_metadata: dict[str, Any] | None,
+    *,
+    app_state: Any | None,
+    session_id: str | None,
+    request_id: str,
+    channel: str,
+) -> dict[str, Any]:
+    metadata = dict(payload_metadata or {})
+    resolved_session = str(session_id or metadata.get("session_id") or metadata.get("sessionId") or "default").strip() or "default"
+    metadata["session_id"] = resolved_session
+    metadata.setdefault("sessionId", resolved_session)
+    metadata.setdefault("conversation_id", metadata.get("conversationId") or metadata.get("conversation") or resolved_session)
+    metadata.setdefault("conversationId", metadata.get("conversation_id"))
+    metadata["channel"] = channel
+    metadata["request_id"] = request_id
+    metadata["requestId"] = request_id
+    if app_state is not None:
+        metadata["app_state"] = app_state
+    return metadata
+
+
 @router.post("/v2/chat")
 async def chat_v2(
     payload: ChatV2Request,
@@ -67,7 +90,13 @@ async def chat_v2(
     request_id = ensure_request_id(x_request_id)
     request_token = set_request_id(request_id)
     bearer_token = extract_bearer_token(authorization)
-    payload_metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+    payload_metadata = _workflow_metadata(
+        payload.metadata if isinstance(payload.metadata, dict) else {},
+        app_state=request.app.state,
+        session_id=payload.session_id,
+        request_id=request_id,
+        channel=payload.channel or "chat",
+    )
     payload_language = None
     if isinstance(payload_metadata, dict):
         candidate = payload_metadata.get("language")
@@ -108,7 +137,7 @@ async def chat_v2(
                     bearer_token,
                     anonymous_context.role if anonymous_context else None,
                     channel=payload.channel,
-                    metadata={"app_state": request.app.state, "session_id": payload.session_id, "request_id": request_id},
+                    metadata=payload_metadata,
                     context=anonymous_context,
                 )
                 payload_data = _response_payload(agent_response)
@@ -142,7 +171,7 @@ async def chat_v2(
                             None,
                             fallback_context.role,
                             channel=payload.channel,
-                            metadata={"app_state": request.app.state, "session_id": payload.session_id, "request_id": request_id},
+                            metadata=payload_metadata,
                             context=fallback_context,
                         )
                         payload_data = _response_payload(agent_response)
@@ -173,7 +202,13 @@ async def confirm_chat_action(
     request_token = set_request_id(request_id)
     services = ensure_copilot_services(request.app.state)
     bearer_token = extract_bearer_token(authorization)
-    confirm_metadata = payload.metadata if isinstance(getattr(payload, "metadata", None), dict) else {}
+    confirm_metadata = _workflow_metadata(
+        payload.metadata if isinstance(getattr(payload, "metadata", None), dict) else {},
+        app_state=request.app.state,
+        session_id=(payload.metadata or {}).get("session_id") if isinstance(payload.metadata, dict) else None,
+        request_id=request_id,
+        channel="chat",
+    )
     try:
         with start_span("ai.confirmation.request", {"approved": payload.approved}):
             anonymous_context: CurrentUserContext | None = None
@@ -201,7 +236,7 @@ async def confirm_chat_action(
                     access_token=bearer_token,
                     context=anonymous_context,
                     channel="chat",
-                    metadata={"request_id": request_id, "locale": "fr-FR"},
+                    metadata={**confirm_metadata, "locale": "fr-FR"},
                 )
             except ContextError as exc:
                 if public_context_requested and exc.status_code == 401 and anonymous_context is None:
@@ -219,7 +254,7 @@ async def confirm_chat_action(
                             access_token=None,
                             context=fallback_context,
                             channel="chat",
-                            metadata={"request_id": request_id, "locale": "fr-FR"},
+                            metadata={**confirm_metadata, "locale": "fr-FR"},
                         )
                     except ContextError as inner_exc:
                         log_error("ai.confirmation.context_error", inner_exc, {"code": inner_exc.code, "status_code": inner_exc.status_code})
@@ -296,7 +331,13 @@ async def reset_chat_session(
     request_token = set_request_id(request_id)
     services = ensure_copilot_services(request.app.state)
     bearer_token = extract_bearer_token(authorization)
-    payload_metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+    payload_metadata = _workflow_metadata(
+        payload.metadata if isinstance(payload.metadata, dict) else {},
+        app_state=request.app.state,
+        session_id=payload.session_id,
+        request_id=request_id,
+        channel=payload.channel or "chat",
+    )
     payload_role = None
     payload_language = None
     if isinstance(payload_metadata, dict):
@@ -338,6 +379,7 @@ async def reset_chat_session(
 
         context.metadata["channel"] = payload.channel or "chat"
         context.metadata["session_id"] = payload.session_id or "default"
+        apply_safe_request_metadata(context, payload_metadata, language=payload_language)
         conversation_store = services["conversation_store"]
         confirmation_store = services["confirmation_store"]
         cleared = conversation_store.reset_session(context, payload.session_id)
@@ -349,6 +391,8 @@ async def reset_chat_session(
                 channel=payload.channel or "chat",
                 session_id=payload.session_id or "default",
                 role=context.role,
+                current_page=context.metadata.get("current_page"),
+                conversation_id=context.metadata.get("conversation_id"),
             )
         confirmation_store.clear_for_user(int(context.user_id))
         log_event(

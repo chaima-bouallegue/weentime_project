@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from app.context.current_user import CurrentUserContext
 from app.nlp.intent_patterns import CHECK_IN, CHECK_OUT, GET_STATUS
 
+from .hybrid_intent_router import HybridIntentResult, classify_rh_intent
+
 CENTRAL_ROUTING_PRIORITY: tuple[str, ...] = (
     "greeting",
     "role_digest",
@@ -33,6 +35,9 @@ class RoutingDecision:
     confidence: float
     force: bool = False
     capability: str | None = None
+    intent: str | None = None
+    entities: dict | None = None
+    missing: tuple[str, ...] = ()
 
 
 def choose_priority_route(
@@ -60,6 +65,14 @@ def choose_priority_route(
     # this classifier so it remains priority 1.
     if _is_role_digest(text):
         return RoutingDecision("role_digest", "role_intelligence", "role_digest_marker", 0.95, force=True)
+
+    hybrid_decision = _rh_hybrid_route(message=original_text, normalized_text=text, role=role, context=context)
+    if hybrid_decision is not None:
+        return hybrid_decision
+
+    page_decision = _page_context_route(text, role, context)
+    if page_decision is not None:
+        return page_decision
 
     # Preserve RH operational presence requests for RHAgent. Employee/manager
     # pointage/presence prompts still follow the attendance priority below.
@@ -96,7 +109,7 @@ def choose_priority_route(
         return RoutingDecision("forgot_checkout", "attendance", "forgot_checkout_marker", 0.97, force=True)
     if matched_intent == GET_STATUS or _is_attendance_status_question(text):
         return RoutingDecision("attendance", "attendance", "attendance_status_marker", 0.96, force=True)
-    if matched_intent in {CHECK_IN, CHECK_OUT} or _is_attendance(text):
+    if (matched_intent in {CHECK_IN, CHECK_OUT} or _is_attendance(text)) and _attendance_write_allowed(text, role, matched_intent):
         return RoutingDecision("attendance", "attendance", "attendance_marker", 0.96, force=True)
 
     if role == "MANAGER" and _is_manager_decision(text):
@@ -171,8 +184,109 @@ def choose_priority_route(
     return None
 
 
+def _rh_hybrid_route(
+    *,
+    message: str,
+    normalized_text: str,
+    role: str,
+    context: CurrentUserContext,
+) -> RoutingDecision | None:
+    if role != "RH":
+        return None
+    hybrid = classify_rh_intent(message or normalized_text, context=context)
+    if hybrid.intent is None:
+        return None
+    if hybrid.intent.endswith(".unavailable"):
+        return RoutingDecision(
+            "capability_unavailable",
+            None,
+            f"rh_hybrid:{hybrid.reason}",
+            max(hybrid.confidence, 0.86),
+            force=True,
+            capability=hybrid.intent,
+            intent=hybrid.intent,
+            entities=hybrid.entities,
+            missing=hybrid.missing,
+        )
+    if hybrid.confidence < 0.6:
+        return None
+    agent_name = _agent_for_rh_hybrid_intent(hybrid)
+    if agent_name is None:
+        return None
+    return RoutingDecision(
+        "rh_hybrid",
+        agent_name,
+        f"rh_hybrid:{hybrid.reason}",
+        hybrid.confidence,
+        force=True,
+        intent=hybrid.intent,
+        entities=hybrid.entities,
+        missing=hybrid.missing,
+    )
+
+
+def _agent_for_rh_hybrid_intent(hybrid: HybridIntentResult) -> str | None:
+    intent = hybrid.intent or ""
+    if intent.startswith("rh.structure.department") or intent.startswith("rh.structure.team"):
+        if intent in {"rh.structure.team.members"}:
+            return "rh"
+        return "organisation"
+    if intent.startswith("attendance.self."):
+        return "attendance"
+    if intent.startswith("rh.policy."):
+        return "hr_policy"
+    if intent.startswith("rh.message."):
+        return "communication"
+    if intent.startswith("rh."):
+        return "rh"
+    return None
+
+
 def _role(context: CurrentUserContext) -> str:
     return (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
+
+
+def _page_context_route(text: str, role: str, context: CurrentUserContext) -> RoutingDecision | None:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    page = _clean(str(metadata.get("current_page") or ""))
+    if role != "RH" or not page:
+        return None
+
+    if "/app/rh/structure/departments" in page or "/app/rh/structure/departements" in page:
+        if _has_any(text, ("departement", "department", "dept", "قسم")):
+            return RoutingDecision("rh_structure", "organisation", "rh_department_page", 0.95, force=True)
+
+    if "/app/rh/structure/equipes" in page or "/app/rh/structure/teams" in page:
+        if _has_any(text, ("equipe", "team", "manager", "departement", "department", "فريق")):
+            return RoutingDecision("rh_structure", "organisation", "rh_team_page", 0.95, force=True)
+
+    if "/app/rh/conges" in page:
+        if _has_any(text, ("conge", "conges", "leave", "demande", "approuve", "approve", "refuse", "reject", "validation")):
+            return RoutingDecision("rh", "rh", "rh_leave_page", 0.94, force=True)
+
+    if "/app/rh/pointage" in page:
+        if _is_rh_presence(text) or _has_any(text, ("pointage", "presence", "retard", "manual", "corrige", "correction")):
+            return RoutingDecision("rh", "rh", "rh_attendance_page", 0.94, force=True)
+    return None
+
+
+def _attendance_write_allowed(text: str, role: str, matched_intent: str | None) -> bool:
+    if role != "RH":
+        return True
+    if matched_intent == GET_STATUS or _is_attendance_status_question(text):
+        return True
+    return _has_any(
+        text,
+        (
+            "pointer mon entree",
+            "pointer mon entr",
+            "pointer ma sortie",
+            "je pointe maintenant",
+            "npointi",
+            "rani jit",
+            "rani khrajt",
+        ),
+    )
 
 
 def _clean(value: str | None) -> str:
