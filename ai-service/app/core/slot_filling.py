@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -47,15 +48,30 @@ FLOW_CONFIG: dict[str, dict[str, str]] = {
         "entity_intent": "REQUEST_DOCUMENT",
         "tool": "document.create_request",
     },
+    "rh.document_generate": {
+        "agent": "rh",
+        "entity_intent": _NO_ENTITY_INTENT,
+        "tool": "rh.document.generate",
+    },
     "organisation.create_team": {
         "agent": "organisation",
         "entity_intent": _NO_ENTITY_INTENT,
         "tool": "organisation.create_team",
     },
+    "rh.structure.team.create": {
+        "agent": "organisation",
+        "entity_intent": _NO_ENTITY_INTENT,
+        "tool": "rh.structure.team.create",
+    },
     "organisation.create_department": {
         "agent": "organisation",
         "entity_intent": _NO_ENTITY_INTENT,
         "tool": "organisation.create_department",
+    },
+    "rh.structure.department.create": {
+        "agent": "organisation",
+        "entity_intent": _NO_ENTITY_INTENT,
+        "tool": "rh.structure.department.create",
     },
 }
 
@@ -109,6 +125,16 @@ async def continue_pending_flow(
             confidence=0.92,
             actionResult=_slot_result(flow),
         )
+
+    if flow.intent == "rh.document_generate":
+        response = await _continue_rh_document_generation(flow, context, executor, confirmation_store)
+        if response.type == "ask":
+            flow.missing_fields = ["employee"]
+            flow.last_question = response.text
+            store.save(context, flow, session_id)
+        else:
+            store.clear(context, session_id)
+        return response
 
     tool_name = FLOW_CONFIG[flow.intent]["tool"]
     tool_input = _tool_input(flow)
@@ -168,10 +194,12 @@ def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: Cur
     # extractors for `nom`, `departement_id`, `code_interne` and would only get
     # noise (dates, leave types) from the shared one.
     if config["entity_intent"] == _NO_ENTITY_INTENT:
-        if flow.intent == "organisation.create_team":
+        if flow.intent in {"organisation.create_team", "rh.structure.team.create"}:
             _merge_team_fields(fields, original)
-        elif flow.intent == "organisation.create_department":
+        elif flow.intent in {"organisation.create_department", "rh.structure.department.create"}:
             _merge_department_fields(fields, original)
+        elif flow.intent == "rh.document_generate":
+            _merge_rh_document_generation_fields(fields, original)
         return
     payload = {
         key: value
@@ -186,6 +214,8 @@ def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: Cur
         _merge_telework_fields(fields, payload, original)
     elif flow.intent == "document.create":
         _merge_document_fields(fields, payload, original)
+    elif flow.intent == "rh.document_generate":
+        _merge_rh_document_generation_fields(fields, original)
 
 
 def _merge_team_fields(fields: dict[str, Any], original: str) -> None:
@@ -304,6 +334,16 @@ def _merge_document_fields(fields: dict[str, Any], payload: dict[str, Any], orig
         fields["reason"] = payload["reason"]
 
 
+def _merge_rh_document_generation_fields(fields: dict[str, Any], original: str) -> None:
+    fields["raw_last_message"] = original
+    document_type = _infer_rh_document_type(original)
+    if document_type:
+        fields["document_type"] = document_type
+    employee_query = _extract_rh_employee_query(original)
+    if employee_query:
+        fields["employee_query"] = employee_query
+
+
 def _missing_fields(flow: PendingConversationFlow) -> list[str]:
     fields = flow.collected_fields
     if flow.intent == "leave.create":
@@ -338,14 +378,21 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
         if not fields.get("document_type"):
             missing.append("type")
         return missing
-    if flow.intent == "organisation.create_team":
+    if flow.intent == "rh.document_generate":
+        missing = []
+        if not fields.get("document_type"):
+            missing.append("type")
+        if not fields.get("employee_query"):
+            missing.append("employee")
+        return missing
+    if flow.intent in {"organisation.create_team", "rh.structure.team.create"}:
         missing = []
         if not fields.get("name"):
             missing.append("name")
         if not fields.get("departement_id"):
             missing.append("departement_id")
         return missing
-    if flow.intent == "organisation.create_department":
+    if flow.intent in {"organisation.create_department", "rh.structure.department.create"}:
         missing = []
         if not fields.get("name"):
             missing.append("name")
@@ -384,7 +431,13 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
         if field == "type":
             return "Quel type de document souhaitez-vous demander ? Par exemple: attestation de travail, bulletin de paie ou contrat."
         return "Pouvez-vous preciser cette information ?"
-    if intent == "organisation.create_team":
+    if intent == "rh.document_generate":
+        if field == "type":
+            return "Quel type de document RH souhaitez-vous generer ?"
+        if field == "employee":
+            return "Pour quel employe souhaitez-vous generer ce document RH ?"
+        return "Pouvez-vous preciser cette information ?"
+    if intent in {"organisation.create_team", "rh.structure.team.create"}:
         if field == "name":
             return "Comment souhaitez-vous nommer cette equipe ?"
         if field == "departement_id":
@@ -395,7 +448,7 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
                 "Exemple: 'departement 3'."
             )
         return "Pouvez-vous preciser cette information ?"
-    if intent == "organisation.create_department":
+    if intent in {"organisation.create_department", "rh.structure.department.create"}:
         if field == "name":
             return "Comment souhaitez-vous nommer ce departement ?"
         if field == "code_interne":
@@ -441,13 +494,22 @@ def _tool_input(flow: PendingConversationFlow) -> dict[str, Any]:
             "reason": fields.get("reason"),
             "month": fields.get("month"),
         }
-    if flow.intent == "organisation.create_team":
+    if flow.intent == "rh.document_generate":
+        first, last = _split_employee_name(fields["employee_query"])
+        document_type = fields["document_type"]
+        return {
+            "type": document_type,
+            "label": _rh_document_label(document_type),
+            "employe_prenom": first,
+            "employe_nom": last,
+        }
+    if flow.intent in {"organisation.create_team", "rh.structure.team.create"}:
         return {
             "nom": fields["name"],
             "departement_id": int(fields["departement_id"]),
             "est_active": bool(fields.get("est_active", True)),
         }
-    if flow.intent == "organisation.create_department":
+    if flow.intent in {"organisation.create_department", "rh.structure.department.create"}:
         return {
             "nom": fields["name"],
             "code_interne": fields["code_interne"],
@@ -483,7 +545,7 @@ def _confirmation_result(flow: PendingConversationFlow, tool_input: dict[str, An
             "month": tool_input.get("month"),
             "motif": tool_input.get("reason"),
         }
-    elif flow.intent.startswith("organisation."):
+    elif flow.intent.startswith("organisation.") or flow.intent.startswith("rh.structure."):
         summary: dict[str, Any] = {
             "nom": tool_input.get("nom"),
             "departementId": tool_input.get("departement_id"),
@@ -521,17 +583,82 @@ def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[s
         return f"Confirmez-vous cette demande de teletravail ({type_label}) pour le {date_label} ?"
     if intent == "document.create":
         return f"Voulez-vous confirmer la demande de {_document_label(tool_input.get('document_type'))} ?"
-    if intent == "organisation.create_team":
+    if intent in {"organisation.create_team", "rh.structure.team.create"}:
         return (
             f"Confirmez-vous la creation de l'equipe '{tool_input.get('nom')}' "
             f"dans le departement {tool_input.get('departement_id')} ?"
         )
-    if intent == "organisation.create_department":
+    if intent in {"organisation.create_department", "rh.structure.department.create"}:
         return (
             f"Confirmez-vous la creation du departement '{tool_input.get('nom')}' "
             f"(code: {tool_input.get('code_interne')}) ?"
         )
     return "Confirmez-vous cette action ?"
+
+
+async def _continue_rh_document_generation(
+    flow: PendingConversationFlow,
+    context: CurrentUserContext,
+    executor: ToolExecutor,
+    confirmation_store: ConfirmationStore,
+) -> AgentResponse:
+    fields = flow.collected_fields
+    query = str(fields.get("employee_query") or "").strip()
+    document_type = str(fields.get("document_type") or "ATTESTATION_TRAVAIL").strip()
+    label = _rh_document_label(document_type)
+    result = await executor.execute("organisation.search_employee", {"query": query}, context)
+    read = result.data.get("read_result") if result.success and isinstance(result.data, dict) else None
+    items = read.get("items") if isinstance(read, dict) and isinstance(read.get("items"), list) else []
+    employees = [item for item in items if isinstance(item, dict)]
+    call = ToolCallRecord(name="organisation.search_employee", arguments={"query": query}, status="success" if result.success else "failed")
+    if not result.success:
+        return AgentResponse(
+            type="error",
+            text=result.error_message or "Je n'ai pas pu rechercher cet employe.",
+            intent=flow.intent,
+            confidence=0.9,
+            toolCalls=[call],
+            actionResult={"kind": "slot_filling", "status": "employee_lookup_failed", "query": query},
+        )
+    if not employees:
+        return AgentResponse(
+            type="answer",
+            text=f"Je n'ai trouve aucun employe correspondant a '{query}'.",
+            intent=flow.intent,
+            confidence=0.9,
+            toolCalls=[call],
+            actionResult={"kind": "no_data", "entity": "employee", "query": query},
+        )
+    exact = [item for item in employees if _lookup(_employee_display_name(item)) == _lookup(query)]
+    selected = exact[0] if len(exact) == 1 else (employees[0] if len(employees) == 1 else None)
+    if selected is None:
+        return AgentResponse(
+            type="ask",
+            text=_employee_choices_text(employees, "Plusieurs employes correspondent. Lequel faut-il utiliser ?"),
+            intent=flow.intent,
+            confidence=0.9,
+            toolCalls=[call],
+            actionResult={**_slot_result(flow), "choices": [_employee_display_name(item) for item in employees]},
+        )
+    tool_input = _rh_document_tool_input(document_type, label, selected)
+    record = confirmation_store.create(context, "rh.document.generate", tool_input)
+    display_name = _employee_display_name(selected)
+    return AgentResponse(
+        type="confirm_action",
+        text=f"Je vais generer {label} pour {display_name}. Confirmez-vous ?",
+        intent=flow.intent,
+        confidence=0.94,
+        requiresConfirmation=True,
+        confirmationId=record.confirmation_id,
+        toolCalls=[ToolCallRecord(name="rh.document.generate", arguments=tool_input, status="pending_confirmation")],
+        actionResult={
+            "kind": "approval_confirmation",
+            "agent": "RHAgent",
+            "toolName": "rh.document.generate",
+            "documentType": document_type,
+            "employee": {"id": selected.get("id"), "name": display_name, "email": selected.get("email")},
+        },
+    )
 
 
 def _time_label(tool_input: dict[str, Any]) -> str | None:
@@ -554,6 +681,117 @@ def _document_label(document_type: Any) -> str:
     }
     value = str(document_type or "document").upper()
     return labels.get(value, "ce document")
+
+
+def _infer_rh_document_type(message: str) -> str | None:
+    text = (message or "").lower()
+    if any(term in text for term in ("bulletin", "paie", "payslip", "fiche de paie")):
+        return "BULLETIN_PAIE"
+    if any(term in text for term in ("salaire", "salary")):
+        return "ATTESTATION_SALAIRE"
+    if any(term in text for term in ("attestation", "certificat", "certificate", "travail")):
+        return "ATTESTATION_TRAVAIL"
+    return None
+
+
+def _rh_document_label(document_type: Any) -> str:
+    labels = {
+        "ATTESTATION_TRAVAIL": "Attestation de travail",
+        "BULLETIN_PAIE": "Bulletin de paie",
+        "ATTESTATION_SALAIRE": "Attestation de salaire",
+    }
+    return labels.get(str(document_type or "").upper(), "Document RH")
+
+
+def _extract_rh_employee_query(message: str) -> str | None:
+    text = (message or "").strip()
+    if not text:
+        return None
+    patterns = (
+        r"\b(?:pour|for|du|de|d')\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,3})",
+        r"\b(?:attestation|document|bulletin|certificat|certificate)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,3})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            candidate = _clean_rh_employee_candidate(match.group(1))
+            if candidate:
+                return candidate
+    tokens = [token.strip(" ,.;:") for token in text.split() if token.strip(" ,.;:")]
+    kept: list[str] = []
+    for token in reversed(tokens):
+        lowered = token.lower()
+        if lowered in {"attestation", "document", "genere", "generi", "génère", "générer", "generer", "pour", "du", "de"}:
+            break
+        if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ'-]*$", token):
+            kept.insert(0, token)
+        if len(kept) >= 3:
+            break
+    candidate = _clean_rh_employee_candidate(" ".join(kept))
+    return candidate or None
+
+
+def _clean_rh_employee_candidate(value: str) -> str:
+    words = []
+    for token in (value or "").strip().split():
+        lowered = token.lower().strip(" ,.;:")
+        if lowered in {"demain", "today", "aujourd", "hui", "avec", "motif", "du", "de", "travail", "work", "genere", "generi", "generer", "générer"}:
+            break
+        words.append(token.strip(" ,.;:"))
+    return " ".join(words).strip()
+
+
+def _split_employee_name(value: Any) -> tuple[str, str]:
+    parts = str(value or "").strip().split()
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], parts[0]
+    return parts[0], " ".join(parts[1:])
+
+
+def _employee_display_name(item: dict[str, Any]) -> str:
+    full = str(item.get("fullName") or item.get("nomComplet") or "").strip()
+    if full:
+        return full
+    first = str(item.get("prenom") or item.get("firstName") or "").strip()
+    last = str(item.get("nom") or item.get("lastName") or "").strip()
+    email = str(item.get("email") or "").strip()
+    return " ".join(part for part in (first, last) if part).strip() or email or str(item.get("id") or "employe")
+
+
+def _employee_choices_text(items: list[dict[str, Any]], heading: str) -> str:
+    lines = [heading]
+    for item in items[:8]:
+        name = _employee_display_name(item)
+        email = item.get("email")
+        suffix = f" ({email})" if email else ""
+        lines.append(f"- {name}{suffix}")
+    return "\n".join(lines)
+
+
+def _rh_document_tool_input(document_type: str, label: str, employee: dict[str, Any]) -> dict[str, Any]:
+    first = str(employee.get("prenom") or employee.get("firstName") or "").strip()
+    last = str(employee.get("nom") or employee.get("lastName") or "").strip()
+    if not first or not last:
+        first, last = _split_employee_name(_employee_display_name(employee))
+    return {
+        "type": document_type,
+        "label": label,
+        "employe_prenom": first,
+        "employe_nom": last,
+        "employe_poste": employee.get("poste") or employee.get("position"),
+        "employe_departement": employee.get("departement") or employee.get("department") or employee.get("departementNom"),
+        "date_entree": employee.get("dateEntree") or employee.get("hireDate"),
+    }
+
+
+def _lookup(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    replacements = {"é": "e", "è": "e", "ê": "e", "à": "a", "ù": "u", "ç": "c", "î": "i", "ï": "i"}
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return " ".join(text.replace("-", " ").replace("_", " ").split())
 
 
 def _looks_like_reason_followup(original: str, payload: dict[str, Any]) -> bool:
@@ -637,10 +875,19 @@ _FLOW_DOMAIN_TERMS = {
         "contrat",
         "war9a",
     ),
+    "rh.document_generate": (
+        "document",
+        "attestation",
+        "bulletin",
+        "certificat",
+        "certificate",
+    ),
     # Org-create flows: keep the flow alive when the user is still talking
     # about teams/departments (e.g. "in departement 5", "code TECH").
     "organisation.create_team": ("equipe", "team", "departement", "department", "dept"),
+    "rh.structure.team.create": ("equipe", "team", "departement", "department", "dept"),
     "organisation.create_department": ("departement", "department", "dept", "code"),
+    "rh.structure.department.create": ("departement", "department", "dept", "code"),
 }
 
 _ESCAPE_PATTERNS: tuple[tuple[str, ...], ...] = (

@@ -66,6 +66,9 @@ def choose_priority_route(
     if _is_role_digest(text):
         return RoutingDecision("role_digest", "role_intelligence", "role_digest_marker", 0.95, force=True)
 
+    if role == "RH" and _is_rh_platform_user_creation(text):
+        return RoutingDecision("rh", "rh", "rh_user_creation_capability", 0.94, force=True)
+
     hybrid_decision = _rh_hybrid_route(message=original_text, normalized_text=text, role=role, context=context)
     if hybrid_decision is not None:
         return hybrid_decision
@@ -230,8 +233,8 @@ def _agent_for_rh_hybrid_intent(hybrid: HybridIntentResult) -> str | None:
     if intent in {"rh.structure.employee.assign_team", "rh.structure.manager.assign_team"}:
         return "organisation"
     if intent.startswith("rh.structure.department") or intent.startswith("rh.structure.team"):
-        if intent in {"rh.structure.team.members"}:
-            return "rh"
+        return "organisation"
+    if intent.startswith("rh.structure.employee") or intent.startswith("rh.structure.manager"):
         return "organisation"
     if intent.startswith("attendance.self."):
         return "attendance"
@@ -287,6 +290,8 @@ def _attendance_write_allowed(text: str, role: str, matched_intent: str | None) 
             "npointi",
             "rani jit",
             "rani khrajt",
+            "سجل الحضور",
+            "سجل الخروج",
         ),
     )
 
@@ -353,6 +358,7 @@ def _is_attendance(text: str) -> bool:
             "am i checked in", "have i checked in", "je viens d'arriver", "je viens d arriver",
             "viens d'arriver", "viens d arriver", "check me in", "check in", "check out",
             "npointi", "nheb npointi", "pointit ou nn", "statut pointage", "rani jit", "rani khrajt",
+            "سجل الحضور", "سجل الخروج",
             "chkoun ma pointach", "شكون ما بوّنتاش",
             "هل سجلت الحضور", "سجلت الحضور", "تسجيل الحضور", "دخول", "خروج",
         ),
@@ -532,8 +538,6 @@ def _is_rh_workflow(text: str) -> bool:
 def _unsupported_rh_capability(text: str, role: str) -> str | None:
     if role != "RH":
         return None
-    if _is_rh_organisation_assignment(text):
-        return "rh.organisation_assignment"
     if _has_any(text, ("contrats expirent", "contrat expire", "contrats finissant", "date expiration contrats", "contract expiry", "expiring contracts")):
         return "rh.contracts"
     if _has_any(text, ("signature electronique", "signature électronique", "signer electroniquement", "e-signature", "electronic signature")):
@@ -543,6 +547,12 @@ def _unsupported_rh_capability(text: str, role: str) -> str | None:
     if _has_any(text, ("predictif", "prédictif", "prediction", "risque eleve", "risque élevé", "a risque", "à risque", "risk prediction")):
         return "rh.predictive_analytics"
     return None
+
+
+def _is_rh_platform_user_creation(text: str) -> bool:
+    has_create = _has_any(text, ("creer", "créer", "create", "nouveau", "nouvelle", "new", "nzid", "zid"))
+    has_user = _has_any(text, ("user", "utilisateur", "compte", "account"))
+    return has_create and has_user
 
 
 def _is_rh_organisation_assignment(text: str) -> bool:

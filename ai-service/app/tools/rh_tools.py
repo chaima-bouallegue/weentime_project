@@ -25,6 +25,39 @@ class RHTools:
     def register(self, registry: ToolRegistry) -> None:
         registry.register(
             ToolDefinition(
+                name="rh.dashboard",
+                description="Retourne le tableau de bord RH tenant-scoped depuis le backend.",
+                input_model=EmptyRHInput,
+                output_model=None,
+                type="read",
+                allowed_roles=RH_STATS_ROLES,
+            ),
+            self.get_dashboard,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.stats",
+                description="Retourne les statistiques RH tenant-scoped depuis le backend.",
+                input_model=EmptyRHInput,
+                output_model=None,
+                type="read",
+                allowed_roles=RH_STATS_ROLES,
+            ),
+            self.get_stats_alias,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.analytics",
+                description="Retourne les analytics RH agregees depuis le backend.",
+                input_model=EmptyRHInput,
+                output_model=None,
+                type="read",
+                allowed_roles=RH_STATS_ROLES,
+            ),
+            self.get_analytics,
+        )
+        registry.register(
+            ToolDefinition(
                 name="rh.get_stats",
                 description="Retourne les statistiques RH tenant-scoped depuis le backend.",
                 input_model=EmptyRHInput,
@@ -33,6 +66,29 @@ class RHTools:
                 allowed_roles=RH_STATS_ROLES,
             ),
             self.get_stats,
+        )
+
+    async def get_dashboard(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.backend_client.get("/rh/dashboard", context=context)
+        if not result.success:
+            return _read_failure("rh.dashboard", result)
+        data = result.data if isinstance(result.data, dict) else {}
+        items = _metric_items(data)
+        summary = "Tableau de bord RH disponible depuis le backend."
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="rh.dashboard",
+                    summary=summary,
+                    items=items,
+                    count=len(items),
+                    data=data,
+                    backend_status=result.status_code,
+                    empty=not items,
+                )
+            },
+            warnings=result.warnings,
+            status_code=result.status_code,
         )
 
     async def get_stats(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
@@ -57,6 +113,44 @@ class RHTools:
             },
             warnings=result.warnings,
             status_code=result.status_code,
+        )
+
+    async def get_stats_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.get_stats(_, context)
+        return _rename_read_tool(result, "rh.stats")
+
+    async def get_analytics(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        stats = await self.backend_client.get("/rh/stats", context=context)
+        if not stats.success:
+            return _read_failure("rh.analytics", stats)
+        evolution = await self.backend_client.get("/rh/stats/evolution-mensuelle", context=context)
+        by_type = await self.backend_client.get("/rh/stats/demandes-par-type", context=context)
+        data = {
+            "overview": stats.data if isinstance(stats.data, dict) else {"value": stats.data},
+            "monthlyEvolution": evolution.data if evolution.success else None,
+            "requestTypeDistribution": by_type.data if by_type.success else None,
+        }
+        items = _metric_items(data["overview"] if isinstance(data["overview"], dict) else {})
+        summary = "Analytics RH disponibles depuis le backend."
+        warnings = list(stats.warnings)
+        if not evolution.success:
+            warnings.append(evolution.error_message or "evolution mensuelle indisponible")
+        if not by_type.success:
+            warnings.append(by_type.error_message or "distribution par type indisponible")
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="rh.analytics",
+                    summary=summary,
+                    items=items,
+                    count=len(items),
+                    data=data,
+                    backend_status=stats.status_code,
+                    empty=not items,
+                )
+            },
+            warnings=warnings,
+            status_code=stats.status_code,
         )
 
 
@@ -124,3 +218,21 @@ def _clean_error(result: ToolResult) -> str:
     if result.status_code is None or result.status_code >= 500:
         return "Le service statistiques RH est momentanement indisponible. Reessayez dans quelques instants."
     return result.error_message or "Impossible de recuperer les statistiques RH."
+
+
+def _rename_read_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    read_result = result.data.get("read_result")
+    if not isinstance(read_result, dict):
+        return result
+    cloned = dict(read_result)
+    cloned["toolName"] = tool_name
+    return ToolResult(
+        success=result.success,
+        data={"read_result": cloned},
+        warnings=result.warnings,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        status_code=result.status_code,
+    )

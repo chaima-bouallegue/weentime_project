@@ -68,10 +68,15 @@ def test_rh_personal_pointage_stays_personal_attendance(message: str) -> None:
         "changer manager utilisateur 20",
     ],
 )
-def test_rh_organisation_assignment_returns_clean_unavailable(message: str) -> None:
+def test_rh_organisation_assignment_is_connected_or_slot_filling(message: str) -> None:
     response, _ = asyncio.run(send_chatbot_message(message, role="RH"))
-    assert response.intent == "rh.organisation_assignment.unavailable"
-    assert response.actionResult["kind"] == "capability_unavailable"
+    assert response.intent in {"rh.structure.employee.assign_team", "rh.structure.manager.assign_team"}
+    assert response.type in {"ask", "answer", "confirm_action"}
+    if response.type == "confirm_action":
+        assert response.requiresConfirmation is True
+        assert response.toolCalls[0].status == "pending_confirmation"
+    else:
+        assert response.actionResult["kind"] in {"slot_filling", "no_data", "approval_confirmation"}
 
 
 def test_rh_document_generation_asks_for_employee_when_missing() -> None:
@@ -85,7 +90,7 @@ def test_rh_document_generation_requires_confirmation_when_complete() -> None:
     response, _ = asyncio.run(send_chatbot_message("Cr\u00e9er attestation travail pour Ahmed Ben Ali", role="RH"))
     assert response.intent == "rh.document_generate"
     assert response.type == "confirm_action"
-    assert response.toolCalls[0].name == "document.rh_generate"
+    assert response.toolCalls[0].name == "rh.document.generate"
     assert response.toolCalls[0].arguments["employe_prenom"] == "Ahmed"
 
 

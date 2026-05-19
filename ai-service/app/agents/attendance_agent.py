@@ -32,7 +32,7 @@ class AttendanceAgent(DomainAgent):
             result = await self.executor.execute("get_pointage_status", {}, context)
             return self._status_response(result, confidence)
         if intent == "attendance.check_in":
-            return self._confirmation_response("check_in", "Confirmez-vous le pointage d'entree ?", intent, confidence, context)
+            return await self._check_in_after_status(confidence, context)
         if intent == "attendance.check_out":
             return await self._check_out_after_status(confidence, context)
         if intent == "attendance.week_hours":
@@ -98,10 +98,10 @@ class AttendanceAgent(DomainAgent):
             "pointer mon entree", "pointe mon entree", "check in", "check me in",
             "clock in", "arrivee", "j arrive", "je commence", "checked in",
             "je viens d'arriver", "je viens d arriver", "viens d'arriver", "viens d arriver", "viens darriver",
-            "just arrived", "i arrived", "rani jit",
+            "just arrived", "i arrived", "rani jit", "سجل الحضور",
         )):
             return "attendance.check_in", 0.94
-        if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie", "rani khrajt")):
+        if any(term in text for term in ("pointer ma sortie", "pointe ma sortie", "check out", "clock out", "depart", "je pars", "sortie", "rani khrajt", "سجل الخروج")):
             return "attendance.check_out", 0.94
         if any(term in text for term in ("semaine", "week")) and any(term in text for term in ("heure", "heures", "hours", "temps")):
             return "attendance.week_hours", 0.88
@@ -198,6 +198,55 @@ class AttendanceAgent(DomainAgent):
                 },
             )
         response = self._confirmation_response("check_out", "Confirmez-vous le pointage de sortie ?", "attendance.check_out", confidence, context)
+        response.toolCalls.insert(0, ToolCallRecord(name="get_pointage_status", status="success"))
+        return response
+
+    async def _check_in_after_status(self, confidence: float, context: CurrentUserContext) -> AgentResponse:
+        result = await self.executor.execute("get_pointage_status", {}, context)
+        if not result.success:
+            return compose_tool_error("attendance.check_in", result)
+        data = result.data if isinstance(result.data, dict) else {}
+        check_in = data.get("checkIn") or data.get("check_in") or data.get("heureEntree") or data.get("entryTime")
+        check_out = data.get("checkOut") or data.get("check_out") or data.get("heureSortie") or data.get("exitTime")
+        active = data.get("active") or data.get("sessionOpen") or data.get("activeSession")
+        status = str(data.get("status") or data.get("sessionStatus") or data.get("etat") or data.get("state") or "").upper()
+
+        already_checked_in = bool(check_in) or active is True or status in {"ACTIVE", "CHECKED_IN", "OPEN", "PRESENT"}
+        if already_checked_in and not check_out:
+            text = f"Votre entree est deja enregistree a {compact_value(check_in)}."
+            return AgentResponse(
+                type="answer",
+                text=text,
+                intent="attendance.check_in",
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="get_pointage_status", status="success")],
+                actionResult={
+                    "kind": "read_result",
+                    "toolName": "get_pointage_status",
+                    "summary": text,
+                    "items": [data],
+                    "count": 1,
+                    "data": data,
+                },
+            )
+        if check_in and check_out:
+            text = f"Votre journee est deja pointee: entree {compact_value(check_in)}, sortie {compact_value(check_out)}."
+            return AgentResponse(
+                type="answer",
+                text=text,
+                intent="attendance.check_in",
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="get_pointage_status", status="success")],
+                actionResult={
+                    "kind": "read_result",
+                    "toolName": "get_pointage_status",
+                    "summary": text,
+                    "items": [data],
+                    "count": 1,
+                    "data": data,
+                },
+            )
+        response = self._confirmation_response("check_in", "Confirmez-vous le pointage d'entree ?", "attendance.check_in", confidence, context)
         response.toolCalls.insert(0, ToolCallRecord(name="get_pointage_status", status="success"))
         return response
 

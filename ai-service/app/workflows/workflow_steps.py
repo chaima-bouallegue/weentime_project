@@ -228,13 +228,11 @@ def build_confirmation_status_response(
 
 def build_confirmation_execution_response(record: ConfirmationRecord, result: ToolResult) -> AgentResponse:
     known_conflict = is_known_business_conflict(result)
+    success_text = _tool_result_summary(result) or action_success_text(record.tool_name, record.tool_input)
+    failure_text = _tool_result_summary(result) or (business_conflict_message(result) if known_conflict else backend_error_message(result))
     return AgentResponse(
         type="execute_action" if result.success else ("answer" if known_conflict else "error"),
-        text=(
-            action_success_text(record.tool_name)
-            if result.success
-            else (business_conflict_message(result) if known_conflict else backend_error_message(result))
-        ),
+        text=success_text if result.success else failure_text,
         intent=f"confirmation.{record.tool_name}",
         confidence=1.0,
         requiresConfirmation=False,
@@ -250,11 +248,33 @@ def build_confirmation_execution_response(record: ConfirmationRecord, result: To
     )
 
 
-def action_success_text(tool_name: str) -> str:
+def action_success_text(tool_name: str, tool_input: dict[str, Any] | None = None) -> str:
+    tool_input = tool_input or {}
     if tool_name == "check_in":
         return "Pointage d'entree confirme."
     if tool_name == "check_out":
         return "Pointage de sortie confirme."
+    if tool_name in {"attendance.self.check_in", "attendance.self.check_out"}:
+        return "Action de pointage confirmee."
+    if tool_name in {"rh.structure.employee.assign_team", "organisation.assign_employee_team"}:
+        employee = str(tool_input.get("employee_name") or tool_input.get("employee") or "L'employe").strip()
+        team = str(tool_input.get("team_name") or tool_input.get("team") or "l'equipe").strip()
+        return f"C'est fait. {employee} a ete affecte a l'equipe {team}."
+    if tool_name in {"rh.structure.manager.assign_team", "organisation.assign_manager_team"}:
+        manager = str(tool_input.get("manager_name") or tool_input.get("manager") or "Le manager").strip()
+        team = str(tool_input.get("team_name") or tool_input.get("team") or "l'equipe").strip()
+        return f"C'est fait. {manager} a ete affecte comme responsable de l'equipe {team}."
+    if tool_name in {"rh.document.generate", "document.rh_generate"}:
+        employee = " ".join(
+            part
+            for part in (
+                str(tool_input.get("employe_prenom") or "").strip(),
+                str(tool_input.get("employe_nom") or "").strip(),
+            )
+            if part
+        ).strip()
+        if employee:
+            return f"C'est fait. Le document RH a ete genere pour {employee}."
     return "Action confirmee."
 
 
@@ -292,6 +312,25 @@ def backend_error_message(result: ToolResult) -> str:
     if status_code and int(status_code) >= 500:
         return "Le service backend est momentanement indisponible. Reessayez dans quelques instants."
     return message or "Action refusee par le backend."
+
+
+def _tool_result_summary(result: ToolResult) -> str | None:
+    data = result.data if isinstance(result.data, dict) else {}
+    write_result = data.get("write_result")
+    if isinstance(write_result, dict):
+        summary = write_result.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary.strip()
+    read_result = data.get("read_result")
+    if isinstance(read_result, dict):
+        summary = read_result.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary.strip()
+    if data.get("kind") in {"write_result", "read_result"}:
+        summary = data.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary.strip()
+    return None
 
 
 def warnings_from_tool_result(tool_result: dict[str, Any] | None) -> list[str]:

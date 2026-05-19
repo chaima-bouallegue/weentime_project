@@ -90,7 +90,7 @@ def test_document_generate_confirmation_uses_existing_tool() -> None:
     )
 
     assert response.type == "confirm_action"
-    assert response.toolCalls[0].name == "document.rh_generate"
+    assert response.toolCalls[0].name == "rh.document.generate"
     assert response.toolCalls[0].arguments["type"] == "ATTESTATION_TRAVAIL"
     assert not any(call[0] in {"POST", "PATCH", "PUT", "DELETE"} for call in state.copilot_backend_client.calls)
 
@@ -106,7 +106,8 @@ def test_employee_assign_team_confirmation_when_ids_present() -> None:
 
     assert response.type == "confirm_action"
     assert response.toolCalls[0].name == "rh.structure.employee.assign_team"
-    assert response.toolCalls[0].arguments == {"user_id": 22, "team_id": 8}
+    assert response.toolCalls[0].arguments["user_id"] == 22
+    assert response.toolCalls[0].arguments["team_id"] == 8
     assert not any(call[0] in {"POST", "PATCH", "PUT", "DELETE"} for call in state.copilot_backend_client.calls)
 
 
@@ -121,7 +122,8 @@ def test_manager_assign_team_confirmation_when_ids_present() -> None:
 
     assert response.type == "confirm_action"
     assert response.toolCalls[0].name == "rh.structure.manager.assign_team"
-    assert response.toolCalls[0].arguments == {"manager_id": 31, "team_id": 8}
+    assert response.toolCalls[0].arguments["manager_id"] == 31
+    assert response.toolCalls[0].arguments["team_id"] == 8
     assert not any(call[0] in {"POST", "PATCH", "PUT", "DELETE"} for call in state.copilot_backend_client.calls)
 
 

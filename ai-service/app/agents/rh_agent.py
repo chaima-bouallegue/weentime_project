@@ -134,8 +134,8 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                     intent=intent,
                     confidence=confidence,
                 )
-            employee = _extract_employee_name(source_text)
-            if not employee:
+            employee_query = _extract_employee_query(source_text)
+            if not employee_query:
                 return AgentResponse(
                     type="ask",
                     text=(
@@ -152,27 +152,14 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                         "documentType": document_type,
                     },
                 )
-            first_name, last_name = employee
             label = _document_type_label(document_type)
-            return self.confirmation_response(
+            return await self._resolve_document_generation(
+                document_type=document_type,
+                label=label,
+                employee_query=employee_query,
                 context=context,
-                tool_name="document.rh_generate",
-                tool_input={
-                    "type": document_type,
-                    "label": label,
-                    "employe_prenom": first_name,
-                    "employe_nom": last_name,
-                },
                 intent=intent,
-                text=f"Confirmez-vous la generation du document RH '{label}' pour {first_name} {last_name} ?",
                 confidence=confidence,
-                action_result={
-                    "kind": "approval_confirmation",
-                    "agent": "RHAgent",
-                    "toolName": "document.rh_generate",
-                    "documentType": document_type,
-                    "employee": {"prenom": first_name, "nom": last_name},
-                },
             )
 
         if intent == "rh.process":
@@ -382,13 +369,7 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         if raw_intent in {"rh.dashboard.backlog", "rh.leave.list", "rh.leave.pending", "rh.telework.list", "rh.telework.pending", "rh.authorization.list", "rh.authorization.urgent"}:
             return await self._read_rh_requests(context, intent="rh.all_requests", confidence=confidence)
         if raw_intent in {"rh.leave.approve", "rh.leave.reject", "rh.telework.approve", "rh.telework.reject", "rh.authorization.approve", "rh.authorization.reject"}:
-            return AgentResponse(
-                type="ask",
-                text="Quelle demande souhaitez-vous traiter ? Donnez-moi l'identifiant ou le type de demande.",
-                intent=raw_intent,
-                confidence=confidence,
-                actionResult={"kind": "approval_lookup", "status": "missing_identifier"},
-            )
+            return await self._resolve_named_decision(raw_intent, message, context, confidence)
 
         if raw_intent in {"rh.document.list", "rh.document.urgent"}:
             return await self.read_response(
@@ -429,12 +410,8 @@ class RHAgent(ConfirmationMixin, DomainAgent):
             )
 
         if raw_intent in {
-            "rh.structure.employee.assign_team",
-            "rh.structure.manager.assign_team",
             "rh.structure.manager.show",
             "rh.structure.manager.create",
-            "rh.structure.manager.list",
-            "rh.structure.team.members",
         }:
             return _capability_response(
                 "rh.organisation_assignment",
@@ -491,6 +468,181 @@ class RHAgent(ConfirmationMixin, DomainAgent):
             toolCalls=tool_calls,
             actionResult={"kind": "rh_request_summary", "sections": sections, "warnings": warnings},
         )
+
+    async def _resolve_document_generation(
+        self,
+        *,
+        document_type: str,
+        label: str,
+        employee_query: str,
+        context: CurrentUserContext,
+        intent: str,
+        confidence: float,
+    ) -> AgentResponse:
+        matches = await self._search_employees(employee_query, context)
+        if not matches:
+            return AgentResponse(
+                type="answer",
+                text=f"Je n'ai trouve aucun employe correspondant a '{employee_query}'.",
+                intent=intent,
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="organisation.search_employee", arguments={"query": employee_query}, status="success")],
+                actionResult={"kind": "no_data", "entity": "employee", "query": employee_query},
+            )
+        exact_matches = [item for item in matches if _name_matches(item, employee_query)]
+        selected = exact_matches[0] if len(exact_matches) == 1 else (matches[0] if len(matches) == 1 else None)
+        if selected is None:
+            return AgentResponse(
+                type="ask",
+                text=_employee_choices_text(matches, "Plusieurs employes correspondent. Lequel faut-il utiliser ?"),
+                intent=intent,
+                confidence=confidence,
+                toolCalls=[ToolCallRecord(name="organisation.search_employee", arguments={"query": employee_query}, status="success")],
+                actionResult={
+                    "kind": "slot_filling",
+                    "missing": ["employee"],
+                    "toolName": "rh.document.generate",
+                    "documentType": document_type,
+                    "employeeQuery": employee_query,
+                    "choices": [_employee_summary(item) for item in matches],
+                },
+            )
+        tool_input = _document_tool_input(document_type, label, selected)
+        display_name = _employee_display_name(selected)
+        return self.confirmation_response(
+            context=context,
+            tool_name="rh.document.generate",
+            tool_input=tool_input,
+            intent=intent,
+            text=f"Je vais generer {label} pour {display_name}. Confirmez-vous ?",
+            confidence=confidence,
+            action_result={
+                "kind": "approval_confirmation",
+                "agent": "RHAgent",
+                "toolName": "rh.document.generate",
+                "documentType": document_type,
+                "employee": _employee_summary(selected),
+            },
+        )
+
+    async def _resolve_named_decision(
+        self,
+        raw_intent: str,
+        message: str,
+        context: CurrentUserContext,
+        confidence: float,
+    ) -> AgentResponse:
+        request_type, pending_tool, approve_tool, reject_tool, label = _decision_tooling(raw_intent)
+        decision = "APPROVE" if raw_intent.endswith(".approve") else "REJECT"
+        tool_name = approve_tool if decision == "APPROVE" else reject_tool
+        source_text = _source_text(message, context)
+        request_id = _extract_id_after(source_text, ("demande", "request", "id"))
+        if request_id is not None:
+            return self.confirmation_response(
+                context=context,
+                tool_name=tool_name,
+                tool_input=_decision_tool_input(tool_name, request_id, decision, source_text),
+                intent=raw_intent,
+                text=f"Je vais {'valider' if decision == 'APPROVE' else 'refuser'} la demande {request_id}. Confirmez-vous ?",
+                confidence=confidence,
+                action_result={"kind": "approval_confirmation", "agent": "RHAgent", "toolName": tool_name, "requestId": request_id},
+            )
+
+        employee_query = _extract_employee_query(source_text) or _metadata_employee(context)
+        if not employee_query:
+            return AgentResponse(
+                type="ask",
+                text=f"Quel employe est concerne par cette demande de {label} ?",
+                intent=raw_intent,
+                confidence=confidence,
+                actionResult={"kind": "approval_lookup", "status": "missing_employee", "requestType": request_type},
+            )
+        date_filter = _extract_requested_date(source_text)
+        result = await self.executor.execute(pending_tool, {}, context)
+        read_result = get_read_result(result.data)
+        items = read_result.get("items") if result.success and isinstance(read_result, dict) and isinstance(read_result.get("items"), list) else []
+        matches = [
+            item for item in items
+            if isinstance(item, dict)
+            and _request_employee_matches(item, employee_query)
+            and (date_filter is None or _request_date_matches(item, date_filter))
+            and _request_is_pending(item)
+        ]
+        call = ToolCallRecord(name=pending_tool, arguments={}, status="success" if result.success else "failed")
+        if not result.success:
+            return AgentResponse(
+                type="error",
+                text=result.error_message or f"Je n'ai pas pu consulter les demandes de {label}.",
+                intent=raw_intent,
+                confidence=confidence,
+                toolCalls=[call],
+                actionResult={"kind": "approval_lookup", "status": "failed", "requestType": request_type},
+            )
+        if not matches:
+            suffix = f" pour le {date_filter}" if date_filter else ""
+            return AgentResponse(
+                type="answer",
+                text=f"Aucune demande de {label} en attente trouvee pour {employee_query}{suffix}.",
+                intent=raw_intent,
+                confidence=confidence,
+                toolCalls=[call],
+                actionResult={
+                    "kind": "no_data",
+                    "entity": request_type.lower(),
+                    "employee": employee_query,
+                    "date": date_filter,
+                    "toolName": pending_tool,
+                },
+            )
+        if len(matches) > 1:
+            return AgentResponse(
+                type="ask",
+                text=_request_choices_text(matches),
+                intent=raw_intent,
+                confidence=confidence,
+                toolCalls=[call],
+                actionResult={
+                    "kind": "approval_lookup",
+                    "status": "ambiguous",
+                    "requestType": request_type,
+                    "employee": employee_query,
+                    "choices": [_request_summary(item, request_type) for item in matches],
+                },
+            )
+        request = matches[0]
+        resolved_id = _request_id(request)
+        if resolved_id is None:
+            return AgentResponse(
+                type="error",
+                text="Je n'ai pas pu identifier la demande backend a traiter.",
+                intent=raw_intent,
+                confidence=confidence,
+                toolCalls=[call],
+                actionResult={"kind": "approval_lookup", "status": "missing_identifier", "request": request},
+            )
+        summary = _request_summary(request, request_type)
+        action = "valider" if decision == "APPROVE" else "refuser"
+        return self.confirmation_response(
+            context=context,
+            tool_name=tool_name,
+            tool_input=_decision_tool_input(tool_name, resolved_id, decision, source_text),
+            intent=raw_intent,
+            text=f"Je vais {action} la demande de {label} de {_request_label(summary)}. Confirmez-vous ?",
+            confidence=confidence,
+            action_result={
+                "kind": "approval_confirmation",
+                "agent": "RHAgent",
+                "toolName": tool_name,
+                "summary": summary,
+                "request": request,
+            },
+        )
+
+    async def _search_employees(self, query: str, context: CurrentUserContext) -> list[dict[str, Any]]:
+        result = await self.executor.execute("organisation.search_employee", {"query": query}, context)
+        read_result = get_read_result(result.data)
+        items = read_result.get("items") if result.success and isinstance(read_result, dict) and isinstance(read_result.get("items"), list) else []
+        return [item for item in items if isinstance(item, dict)]
 
     async def _resolve_request_details(self, request_id: int, request_type: str | None, decision: str, context: CurrentUserContext) -> dict[str, Any]:
         if request_type:
@@ -622,6 +774,17 @@ def _request_summary(item: dict[str, Any], request_type: str | None = None) -> d
     }
 
 
+def _request_id(item: dict[str, Any]) -> int | None:
+    for key in ("id", "requestId", "request_id", "demandeId"):
+        try:
+            value = item.get(key)
+            if value is not None:
+                return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _time_label(item: dict[str, Any]) -> str | None:
     start = item.get("heureDebut") or item.get("timeStart") or item.get("startTime")
     end = item.get("heureFin") or item.get("timeEnd") or item.get("endTime")
@@ -642,6 +805,112 @@ def _request_label(summary: dict[str, Any]) -> str:
     if motif:
         parts.append(f"motif: {motif}")
     return " - ".join(str(part) for part in parts if part)
+
+
+def _decision_tooling(intent: str) -> tuple[str, str, str, str, str]:
+    if intent.startswith("rh.leave."):
+        return "CONGE", "rh.leave.pending", "rh.leave.approve", "rh.leave.reject", "conge"
+    if intent.startswith("rh.telework."):
+        return "TELETRAVAIL", "rh.telework.pending", "rh.telework.approve", "rh.telework.reject", "teletravail"
+    return "AUTORISATION", "rh.authorization.pending", "rh.authorization.approve", "rh.authorization.reject", "autorisation"
+
+
+def _decision_tool_input(tool_name: str, request_id: int, decision: str, source_text: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {"request_id": int(request_id)}
+    comment = _extract_reason_comment(source_text)
+    if tool_name in {"leave.rh_decide", "telework.rh_decide", "authorization.rh_decide"}:
+        payload["decision"] = decision
+    if comment:
+        if tool_name.endswith(".reject") or decision == "REJECT":
+            payload["comment"] = comment
+        else:
+            payload["comment"] = comment
+    return payload
+
+
+def _extract_reason_comment(message: str) -> str | None:
+    text = message or ""
+    match = re.search(r"\b(?:motif|raison|reason|avec motif)\s+(.{2,160})$", text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip(" .")
+    return None
+
+
+def _metadata_employee(context: CurrentUserContext | None) -> str | None:
+    metadata = context.metadata if context is not None and isinstance(context.metadata, dict) else {}
+    entities = metadata.get("rh_hybrid_entities")
+    if isinstance(entities, dict):
+        value = entities.get("employee")
+        if value:
+            return str(value).strip()
+    return None
+
+
+def _request_employee_matches(item: dict[str, Any], query: str) -> bool:
+    needle = _lookup(query)
+    if not needle:
+        return False
+    haystack_values: list[Any] = [
+        item.get("employee"),
+        item.get("employe"),
+        item.get("fullName"),
+        item.get("nomComplet"),
+        item.get("utilisateurNom"),
+        item.get("userFullName"),
+        item.get("nom"),
+    ]
+    for nested_key in ("user", "utilisateur", "employeDto", "employeeDto", "demandeur"):
+        nested = item.get(nested_key)
+        if isinstance(nested, dict):
+            haystack_values.extend([nested.get("fullName"), nested.get("prenom"), nested.get("nom"), nested.get("email")])
+    haystack = _lookup(" ".join(str(value or "") for value in haystack_values))
+    return needle in haystack or any(part and part in haystack for part in needle.split())
+
+
+def _request_date_matches(item: dict[str, Any], date_filter: str) -> bool:
+    wanted = str(date_filter or "").strip()
+    if not wanted:
+        return True
+    for key in ("date", "dateDebut", "startDate", "dateAutorisation", "date_demande", "dateDemande"):
+        value = str(item.get(key) or "")
+        if value.startswith(wanted):
+            return True
+    return False
+
+
+def _request_is_pending(item: dict[str, Any]) -> bool:
+    status = str(item.get("statut") or item.get("status") or "").upper()
+    return not status or "ATTENTE" in status or "PENDING" in status
+
+
+def _extract_requested_date(message: str) -> str | None:
+    text = (message or "").lower()
+    iso = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+    if iso:
+        return iso.group(1)
+    day_month = re.search(r"\b(\d{1,2})\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b", text)
+    if day_month:
+        month_map = {
+            "janvier": 1, "fevrier": 2, "février": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6,
+            "juillet": 7, "aout": 8, "août": 8, "septembre": 9, "octobre": 10, "novembre": 11,
+            "decembre": 12, "décembre": 12,
+        }
+        day = int(day_month.group(1))
+        month = month_map[day_month.group(2)]
+        year = 2026
+        return f"{year:04d}-{month:02d}-{day:02d}"
+    if "demain" in text or "tomorrow" in text:
+        return "2026-05-20"
+    if "aujourd" in text or "today" in text or "lyoum" in text:
+        return "2026-05-19"
+    return None
+
+
+def _request_choices_text(items: list[dict[str, Any]]) -> str:
+    lines = ["Plusieurs demandes correspondent. Choisissez l'identifiant exact :"]
+    for item in items[:8]:
+        lines.append(f"- {_request_label(_request_summary(item))}")
+    return "\n".join(lines)
 
 
 def _wants_user_creation(text: str) -> bool:
@@ -679,9 +948,7 @@ def _source_text(message: str, context: CurrentUserContext | None) -> str:
     original = ""
     if context is not None and isinstance(context.metadata, dict):
         original = str(context.metadata.get("original_text") or "")
-    if original and original != message:
-        return f"{message or ''} {original}".strip()
-    return message or ""
+    return original or message or ""
 
 
 def _wants_organisation_assignment(text: str) -> bool:
@@ -796,6 +1063,107 @@ def _extract_employee_name(message: str) -> tuple[str, str] | None:
     if len(tokens) < 2:
         return None
     return tokens[0], " ".join(tokens[1:])
+
+
+def _extract_employee_query(message: str) -> str | None:
+    text = (message or "").strip()
+    if not text:
+        return None
+    patterns = (
+        r"\b(?:pour|for|du|de|d'|لـ|ل)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,3})",
+        r"\b(?:conge|congé|teletravail|autorisation|attestation|document|leave|telework)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,3})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            candidate = _clean_employee_candidate(match.group(1))
+            if candidate:
+                return candidate
+    tokens = [token.strip(" ,.;:") for token in text.split() if token.strip(" ,.;:")]
+    kept: list[str] = []
+    for token in reversed(tokens):
+        lowered = token.lower()
+        if lowered in {
+            "attestation", "document", "genere", "generi", "génère", "générer", "generer",
+            "valide", "approuve", "approve", "refuse", "reject", "teletravail", "teletravaille",
+            "conge", "congé", "autorisation", "du", "de", "pour", "for",
+        }:
+            break
+        if re.match(r"^[A-Za-zÀ-ÿ][\wÀ-ÿ'-]*$", token):
+            kept.insert(0, token)
+        if len(kept) >= 3:
+            break
+    candidate = _clean_employee_candidate(" ".join(kept))
+    return candidate or None
+
+
+def _clean_employee_candidate(value: str) -> str:
+    words = []
+    for token in (value or "").strip().split():
+        lowered = token.lower().strip(" ,.;:")
+        if lowered in {"demain", "today", "aujourd", "hui", "lyoum", "avec", "motif", "du", "de", "genere", "generi", "génère", "générer", "generer", "travail", "work"}:
+            break
+        words.append(token.strip(" ,.;:"))
+    return " ".join(words).strip()
+
+
+def _employee_display_name(item: dict[str, Any]) -> str:
+    full = str(item.get("fullName") or item.get("nomComplet") or "").strip()
+    if full:
+        return full
+    first = str(item.get("prenom") or item.get("firstName") or "").strip()
+    last = str(item.get("nom") or item.get("lastName") or "").strip()
+    email = str(item.get("email") or "").strip()
+    return " ".join(part for part in (first, last) if part).strip() or email or str(item.get("id") or "employe")
+
+
+def _employee_summary(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": item.get("id"),
+        "name": _employee_display_name(item),
+        "email": item.get("email"),
+        "poste": item.get("poste") or item.get("position"),
+        "departement": item.get("departement") or item.get("department") or item.get("departementNom"),
+    }
+
+
+def _employee_choices_text(items: list[dict[str, Any]], heading: str) -> str:
+    lines = [heading]
+    for item in items[:8]:
+        summary = _employee_summary(item)
+        suffix = f" ({summary['email']})" if summary.get("email") else ""
+        lines.append(f"- {summary['name']}{suffix}")
+    return "\n".join(lines)
+
+
+def _document_tool_input(document_type: str, label: str, employee: dict[str, Any]) -> dict[str, Any]:
+    first = str(employee.get("prenom") or employee.get("firstName") or "").strip()
+    last = str(employee.get("nom") or employee.get("lastName") or "").strip()
+    if not first or not last:
+        parts = _employee_display_name(employee).split()
+        first = first or (parts[0] if parts else "")
+        last = last or (" ".join(parts[1:]) if len(parts) > 1 else parts[0] if parts else "")
+    return {
+        "type": document_type,
+        "label": label,
+        "employe_prenom": first,
+        "employe_nom": last,
+        "employe_poste": employee.get("poste") or employee.get("position"),
+        "employe_departement": employee.get("departement") or employee.get("department") or employee.get("departementNom"),
+        "date_entree": employee.get("dateEntree") or employee.get("hireDate"),
+    }
+
+
+def _name_matches(item: dict[str, Any], query: str) -> bool:
+    return _lookup(_employee_display_name(item)) == _lookup(query)
+
+
+def _lookup(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    replacements = {"é": "e", "è": "e", "ê": "e", "à": "a", "ù": "u", "ç": "c", "î": "i", "ï": "i"}
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return " ".join(text.replace("-", " ").replace("_", " ").split())
 
 
 def _extract_schedule_create_payload(message: str) -> dict[str, Any] | None:

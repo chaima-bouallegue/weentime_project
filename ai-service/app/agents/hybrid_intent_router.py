@@ -94,6 +94,8 @@ def _classify_by_page(text: str, page_intents: tuple[str, ...]) -> HybridIntentR
         return HybridIntentResult("rh.structure.manager.assign_team", 0.92, entities=_assignment_entities(text), reason="manager_page_assign")
     if any(intent.startswith("rh.structure.manager") for intent in page_intents) and _has_any(text, _MANAGER_TERMS + _CREATE_TERMS + _LIST_TERMS + _WHO_TERMS + ("manages",)):
         return _manager_intent(text)
+    if any(intent.startswith("rh.structure.employee") for intent in page_intents) and _has_any(text, _EMPLOYEE_TERMS) and _has_any(text, _CREATE_TERMS + _NEW_TERMS):
+        return _employee_intent(text)
     if "rh.structure.employee.assign_team" in page_intents and _is_assignment(text):
         return _employee_assignment_intent(text)
     if "rh.structure.employee.assign_team" in page_intents and _looks_like_page_assignment(text):
@@ -307,7 +309,7 @@ def _ambiguous_result(text: str) -> HybridIntentResult | None:
         return HybridIntentResult("rh.structure.clarify_add_target", 0.58, missing=("target_type",), reason="ambiguous_add")
     if _has_any(text, _REJECT_TERMS) and _has_any(text, ("demande", "request", "طلب")) and not _has_any(text, _LEAVE_TERMS + _TELEWORK_TERMS + _AUTHORIZATION_TERMS):
         return HybridIntentResult("rh.validation.clarify_request", 0.58, missing=("request",), reason="ambiguous_reject")
-    if _matches_short(text, ("pointe", "pointer", "check in", "سجل الحضور")):
+    if _matches_short(text, ("pointe", "pointer", "check in")):
         return HybridIntentResult("attendance.self.clarify", 0.58, missing=("attendance_action",), reason="ambiguous_attendance")
     return None
 
@@ -321,7 +323,7 @@ def _future_unsupported(text: str) -> str | None:
         return "rh.predictive.unavailable"
     if _has_any(text, ("signature electronique", "signature électronique", "e-signature")):
         return "rh.signature.unavailable"
-    if _has_any(text, ("contrat", "contract")):
+    if _has_any(text, ("contrat", "contract")) and not _has_any(text, _DOCUMENT_TERMS + _GENERATE_TERMS):
         return "rh.contract.unavailable"
     return None
 
@@ -450,11 +452,11 @@ def _has_named_assignment(text: str) -> bool:
 
 
 def _is_explicit_personal_check_in(text: str) -> bool:
-    return _has_any(text, ("pointer mon entree", "pointer mon arrivee", "je pointe maintenant", "npointi", "rani jit", "check in", "سجل حضوري"))
+    return _has_any(text, ("pointer mon entree", "pointer mon arrivee", "je pointe maintenant", "npointi", "rani jit", "check in", "سجل حضوري", "سجل الحضور"))
 
 
 def _is_explicit_personal_check_out(text: str) -> bool:
-    return _has_any(text, ("pointer ma sortie", "pointe sortie", "rani khrajt", "check out", "سجل خروجي"))
+    return _has_any(text, ("pointer ma sortie", "pointe sortie", "rani khrajt", "check out", "سجل خروجي", "سجل الخروج"))
 
 
 def _is_personal_attendance_status(text: str) -> bool:
@@ -474,18 +476,18 @@ def _is_personal_attendance_status(text: str) -> bool:
     return _has_any(text, personal_markers)
 
 
-_CREATE_TERMS = ("creer", "cree", "create", "add", "ajoute", "aamel", "zid", "انشئ", "أنشئ", "اضف", "أضف")
+_CREATE_TERMS = ("creer", "cr er", "créer", "cree", "créé", "create", "add", "ajoute", "aamel", "zid", "انشئ", "أنشئ", "اضف", "أضف")
 _NEW_TERMS = ("nouveau", "nouvelle", "new", "jdid", "jdida", "جديد")
 _LIST_TERMS = ("liste", "lister", "affiche", "show", "warini", "voir", "اعرض", "اظهر", "أظهر")
 _DELETE_TERMS = ("supprime", "delete", "fasakh", "احذف")
 _UPDATE_TERMS = ("renomme", "rename", "baddel", "changer nom", "غير اسم", "غي ر اسم")
-_ASSIGN_TERMS = ("affecte", "affecter", "affecti", "assign", "assigne", "hot", "mets", "na9el", "deplace", "move", "put", "عين", "انقل")
+_ASSIGN_TERMS = ("affecte", "affecter", "affecti", "assign", "assigne", "hot", "mets", "na9el", "deplace", "move", "put", "عين", "عيّن", "انقل", "أضف", "اضف")
 _APPROVE_TERMS = ("approuve", "approve", "accepte", "accept", "valide", "9bel", "وافق")
 _REJECT_TERMS = ("refuse", "reject", "rejette", "orfodh", "ارفض")
 _REJECTED_TERMS = ("refusees", "refusées", "rejected")
 _PENDING_TERMS = ("pending", "en attente", "yestannew", "attendent", "waiting", "ينتظر", "المعلقه", "المعلقة")
 _VALIDATION_TERMS = ("validation", "validations", "approval", "approvals", "موافقة", "موافقه", "الموافقه")
-_GENERATE_TERMS = ("genere", "generer", "generate", "génère", "générer", "generé", "generi", "أنشئ")
+_GENERATE_TERMS = ("genere", "generer", "g n re", "g n r", "generate", "génère", "générer", "generé", "generi", "g n ri", "أنشئ")
 _SEND_TERMS = ("envoie", "send", "previens", "préviens", "ارسل")
 _SYNC_TERMS = ("synchronise", "sync", "synchronisi", "مزامنة")
 _FIX_TERMS = ("corrige", "correct", "sa7a7", "صحح", "صحّح")

@@ -44,7 +44,7 @@ class ChatbotFakeBackend:
         if path == "/rh/teletravail/demandes-equipe":
             return ToolResult.ok({"content": [{"id": 43, "statut": "EN_ATTENTE_MANAGER", "employe": "Ahmed"}]})
         if path == "/rh/teletravail/en-attente-rh":
-            return ToolResult.ok({"content": [{"id": 44, "statut": "EN_ATTENTE_RH", "employe": "Sarah"}]})
+            return ToolResult.ok({"content": [{"id": 44, "statut": "EN_ATTENTE_RH", "employe": "Amin Dupont", "dateDebut": "2026-05-20"}]})
         if path.startswith("/rh/teletravail/"):
             return ToolResult.ok({"id": 44, "statut": "EN_ATTENTE", "employe": "Sarah", "dateDebut": "2026-05-22"})
         if path == "/rh/autorisations/me":
@@ -79,6 +79,68 @@ class ChatbotFakeBackend:
         if path.startswith("/organisations/equipes/") and path.count("/") == 3:
             team_id = int(path.rsplit("/", 1)[-1])
             return ToolResult.ok({"id": team_id, "nom": "Frontend", "departementId": 3, "responsableId": None, "estActive": True})
+        if path in {"/structure/employees", "/organisations/users"}:
+            return ToolResult.ok(
+                {
+                    "content": [
+                        {
+                            "id": 22,
+                            "nom": "Dupont",
+                            "prenom": "Amin",
+                            "fullName": "Amin Dupont",
+                            "email": "amin.dupont@example.com",
+                            "statut": "ACTIF",
+                            "entrepriseId": context.tenant_id,
+                            "departementId": 3,
+                            "equipeId": None,
+                            "role": "EMPLOYEE",
+                        },
+                        {
+                            "id": 23,
+                            "nom": "Ben Ali",
+                            "prenom": "Amin",
+                            "fullName": "Amin Ben Ali",
+                            "email": "amin.benali@example.com",
+                            "statut": "ACTIF",
+                            "entrepriseId": context.tenant_id,
+                            "departementId": 3,
+                            "equipeId": None,
+                            "role": "EMPLOYEE",
+                        },
+                        {
+                            "id": 24,
+                            "nom": "Ben Ali",
+                            "prenom": "Ahmed",
+                            "fullName": "Ahmed Ben Ali",
+                            "email": "ahmed.benali@example.com",
+                            "statut": "ACTIF",
+                            "entrepriseId": context.tenant_id,
+                            "departementId": 3,
+                            "equipeId": None,
+                            "role": "EMPLOYEE",
+                        },
+                    ],
+                    "totalElements": 3,
+                }
+            )
+        if path == "/structure/managers":
+            return ToolResult.ok(
+                {
+                    "content": [
+                        {
+                            "id": 31,
+                            "nom": "Manager",
+                            "prenom": "Mina",
+                            "fullName": "Mina Manager",
+                            "email": "mina.manager@example.com",
+                            "statut": "ACTIF",
+                            "entrepriseId": context.tenant_id,
+                            "role": "MANAGER",
+                        }
+                    ],
+                    "totalElements": 1,
+                }
+            )
         if path.startswith("/organisations/users/") and path.count("/") == 3:
             user_id = int(path.rsplit("/", 1)[-1])
             return ToolResult.ok(

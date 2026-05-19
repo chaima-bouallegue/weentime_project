@@ -52,6 +52,17 @@ class RhRejectDocumentInput(BaseModel):
     reason: str
 
 
+class RhGenerateAliasInput(BaseModel):
+    type: str
+    label: str
+    employe_nom: str
+    employe_prenom: str
+    employe_poste: str | None = None
+    employe_departement: str | None = None
+    date_entree: str | None = None
+    mois_concerne: str | None = None
+
+
 class DocumentTools:
     def __init__(self, backend_client: BackendClient) -> None:
         self.backend_client = backend_client
@@ -116,6 +127,17 @@ class DocumentTools:
         )
         registry.register(
             ToolDefinition(
+                name="rh.document.workload",
+                description="Resume la charge de demandes de documents RH.",
+                input_model=EmptyDocumentInput,
+                output_model=None,
+                type="read",
+                allowed_roles=DOCUMENT_RH_ROLES,
+            ),
+            self.rh_workload_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="document.rh_generate",
                 description="Genere un contenu de document RH via l'endpoint RH existant.",
                 input_model=RhGenerateDocumentInput,
@@ -129,6 +151,19 @@ class DocumentTools:
         )
         registry.register(
             ToolDefinition(
+                name="rh.document.generate",
+                description="Genere un contenu de document RH via l'endpoint RH existant.",
+                input_model=RhGenerateAliasInput,
+                output_model=None,
+                type="write",
+                allowed_roles=DOCUMENT_RH_ROLES,
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.rh_generate_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="document.rh_reject",
                 description="Refuse une demande de document RH.",
                 input_model=RhRejectDocumentInput,
@@ -139,6 +174,30 @@ class DocumentTools:
                 idempotency_required=True,
             ),
             self.rh_reject,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.document.reject",
+                description="Refuse une demande de document RH.",
+                input_model=RhRejectDocumentInput,
+                output_model=None,
+                type="write",
+                allowed_roles=DOCUMENT_RH_ROLES,
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.rh_reject_alias,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.document.urgent",
+                description="Retourne la charge documentaire RH urgente ou en attente.",
+                input_model=EmptyDocumentInput,
+                output_model=None,
+                type="read",
+                allowed_roles=DOCUMENT_RH_ROLES,
+            ),
+            self.rh_urgent_alias,
         )
 
     async def create_request(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
@@ -295,6 +354,14 @@ class DocumentTools:
             status_code=result.status_code,
         )
 
+    async def rh_workload_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.rh_workload(_, context)
+        return _rename_read_tool(result, "rh.document.workload")
+
+    async def rh_urgent_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.rh_workload(_, context)
+        return _rename_read_tool(result, "rh.document.urgent")
+
     async def rh_generate(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         body = {
             "type": getattr(payload, "type"),
@@ -322,6 +389,10 @@ class DocumentTools:
             status_code=result.status_code,
         )
 
+    async def rh_generate_alias(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.rh_generate(payload, context)
+        return _rename_write_tool(result, "rh.document.generate")
+
     async def rh_reject(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         request_id = int(getattr(payload, "request_id"))
         reason = str(getattr(payload, "reason") or "").strip()
@@ -344,6 +415,10 @@ class DocumentTools:
             warnings=result.warnings,
             status_code=result.status_code,
         )
+
+    async def rh_reject_alias(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.rh_reject(payload, context)
+        return _rename_write_tool(result, "rh.document.reject")
 
     async def _list_accessible_documents(self, context: CurrentUserContext) -> ToolResult:
         role = (context.role or "EMPLOYEE").upper().replace("ROLE_", "")
@@ -522,3 +597,38 @@ def _clean_document_error(result: ToolResult) -> str:
     if result.status_code is None or result.status_code >= 500:
         return "Le service documents est momentanement indisponible. Reessayez dans quelques instants."
     return message or "Impossible de traiter cette demande de document."
+
+
+def _rename_read_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    read_result = result.data.get("read_result")
+    if not isinstance(read_result, dict):
+        return result
+    cloned = dict(read_result)
+    cloned["toolName"] = tool_name
+    return ToolResult(
+        success=result.success,
+        data={"read_result": cloned},
+        warnings=result.warnings,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        status_code=result.status_code,
+    )
+
+
+def _rename_write_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    if result.data.get("kind") != "write_result":
+        return result
+    cloned = dict(result.data)
+    cloned["toolName"] = tool_name
+    return ToolResult(
+        success=result.success,
+        data=cloned,
+        warnings=result.warnings,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        status_code=result.status_code,
+    )

@@ -42,6 +42,11 @@ class DecideAuthorizationInput(BaseModel):
     comment: str | None = None
 
 
+class RHAuthorizationDecisionInput(BaseModel):
+    request_id: int = Field(gt=0)
+    comment: str | None = None
+
+
 class AuthorizationTools:
     def __init__(self, backend_client: BackendClient) -> None:
         self.backend_client = backend_client
@@ -106,6 +111,17 @@ class AuthorizationTools:
         )
         registry.register(
             ToolDefinition(
+                name="rh.authorization.pending",
+                description="Retourne les autorisations accessibles au RH authentifie.",
+                input_model=EmptyAuthorizationInput,
+                output_model=None,
+                type="read",
+                allowed_roles=AUTHORIZATION_RH_ROLES,
+            ),
+            self.rh_pending_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="authorization.manager_decide",
                 description="Decision manager sur une demande d'autorisation.",
                 input_model=DecideAuthorizationInput,
@@ -129,6 +145,32 @@ class AuthorizationTools:
                 idempotency_required=True,
             ),
             self.rh_decide,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.authorization.approve",
+                description="Valide une demande d'autorisation cote RH.",
+                input_model=RHAuthorizationDecisionInput,
+                output_model=None,
+                type="write",
+                allowed_roles=AUTHORIZATION_RH_ROLES,
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.rh_approve_alias,
+        )
+        registry.register(
+            ToolDefinition(
+                name="rh.authorization.reject",
+                description="Refuse une demande d'autorisation cote RH.",
+                input_model=RHAuthorizationDecisionInput,
+                output_model=None,
+                type="write",
+                allowed_roles=AUTHORIZATION_RH_ROLES,
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.rh_reject_alias,
         )
 
     async def create_request(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
@@ -176,6 +218,10 @@ class AuthorizationTools:
         if not result.success:
             return self._read_failure("authorization.list_rh_requests", result)
         return self._list_success("authorization.list_rh_requests", result)
+
+    async def rh_pending_alias(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        result = await self.list_rh_requests(payload, context)
+        return _rename_read_tool(result, "rh.authorization.pending")
 
     @staticmethod
     def _list_success(tool_name: str, result: ToolResult) -> ToolResult:
@@ -227,6 +273,24 @@ class AuthorizationTools:
 
     async def rh_decide(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         return await self._decide(payload, context, role="rh")
+
+    async def rh_approve_alias(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        model = DecideAuthorizationInput(
+            request_id=int(getattr(payload, "request_id")),
+            decision="APPROVE",
+            comment=getattr(payload, "comment", None),
+        )
+        result = await self._decide(model, context, role="rh")
+        return _rename_write_tool(result, "rh.authorization.approve")
+
+    async def rh_reject_alias(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        model = DecideAuthorizationInput(
+            request_id=int(getattr(payload, "request_id")),
+            decision="REJECT",
+            comment=getattr(payload, "comment", None),
+        )
+        result = await self._decide(model, context, role="rh")
+        return _rename_write_tool(result, "rh.authorization.reject")
 
     async def _decide(self, payload: BaseModel, context: CurrentUserContext, *, role: str) -> ToolResult:
         request_id = int(getattr(payload, "request_id"))
@@ -425,3 +489,38 @@ def _clean_error(result: ToolResult) -> str:
     if result.status_code is None or result.status_code >= 500:
         return "Le service autorisations est momentanement indisponible. Reessayez dans quelques instants."
     return message or "Impossible de traiter cette demande d'autorisation."
+
+
+def _rename_read_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    read_result = result.data.get("read_result")
+    if not isinstance(read_result, dict):
+        return result
+    cloned = dict(read_result)
+    cloned["toolName"] = tool_name
+    return ToolResult(
+        success=result.success,
+        data={"read_result": cloned},
+        warnings=result.warnings,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        status_code=result.status_code,
+    )
+
+
+def _rename_write_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    if result.data.get("kind") != "write_result":
+        return result
+    cloned = dict(result.data)
+    cloned["toolName"] = tool_name
+    return ToolResult(
+        success=result.success,
+        data=cloned,
+        warnings=result.warnings,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        status_code=result.status_code,
+    )

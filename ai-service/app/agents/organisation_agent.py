@@ -8,7 +8,7 @@ from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse, ToolCallRecord
 from app.tools.executor import ToolExecutor
-from app.tools.result import ToolResult
+from app.tools.result import ToolResult, get_read_result
 
 from .base_domain_agent import DomainAgent
 from .response_composer import compose_tool_error
@@ -51,10 +51,18 @@ class OrganisationAgent(DomainAgent):
         if intent == "organisation.list_departments":
             result = await self.executor.execute("organisation.list_departments", {}, context)
             return self._list_response(result, "organisation.list_departments", confidence, "Voici les departements.")
+        if intent == "rh.structure.employee.list":
+            result = await self.executor.execute("organisation.list_employees", {}, context)
+            return self._list_response(result, "organisation.list_employees", confidence, "Voici les employes.")
+        if intent == "rh.structure.manager.list":
+            result = await self.executor.execute("organisation.list_employees", {"managers_only": True}, context)
+            return self._list_response(result, "organisation.list_employees", confidence, "Voici les managers.")
+        if intent == "rh.structure.team.members":
+            return await self._team_members_response(source_text, context, confidence)
 
         if intent in {"organisation.create_team", "rh.structure.team.create"}:
             tool_name = "rh.structure.team.create" if intent.startswith("rh.") else "organisation.create_team"
-            return self._create_team_response(source_text, context, confidence, intent=intent, tool_name=tool_name)
+            return await self._create_team_response(source_text, context, confidence, intent=intent, tool_name=tool_name)
         if intent in {"organisation.create_department", "rh.structure.department.create"}:
             tool_name = "rh.structure.department.create" if intent.startswith("rh.") else "organisation.create_department"
             return self._create_department_response(source_text, context, confidence, intent=intent, tool_name=tool_name)
@@ -63,9 +71,9 @@ class OrganisationAgent(DomainAgent):
         if intent == "rh.structure.department.delete":
             return self._delete_department_response(source_text, context, confidence)
         if intent == "rh.structure.employee.assign_team":
-            return self._assign_employee_team_response(source_text, context, confidence)
+            return await self._assign_employee_team_response(source_text, context, confidence)
         if intent == "rh.structure.manager.assign_team":
-            return self._assign_manager_team_response(source_text, context, confidence)
+            return await self._assign_manager_team_response(source_text, context, confidence)
 
         return AgentResponse(
             type="ask",
@@ -91,8 +99,11 @@ class OrganisationAgent(DomainAgent):
             "rh.structure.department.update",
             "rh.structure.department.delete",
             "rh.structure.team.create",
+            "rh.structure.team.members",
             "rh.structure.employee.assign_team",
+            "rh.structure.employee.list",
             "rh.structure.manager.assign_team",
+            "rh.structure.manager.list",
         }:
             return hybrid_intent, _metadata_hybrid_confidence(context) or 0.93
         if hybrid_intent == "rh.structure.department.list":
@@ -162,7 +173,7 @@ class OrganisationAgent(DomainAgent):
             actionResult=result.model_dump(mode="json"),
         )
 
-    def _create_team_response(
+    async def _create_team_response(
         self,
         source_text: str,
         context: CurrentUserContext,
@@ -176,31 +187,36 @@ class OrganisationAgent(DomainAgent):
         if not name:
             return AgentResponse(
                 type="ask",
-                text="Comment souhaitez-vous nommer cette equipe ?",
+                text="Tres bien. Quel est le nom de l'equipe ?",
                 intent=intent,
                 confidence=confidence,
             )
         if not departement_id:
             return AgentResponse(
                 type="ask",
-                text=(
-                    f"Pour quel departement (ID numerique) souhaitez-vous creer l'equipe '{name}' ? "
-                    "Exemple: 'creer equipe IA dans departement 3'."
-                ),
+                text="Il me manque le departement cible.",
                 intent=intent,
                 confidence=confidence,
+            )
+        department = await self._find_department_by_id(departement_id, context)
+        if department is None:
+            return AgentResponse(
+                type="answer",
+                text="Je n'ai trouve aucun departement correspondant.",
+                intent=intent,
+                confidence=confidence,
+                actionResult={"kind": "no_data", "entity": "department", "departmentId": departement_id},
             )
         tool_input: dict[str, Any] = {
             "nom": name,
             "departement_id": departement_id,
             "est_active": True,
+            "department_name": department.get("nom"),
         }
         record = self.confirmation_store.create(context, tool_name, tool_input)
         return AgentResponse(
             type="confirm_action",
-            text=(
-                f"Confirmez-vous la creation de l'equipe '{name}' dans le departement {departement_id} ?"
-            ),
+            text=f"Je vais creer l'equipe {name} dans le departement {department.get('nom') or departement_id}. Confirmez-vous ?",
             intent=intent,
             confidence=confidence,
             requiresConfirmation=True,
@@ -342,7 +358,7 @@ class OrganisationAgent(DomainAgent):
             ],
         )
 
-    def _assign_employee_team_response(
+    async def _assign_employee_team_response(
         self,
         source_text: str,
         context: CurrentUserContext,
@@ -351,21 +367,50 @@ class OrganisationAgent(DomainAgent):
         user_id = _extract_int_after(source_text, ("employe", "employee", "user", "utilisateur", "salarie", "salarié"))
         team_id = _extract_int_after(source_text, ("equipe", "team"))
         department_id = _extract_int_after_anchor_only(source_text, ("departement", "department", "dept"))
+        if user_id and team_id:
+            employee = await self._find_employee_by_id(user_id, context, managers_only=False)
+            team = await self._find_team_by_id(team_id, context)
+            if employee is not None and team is not None:
+                return self._employee_assignment_confirmation(context, confidence, employee, team, department_id)
         if not user_id or not team_id:
-            return AgentResponse(
-                type="ask",
-                text="Donnez l'identifiant de l'employe et l'identifiant de l'equipe cible.",
-                intent="rh.structure.employee.assign_team",
-                confidence=confidence,
-                actionResult={"kind": "slot_filling", "missing": ["user_id", "team_id"]},
-            )
+            employee_query = _extract_person_name(source_text)
+            team_query = _extract_team_phrase(source_text)
+            if not employee_query or not team_query:
+                return AgentResponse(
+                    type="ask",
+                    text="Quel employe souhaitez-vous affecter et dans quelle equipe ?",
+                    intent="rh.structure.employee.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "slot_filling", "missing": ["employee", "team"]},
+                )
+            employee_matches = await self._search_people(employee_query, context, managers_only=False)
+            if not employee_matches:
+                return AgentResponse(
+                    type="answer",
+                    text="Je n'ai trouve aucun employe correspondant.",
+                    intent="rh.structure.employee.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "no_data", "entity": "employee", "query": employee_query},
+                )
+            team_matches = await self._search_teams(team_query, context)
+            if not team_matches:
+                return AgentResponse(
+                    type="answer",
+                    text="Je n'ai trouve aucune equipe correspondante.",
+                    intent="rh.structure.employee.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "no_data", "entity": "team", "query": team_query},
+                )
+            return self._employee_assignment_confirmation(context, confidence, employee_matches[0], team_matches[0], department_id)
         tool_input: dict[str, Any] = {"user_id": user_id, "team_id": team_id}
         if department_id:
             tool_input["department_id"] = department_id
+        tool_input["employee_name"] = str(user_id)
+        tool_input["team_name"] = str(team_id)
         record = self.confirmation_store.create(context, "rh.structure.employee.assign_team", tool_input)
         return AgentResponse(
             type="confirm_action",
-            text=f"Confirmez-vous l'affectation de l'employe {user_id} a l'equipe {team_id} ?",
+            text=f"Je vais affecter l'employe {user_id} a l'equipe {team_id}. Confirmez-vous ?",
             intent="rh.structure.employee.assign_team",
             confidence=confidence,
             requiresConfirmation=True,
@@ -379,7 +424,7 @@ class OrganisationAgent(DomainAgent):
             ],
         )
 
-    def _assign_manager_team_response(
+    async def _assign_manager_team_response(
         self,
         source_text: str,
         context: CurrentUserContext,
@@ -387,19 +432,48 @@ class OrganisationAgent(DomainAgent):
     ) -> AgentResponse:
         manager_id = _extract_int_after(source_text, ("manager", "responsable"))
         team_id = _extract_int_after(source_text, ("equipe", "team"))
+        if manager_id and team_id:
+            manager = await self._find_employee_by_id(manager_id, context, managers_only=True)
+            team = await self._find_team_by_id(team_id, context)
+            if manager is not None and team is not None:
+                return self._manager_assignment_confirmation(context, confidence, manager, team)
         if not manager_id or not team_id:
-            return AgentResponse(
-                type="ask",
-                text="Donnez l'identifiant du manager et l'identifiant de l'equipe cible.",
-                intent="rh.structure.manager.assign_team",
-                confidence=confidence,
-                actionResult={"kind": "slot_filling", "missing": ["manager_id", "team_id"]},
-            )
+            manager_query = _extract_person_name(source_text)
+            team_query = _extract_team_phrase(source_text)
+            if not manager_query or not team_query:
+                return AgentResponse(
+                    type="ask",
+                    text="Quel manager souhaitez-vous affecter et dans quelle equipe ?",
+                    intent="rh.structure.manager.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "slot_filling", "missing": ["manager", "team"]},
+                )
+            manager_matches = await self._search_people(manager_query, context, managers_only=True)
+            if not manager_matches:
+                return AgentResponse(
+                    type="answer",
+                    text="Je n'ai trouve aucun manager correspondant.",
+                    intent="rh.structure.manager.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "no_data", "entity": "manager", "query": manager_query},
+                )
+            team_matches = await self._search_teams(team_query, context)
+            if not team_matches:
+                return AgentResponse(
+                    type="answer",
+                    text="Je n'ai trouve aucune equipe correspondante.",
+                    intent="rh.structure.manager.assign_team",
+                    confidence=confidence,
+                    actionResult={"kind": "no_data", "entity": "team", "query": team_query},
+                )
+            return self._manager_assignment_confirmation(context, confidence, manager_matches[0], team_matches[0])
         tool_input = {"manager_id": manager_id, "team_id": team_id}
+        tool_input["manager_name"] = str(manager_id)
+        tool_input["team_name"] = str(team_id)
         record = self.confirmation_store.create(context, "rh.structure.manager.assign_team", tool_input)
         return AgentResponse(
             type="confirm_action",
-            text=f"Confirmez-vous l'affectation du manager {manager_id} a l'equipe {team_id} ?",
+            text=f"Je vais affecter le manager {manager_id} a l'equipe {team_id}. Confirmez-vous ?",
             intent="rh.structure.manager.assign_team",
             confidence=confidence,
             requiresConfirmation=True,
@@ -412,6 +486,165 @@ class OrganisationAgent(DomainAgent):
                 )
             ],
         )
+
+    def _employee_assignment_confirmation(
+        self,
+        context: CurrentUserContext,
+        confidence: float,
+        employee: dict[str, Any],
+        team: dict[str, Any],
+        department_id: int | None,
+    ) -> AgentResponse:
+        employee_name = _employee_label(employee)
+        team_name = str(team.get("nom") or team.get("equipe") or team.get("name") or team.get("id"))
+        tool_input: dict[str, Any] = {
+            "user_id": int(employee.get("id")),
+            "team_id": int(team.get("id")),
+            "employee_name": employee_name,
+            "team_name": team_name,
+        }
+        if department_id:
+            tool_input["department_id"] = department_id
+        elif isinstance(team.get("departementId"), int):
+            tool_input["department_id"] = int(team["departementId"])
+        record = self.confirmation_store.create(context, "rh.structure.employee.assign_team", tool_input)
+        return AgentResponse(
+            type="confirm_action",
+            text=f"Je vais affecter {employee_name} a l'equipe {team_name}. Confirmez-vous ?",
+            intent="rh.structure.employee.assign_team",
+            confidence=confidence,
+            requiresConfirmation=True,
+            confirmationId=record.confirmation_id,
+            toolCalls=[
+                ToolCallRecord(
+                    name="rh.structure.employee.assign_team",
+                    arguments=tool_input,
+                    status="pending_confirmation",
+                )
+            ],
+        )
+
+    def _manager_assignment_confirmation(
+        self,
+        context: CurrentUserContext,
+        confidence: float,
+        manager: dict[str, Any],
+        team: dict[str, Any],
+    ) -> AgentResponse:
+        manager_name = _employee_label(manager)
+        team_name = str(team.get("nom") or team.get("equipe") or team.get("name") or team.get("id"))
+        tool_input = {
+            "manager_id": int(manager.get("id")),
+            "team_id": int(team.get("id")),
+            "manager_name": manager_name,
+            "team_name": team_name,
+        }
+        record = self.confirmation_store.create(context, "rh.structure.manager.assign_team", tool_input)
+        return AgentResponse(
+            type="confirm_action",
+            text=f"Je vais affecter {manager_name} comme responsable de l'equipe {team_name}. Confirmez-vous ?",
+            intent="rh.structure.manager.assign_team",
+            confidence=confidence,
+            requiresConfirmation=True,
+            confirmationId=record.confirmation_id,
+            toolCalls=[
+                ToolCallRecord(
+                    name="rh.structure.manager.assign_team",
+                    arguments=tool_input,
+                    status="pending_confirmation",
+                )
+            ],
+        )
+
+    async def _team_members_response(
+        self,
+        source_text: str,
+        context: CurrentUserContext,
+        confidence: float,
+    ) -> AgentResponse:
+        team_id = _extract_int_after(source_text, ("equipe", "team"))
+        if team_id:
+            result = await self.executor.execute("organisation.team_members", {"team_id": team_id}, context)
+            return self._list_response(result, "organisation.team_members", confidence, "Voici les membres de l'equipe.")
+        team_query = _extract_named_target(source_text, _TEAM_TERMS) or _extract_team_phrase(source_text)
+        if not team_query:
+            return AgentResponse(
+                type="ask",
+                text="Quelle equipe souhaitez-vous consulter ?",
+                intent="rh.structure.team.members",
+                confidence=confidence,
+            )
+        matches = await self._search_teams(team_query, context)
+        if not matches:
+            return AgentResponse(
+                type="answer",
+                text="Je n'ai trouve aucune equipe correspondante.",
+                intent="rh.structure.team.members",
+                confidence=confidence,
+                actionResult={"kind": "no_data", "entity": "team", "query": team_query},
+            )
+        result = await self.executor.execute("organisation.team_members", {"team_id": int(matches[0].get("id"))}, context)
+        return self._list_response(result, "organisation.team_members", confidence, "Voici les membres de l'equipe.")
+
+    async def _search_people(self, query: str, context: CurrentUserContext, *, managers_only: bool) -> list[dict[str, Any]]:
+        result = await self.executor.execute(
+            "organisation.search_employee",
+            {"query": query, "managers_only": managers_only},
+            context,
+        )
+        if not result.success:
+            return []
+        read = get_read_result(result.data)
+        items = read.get("items") if isinstance(read, dict) else []
+        return [item for item in items if isinstance(item, dict)]
+
+    async def _search_teams(self, query: str, context: CurrentUserContext) -> list[dict[str, Any]]:
+        result = await self.executor.execute("organisation.list_teams", {}, context)
+        if not result.success:
+            return []
+        read = get_read_result(result.data)
+        items = read.get("items") if isinstance(read, dict) else []
+        return _filter_named_items(items if isinstance(items, list) else [], query, keys=("nom", "name", "equipe"))
+
+    async def _find_department_by_id(self, department_id: int, context: CurrentUserContext) -> dict[str, Any] | None:
+        result = await self.executor.execute("organisation.list_departments", {}, context)
+        if not result.success:
+            return None
+        read = get_read_result(result.data)
+        items = read.get("items") if isinstance(read, dict) else []
+        for item in items if isinstance(items, list) else []:
+            if isinstance(item, dict) and int(item.get("id") or 0) == int(department_id):
+                return item
+        return None
+
+    async def _find_team_by_id(self, team_id: int, context: CurrentUserContext) -> dict[str, Any] | None:
+        result = await self.executor.execute("organisation.list_teams", {}, context)
+        if not result.success:
+            return None
+        read = get_read_result(result.data)
+        items = read.get("items") if isinstance(read, dict) else []
+        for item in items if isinstance(items, list) else []:
+            if isinstance(item, dict) and int(item.get("id") or 0) == int(team_id):
+                return item
+        return None
+
+    async def _find_employee_by_id(
+        self,
+        employee_id: int,
+        context: CurrentUserContext,
+        *,
+        managers_only: bool,
+    ) -> dict[str, Any] | None:
+        payload: dict[str, Any] = {"managers_only": managers_only} if managers_only else {}
+        result = await self.executor.execute("organisation.list_employees", payload, context)
+        if not result.success:
+            return None
+        read = get_read_result(result.data)
+        items = read.get("items") if isinstance(read, dict) else []
+        for item in items if isinstance(items, list) else []:
+            if isinstance(item, dict) and int(item.get("id") or 0) == int(employee_id):
+                return item
+        return None
 
 
 # ----- normalization & extraction helpers -------------------------------------
@@ -619,6 +852,71 @@ def _extract_rename_target(source_text: str) -> str | None:
             if candidate and _normalize(candidate) not in _NAME_STOPWORDS:
                 return candidate
     return None
+
+
+def _employee_label(item: dict[str, Any]) -> str:
+    full = str(item.get("fullName") or item.get("nomComplet") or "").strip()
+    if full:
+        return full
+    first = str(item.get("prenom") or item.get("firstName") or "").strip()
+    last = str(item.get("nom") or item.get("lastName") or "").strip()
+    return " ".join(part for part in (first, last) if part).strip() or str(item.get("email") or item.get("id") or "employe")
+
+
+def _extract_person_name(source_text: str) -> str | None:
+    text = source_text or ""
+    patterns = (
+        r"\b(?:affecte|affecter|affecti|assign|hot|mets|put)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,2})",
+        r"\b(?:employe|employee|manager|responsable)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ][\wÀ-ÿ'-]+){0,2})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            candidate = _trim_assignment_name(match.group(1))
+            if candidate and not candidate.isdigit():
+                return candidate
+    return None
+
+
+def _extract_team_phrase(source_text: str) -> str | None:
+    text = source_text or ""
+    for marker in (" lel ", " l ", " a ", " à ", " dans ", " fi ", " to ", " into ", " vers "):
+        if marker in f" {text.lower()} ":
+            tail = f" {text} ".rsplit(marker, 1)[1].strip()
+            token = tail.split()[0] if tail else ""
+            if token and not token.isdigit():
+                return token.strip(" ,.;:")
+    match = re.search(r"\b(?:equipe|team)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ'-]{1,80})", text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip(" ,.;:")
+    return None
+
+
+def _trim_assignment_name(value: str) -> str:
+    stop = {"employe", "employee", "manager", "equipe", "team", "a", "à", "to", "lel", "dans", "fi"}
+    tokens: list[str] = []
+    for token in (value or "").split():
+        lowered = _normalize(token).strip(" ,.;:")
+        if lowered in stop or lowered.isdigit():
+            if tokens:
+                break
+            continue
+        tokens.append(token.strip(" ,.;:"))
+    return " ".join(tokens)
+
+
+def _filter_named_items(items: list[Any], query: str, *, keys: tuple[str, ...]) -> list[dict[str, Any]]:
+    needle = _normalize(query)
+    if not needle:
+        return [item for item in items if isinstance(item, dict)]
+    matches: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        haystack = _normalize(" ".join(str(item.get(key) or "") for key in keys))
+        if needle in haystack or haystack.startswith(needle):
+            matches.append(item)
+    return matches
 
 
 def _metadata_hybrid_intent(context: CurrentUserContext | None) -> str | None:

@@ -47,6 +47,10 @@ class ScheduleAssignInput(BaseModel):
         return text
 
 
+class ScheduleDefaultInput(BaseModel):
+    email: str | None = None
+
+
 class ScheduleTools:
     def __init__(self, backend_client: BackendClient) -> None:
         self.backend_client = backend_client
@@ -66,6 +70,19 @@ class ScheduleTools:
         )
         registry.register(
             ToolDefinition(
+                name="schedule.create",
+                description="Cree un modele horaire RH/admin depuis le backend horaires verifie.",
+                input_model=ScheduleCreateInput,
+                type="write",
+                allowed_roles={"RH", "ADMIN"},
+                requires_confirmation=True,
+                idempotency_required=True,
+                tenant_scoped=True,
+            ),
+            self.create_schedule_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="rh.schedule.create",
                 description="Cree un modele horaire RH/admin depuis le backend horaires verifie.",
                 input_model=ScheduleCreateInput,
@@ -79,6 +96,19 @@ class ScheduleTools:
         )
         registry.register(
             ToolDefinition(
+                name="schedule.assign",
+                description="Affecte un horaire a un employe, une equipe ou l'entreprise.",
+                input_model=ScheduleAssignInput,
+                type="write",
+                allowed_roles={"RH", "ADMIN"},
+                requires_confirmation=True,
+                idempotency_required=True,
+                tenant_scoped=True,
+            ),
+            self.assign_schedule_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="rh.schedule.assign",
                 description="Affecte un horaire a un employe, une equipe ou l'entreprise.",
                 input_model=ScheduleAssignInput,
@@ -89,6 +119,18 @@ class ScheduleTools:
                 tenant_scoped=True,
             ),
             self.assign_schedule,
+        )
+        registry.register(
+            ToolDefinition(
+                name="schedule.default",
+                description="Retourne l'horaire resolu pour l'utilisateur courant ou l'email fourni.",
+                input_model=ScheduleDefaultInput,
+                type="read",
+                allowed_roles={"RH", "ADMIN"},
+                requires_confirmation=False,
+                tenant_scoped=True,
+            ),
+            self.get_default_schedule,
         )
 
     async def list_schedules(self, payload: ScheduleListInput, context: CurrentUserContext) -> ToolResult:
@@ -118,6 +160,10 @@ class ScheduleTools:
             status_code=result.status_code,
         )
 
+    async def create_schedule_alias(self, payload: ScheduleCreateInput, context: CurrentUserContext) -> ToolResult:
+        result = await self.create_schedule(payload, context)
+        return _rename_write_tool(result, "schedule.create")
+
     async def create_schedule(self, payload: ScheduleCreateInput, context: CurrentUserContext) -> ToolResult:
         body = {
             "nom": payload.nom or _default_schedule_name(payload.heures_hebdo),
@@ -138,6 +184,10 @@ class ScheduleTools:
             f"Horaire '{body['nom']}' cree.",
         )
 
+    async def assign_schedule_alias(self, payload: ScheduleAssignInput, context: CurrentUserContext) -> ToolResult:
+        result = await self.assign_schedule(payload, context)
+        return _rename_write_tool(result, "schedule.assign")
+
     async def assign_schedule(self, payload: ScheduleAssignInput, context: CurrentUserContext) -> ToolResult:
         body = {
             "horaireId": payload.horaire_id,
@@ -156,6 +206,29 @@ class ScheduleTools:
             "rh.schedule.assign",
             result,
             f"Horaire {payload.horaire_id} affecte a {payload.cible_type} {payload.cible_id}.",
+        )
+
+    async def get_default_schedule(self, payload: ScheduleDefaultInput, context: CurrentUserContext) -> ToolResult:
+        params = {"email": payload.email} if payload.email else None
+        result = await self.backend_client.get("/horaires/resolve", context=context, params=params)
+        if not result.success:
+            return result
+        item = result.data if isinstance(result.data, dict) else {"value": result.data}
+        summary = "Horaire par defaut resolu depuis le backend."
+        return ToolResult.ok(
+            {
+                "read_result": build_read_result(
+                    tool_name="schedule.default",
+                    summary=summary,
+                    items=[item] if item else [],
+                    data=item,
+                    count=1 if item else 0,
+                    empty=not bool(item),
+                    backend_status=result.status_code,
+                )
+            },
+            warnings=result.warnings,
+            status_code=result.status_code,
         )
 
 
@@ -240,3 +313,32 @@ def _default_schedule_name(hours: float | None) -> str:
     if hours is not None:
         return f"Horaire {hours:g}h"
     return "Horaire WeenTime"
+
+
+def _rename_write_tool(result: ToolResult, tool_name: str) -> ToolResult:
+    if not isinstance(result.data, dict):
+        return result
+    write_result = result.data.get("write_result")
+    if isinstance(write_result, dict):
+        cloned = dict(write_result)
+        cloned["toolName"] = tool_name
+        return ToolResult(
+            success=result.success,
+            data={"write_result": cloned},
+            warnings=result.warnings,
+            error_code=result.error_code,
+            error_message=result.error_message,
+            status_code=result.status_code,
+        )
+    if result.data.get("kind") == "write_result":
+        cloned = dict(result.data)
+        cloned["toolName"] = tool_name
+        return ToolResult(
+            success=result.success,
+            data=cloned,
+            warnings=result.warnings,
+            error_code=result.error_code,
+            error_message=result.error_message,
+            status_code=result.status_code,
+        )
+    return result

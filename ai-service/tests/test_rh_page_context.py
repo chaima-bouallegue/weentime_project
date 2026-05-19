@@ -33,7 +33,7 @@ def test_rh_department_page_prioritizes_department_create_not_attendance() -> No
 def test_rh_team_page_prioritizes_team_create() -> None:
     response, ctx, _ = asyncio.run(_send("creer equipe IA", page="/app/rh/structure/equipes"))
 
-    assert response.intent == "organisation.create_team"
+    assert response.intent == "rh.structure.team.create"
     assert response.type == "ask"
     assert ctx.metadata["selected_agent"] == "organisation"
 

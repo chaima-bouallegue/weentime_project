@@ -1,105 +1,262 @@
-﻿# RH-HYBRID-AGENT-02 Write Tools Report
+# RH Hybrid Agent 02 Write Tools Report
 
-## MCP tools used
+Date: 2026-05-19
+Task: RH-HYBRID-AGENT-02
 
-- filesystem MCP: used to read the required reports and inspect active RH agent/tool files.
-- postgres MCP: not used; endpoint payloads were verified from backend controller/request DTO source files and the existing backend map.
-- playwright MCP: not used; no authenticated RH browser session was available for reliable page validation.
+## MCP Tools Used
 
-## Files changed
+- filesystem MCP: read project reports and wrote the required reports.
+- postgres MCP: not used; schema verification was not required after Spring controller/tool inspection.
+- playwright MCP: not used; no authenticated RH browser session was available in this run.
+- docker/redis MCP: not used.
 
-- `ai-service/app/tools/organisation_structure_tools.py`
-- `ai-service/app/tools/schedule_tools.py`
-- `ai-service/app/agents/organisation_agent.py`
-- `ai-service/app/agents/rh_agent.py`
-- `ai-service/app/agents/routing_priority.py`
-- `ai-service/tests/chatbot_test_helpers.py`
-- `ai-service/tests/test_rh_write_tools.py`
-- `RH_HYBRID_AGENT_02_WRITE_TOOLS_REPORT.md`
+## Screenshots Analyzed
 
-## Backend endpoints/tools verified
+No screenshot files were present in the workspace. I used the screenshot-derived failures listed in the task prompt as the regression targets:
 
-- Departments: `/api/v1/organisations/departements`, including `POST`, `PATCH`, `PUT`, and `DELETE`; request payload uses `nom`, `description`, `codeInterne`, and `entrepriseId`.
-- Teams: `/api/v1/organisations/equipes`, including `POST`, `PATCH`, `PUT`, and read endpoints; request payload uses `nom`, `description`, `responsableId`, `effectifMaximum`, `estActive`, and `departementId`.
-- Employee/team assignment: no dedicated assign endpoint was verified; the safe path is read-merge-write through `/api/v1/organisations/users/{id}` with required user fields preserved and `equipeId` updated.
-- Manager/team assignment: no dedicated assign endpoint was verified; the safe path is read-merge-write through `/api/v1/organisations/equipes/{id}` with required team fields preserved and `responsableId` updated.
-- Schedules: `/api/v1/horaires` supports `POST`; `/api/v1/horaires/assign` supports schedule assignment using `horaireId`, `cibleType`, `cibleId`, `dateDebut`, `dateFin`, and `motif`.
-- Attendance manual fix: no verified backend correction endpoint was found, so `rh.attendance.manual_fix` remains capability-unavailable/clarification-only.
-- Documents: existing `document.rh_generate` remains the verified document generation tool and is reused for RH document generation confirmations.
+- Affecter employe equipe returned unavailable.
+- Generi attestation Amin fell into unsafe fallback after follow-up.
+- Valide teletravaille du Amin returned fallback.guard_rejected.
+- Arabic سجل الحضور returned a generic summary instead of pointage.
+- aamel equipe ai asked for a department name instead of team context.
+- RH Agent could not complete real structure/RH writes through tools.
 
-## Modern write tools connected
+## Backend Tool Gaps
 
-- `rh.structure.department.update`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It reads the current department, merges the requested update, then PATCHes the backend.
-- `rh.structure.department.delete`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It DELETEs the verified backend endpoint after confirmation.
-- `rh.structure.team.create`: registered as a ToolRegistry write alias for RH/ADMIN, confirmation required. It uses the existing verified team creation payload.
-- `rh.structure.employee.assign_team`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It reads the user first, preserves required backend fields, and PATCHes the team assignment.
-- `rh.structure.manager.assign_team`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It reads the team first, preserves required backend fields, and PATCHes `responsableId`.
-- `rh.schedule.create`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It posts to `/horaires`.
-- `rh.schedule.assign`: registered as a ToolRegistry write tool, RH/ADMIN only, confirmation required. It posts to `/horaires/assign`.
-- `rh.document.generate`: uses existing `document.rh_generate`; no duplicate tool was created.
+See `RH_BACKEND_TOOL_GAP_REPORT.md` for the detailed classification. Summary:
 
-## Agent wiring
+- IMPLEMENTED_TOOL: organisation structure reads/writes, employee/team assignment, schedules, self attendance, RH company attendance reads, leave/telework/authorization pending and decisions, document workload/generation/reject, RH dashboard/stats/analytics, communication reads/send.
+- VERIFIED_ENDPOINT_NO_TOOL: multipart document upload, dedicated employee/manager update tools.
+- BACKEND_MISSING: RH attendance manual correction and attendance sync.
+- NEEDS_PAYLOAD_CONFIRMATION: expanded user/manager creation contracts if backend requires additional fields beyond the currently verified payload.
 
-- `OrganisationAgent` now consumes RH hybrid intents for department update/delete, team create, employee team assignment, and manager team assignment.
-- Existing `organisation.create_department` behavior was preserved for older tests/contracts, while RH aliases are registered for ToolRegistry compatibility.
-- `RHAgent` now prepares confirmations for schedule create and schedule assign when enough slots are present, and asks for missing schedule details otherwise.
-- `routing_priority.py` routes employee/manager assignment RH intents to `OrganisationAgent`, not the generic RH fallback.
-- `chatbot_test_helpers.py` now provides fake backend reads for departments, teams, and users so write tools can test read-merge-write behavior without fake success claims.
+## Tools Added Or Connected
 
-## Confirmation and authority guarantees
+Structure:
 
-- All new RH write tools are registered as `type="write"` and `requires_confirmation=True`.
-- Agent responses create pending confirmations only; backend mutations are not executed during initial chat routing.
-- Success summaries are emitted only from ToolRegistry execution after the backend returns success.
-- Backend failures return structured write-result failures with clean user-facing messages.
-- No raw SQL was introduced.
-- No fake departments, teams, schedules, users, or document success messages are produced by the agent.
+- organisation.list_departments
+- organisation.create_department
+- organisation.update_department
+- organisation.delete_department
+- organisation.list_teams
+- organisation.create_team
+- organisation.update_team
+- organisation.delete_team
+- organisation.team_members
+- organisation.assign_employee_team
+- organisation.assign_manager_team
+- organisation.search_employee
+- organisation.list_employees
+- organisation.create_employee
+- organisation.create_manager
+- organisation.activate_employee
+- organisation.deactivate_employee
+- RH aliases: rh.structure.department.*, rh.structure.team.*, rh.structure.employee.*, rh.structure.manager.*
 
-## Capability-unavailable behavior
+Schedules:
 
-- `rh.attendance.manual_fix` remains unavailable/clarification-only because no verified backend correction endpoint was found.
-- Dedicated assignment endpoints were not invented; assignment uses verified update endpoints with prior reads to preserve required backend fields.
-- Document generation remains delegated to the existing verified `document.rh_generate` tool.
+- schedule.list / rh.schedule.list
+- schedule.create / rh.schedule.create
+- schedule.assign / rh.schedule.assign
+- schedule.default
 
-## Tests added/updated
+Attendance:
 
-- Added `tests/test_rh_write_tools.py` covering:
-  - create team asks for missing department.
-  - create team returns confirmation when department is present.
-  - schedule list remains read-only and still works.
-  - schedule create returns confirmation.
-  - schedule assign returns confirmation.
-  - department delete returns confirmation.
-  - document generation uses existing `document.rh_generate` confirmation.
-  - employee team assignment returns confirmation.
-  - manager team assignment returns confirmation.
-  - backend errors return clean failures without fake "Action approved" text.
-- Updated fake backend helpers for verified organisation read endpoints used by write tools.
+- attendance.self.status / attendance.status
+- attendance.self.check_in / attendance.check_in
+- attendance.self.check_out / attendance.check_out
+- rh.attendance.today
+- rh.attendance.missing
+- rh.attendance.absent
+- rh.attendance.late
 
-## Validation results
+Decision tools:
 
-- `python -c "import main; print('ok')"`: passed. Existing optional-router warning for missing `app.api.document_generation` remains unchanged.
-- `python -m pytest tests/test_rh_write_tools.py tests/test_rh_hybrid_router.py tests/test_rh_tool_authority.py -v`: passed, 18 tests.
-- `python -m pytest tests/test_chat_v2.py tests/test_response_guard_chatbot_outputs.py -v`: passed, 21 tests, with existing `audioop` deprecation warning.
+- rh.leave.pending
+- rh.leave.approve
+- rh.leave.reject
+- rh.telework.pending
+- rh.telework.approve
+- rh.telework.reject
+- rh.authorization.pending
+- rh.authorization.approve
+- rh.authorization.reject
 
-## Remaining limitations
+Documents:
 
-- No authenticated RH Playwright session was available, so browser validation was not performed.
-- `rh.attendance.manual_fix` is still not connected because no safe backend correction endpoint was verified.
-- Employee/team and manager/team assignments rely on backend update endpoints rather than dedicated assignment endpoints.
-- Department update currently needs a numeric department ID for safe execution.
+- rh.document.workload / document.rh_workload
+- rh.document.generate
+- rh.document.reject
+- rh.document.urgent
 
-## Exact files staged
+Analytics:
 
-- `RH_HYBRID_AGENT_02_WRITE_TOOLS_REPORT.md`
-- `ai-service/app/agents/organisation_agent.py`
-- `ai-service/app/agents/rh_agent.py`
-- `ai-service/app/agents/routing_priority.py`
-- `ai-service/app/tools/organisation_structure_tools.py`
-- `ai-service/app/tools/schedule_tools.py`
-- `ai-service/tests/chatbot_test_helpers.py`
-- `ai-service/tests/test_rh_write_tools.py`
+- rh.dashboard
+- rh.stats
+- rh.analytics
 
-## Commit hash
+## Endpoints Connected
 
-- Pending before commit. The final commit hash is recorded in the task final response because a commit cannot contain its own hash without a follow-up amend.
+- Organisation: /structure/departments, /structure/teams, /structure/teams/{id}/members, /structure/employees, /structure/managers, /organisations/departements, /organisations/equipes, /organisations/users.
+- Presence: /presence/me/today, /presence/check-in, /presence/check-out, /presence/company/today, /presence/team/today, /presence/global/analytics.
+- Leave: /rh/conges/rh/pending, /rh/conges/{id}/valider-rh, /rh/conges/{id}/refuser-rh.
+- Telework: /rh/teletravail/en-attente-rh, /rh/teletravail/{id}/valider-rh, /rh/teletravail/{id}/rejeter-rh.
+- Authorization: /rh/autorisations/rh/history, /rh/autorisations/{id}/rh/validate, /rh/autorisations/{id}/reject.
+- Documents: /documents/rh/demandes, /documents/rh/generate-ai, /documents/{id}/refuser.
+- Schedules: /horaires, /horaires/assign, /horaires/resolve.
+- RH dashboard/stats: /rh/dashboard, /rh/stats, /rh/stats/evolution-mensuelle, /rh/stats/demandes-par-type.
+- Communication: /communication/channels, /communication/channels/{channelId}/messages.
+
+## Unsupported Endpoints
+
+- RH pointage manual correction: no verified write endpoint.
+- RH pointage sync: no verified write endpoint.
+- Document upload: endpoint exists but multipart safe tool is not exposed yet.
+- Dedicated employee/manager update: backend endpoint exists, but no separate AI tool was added beyond activation/deactivation and assignment flows.
+
+## RH Write Confirmation Flow
+
+All write actions remain confirmation-gated. The agent now:
+
+- extracts intent/entities deterministically before LLM phrasing,
+- asks short slot questions when employee/team/department/date/request type is missing,
+- creates a confirmation card when slots are complete,
+- executes ToolRegistry only after confirmation,
+- reports success only from backend ToolResult success,
+- returns clean no_data/capability_unavailable/error cards for no matches, missing endpoints, or backend failures.
+
+## RH Self Pointage Behavior
+
+- Arabic سجل الحضور routes to attendance.self.check_in.
+- The attendance agent reads attendance.status first.
+- If no entry exists, check-in returns a confirmation card.
+- If checkout is requested without an entry, it returns no_data: no checkout confirmation is created.
+- Existing checked-in/checked-out state is explained without fake status.
+
+## Assign Employee/Team Behavior
+
+- Generic Affecter employe equipe now asks for missing employee and team slots instead of unavailable.
+- Tunisian/French affecti Amin lel frontend searches the real employee/team tools and prepares a confirmation when one match is found.
+- Ambiguous employees or teams produce a choose-list from backend search results.
+- The backend assignment writes by updating the verified user/team resource and never claims success before ToolResult success.
+
+## Document Generation Flow
+
+- generi/generer/creer attestation routes to rh.document.generate.
+- Employee names are resolved through organisation.search_employee.
+- Partial names like Amin produce a backend-backed disambiguation prompt when multiple matches exist.
+- Follow-up Amin Dupont continues the pending document generation flow instead of falling into unsafe fallback.
+- Exact matches produce a confirmation card for rh.document.generate.
+
+## Approve/Refuse By Name And Date
+
+Supported for leave, telework, and authorization in FR/TN/AR/EN:
+
+- request type is detected first,
+- employee name is extracted,
+- optional date is extracted,
+- pending/list tool is called,
+- results are filtered by employee, date, and pending status,
+- zero matches return no_data,
+- one match creates confirmation,
+- multiple matches ask the user to choose,
+- confirmation executes the backend decision tool.
+
+## Multilingual Support
+
+Added or verified deterministic handling for:
+
+- TN: aamel, zid, warini, affecti, hot, na9el, chkoun, fil, 9bel, orfodh, talab, lyoum, sa7a7, pointach, teletravaille/teletravail/remote, equipe/team, departement, horaire, attestation.
+- Arabic: انشئ/أنشئ, اضف/أضف, اعرض, احذف, عين/عيّن, انقل, وافق, ارفض, صحح/صحّح, سجل الحضور, سجل الخروج.
+- FR/EN: create/list/update/delete/assign/approve/reject/check-in/check-out/schedule/document variants.
+
+Responses keep a professional French/Tunisian-friendly style for mixed TN/FR prompts.
+
+## No Fake Data Guarantees
+
+- Live employee/team/department/request/document/presence data comes from ToolRegistry backend calls only.
+- RAG/Chroma remains restricted to policy/FAQ/rules with citations and is not used for live RH facts.
+- Ollama/LLM is not allowed to execute actions or invent employees/counts/statuses.
+- ResponseGuard remains active; no success message is returned without backend success.
+- Tests cover backend error, missing endpoint, confirmation-only writes, and fake-output rejection.
+
+## Tests Added Or Updated
+
+Added:
+
+- ai-service/tests/test_rh_assignment_tools.py
+- ai-service/tests/test_rh_decision_resolution.py
+- ai-service/tests/test_rh_document_generation_flow.py
+- ai-service/tests/test_rh_self_attendance.py
+- ai-service/tests/test_rh_slot_filling_flows.py
+
+Updated:
+
+- ai-service/tests/test_rh_write_tools.py
+- ai-service/tests/test_rh_page_context.py
+- ai-service/tests/test_rh_agent_chatbot.py
+- ai-service/tests/chatbot_test_helpers.py
+
+## Validation Results
+
+AI service:
+
+- `python -c "import main; print('ok')"`: passed. Existing optional router warning: app.api.document_generation is unavailable.
+- `python -m pytest tests/test_rh_write_tools.py tests/test_rh_assignment_tools.py tests/test_rh_decision_resolution.py tests/test_rh_document_generation_flow.py tests/test_rh_self_attendance.py tests/test_rh_page_context.py tests/test_rh_multilingual_intents.py tests/test_rh_tool_authority.py tests/test_rh_slot_filling_flows.py -v`: 69 passed.
+- `python -m pytest tests/test_rh_agent_chatbot.py tests/test_chat_v2.py tests/test_voice_v2.py tests/test_response_guard_chatbot_outputs.py -v`: 53 passed, 1 deprecation warning from audioop/pytest-asyncio config.
+
+Frontend:
+
+- `npx tsc --noEmit -p tsconfig.app.json`: passed after rerun outside sandbox due Node EPERM lstat sandbox error.
+- `npm run build`: passed after rerun outside sandbox due Node EPERM lstat sandbox error. Build warnings are existing bundle/CommonJS/budget warnings.
+
+## Playwright Results
+
+Not run. No authenticated RH browser session was available in the current environment. The covered scenarios are validated through deterministic chatbot/unit tests.
+
+## Remaining Limitations
+
+- RH manual attendance correction and sync remain unavailable until backend endpoints are added.
+- Document upload through the agent is not exposed until a multipart ToolRegistry contract is added.
+- Dedicated employee/manager update-by-field tools remain future work; activation/deactivation, creation, and assignments are connected.
+- The report cannot include the exact hash of the same commit that contains it, because that would be self-referential. The exact commit hash is reported in the final task response after commit.
+
+## Exact Staged Files
+
+Intended staged files for this task:
+
+- RH_BACKEND_TOOL_GAP_REPORT.md
+- RH_HYBRID_AGENT_02_WRITE_TOOLS_REPORT.md
+- ai-service/app/agents/attendance_agent.py
+- ai-service/app/agents/hybrid_intent_router.py
+- ai-service/app/agents/organisation_agent.py
+- ai-service/app/agents/rh_agent.py
+- ai-service/app/agents/routing_priority.py
+- ai-service/app/core/slot_filling.py
+- ai-service/app/tools/attendance_tools.py
+- ai-service/app/tools/authorization_tools.py
+- ai-service/app/tools/document_tools.py
+- ai-service/app/tools/leave_tools.py
+- ai-service/app/tools/organisation_structure_tools.py
+- ai-service/app/tools/rh_tools.py
+- ai-service/app/tools/schedule_tools.py
+- ai-service/app/tools/telework_tools.py
+- ai-service/app/workflows/workflow_steps.py
+- ai-service/tests/chatbot_test_helpers.py
+- ai-service/tests/test_rh_agent_chatbot.py
+- ai-service/tests/test_rh_assignment_tools.py
+- ai-service/tests/test_rh_decision_resolution.py
+- ai-service/tests/test_rh_document_generation_flow.py
+- ai-service/tests/test_rh_page_context.py
+- ai-service/tests/test_rh_self_attendance.py
+- ai-service/tests/test_rh_slot_filling_flows.py
+- ai-service/tests/test_rh_write_tools.py
+
+Excluded from staging:
+
+- ai-service.zip
+- ai-service/WEENTIME_FULL_AUDIT_REPORT.md
+
+## Commit Hash
+
+Generated after this report is committed; see final task response for the exact hash.
