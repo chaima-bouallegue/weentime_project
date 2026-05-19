@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes.anomaly_routes import router as anomaly_router
 from app.api.v1.routes.health_routes import router as health_router
+from app.approval_ai.routes.approval_routes import router as approval_router
 from app.core.config import get_settings
 from app.inference.anomaly_detector import get_detector
 
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router, prefix="/api/ml")
     app.include_router(anomaly_router)
+    app.include_router(approval_router)
 
     @app.get("/")
     async def root() -> dict[str, str]:
