@@ -14,7 +14,7 @@ from typing import Any, Iterable
 
 from app.core.config import get_settings  # noqa: F401 -- used by helpers below
 from app.features.attendance_features import AttendanceRecord, FeatureEngineer
-from app.inference.backend_client import WeenTimeBackendClient
+from app.inference.backend_client import WeenTimeBackendClient, decode_jwt_roles, select_scope
 from app.models.isolation_forest_model import AttendanceAnomalyModel
 from app.schemas.anomaly_schemas import (
     AnomalyDashboardResponse,
@@ -218,29 +218,58 @@ class AnomalyDetector:
 
     # -- backend bridge ---------------------------------------------------
 
+    async def _fetch_scope(
+        self,
+        endpoint: str,
+        mint_role: str,
+        token: str | None,
+        user_id: int,
+        tenant_id: int | None,
+    ) -> tuple[list[AttendanceRecord], bool]:
+        payload = await self.backend.get(
+            endpoint,
+            token=token,
+            user_id=user_id,
+            role=mint_role,
+            tenant_id=tenant_id,
+        )
+        backend_ok = bool(payload) and payload.get("success") is not False and "error" not in payload
+        records = _team_status_to_records(payload, today=date.today())
+        return records, backend_ok
+
     async def fetch_today_company(
         self,
         token: str | None,
         user_id: int,
         tenant_id: int | None,
     ) -> tuple[list[AttendanceRecord], bool]:
-        """Pull today's company-wide presence.
+        """Company-wide presence (RH/ADMIN scope) via /presence/company/today."""
+        return await self._fetch_scope("presence/company/today", "RH", token, user_id, tenant_id)
 
-        Returns ``(records, backend_ok)``. ``backend_ok`` is True when the
-        Spring backend responded with a 2xx envelope (even if empty) -- this
-        lets the route layer decide whether to fall back to synthetic demo
-        data when the real backend can't be reached.
+    async def fetch_today_team(
+        self,
+        token: str | None,
+        user_id: int,
+        tenant_id: int | None,
+    ) -> tuple[list[AttendanceRecord], bool]:
+        """Manager team presence (MANAGER scope) via /presence/team/today."""
+        return await self._fetch_scope("presence/team/today", "MANAGER", token, user_id, tenant_id)
+
+    async def fetch_today_for_role(
+        self,
+        token: str | None,
+        user_id: int,
+        tenant_id: int | None,
+    ) -> tuple[list[AttendanceRecord], bool, str]:
+        """Choose the Spring endpoint from the caller's JWT role.
+
+        MANAGER -> /presence/team/today; RH/ADMIN (or unknown) -> /company/today.
+        Returns ``(records, backend_ok, scope)`` so the route can log/branch.
         """
-        payload = await self.backend.get(
-            "presence/company/today",
-            token=token,
-            user_id=user_id,
-            role="RH",
-            tenant_id=tenant_id,
-        )
-        backend_ok = bool(payload) and payload.get("success") is not False and "error" not in payload
-        records = _team_status_to_records(payload, today=date.today())
-        return records, backend_ok
+        scope, endpoint, mint_role = select_scope(decode_jwt_roles(token))
+        logger.info("fetching attendance scope=%s endpoint=%s", scope, endpoint)
+        records, backend_ok = await self._fetch_scope(endpoint, mint_role, token, user_id, tenant_id)
+        return records, backend_ok, scope
 
     def synthetic_demo_dashboard(self, limit: int = 8) -> AnomalyDashboardResponse:
         """Produce a populated dashboard from the synthetic parquet.
@@ -417,16 +446,32 @@ def _load_synthetic_anomaly_records(limit: int = 8) -> list[AttendanceRecord]:
         if df.empty:
             return []
         df = df.head(limit)
+
+        def _safe_int(value: Any) -> int | None:
+            # pandas reads missing numeric cells as float NaN, which is not None
+            # and is truthy -- int(NaN) raises. Guard with pd.isna.
+            if value is None or pd.isna(value):
+                return None
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+
         records: list[AttendanceRecord] = []
         for _, row in df.iterrows():
             check_in = _parse_iso_dt(row.get("check_in"))
             check_out = _parse_iso_dt(row.get("check_out"))
             row_date_raw = row.get("date")
             try:
-                row_date = date.fromisoformat(str(row_date_raw)[:10]) if row_date_raw else date.today()
+                row_date = (
+                    date.fromisoformat(str(row_date_raw)[:10])
+                    if row_date_raw is not None and not pd.isna(row_date_raw)
+                    else date.today()
+                )
             except ValueError:
                 row_date = date.today()
-            employee_id = int(row.get("employee_id", 0) or 0)
+            employee_id = _safe_int(row.get("employee_id")) or 0
+            late_raw = row.get("late_arrival")
             records.append(
                 AttendanceRecord(
                     employee_id=employee_id,
@@ -434,11 +479,9 @@ def _load_synthetic_anomaly_records(limit: int = 8) -> list[AttendanceRecord]:
                     date=row_date,
                     check_in=check_in,
                     check_out=check_out,
-                    duration_seconds=(
-                        int(row["duration_seconds"]) if row.get("duration_seconds") is not None else None
-                    ),
+                    duration_seconds=_safe_int(row.get("duration_seconds")),
                     daily_status=str(row.get("daily_status") or "WORKING") or None,
-                    late_arrival=bool(row.get("late_arrival")) if row.get("late_arrival") is not None else None,
+                    late_arrival=(None if late_raw is None or pd.isna(late_raw) else bool(late_raw)),
                     source=str(row.get("source") or "") or None,
                     localisation=str(row.get("localisation") or "") or None,
                 )

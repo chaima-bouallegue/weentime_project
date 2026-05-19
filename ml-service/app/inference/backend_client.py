@@ -25,6 +25,57 @@ def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def decode_jwt_roles(token: str | None) -> list[str]:
+    """Read role claims from a JWT WITHOUT verifying the signature.
+
+    We only need the role to pick the right Spring endpoint -- Spring itself
+    validates the token. Tolerates both ``roles: [...]``, ``role: "..."`` and
+    a Spring-style ``authorities`` claim. Returns upper-cased role strings.
+    """
+    if not token:
+        return []
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return []
+        payload_b = parts[1]
+        padding = "=" * (-len(payload_b) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload_b + padding))
+    except Exception:  # malformed token -> no roles, caller falls back to default
+        return []
+
+    roles: list[str] = []
+    raw_roles = claims.get("roles")
+    if isinstance(raw_roles, list):
+        roles.extend(str(r) for r in raw_roles)
+    elif isinstance(raw_roles, str):
+        roles.append(raw_roles)
+    single = claims.get("role")
+    if isinstance(single, str):
+        roles.append(single)
+    authorities = claims.get("authorities")
+    if isinstance(authorities, list):
+        roles.extend(str(a) for a in authorities)
+    return [r.strip().upper() for r in roles if r and str(r).strip()]
+
+
+def select_scope(roles: list[str]) -> tuple[str, str, str]:
+    """Map caller roles to (scope, spring_endpoint, mint_role).
+
+    RH/ADMIN see the whole company; a plain MANAGER sees only their team.
+    RH/ADMIN takes precedence when a user holds several roles. Unknown/empty
+    roles default to the company scope (the historical behaviour).
+    """
+    rh_like = {"ROLE_RH", "RH", "ROLE_ADMIN", "ADMIN"}
+    manager_like = {"ROLE_MANAGER", "MANAGER"}
+    role_set = set(roles)
+    if role_set & rh_like:
+        return "COMPANY", "presence/company/today", "RH"
+    if role_set & manager_like:
+        return "TEAM", "presence/team/today", "MANAGER"
+    return "COMPANY", "presence/company/today", "RH"
+
+
 def _normalize_role(role: str) -> str:
     """Spring AuthTokenFilter wraps roles claims directly into
     ``SimpleGrantedAuthority`` -- no ROLE_ prefix is added by the filter.
