@@ -38,11 +38,12 @@ import {
   AdminPage
 } from '../admin-api.service';
 import {
-  AnomalyDashboardResponse,
   AnomalyRecord,
   MlAnomalyService,
 } from '../../../core/services/ml-anomaly.service';
 import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
+import { AiEmptyStateComponent } from '../../../shared/components/ai-empty-state/ai-empty-state.component';
+import { AiSkeletonCardComponent } from '../../../shared/components/ai-skeleton-card/ai-skeleton-card.component';
 
 interface RecentCompanyVm {
   id: number;
@@ -79,7 +80,14 @@ interface HealthItem {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule, AnomalyAlertCardComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    LucideAngularModule,
+    AnomalyAlertCardComponent,
+    AiEmptyStateComponent,
+    AiSkeletonCardComponent,
+  ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -88,20 +96,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(AdminApiService);
   private readonly mlAnomaly = inject(MlAnomalyService);
 
-  private readonly _anomalyData = signal<AnomalyDashboardResponse | null>(null);
-  readonly anomalyLoading = signal(true);
-  readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
-  readonly anomalyTotals = computed(() => {
-    const d = this._anomalyData();
-    const anomalies = d?.anomalies ?? [];
-    if (anomalies.length === 0) {
-      return { total: 0, critical: 0, high: 0, medium: 0 };
-    }
+  /** Global SOC anomaly feed for the admin role. */
+  readonly globalAnomalies = signal<AnomalyRecord[]>([]);
+  readonly globalLoading = signal(true);
+  readonly globalError = signal(false);
+  readonly globalStats = computed(() => {
+    const list = this.globalAnomalies();
     return {
-      total: d?.totalAnomalies ?? anomalies.length,
-      critical: d?.critical ?? 0,
-      high: d?.high ?? 0,
-      medium: d?.medium ?? 0,
+      total: list.length,
+      critical: list.filter(a => a.risk === 'CRITICAL').length,
+      high: list.filter(a => a.risk === 'HIGH').length,
+      medium: list.filter(a => a.risk === 'MEDIUM').length,
     };
   });
 
@@ -262,15 +267,28 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     clearInterval(this.clockRef);
   }
 
-  private loadAnomalies(): void {
-    this.anomalyLoading.set(true);
+  loadGlobalAnomalies(): void {
+    this.globalLoading.set(true);
+    this.globalError.set(false);
     this.mlAnomaly.getDashboardSummary().subscribe({
-      next: (data) => {
-        this._anomalyData.set(data);
-        this.anomalyLoading.set(false);
+      next: (response) => {
+        const list = (response.anomalies || [])
+          .filter(a => !!a)
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .slice(0, 8);
+        this.globalAnomalies.set(list);
+        this.globalError.set(!response.success);
+        this.globalLoading.set(false);
       },
-      error: () => this.anomalyLoading.set(false),
+      error: () => {
+        this.globalError.set(true);
+        this.globalLoading.set(false);
+      },
     });
+  }
+
+  private loadAnomalies(): void {
+    this.loadGlobalAnomalies();
   }
 
   /* ── data loading ──────────────────────────────────── */

@@ -1,56 +1,42 @@
-<article class="anomaly-card" [class.anomaly-card--loading]="loading">
-  <header class="anomaly-card__head">
-    <div class="anomaly-card__title">
-      <span class="anomaly-card__pulse" aria-hidden="true"></span>
-      <div>
-        <h3>{{ title }}</h3>
-        <p class="anomaly-card__subtitle">{{ subtitle }}</p>
-      </div>
+<article class="anomaly-card" [class]="cardModifier" [class.anomaly-card--compact]="compact" *ngIf="anomaly">
+
+  <!-- Header : avatar + identity + risk badge -->
+  <header class="anomaly-card__header">
+    <div class="anomaly-card__avatar" aria-hidden="true">{{ getInitials(anomaly.employeeName) }}</div>
+    <div class="anomaly-card__employee">
+      <span class="anomaly-card__name">{{ anomaly.employeeName }}</span>
+      <span class="anomaly-card__date">{{ formattedDate }}</span>
     </div>
-    <div class="anomaly-card__totals" *ngIf="!loading">
-      <ng-container *ngIf="totalAnomalies > 0; else noneBadge">
-        <span class="totals__pill totals__pill--critical" *ngIf="critical > 0">{{ critical }} critique</span>
-        <span class="totals__pill totals__pill--high" *ngIf="high > 0">{{ high }} élevé</span>
-        <span class="totals__pill totals__pill--medium" *ngIf="medium > 0">{{ medium }} modéré</span>
-      </ng-container>
-      <ng-template #noneBadge>
-        <span class="totals__pill totals__pill--neutral">Aucune</span>
-      </ng-template>
-    </div>
+    <app-ai-risk-badge [risk]="anomaly.risk"></app-ai-risk-badge>
   </header>
 
-  <div class="anomaly-card__body">
-    <p class="anomaly-card__skeleton" *ngIf="loading">Analyse des présences en cours…</p>
-
-    <p class="anomaly-card__empty" *ngIf="!loading && (anomalies.length || 0) === 0">{{ emptyMessage }}</p>
-
-    <ul class="anomaly-list" *ngIf="!loading && (anomalies.length || 0) > 0">
-      <li
-        class="anomaly-list__item"
-        *ngFor="let anomaly of visibleAnomalies; trackBy: trackByEmployee"
-        [class]="riskClass(anomaly.risk)"
-      >
-        <div class="anomaly-list__avatar" aria-hidden="true">{{ initials(anomaly.employeeName) }}</div>
-        <div class="anomaly-list__main">
-          <div class="anomaly-list__head">
-            <strong>{{ anomaly.employeeName }}</strong>
-            <span class="anomaly-list__badge">{{ anomaly.risk }}</span>
-          </div>
-          <p class="anomaly-list__reasons">
-            <span *ngFor="let reason of (anomaly.reasons || []).slice(0, 2); let i = index">
-              {{ reason }}<ng-container *ngIf="i < ((anomaly.reasons || []).slice(0, 2).length - 1)"> · </ng-container>
-            </span>
-          </p>
-          <div class="anomaly-list__score" [attr.aria-label]="'Score ' + formatScore(anomaly.score)">
-            <span class="anomaly-list__score-bar" [style.width.%]="(anomaly.score || 0) * 100"></span>
-          </div>
-        </div>
-        <span class="anomaly-list__score-value">{{ formatScore(anomaly.score) }}</span>
-      </li>
-    </ul>
-
-    <p class="anomaly-card__overflow" *ngIf="!loading && overflowCount > 0">
-      +{{ overflowCount }} autre(s) anomalie(s)
-    </p>
+  <!-- Score section -->
+  <div class="anomaly-card__score-section">
+    <div class="anomaly-card__score-row">
+      <span class="anomaly-card__score-label">Score de risque</span>
+      <app-ai-confidence-chip [confidence]="getConfidence(anomaly.score)"></app-ai-confidence-chip>
+    </div>
+    <app-ai-score-bar [score]="anomaly.score"></app-ai-score-bar>
   </div>
+
+  <!-- Reasons -->
+  <ul class="anomaly-card__reasons" *ngIf="(anomaly.reasons?.length || 0) > 0">
+    <li class="anomaly-card__reason" *ngFor="let reason of anomaly.reasons">
+      <span class="anomaly-card__reason-icon" aria-hidden="true">⚠</span>
+      <span>{{ reason }}</span>
+    </li>
+  </ul>
+
+  <!-- Explanation -->
+  <p class="anomaly-card__explanation" *ngIf="anomaly.explanation">
+    {{ anomaly.explanation }}
+  </p>
+
+  <!-- Actions -->
+  <footer class="anomaly-card__actions">
+    <button type="button" class="anomaly-btn anomaly-btn--ghost" (click)="emit('dismiss')">Ignorer</button>
+    <button type="button" class="anomaly-btn anomaly-btn--outline" (click)="emit('contact')">Contacter</button>
+    <button type="button" class="anomaly-btn anomaly-btn--primary" (click)="emit('open')">Voir détails</button>
+  </footer>
+
 </article>

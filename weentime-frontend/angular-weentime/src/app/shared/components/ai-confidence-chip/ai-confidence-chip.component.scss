@@ -1,0 +1,38 @@
+:host {
+  display: inline-flex;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: var(--wt-primary-light);
+  color: var(--wt-primary-dark);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(108, 99, 255, 0.16);
+  line-height: 1;
+}
+
+.chip__brain {
+  display: inline-grid;
+  place-items: center;
+  color: var(--wt-primary);
+  width: 14px;
+  height: 14px;
+}
+
+.chip__label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.65rem;
+  color: var(--wt-primary);
+}
+
+.chip__value {
+  color: var(--wt-text-strong);
+  font-feature-settings: "tnum" 1;
+}

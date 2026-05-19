@@ -177,6 +177,15 @@ export class MlAnomalyService {
     return this.fetchDashboard(`${this.baseUrl}/api/ml/anomalies/today`);
   }
 
+  /**
+   * Manager-scoped team anomalies. The ml-service does not yet expose a
+   * dedicated team endpoint -- /today already returns the company snapshot
+   * which the manager dashboard can filter/slice client-side.
+   */
+  getTeamAnomalies(): Observable<AnomalyDashboardResponse> {
+    return this.fetchDashboard(`${this.baseUrl}/api/ml/anomalies/today`);
+  }
+
   getDashboardSummary(): Observable<AnomalyDashboardResponse> {
     return this.fetchDashboard(`${this.baseUrl}/api/ml/anomalies/dashboard`);
   }

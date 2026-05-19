@@ -90,6 +90,53 @@
   --z-tooltip: 1070;
   --z-notification: 1080;
   --z-chat: 1300;
+
+  /* ═══════════════════════════════════════════════════
+     WEENTIME AI BRAND LAYER (shared/components/ai-*, anomaly cards)
+     ─ Scoped to the AI surface so the rest of the app keeps using
+       --primary / --surface / --radius-* unchanged.
+     ═══════════════════════════════════════════════════ */
+  --wt-primary:        #6C63FF;
+  --wt-primary-dark:   #5A52D5;
+  --wt-primary-light:  #EEF0FF;
+  --wt-secondary:      #FF4FD8;
+  --wt-accent:         #5B8CFF;
+
+  --wt-success:        #22C55E;
+  --wt-warning:        #F59E0B;
+  --wt-danger:         #EF4444;
+  --wt-danger-dark:    #DC2626;
+
+  --wt-risk-critical:  #EF4444;
+  --wt-risk-high:      #F97316;
+  --wt-risk-medium:    #F59E0B;
+  --wt-risk-low:       #22C55E;
+
+  --wt-bg:                  #F5F7FB;
+  --wt-card-bg:             var(--surface);
+  --wt-card-border:         rgba(108, 99, 255, 0.12);
+  --wt-card-shadow:         0 2px 16px rgba(108, 99, 255, 0.08);
+  --wt-card-shadow-hover:   0 8px 32px rgba(108, 99, 255, 0.16);
+
+  --wt-radius:    12px;
+  --wt-radius-sm: 8px;
+  --wt-radius-lg: 16px;
+  --wt-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --wt-text-strong: var(--text-primary);
+  --wt-text-muted:  #6b7280;
+  --wt-text-faint:  #9ca3af;
+}
+
+/* WT brand colors stay readable on dark surfaces. */
+:root.dark,
+[data-theme='dark'] {
+  --wt-card-bg:           var(--surface);
+  --wt-card-border:       rgba(108, 99, 255, 0.22);
+  --wt-card-shadow:       0 2px 16px rgba(0, 0, 0, 0.45);
+  --wt-card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --wt-text-muted:        #94a3b8;
+  --wt-text-faint:        #64748b;
 }
 
 /* ═══════════════════ DARK MODE ═══════════════════ */

@@ -1,64 +1,53 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
-import { AnomalyRecord, AnomalyRisk } from '../../../core/services/ml-anomaly.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { AnomalyRecord } from '../../../core/services/ml-anomaly.service';
+import { AiRiskBadgeComponent } from '../ai-risk-badge/ai-risk-badge.component';
+import { AiScoreBarComponent } from '../ai-score-bar/ai-score-bar.component';
+import { AiConfidenceChipComponent } from '../ai-confidence-chip/ai-confidence-chip.component';
+
+/** Action emitted by the inline buttons. Parents decide how to handle each. */
+export type AnomalyAction = 'dismiss' | 'contact' | 'open';
 
 @Component({
   selector: 'ui-anomaly-alert-card',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AiRiskBadgeComponent, AiScoreBarComponent, AiConfidenceChipComponent],
   templateUrl: './anomaly-alert-card.component.html',
   styleUrls: ['./anomaly-alert-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AnomalyAlertCardComponent {
-  @Input() loading = false;
-  @Input() title = "Anomalies de présence";
-  @Input() subtitle = "Détectées aujourd'hui";
-  @Input() anomalies: AnomalyRecord[] = [];
-  @Input() totalAnomalies = 0;
-  @Input() critical = 0;
-  @Input() high = 0;
-  @Input() medium = 0;
-  @Input() emptyMessage = "Aucune anomalie détectée aujourd'hui.";
-  @Input() maxVisible = 5;
+  /** One record per card — parents render the list/grid. */
+  @Input({ required: true }) anomaly!: AnomalyRecord;
+  @Input() compact = false;
 
-  riskClass(risk: AnomalyRisk | string | undefined): string {
-    switch ((risk || '').toString().toUpperCase()) {
-      case 'CRITICAL':
-        return 'risk--critical';
-      case 'HIGH':
-        return 'risk--high';
-      case 'MEDIUM':
-        return 'risk--medium';
-      default:
-        return 'risk--low';
-    }
+  @Output() action = new EventEmitter<{ kind: AnomalyAction; anomaly: AnomalyRecord }>();
+
+  get cardModifier(): string {
+    const risk = (this.anomaly?.risk || 'low').toString().toLowerCase();
+    return `anomaly-card--${risk}`;
   }
 
-  formatScore(score: number | undefined): string {
-    if (score === undefined || score === null || Number.isNaN(score)) {
-      return '0%';
-    }
-    return `${Math.round(score * 100)}%`;
+  get formattedDate(): string {
+    if (!this.anomaly?.date) return '';
+    const d = new Date(this.anomaly.date);
+    if (Number.isNaN(d.getTime())) return this.anomaly.date;
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  initials(name: string | undefined): string {
-    if (!name) {
-      return '?';
-    }
-    const parts = name.trim().split(/\s+/).slice(0, 2);
-    return parts.map(p => p.charAt(0).toUpperCase()).join('') || '?';
+  getInitials(name: string | undefined): string {
+    if (!name) return '?';
+    return name.trim().split(/\s+/).slice(0, 2)
+      .map(p => p.charAt(0).toUpperCase()).join('') || '?';
   }
 
-  trackByEmployee(_index: number, item: AnomalyRecord): string {
-    return `${item.employeeId}-${item.date}`;
+  /** Heuristic confidence: anomaly score maps to model confidence as a percent. */
+  getConfidence(score: number | undefined): number {
+    if (!Number.isFinite(score) || score === undefined) return 0;
+    return Math.round(Math.max(0, Math.min(1, score)) * 100);
   }
 
-  get visibleAnomalies(): AnomalyRecord[] {
-    return (this.anomalies || []).slice(0, this.maxVisible);
-  }
-
-  get overflowCount(): number {
-    return Math.max(0, (this.anomalies?.length ?? 0) - this.maxVisible);
+  emit(kind: AnomalyAction): void {
+    this.action.emit({ kind, anomaly: this.anomaly });
   }
 }

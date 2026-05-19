@@ -1,0 +1,107 @@
+:host {
+  display: block;
+}
+
+.sk {
+  background: var(--wt-card-bg);
+  border: 1px solid var(--wt-card-border);
+  border-radius: var(--wt-radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  box-shadow: var(--wt-card-shadow);
+  min-height: 220px;
+}
+
+.sk__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sk__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--wt-primary-light);
+  flex-shrink: 0;
+  animation: wt-shimmer 1.5s ease-in-out infinite;
+}
+
+.sk__lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.sk__line {
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--wt-primary-light), rgba(108, 99, 255, 0.18), var(--wt-primary-light));
+  background-size: 200% 100%;
+  animation: wt-shimmer 1.5s ease-in-out infinite;
+
+  &--w40 { width: 40%; }
+  &--w70 { width: 70%; }
+  &--w80 { width: 80%; }
+  &--w90 { width: 90%; }
+}
+
+.sk__badge {
+  width: 56px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--wt-primary-light);
+  animation: wt-shimmer 1.5s ease-in-out infinite;
+}
+
+.sk__score {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--wt-primary-light), rgba(108, 99, 255, 0.22), var(--wt-primary-light));
+  background-size: 200% 100%;
+  animation: wt-shimmer 1.5s ease-in-out infinite;
+}
+
+.sk__reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sk__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.sk__btn {
+  flex: 1;
+  height: 28px;
+  border-radius: var(--wt-radius-sm);
+  background: var(--wt-primary-light);
+  animation: wt-shimmer 1.5s ease-in-out infinite;
+
+  &--primary {
+    background: linear-gradient(135deg, rgba(108, 99, 255, 0.35), rgba(255, 79, 216, 0.30));
+  }
+}
+
+@keyframes wt-shimmer {
+  0%   { background-position: 200% 0; opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { background-position: -200% 0; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk__avatar,
+  .sk__line,
+  .sk__badge,
+  .sk__score,
+  .sk__btn {
+    animation: none;
+  }
+}

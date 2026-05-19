@@ -1,0 +1,11 @@
+<div class="bar" role="progressbar" [attr.aria-valuenow]="scorePercent" aria-valuemin="0" aria-valuemax="100">
+  <div class="bar__track">
+    <span
+      class="bar__fill"
+      [class.bar__fill--animated]="animated"
+      [style.width.%]="scorePercent"
+      [style.background]="barColor"
+    ></span>
+  </div>
+  <span class="bar__label" *ngIf="showLabel">{{ scorePercent }}%</span>
+</div>
