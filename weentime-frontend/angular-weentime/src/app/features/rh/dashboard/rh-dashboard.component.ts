@@ -37,6 +37,12 @@ import {
 } from 'lucide-angular';
 import { RhDashboardService } from './rh-dashboard.service';
 import {
+  AnomalyDashboardResponse,
+  AnomalyRecord,
+  MlAnomalyService,
+} from '../../../core/services/ml-anomaly.service';
+import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
+import {
   DashboardViewModel,
   DashboardLeaveRequest,
   HighlightedMember,
@@ -54,13 +60,14 @@ interface DashAlert {
 @Component({
   selector: 'app-rh-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule],
+  imports: [CommonModule, RouterLink, LucideAngularModule, AnomalyAlertCardComponent],
   templateUrl: './rh-dashboard.component.html',
   styleUrl: './rh-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RhDashboardComponent implements OnInit, OnDestroy {
   private readonly svc = inject(RhDashboardService);
+  private readonly mlAnomaly = inject(MlAnomalyService);
 
   /* ── icons ──────────────────────────────────────────── */
   protected readonly ic = {
@@ -95,8 +102,21 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   readonly firstName = signal('RH');
 
   private readonly _data = signal<DashboardViewModel | null>(null);
+  private readonly _anomalyData = signal<AnomalyDashboardResponse | null>(null);
+  readonly anomalyLoading = signal(true);
+  readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
+  readonly anomalyTotals = computed(() => {
+    const d = this._anomalyData();
+    return {
+      total: d?.total_anomalies ?? 0,
+      critical: d?.critical ?? 0,
+      high: d?.high ?? 0,
+      medium: d?.medium ?? 0,
+    };
+  });
   private clockSub?: Subscription;
   private dataSub?: Subscription;
+  private anomalySub?: Subscription;
 
   /* ── computed ───────────────────────────────────────── */
   readonly todayLabel = computed(() =>
@@ -201,12 +221,25 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFirstName();
     this.loadData();
+    this.loadAnomalies();
     this.clockSub = interval(60_000).subscribe(() => this.now.set(new Date()));
   }
 
   ngOnDestroy(): void {
     this.clockSub?.unsubscribe();
     this.dataSub?.unsubscribe();
+    this.anomalySub?.unsubscribe();
+  }
+
+  private loadAnomalies(): void {
+    this.anomalyLoading.set(true);
+    this.anomalySub = this.mlAnomaly.getDashboardSummary().subscribe({
+      next: (data) => {
+        this._anomalyData.set(data);
+        this.anomalyLoading.set(false);
+      },
+      error: () => this.anomalyLoading.set(false),
+    });
   }
 
   /* ── actions ────────────────────────────────────────── */

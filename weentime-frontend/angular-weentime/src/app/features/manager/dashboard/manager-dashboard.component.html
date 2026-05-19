@@ -152,6 +152,20 @@
   }
 
   <!-- ═══════════════════ MAIN GRID ═══════════════════ -->
+  <!-- ─── ANOMALY DETECTION ─── -->
+  <section class="anomaly-section">
+    <ui-anomaly-alert-card
+      [loading]="anomalyLoading()"
+      [anomalies]="anomalies()"
+      [totalAnomalies]="anomalyTotals().total"
+      [critical]="anomalyTotals().critical"
+      [high]="anomalyTotals().high"
+      [medium]="anomalyTotals().medium"
+      title="Anomalies de présence — équipe"
+      subtitle="Détection IA en temps réel"
+    ></ui-anomaly-alert-card>
+  </section>
+
   @if (!loading()) {
     <div class="mgr-grid">
 

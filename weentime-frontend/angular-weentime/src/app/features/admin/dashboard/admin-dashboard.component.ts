@@ -37,6 +37,12 @@ import {
   AdminRequest,
   AdminPage
 } from '../admin-api.service';
+import {
+  AnomalyDashboardResponse,
+  AnomalyRecord,
+  MlAnomalyService,
+} from '../../../core/services/ml-anomaly.service';
+import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
 
 interface RecentCompanyVm {
   id: number;
@@ -73,13 +79,27 @@ interface HealthItem {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule],
+  imports: [CommonModule, RouterLink, LucideAngularModule, AnomalyAlertCardComponent],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(AdminApiService);
+  private readonly mlAnomaly = inject(MlAnomalyService);
+
+  private readonly _anomalyData = signal<AnomalyDashboardResponse | null>(null);
+  readonly anomalyLoading = signal(true);
+  readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
+  readonly anomalyTotals = computed(() => {
+    const d = this._anomalyData();
+    return {
+      total: d?.total_anomalies ?? 0,
+      critical: d?.critical ?? 0,
+      high: d?.high ?? 0,
+      medium: d?.medium ?? 0,
+    };
+  });
 
   /* ── icons ─────────────────────────────────────────── */
   protected readonly ic = {
@@ -230,11 +250,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFirstName();
     this.loadAll();
+    this.loadAnomalies();
     this.clockRef = setInterval(() => this.now.set(new Date()), 60_000);
   }
 
   ngOnDestroy(): void {
     clearInterval(this.clockRef);
+  }
+
+  private loadAnomalies(): void {
+    this.anomalyLoading.set(true);
+    this.mlAnomaly.getDashboardSummary().subscribe({
+      next: (data) => {
+        this._anomalyData.set(data);
+        this.anomalyLoading.set(false);
+      },
+      error: () => this.anomalyLoading.set(false),
+    });
   }
 
   /* ── data loading ──────────────────────────────────── */

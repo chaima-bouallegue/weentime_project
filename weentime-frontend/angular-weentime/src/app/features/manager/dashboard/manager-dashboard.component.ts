@@ -41,6 +41,12 @@ import {
 } from 'lucide-angular';
 import { ManagerDashboardService } from './manager-dashboard.service';
 import {
+  AnomalyDashboardResponse,
+  AnomalyRecord,
+  MlAnomalyService,
+} from '../../../core/services/ml-anomaly.service';
+import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
+import {
   ManagerDashboardData,
   ManagerTeamMember,
   ManagerApprovalRequest
@@ -69,13 +75,14 @@ interface DashAlert {
 @Component({
   selector: 'app-manager-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule], // Removed DecimalPipe
+  imports: [CommonModule, RouterLink, LucideAngularModule, AnomalyAlertCardComponent], // Removed DecimalPipe
   templateUrl: './manager-dashboard.component.html',
   styleUrl: './manager-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ManagerDashboardComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ManagerDashboardService);
+  private readonly mlAnomaly = inject(MlAnomalyService);
 
   /* ── icons ──────────────────────────────────────────── */
   protected readonly ic = {
@@ -114,8 +121,21 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   readonly firstName = signal('Manager');
 
   private readonly _data = signal<ManagerDashboardData | null>(null);
+  private readonly _anomalyData = signal<AnomalyDashboardResponse | null>(null);
+  readonly anomalyLoading = signal(true);
+  readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
+  readonly anomalyTotals = computed(() => {
+    const d = this._anomalyData();
+    return {
+      total: d?.total_anomalies ?? 0,
+      critical: d?.critical ?? 0,
+      high: d?.high ?? 0,
+      medium: d?.medium ?? 0,
+    };
+  });
   private clockSub?: Subscription;
   private dataSub?: Subscription;
+  private anomalySub?: Subscription;
 
   /* ── computed ───────────────────────────────────────── */
   readonly todayLabel = computed(() =>
@@ -217,12 +237,25 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFirstName();
     this.loadData();
+    this.loadAnomalies();
     this.clockSub = interval(60_000).subscribe(() => this.now.set(new Date()));
   }
 
   ngOnDestroy(): void {
     this.clockSub?.unsubscribe();
     this.dataSub?.unsubscribe();
+    this.anomalySub?.unsubscribe();
+  }
+
+  private loadAnomalies(): void {
+    this.anomalyLoading.set(true);
+    this.anomalySub = this.mlAnomaly.getDashboardSummary().subscribe({
+      next: (data) => {
+        this._anomalyData.set(data);
+        this.anomalyLoading.set(false);
+      },
+      error: () => this.anomalyLoading.set(false),
+    });
   }
 
   /* ── actions ────────────────────────────────────────── */
