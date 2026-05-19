@@ -54,7 +54,10 @@ _LAST_NAMES = (
 def _build_employees(n: int, rng: np.random.Generator) -> list[dict]:
     employees = []
     for i in range(n):
-        profile = rng.choice(PROFILES, p=[p.weight for p in PROFILES])
+        weights = np.array([p.weight for p in PROFILES], dtype=float)
+        weights = weights / weights.sum()
+
+        profile = rng.choice(PROFILES, p=weights)
         first = _FIRST_NAMES[rng.integers(0, len(_FIRST_NAMES))]
         last = _LAST_NAMES[rng.integers(0, len(_LAST_NAMES))]
         employees.append(

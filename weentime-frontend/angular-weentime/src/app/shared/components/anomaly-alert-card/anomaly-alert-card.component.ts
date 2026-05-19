@@ -51,7 +51,7 @@ export class AnomalyAlertCardComponent {
   }
 
   trackByEmployee(_index: number, item: AnomalyRecord): string {
-    return `${item.employee_id}-${item.date}`;
+    return `${item.employeeId}-${item.date}`;
   }
 
   get visibleAnomalies(): AnomalyRecord[] {

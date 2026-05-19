@@ -93,8 +93,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
   readonly anomalyTotals = computed(() => {
     const d = this._anomalyData();
+    const anomalies = d?.anomalies ?? [];
+    if (anomalies.length === 0) {
+      return { total: 0, critical: 0, high: 0, medium: 0 };
+    }
     return {
-      total: d?.total_anomalies ?? 0,
+      total: d?.totalAnomalies ?? anomalies.length,
       critical: d?.critical ?? 0,
       high: d?.high ?? 0,
       medium: d?.medium ?? 0,

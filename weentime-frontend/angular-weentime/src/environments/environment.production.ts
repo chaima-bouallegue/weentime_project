@@ -6,7 +6,7 @@ export const environment = {
   aiUrl: 'http://localhost:8000',
   aiServiceUrl: 'http://localhost:8322/api/v1/ai',
   // ML service (attendance anomaly detection).
-  mlServiceUrl: 'http://localhost:8001',
+  mlServiceUrl: 'http://127.0.0.1:8001',
   // Production keeps the chatbot fully authenticated. Demo/public mode must
   // remain disabled in production builds.
   chatbotPublicMode: false,

@@ -8,33 +8,37 @@
       </div>
     </div>
     <div class="anomaly-card__totals" *ngIf="!loading">
-      <span class="totals__pill totals__pill--critical" *ngIf="critical > 0">{{ critical }} critique</span>
-      <span class="totals__pill totals__pill--high" *ngIf="high > 0">{{ high }} élevé</span>
-      <span class="totals__pill totals__pill--medium" *ngIf="medium > 0">{{ medium }} modéré</span>
-      <span class="totals__pill totals__pill--neutral" *ngIf="totalAnomalies === 0">0 anomalie</span>
+      <ng-container *ngIf="totalAnomalies > 0; else noneBadge">
+        <span class="totals__pill totals__pill--critical" *ngIf="critical > 0">{{ critical }} critique</span>
+        <span class="totals__pill totals__pill--high" *ngIf="high > 0">{{ high }} élevé</span>
+        <span class="totals__pill totals__pill--medium" *ngIf="medium > 0">{{ medium }} modéré</span>
+      </ng-container>
+      <ng-template #noneBadge>
+        <span class="totals__pill totals__pill--neutral">Aucune</span>
+      </ng-template>
     </div>
   </header>
 
   <div class="anomaly-card__body">
     <p class="anomaly-card__skeleton" *ngIf="loading">Analyse des présences en cours…</p>
 
-    <p class="anomaly-card__empty" *ngIf="!loading && anomalies.length === 0">{{ emptyMessage }}</p>
+    <p class="anomaly-card__empty" *ngIf="!loading && (anomalies.length || 0) === 0">{{ emptyMessage }}</p>
 
-    <ul class="anomaly-list" *ngIf="!loading && anomalies.length > 0">
+    <ul class="anomaly-list" *ngIf="!loading && (anomalies.length || 0) > 0">
       <li
         class="anomaly-list__item"
         *ngFor="let anomaly of visibleAnomalies; trackBy: trackByEmployee"
         [class]="riskClass(anomaly.risk)"
       >
-        <div class="anomaly-list__avatar" aria-hidden="true">{{ initials(anomaly.employee_name) }}</div>
+        <div class="anomaly-list__avatar" aria-hidden="true">{{ initials(anomaly.employeeName) }}</div>
         <div class="anomaly-list__main">
           <div class="anomaly-list__head">
-            <strong>{{ anomaly.employee_name }}</strong>
+            <strong>{{ anomaly.employeeName }}</strong>
             <span class="anomaly-list__badge">{{ anomaly.risk }}</span>
           </div>
           <p class="anomaly-list__reasons">
-            <span *ngFor="let reason of anomaly.reasons.slice(0, 2); let i = index">
-              {{ reason }}<ng-container *ngIf="i < (anomaly.reasons.slice(0, 2).length - 1)"> · </ng-container>
+            <span *ngFor="let reason of (anomaly.reasons || []).slice(0, 2); let i = index">
+              {{ reason }}<ng-container *ngIf="i < ((anomaly.reasons || []).slice(0, 2).length - 1)"> · </ng-container>
             </span>
           </p>
           <div class="anomaly-list__score" [attr.aria-label]="'Score ' + formatScore(anomaly.score)">
