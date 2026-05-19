@@ -1,5 +1,4 @@
 ﻿from __future__ import annotations
-
 from app.context.current_user import CurrentUserContext
 from app.intelligence.manager_digest_builder import ManagerDigestBuilder
 from app.models.agent_models import AgentResponse

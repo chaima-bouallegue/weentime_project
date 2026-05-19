@@ -115,9 +115,31 @@ def choose_priority_route(
     if (matched_intent in {CHECK_IN, CHECK_OUT} or _is_attendance(text)) and _attendance_write_allowed(text, role, matched_intent):
         return RoutingDecision("attendance", "attendance", "attendance_marker", 0.96, force=True)
 
+
+
     if role == "MANAGER" and _is_manager_decision(text):
         return RoutingDecision("manager", "manager", "manager_decision_marker", 0.94, force=True)
 
+    if role == "MANAGER" and _has_any(
+        text,
+        (
+            "equipe", "équipe", "team", "mon equipe", "mon équipe",
+            "horaire equipe", "horaires equipe", "horaires équipe",
+            "planning equipe", "planning équipe",
+            "presence equipe", "présence équipe",
+            "chkoun absent", "chkoun present",
+            "team schedule", "team attendance",
+        ),
+    ):
+        return RoutingDecision(
+            "manager",
+            "manager",
+            "manager_team_context",
+            0.95,
+            force=True,
+        )
+
+    # 5. Meeting/planning. Unsupported meeting creation is explicit capability
     # 5. Meeting/planning. Unsupported meeting creation is explicit capability
     # unavailable; read-only meeting/planning goes to ReunionAgent.
     if _is_meeting_or_planning(text):

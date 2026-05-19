@@ -42,74 +42,168 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
 
     async def handle(self, message: str, context: CurrentUserContext) -> AgentResponse:
         if context.role.upper() != "MANAGER":
-            return AgentResponse(type="error", text="Votre role ne permet pas cette action.", intent="manager.forbidden", confidence=0.95)
+            return AgentResponse(
+                type="error",
+                text="Votre role ne permet pas cette action.",
+                intent="manager.forbidden",
+                confidence=0.95,
+            )
 
         intent, confidence = self.detect_intent(message, context)
+        if intent == "manager.team_schedule":
+            return await self.read_response(
+                 tool_name="manager.team_schedule",
+                 tool_input={},
+                 context=context,
+                 intent=intent,
+                 success_text="Voici les horaires de votre équipe.",
+                 confidence=confidence,
+            )
+
+        if intent == "manager.team_presence":
+            return await self.read_response(
+                tool_name="get_team_presence",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici la présence de votre équipe.",
+                confidence=confidence,
+            )
+
+        if intent == "manager.team_telework":
+            return await self.read_response(
+                tool_name="telework.list_manager_requests",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici les demandes télétravail de votre équipe.",
+                confidence=confidence,
+            )
+
         if intent in {"manager.pending_approvals", "manager.team_requests"}:
-            return await self._read_pending_requests(context, intent=intent, confidence=confidence)
+            return await self._read_pending_requests(
+                context,
+                intent=intent,
+                confidence=confidence,
+            )
 
         if intent in {"manager.approve", "manager.reject"}:
-            payload = extract_payload(message, "APPROVE_REQUEST" if intent == "manager.approve" else "REJECT_REQUEST", context)
+            payload = extract_payload(
+                message,
+                "APPROVE_REQUEST" if intent == "manager.approve" else "REJECT_REQUEST",
+                context,
+            )
+
             request_id = payload.get("request_id")
-            request_type = _normalize_request_type(payload.get("type_demande") or _infer_request_type(message))
+            request_type = _normalize_request_type(
+                payload.get("type_demande") or _infer_request_type(message)
+            )
 
             if not request_id:
-                # Natural-language approval: "valide la demande de <employee>".
-                # Search pending lists by employee name; resolve to an id only
-                # if exactly one match.
                 employee_name = _extract_employee_name(message)
+
                 if employee_name:
-                    name_match = await self._resolve_by_employee_name(employee_name, request_type, context)
+                    name_match = await self._resolve_by_employee_name(
+                        employee_name,
+                        request_type,
+                        context,
+                    )
+
                     if name_match.get("ambiguous"):
                         return AgentResponse(
                             type="ask",
                             text=_choices_text(name_match["ambiguous"]),
                             intent=intent,
                             confidence=confidence,
-                            actionResult={"kind": "approval_lookup", "status": "ambiguous", "choices": name_match["ambiguous"]},
+                            actionResult={
+                                "kind": "approval_lookup",
+                                "status": "ambiguous",
+                                "choices": name_match["ambiguous"],
+                            },
                         )
+
                     if name_match.get("not_found"):
                         return AgentResponse(
                             type="ask",
-                            text=f"Je n'ai trouve aucune demande en attente pour {employee_name}. Donnez-moi l'identifiant ou precisez le type de demande.",
+                            text=(
+                                f"Je n'ai trouvé aucune demande en attente pour {employee_name}. "
+                                "Donnez-moi l'identifiant ou précisez le type de demande."
+                            ),
                             intent=intent,
                             confidence=confidence,
-                            actionResult={"kind": "approval_lookup", "status": "not_found", "query": {"employee": employee_name, "type": request_type}},
+                            actionResult={
+                                "kind": "approval_lookup",
+                                "status": "not_found",
+                                "query": {
+                                    "employee": employee_name,
+                                    "type": request_type,
+                                },
+                            },
                         )
+
                     request_id = name_match["matched_id"]
                     request_type = name_match.get("type") or request_type
-                if not request_id:
-                    return AgentResponse(type="ask", text="Quel identifiant de demande souhaitez-vous traiter ?", intent=intent, confidence=confidence)
 
-            details = await self._resolve_request_details(int(request_id), request_type, context)
+                if not request_id:
+                    return AgentResponse(
+                        type="ask",
+                        text="Quel identifiant de demande souhaitez-vous traiter ?",
+                        intent=intent,
+                        confidence=confidence,
+                    )
+
+            details = await self._resolve_request_details(
+                int(request_id),
+                request_type,
+                context,
+            )
+
             if details.get("ambiguous"):
                 return AgentResponse(
                     type="ask",
                     text=_choices_text(details["ambiguous"]),
                     intent=intent,
                     confidence=confidence,
-                    actionResult={"kind": "approval_lookup", "status": "ambiguous", "choices": details["ambiguous"]},
+                    actionResult={
+                        "kind": "approval_lookup",
+                        "status": "ambiguous",
+                        "choices": details["ambiguous"],
+                    },
                 )
+
             if details.get("not_found"):
                 return AgentResponse(
                     type="ask",
-                    text="Je n'ai trouve aucune demande correspondante. Donnez-moi l'identifiant ou le type de demande.",
+                    text="Je n'ai trouvé aucune demande correspondante. Donnez-moi l'identifiant ou le type de demande.",
                     intent=intent,
                     confidence=confidence,
-                    actionResult={"kind": "approval_lookup", "status": "not_found", "query": payload},
+                    actionResult={
+                        "kind": "approval_lookup",
+                        "status": "not_found",
+                        "query": payload,
+                    },
                 )
+
             if details.get("unsupported"):
                 return AgentResponse(
                     type="error",
-                    text="Cette decision manager n'est pas disponible via les outils modernes pour ce type de demande.",
+                    text="Cette décision manager n'est pas disponible via les outils modernes pour ce type de demande.",
                     intent=intent,
                     confidence=confidence,
-                    actionResult={"kind": "capability_unavailable", "type": request_type},
+                    actionResult={
+                        "kind": "capability_unavailable",
+                        "type": request_type,
+                    },
                 )
 
             decision = "APPROVE" if intent == "manager.approve" else "REJECT"
             tool_name = details["decision_tool"]
-            tool_input = {"request_id": int(request_id), "decision": decision}
+
+            tool_input = {
+                "request_id": int(request_id),
+                "decision": decision,
+            }
+
             comment = payload.get("comment") or payload.get("reason")
             if comment:
                 tool_input["comment"] = comment
@@ -119,7 +213,7 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
                 tool_name=tool_name,
                 tool_input=tool_input,
                 intent=intent,
-                text=f"{details['text']}\nConfirmez-vous cette decision manager ?",
+                text=f"{details['text']}\nConfirmez-vous cette décision manager ?",
                 confidence=confidence,
                 action_result={
                     "kind": "approval_confirmation",
@@ -130,38 +224,52 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
                 },
             )
 
-        return AgentResponse(type="ask", text="Que souhaitez-vous faire cote manager ?", intent="manager.unknown", confidence=0.35)
-
+        return AgentResponse(
+            type="ask",
+            text="Que souhaitez-vous faire côté manager ?",
+            intent="manager.unknown",
+            confidence=0.35,
+        )
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
-        if not has_any(
-            text,
-            (
-                "approuve", "approve", "valide", "refuse", "reject", "rejette", "accepte", "accept",
-                "validation", "validations", "equipe", "team", "pending", "approbation", "approval",
-                "approbations", "approvals", "demande", "demandes", "en attente", "attend validation",
-            ),
-        ):
-            return None, 0.0
-        # "approbation(s)" / "approval(s)" must be checked BEFORE "approuve"/"approve"
-        # because str.find("approve") matches inside "approvals". The verb forms
-        # (approuver/approve) signal a per-request decision; the noun forms
-        # (approbations/approvals) signal a list-pending request.
-        if has_any(
-            text,
-            (
-                "approbation", "approbations", "approval", "approvals", "validation", "validations",
-                "pending", "en attente", "demandes en attente", "attend validation",
-            ),
-        ):
-            return "manager.pending_approvals", 0.85
+
+        if has_any(text, (
+            "horaire equipe", "horaires equipe", "horaire équipe", "horaires équipe",
+            "team schedule", "planning equipe", "planning équipe",
+            "planning team", "programme equipe", "programme équipe",
+            "planning mon equipe", "planning mon équipe",
+            "شكون يخدم",
+        )):
+            return "manager.team_schedule", 0.94
+
+        if has_any(text, (
+            "presence equipe", "présence équipe", "presence team",
+            "team attendance", "qui est present", "qui est présent",
+            "qui est absent", "chkoun absent", "chkoun present",
+        )):
+            return "manager.team_presence", 0.94
+
+        if has_any(text, (
+            "approbation", "approbations", "approval", "approvals",
+            "validation", "validations", "pending", "en attente",
+            "demandes en attente", "attend validation",
+        )):
+            return "manager.pending_approvals", 0.90
+
         if has_any(text, ("approuve", "approve", "valide", "accepte", "accept")):
             return "manager.approve", 0.91
+
         if has_any(text, ("refuse", "reject", "rejette")):
             return "manager.reject", 0.91
-        if has_any(text, ("equipe", "team")):
+
+        if has_any(text, ("teletravail equipe", "télétravail équipe", "remote team", "telework team")):
+            return "manager.team_telework", 0.88
+
+        if has_any(text, ("equipe", "équipe", "team", "mon equipe", "mon équipe")):
             return "manager.team_requests", 0.82
+
         return None, 0.0
+
 
     async def _read_pending_requests(self, context: CurrentUserContext, *, intent: str, confidence: float) -> AgentResponse:
         sections: list[dict[str, Any]] = []
