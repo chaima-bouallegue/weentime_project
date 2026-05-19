@@ -6,12 +6,14 @@ import {
   Activity,
   ActivityFeedItem,
   AttendanceBarItem,
+  AttendanceBreakdown,
   DashboardApiResponse,
-  DashboardEmployee,
   DashboardLeaveRequest,
   DashboardViewModel,
-  HighlightedMember,
-  RequestMixItem
+  DepartmentSlice,
+  RequestMixItem,
+  WorkflowBucket,
+  WorkflowKind
 } from './rh-dashboard.models';
 
 interface ApiEnvelope<T> {
@@ -58,12 +60,13 @@ export class RhDashboardService {
     const hoursWorked = this.toNumber(source?.hoursWorked);
     const attendanceRate = this.toNumber(source?.attendanceRate);
     const attendanceBars = this.buildAttendanceBars(source?.attendanceStats, totalEmployees);
+    const attendanceBreakdown = this.buildAttendanceBreakdown(source?.attendanceStats, totalEmployees);
     const requestMix = this.buildRequestMix(source?.requestStats);
-    const highlightedMembers = Array.isArray(source?.highlightedEmployees)
-      ? source!.highlightedEmployees.map(item => this.toHighlightedMember(item))
-      : [];
+    const workflowBuckets = this.buildWorkflowBuckets(source?.requestStats);
+    const departments = this.buildDepartments(source?.departmentEmployeeCounts);
+    // Dedup activities by id, then by (title|date) to absorb backend retries.
     const activityFeed = Array.isArray(source?.recentActivities)
-      ? source!.recentActivities.map(item => this.toActivityFeedItem(item))
+      ? this.dedupActivities(source!.recentActivities.map(item => this.toActivityFeedItem(item)))
       : [];
 
     return {
@@ -74,10 +77,88 @@ export class RhDashboardService {
       hoursWorked,
       attendanceRate,
       attendanceBars,
+      attendanceBreakdown,
       requestMix,
-      highlightedMembers,
+      workflowBuckets,
+      departments,
       activityFeed
     };
+  }
+
+  private buildAttendanceBreakdown(
+    stats: DashboardApiResponse['attendanceStats'] | undefined,
+    totalEmployees: number,
+  ): AttendanceBreakdown {
+    const present = this.toNumber(stats?.present);
+    const absent = this.toNumber(stats?.absent);
+    const remote = this.toNumber(stats?.remote);
+    // Use the configured headcount as the denominator when it exists;
+    // fall back to the sum of states so old payloads still render.
+    const denominator = totalEmployees > 0 ? totalEmployees : Math.max(present + absent + remote, 1);
+    return {
+      total: totalEmployees,
+      present,
+      absent,
+      remote,
+      presentPct: Math.round((present / denominator) * 100),
+      absentPct: Math.round((absent / denominator) * 100),
+      remotePct: Math.round((remote / denominator) * 100),
+    };
+  }
+
+  private buildWorkflowBuckets(stats: DashboardApiResponse['requestStats'] | undefined): WorkflowBucket[] {
+    const leave = this.toNumber(stats?.leave);
+    const telework = this.toNumber(stats?.teletravail);
+    const authorization = this.toNumber(stats?.autorisation);
+    // Document workload comes from a separate endpoint; we surface a zero
+    // bucket so the UI always renders the same 4 columns and a future wire-up
+    // doesn't require a layout change.
+    const document = 0;
+
+    const entries: Array<{ kind: WorkflowKind; label: string; count: number; route: string }> = [
+      { kind: 'leave',         label: 'Congés',         count: leave,         route: '/app/rh/conges' },
+      { kind: 'telework',      label: 'Télétravail',    count: telework,      route: '/app/rh/teletravail' },
+      { kind: 'authorization', label: 'Autorisations',  count: authorization, route: '/app/rh/autorisations' },
+      { kind: 'document',      label: 'Documents',      count: document,      route: '/app/rh/documents' },
+    ];
+
+    return entries.map(entry => ({
+      ...entry,
+      urgency: this.workflowUrgency(entry.count),
+    }));
+  }
+
+  private workflowUrgency(count: number): WorkflowBucket['urgency'] {
+    if (count >= 10) return 'critical';
+    if (count >= 4) return 'attention';
+    return 'calm';
+  }
+
+  private buildDepartments(counts: Record<string, number> | undefined): DepartmentSlice[] {
+    if (!counts || typeof counts !== 'object') return [];
+    const entries = Object.entries(counts)
+      .map(([name, raw]) => ({ name: name || 'Non affecté', count: this.toNumber(raw) }))
+      .filter(entry => entry.count > 0)
+      .sort((a, b) => b.count - a.count);
+    if (entries.length === 0) return [];
+    const max = Math.max(...entries.map(e => e.count), 1);
+    return entries.map(entry => ({
+      name: entry.name,
+      count: entry.count,
+      percent: Math.round((entry.count / max) * 100),
+    }));
+  }
+
+  private dedupActivities(items: ActivityFeedItem[]): ActivityFeedItem[] {
+    const seen = new Set<string>();
+    const out: ActivityFeedItem[] = [];
+    for (const item of items) {
+      const key = `${item.id}|${item.title}|${item.date}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
   }
 
   private normalizePendingRequest(item: Partial<DashboardLeaveRequest>): DashboardLeaveRequest {
@@ -120,17 +201,6 @@ export class RhDashboardService {
       .map(item => ({ ...item, percent: (item.value / max) * 100 }));
   }
 
-  private toHighlightedMember(item: Partial<DashboardEmployee>): HighlightedMember {
-    const fullName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || `Employe #${this.toNumber(item.id)}`;
-    return {
-      id: this.toNumber(item.id),
-      fullName,
-      team: item.team || item.department || item.role || 'Equipe non renseignee',
-      timeLabel: this.statusLabel(item.status),
-      status: (item.status as HighlightedMember['status']) || 'ACTIVE'
-    };
-  }
-
   private toActivityFeedItem(item: Partial<Activity>): ActivityFeedItem {
     return {
       id: item.id || `activity-${Date.now()}`,
@@ -162,21 +232,12 @@ export class RhDashboardService {
       hoursWorked: 0,
       attendanceRate: 0,
       attendanceBars: [],
+      attendanceBreakdown: { total: 0, present: 0, absent: 0, remote: 0, presentPct: 0, absentPct: 0, remotePct: 0 },
       requestMix: [],
-      highlightedMembers: [],
-      activityFeed: []
+      workflowBuckets: this.buildWorkflowBuckets(undefined),
+      departments: [],
+      activityFeed: [],
     };
-  }
-
-  private statusLabel(status?: string): string {
-    switch (status) {
-      case 'ABSENT':
-        return 'Absence du jour';
-      case 'ON_LEAVE':
-        return 'Indisponible';
-      default:
-        return 'Suivi normal';
-    }
   }
 
   private mapRequestStatus(status?: string | null): DashboardLeaveRequest['status'] {

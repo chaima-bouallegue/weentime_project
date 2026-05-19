@@ -102,6 +102,38 @@ export interface DashboardApiResponse {
   requestStats: DashboardRequestStats;
   highlightedEmployees: DashboardEmployee[];
   recentActivities: Activity[];
+  // Backend exposes these but the frontend previously dropped them.
+  departmentEmployeeCounts?: Record<string, number>;
+  monthlyRequestEvolution?: Record<string, number>;
+  requestStatusDistribution?: Record<string, number>;
+}
+
+export interface AttendanceBreakdown {
+  total: number;
+  present: number;
+  absent: number;
+  remote: number;
+  // Percentages are pre-computed in the service so the view can stay declarative.
+  presentPct: number;
+  absentPct: number;
+  remotePct: number;
+}
+
+export type WorkflowKind = 'leave' | 'telework' | 'authorization' | 'document';
+
+export interface WorkflowBucket {
+  kind: WorkflowKind;
+  label: string;
+  count: number;
+  // Display-only urgency tag based on count thresholds.
+  urgency: 'calm' | 'attention' | 'critical';
+  route: string;
+}
+
+export interface DepartmentSlice {
+  name: string;
+  count: number;
+  percent: number;
 }
 
 export interface DashboardViewModel {
@@ -112,7 +144,9 @@ export interface DashboardViewModel {
   hoursWorked: number;
   attendanceRate: number;
   attendanceBars: AttendanceBarItem[];
+  attendanceBreakdown: AttendanceBreakdown;
   requestMix: RequestMixItem[];
-  highlightedMembers: HighlightedMember[];
+  workflowBuckets: WorkflowBucket[];
   activityFeed: ActivityFeedItem[];
+  departments: DepartmentSlice[];
 }

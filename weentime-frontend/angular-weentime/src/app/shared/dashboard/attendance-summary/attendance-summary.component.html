@@ -1,0 +1,43 @@
+<section class="summary" aria-label="Synthèse présence">
+  <header class="summary__head">
+    <div>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+    </div>
+    <span class="summary__coverage" *ngIf="!loading">
+      <strong>{{ coverageLabel() }}</strong>
+      <small>couverture (présent + télétravail)</small>
+    </span>
+  </header>
+
+  <div class="summary__skeleton" *ngIf="loading" aria-hidden="true">
+    <div class="bar-skel"></div>
+    <div class="legend-skel"></div>
+  </div>
+
+  <ng-container *ngIf="!loading && breakdown as b">
+    <div class="summary__bar" role="img" [attr.aria-label]="'Présents ' + clamped().presentPct + '%, télétravail ' + clamped().remotePct + '%, absents ' + clamped().absentPct + '%'">
+      <span class="seg seg--present" [style.width.%]="clamped().presentPct"></span>
+      <span class="seg seg--remote"  [style.width.%]="clamped().remotePct"></span>
+      <span class="seg seg--absent"  [style.width.%]="clamped().absentPct"></span>
+    </div>
+
+    <ul class="summary__legend">
+      <li>
+        <span class="legend__dot legend__dot--present" aria-hidden="true"></span>
+        <span class="legend__label">Présents</span>
+        <span class="legend__value">{{ clamped().present }} <small>({{ clamped().presentPct }}%)</small></span>
+      </li>
+      <li>
+        <span class="legend__dot legend__dot--remote" aria-hidden="true"></span>
+        <span class="legend__label">Télétravail</span>
+        <span class="legend__value">{{ clamped().remote }} <small>({{ clamped().remotePct }}%)</small></span>
+      </li>
+      <li>
+        <span class="legend__dot legend__dot--absent" aria-hidden="true"></span>
+        <span class="legend__label">Absents</span>
+        <span class="legend__value">{{ clamped().absent }} <small>({{ clamped().absentPct }}%)</small></span>
+      </li>
+    </ul>
+  </ng-container>
+</section>

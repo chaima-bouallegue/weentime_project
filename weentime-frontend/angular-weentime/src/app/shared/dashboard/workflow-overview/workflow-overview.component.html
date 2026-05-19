@@ -1,0 +1,29 @@
+<section class="workflow" aria-label="Workflow RH">
+  <header class="workflow__head">
+    <div>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+    </div>
+    <span class="workflow__total" *ngIf="!loading">
+      <strong>{{ totalPending() }}</strong>
+      <small>en attente</small>
+    </span>
+  </header>
+
+  <div class="workflow__grid" [class.workflow__grid--loading]="loading">
+    <a
+      *ngFor="let b of buckets; trackBy: trackByKind"
+      class="bucket"
+      [routerLink]="b.route"
+      [attr.data-kind]="b.kind"
+      [attr.data-urgency]="b.urgency"
+    >
+      <span class="bucket__head">
+        <span class="bucket__label">{{ b.label }}</span>
+        <span class="bucket__dot" aria-hidden="true"></span>
+      </span>
+      <span class="bucket__count">{{ b.count }}</span>
+      <span class="bucket__cta">Ouvrir →</span>
+    </a>
+  </div>
+</section>
