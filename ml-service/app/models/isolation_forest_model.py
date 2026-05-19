@@ -176,6 +176,12 @@ class AttendanceAnomalyModel:
     # -- explainability ---------------------------------------------------
 
     def generate_reasons(self, features: dict[str, Any], score: float) -> list[str]:
+        """Human-readable reasons, ordered most→least severe.
+
+        The generic "comportement atypique" line is a last resort -- it is only
+        emitted when no concrete signal fired, so a scored row always carries a
+        meaningful explanation when one exists.
+        """
         reasons: list[str] = []
 
         arrival = float(features.get("arrival_hour", 0) or 0)
@@ -187,27 +193,54 @@ class AttendanceAnomalyModel:
         weekly = float(features.get("weekly_hours", 0) or 0)
         is_weekend = int(features.get("is_weekend", 0) or 0)
         night = int(features.get("night_activity", 0) or 0)
+        rapid = int(features.get("rapid_session", 0) or 0)
+        is_late = int(features.get("is_late", 0) or 0)
+        is_remote = int(features.get("is_remote", 0) or 0)
 
+        # Night activity (high severity).
         if night and arrival > 0:
-            reasons.append(f"Check-in inhabituel: {arrival:.1f}h (activité nocturne)")
-        if arrival > 22:
-            reasons.append(f"Check-in très tardif: {arrival:.1f}h")
-        if late_min > 30:
-            reasons.append(f"Retard important: {late_min:.0f} minutes après l'heure prévue")
-        if worked > 12:
-            reasons.append(f"Session très longue: {worked:.1f}h")
-        if 0 < worked < 0.5 and not missing_checkout:
-            reasons.append(f"Session très courte: {worked * 60:.0f} minutes")
+            reasons.append(f"Activité nocturne : check-in à {arrival:.1f}h")
+        elif arrival > 22:
+            reasons.append(f"Check-in très tardif : {arrival:.1f}h")
+
+        # Lateness.
+        if late_min >= 30:
+            reasons.append(f"Retard important : {late_min:.0f} min après l'heure prévue")
+        elif late_min > 0 or is_late:
+            minutes = late_min if late_min > 0 else None
+            reasons.append(
+                "Retard" + (f" : {minutes:.0f} min" if minutes else " détecté sur l'arrivée")
+            )
+
+        # Missing checkout (suspicious — distinct from a clean absence).
         if missing_checkout:
-            reasons.append("Sortie non pointée (checkout manquant)")
+            reasons.append("Sortie non pointée")
+
+        # Session duration anomalies.
+        if worked > 12:
+            reasons.append(f"Durée inhabituelle : session de {worked:.1f}h")
+        elif rapid or (0 < worked < 0.5 and not missing_checkout):
+            reasons.append(f"Session très courte : {worked * 60:.0f} min")
+
+        # Weekly overtime.
+        if weekly > 55:
+            reasons.append(f"Heures hebdomadaires excessives : {weekly:.1f}h")
+
+        # Personal-baseline drift.
         if deviation > 3:
             reasons.append(f"Arrivée décalée de {deviation:.1f}h par rapport à l'habitude")
-        if weekly > 55:
-            reasons.append(f"Heures hebdomadaires excessives: {weekly:.1f}h")
-        if is_weekend and worked > 0:
+
+        # Weekend activity.
+        if is_weekend and (worked > 0 or arrival > 0):
             reasons.append("Activité en week-end")
-        if departure > 0 and departure < 6:
-            reasons.append(f"Sortie en heure inhabituelle: {departure:.1f}h")
+
+        # Unusual departure hour.
+        if 0 < departure < 6:
+            reasons.append(f"Sortie en heure inhabituelle : {departure:.1f}h")
+
+        # Remote context (informational, only when paired with another signal).
+        if is_remote and len(reasons) > 0:
+            reasons.append("En télétravail")
 
         if not reasons:
             reasons.append(f"Comportement atypique détecté (score {score:.2f})")

@@ -103,6 +103,34 @@ def _generate_normal_row(
     }
 
 
+def _generate_absent_row(
+    employee: dict,
+    day: date,
+    rng: np.random.Generator,
+) -> dict:
+    """A NORMAL absent day: no check-in, no check-out, no worked time.
+
+    Including these in the normal set teaches the model that an all-zero time
+    vector with is_absent=1 is ordinary -- not the all-time-low anomaly score
+    it would otherwise receive for being far from every check-in cluster.
+    """
+    _ = rng
+    return {
+        "employee_id": employee["employee_id"],
+        "employee_name": employee["employee_name"],
+        "date": day.isoformat(),
+        "check_in": None,
+        "check_out": None,
+        "duration_seconds": None,
+        "daily_status": "ABSENT",
+        "late_arrival": False,
+        "source": None,
+        "localisation": None,
+        "anomaly_injected": False,
+        "profile_label": "normal_absent",
+    }
+
+
 def _generate_anomalous_row(
     employee: dict,
     day: date,
@@ -187,6 +215,8 @@ def generate(
     target_normal = n_rows - target_anomalies
 
     # Normal rows: random employee x day in business-day window.
+    # ~15% of normal rows are ordinary ABSENT days (no check-in) so the model
+    # learns that absence is normal, not a top anomaly.
     while sum(1 for r in rows if not r["anomaly_injected"]) < target_normal:
         emp = employees[int(rng.integers(0, len(employees)))]
         day_offset = int(rng.integers(0, days_back))
@@ -195,7 +225,10 @@ def generate(
             # 90% skip weekends for normal rows; preserve 10% to add realism.
             if rng.random() < 0.9:
                 continue
-        rows.append(_generate_normal_row(emp, day, rng))
+        if rng.random() < 0.15:
+            rows.append(_generate_absent_row(emp, day, rng))
+        else:
+            rows.append(_generate_normal_row(emp, day, rng))
 
     while sum(1 for r in rows if r["anomaly_injected"]) < target_anomalies:
         emp = employees[int(rng.integers(0, len(employees)))]

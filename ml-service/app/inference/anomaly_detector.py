@@ -76,7 +76,18 @@ class AnomalyDetector:
         if not self.is_ready or self.model is None:
             return self._unready_record(record)
 
-        features = self.feature_engineer.compute_features(record, employee_history or [])
+        history = employee_history or []
+
+        # Benign absence short-circuit: an employee who simply hasn't checked in
+        # is NOT an anomaly. Without this, the all-zero time vector lands far from
+        # every training cluster and the Isolation Forest flags every absent
+        # employee CRITICAL with the same score. We only skip when there's no
+        # suspicious signal (weekend activity, repeated absences, or a history of
+        # missing checkouts) -- those still get scored.
+        if self._is_benign_absence(record, history):
+            return self._benign_absence_record(record)
+
+        features = self.feature_engineer.compute_features(record, history)
         prediction = self.model.predict(features.to_vector())
         feature_map = features.to_dict()
         reasons = self.model.generate_reasons(feature_map, prediction["score"])
@@ -90,6 +101,54 @@ class AnomalyDetector:
             reasons=reasons,
             explanation=self._compose_explanation(risk, reasons),
             features=feature_map,
+        )
+
+    @staticmethod
+    def _is_benign_absence(record: AttendanceRecord, history: list[AttendanceRecord]) -> bool:
+        # Must be a fully-absent row: no check-in, no check-out, no worked time.
+        if record.check_in is not None or record.check_out is not None:
+            return False
+        if record.duration_seconds and record.duration_seconds > 0:
+            return False
+        if not record.is_absent:
+            return False
+
+        # Weekend "absence" is actually weekend activity territory -> let it score.
+        if record.date.weekday() >= 5:
+            return False
+
+        # Suspicious pattern: repeated absences in the recent window.
+        recent_absences = sum(
+            1
+            for h in history
+            if h is not record
+            and h.check_in is None
+            and (h.daily_status or "").upper() in {"ABSENT", "ON_LEAVE"}
+        )
+        if recent_absences >= 5:
+            return False
+
+        # Suspicious pattern: a history of missing checkouts (checked in, never out).
+        missing_checkout_history = sum(
+            1 for h in history if h.check_in is not None and h.check_out is None
+        )
+        if missing_checkout_history >= 3:
+            return False
+
+        return True
+
+    def _benign_absence_record(self, record: AttendanceRecord) -> AnomalyRecord:
+        # Still expose the feature snapshot for transparency/debugging.
+        features = self.feature_engineer.compute_features(record, [])
+        return AnomalyRecord(
+            employee_id=record.employee_id,
+            employee_name=record.employee_name,
+            date=record.date.isoformat(),
+            score=0.0,
+            risk=RiskLevel.LOW,
+            reasons=["Absence du jour"],
+            explanation="Employé absent aujourd'hui — aucun comportement anormal détecté.",
+            features=features.to_dict(),
         )
 
     async def analyze_today(self, records: Iterable[AttendanceRecord]) -> AnomalyDashboardResponse:

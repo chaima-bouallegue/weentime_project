@@ -38,6 +38,16 @@ FEATURE_NAMES: tuple[str, ...] = (
     "night_activity",
     "rapid_session",
     "overtime_excess",
+    # Presence-state indicators (appended v2). These let the model tell
+    # "0 worked_hours because ABSENT" from "0 worked_hours because anomaly":
+    # an all-zero time vector with is_absent=1 is a NORMAL not-checked-in row,
+    # whereas missing_checkout=1 (has_checkin=1, has_checkout=0) is suspicious.
+    "has_checkin",
+    "has_checkout",
+    "is_absent",
+    "is_late",
+    "is_remote",
+    "is_working",
 )
 
 
@@ -57,9 +67,27 @@ class AttendanceRecord:
     localisation: str | None = None
 
     @property
+    def status_upper(self) -> str:
+        return (self.daily_status or "").upper()
+
+    @property
     def is_remote(self) -> bool:
-        status = (self.daily_status or "").upper()
-        return status == "REMOTE"
+        return self.status_upper == "REMOTE"
+
+    @property
+    def has_checkin(self) -> bool:
+        return self.check_in is not None
+
+    @property
+    def has_checkout(self) -> bool:
+        return self.check_out is not None
+
+    @property
+    def is_absent(self) -> bool:
+        # ABSENT either by explicit status or by simply never having checked in.
+        if self.status_upper in {"ABSENT", "ON_LEAVE"}:
+            return True
+        return self.check_in is None
 
 
 @dataclass(slots=True)
@@ -82,6 +110,12 @@ class AttendanceFeatures:
     night_activity: int
     rapid_session: int
     overtime_excess: int
+    has_checkin: int = 0
+    has_checkout: int = 0
+    is_absent: int = 0
+    is_late: int = 0
+    is_remote: int = 0
+    is_working: int = 0
     raw: dict[str, object] = field(default_factory=dict)
 
     def to_vector(self) -> np.ndarray:
@@ -102,6 +136,12 @@ class AttendanceFeatures:
                 self.night_activity,
                 self.rapid_session,
                 self.overtime_excess,
+                self.has_checkin,
+                self.has_checkout,
+                self.is_absent,
+                self.is_late,
+                self.is_remote,
+                self.is_working,
             ],
             dtype=np.float64,
         )
@@ -169,6 +209,15 @@ class FeatureEngineer:
         rapid = 1 if 0 < worked < 0.5 and missing_checkout == 0 else 0
         overtime = 1 if worked > 10 else 0
 
+        # Presence-state indicators.
+        has_checkin = 1 if record.has_checkin else 0
+        has_checkout = 1 if record.has_checkout else 0
+        is_absent = 1 if record.is_absent else 0
+        is_late = 1 if (record.status_upper == "LATE" or bool(record.late_arrival) or late > 0) else 0
+        is_remote = remote_flag
+        # "Working" = physically present and not flagged absent/late/remote.
+        is_working = 1 if (has_checkin and not is_absent and record.status_upper in {"WORKING", "PRESENT", ""}) else 0
+
         return AttendanceFeatures(
             employee_id=record.employee_id,
             employee_name=record.employee_name,
@@ -188,6 +237,12 @@ class FeatureEngineer:
             night_activity=night,
             rapid_session=rapid,
             overtime_excess=overtime,
+            has_checkin=has_checkin,
+            has_checkout=has_checkout,
+            is_absent=is_absent,
+            is_late=is_late,
+            is_remote=is_remote,
+            is_working=is_working,
             raw={
                 "source": record.source,
                 "localisation": record.localisation,

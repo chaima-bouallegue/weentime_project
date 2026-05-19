@@ -28,6 +28,13 @@ def _training_frame(n_rows: int = 300) -> pd.DataFrame:
         "night_activity": np.zeros(n_rows, dtype=int),
         "rapid_session": np.zeros(n_rows, dtype=int),
         "overtime_excess": np.zeros(n_rows, dtype=int),
+        # Presence-state indicators (appended v2): normal rows are present workers.
+        "has_checkin": np.ones(n_rows, dtype=int),
+        "has_checkout": np.ones(n_rows, dtype=int),
+        "is_absent": np.zeros(n_rows, dtype=int),
+        "is_late": np.zeros(n_rows, dtype=int),
+        "is_remote": (rng.random(n_rows) < 0.1).astype(int),
+        "is_working": np.ones(n_rows, dtype=int),
     }
     return pd.DataFrame(data)
 
