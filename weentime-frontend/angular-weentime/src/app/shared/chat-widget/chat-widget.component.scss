@@ -641,8 +641,21 @@
   border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.message-bubble__resolved[data-state='success'] {
   color: #bdf7d2;
   background: rgba(34, 197, 94, 0.13);
+}
+
+.message-bubble__resolved[data-state='cancelled'] {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.message-bubble__resolved[data-state='failure'] {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.14);
 }
 
 .message-bubble__typing-label {

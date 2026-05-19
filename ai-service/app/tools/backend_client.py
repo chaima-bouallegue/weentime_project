@@ -1,17 +1,20 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
 import httpx
 
-from app.context.current_user import CurrentUserContext
 from app.context.chatbot_backend_token import mint_chatbot_backend_token
+from app.context.current_user import CurrentUserContext
 from app.observability.request_context import get_request_id
 from app.observability.tracing import log_error, log_event, start_span
+
 from .result import ToolResult
 
 DEFAULT_BACKEND_BASE_URL = "http://localhost:8322/api/v1"
+logger = logging.getLogger(__name__)
 
 
 class BackendClient:
@@ -33,8 +36,23 @@ class BackendClient:
             endpoint = ""
         return f"{self.base_url}{endpoint}"
 
-    async def get(self, path: str, *, context: CurrentUserContext, params: dict[str, Any] | None = None) -> ToolResult:
-        return await self.request("GET", path, context=context, params=params)
+    async def get(
+        self,
+        path: str,
+        *,
+        context: CurrentUserContext,
+        params: dict[str, Any] | None = None,
+        tool_name: str | None = None,
+        success_status_codes: set[int] | None = None,
+    ) -> ToolResult:
+        return await self.request(
+            "GET",
+            path,
+            context=context,
+            params=params,
+            tool_name=tool_name,
+            success_status_codes=success_status_codes,
+        )
 
     async def post(
         self,
@@ -43,8 +61,18 @@ class BackendClient:
         context: CurrentUserContext,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        tool_name: str | None = None,
+        success_status_codes: set[int] | None = None,
     ) -> ToolResult:
-        return await self.request("POST", path, context=context, json=json, headers=headers)
+        return await self.request(
+            "POST",
+            path,
+            context=context,
+            json=json,
+            headers=headers,
+            tool_name=tool_name,
+            success_status_codes=success_status_codes,
+        )
 
     async def request(
         self,
@@ -55,6 +83,8 @@ class BackendClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        tool_name: str | None = None,
+        success_status_codes: set[int] | None = None,
     ) -> ToolResult:
         request_headers = dict(headers or {})
         if context.token:
@@ -63,7 +93,7 @@ class BackendClient:
             # Public-mode opt-in: mint a short-lived backend JWT for the
             # metadata-claimed identity so Spring can authorise the call.
             # Returns None when the operator hasn't opted in or no signing
-            # secret is configured — in that case the request goes
+            # secret is configured -- in that case the request goes
             # unauthenticated and Spring 401s, which is the safe default.
             minted = mint_chatbot_backend_token(context)
             if minted:
@@ -73,8 +103,9 @@ class BackendClient:
         if request_id:
             request_headers["X-Request-ID"] = request_id
 
+        url = self.build_url(path)
+
         try:
-            url = self.build_url(path)
             with start_span(
                 "tool.backend.call",
                 {
@@ -94,14 +125,42 @@ class BackendClient:
                         headers=request_headers,
                     )
         except httpx.RequestError as exc:
+            self._log_structured_backend_response(
+                context=context,
+                tool_name=tool_name,
+                endpoint=url,
+                status_code=503,
+                body=str(exc),
+            )
             log_error(
                 "tool.error",
                 exc,
-                {"method": method.upper(), "path": path, "request_id": request_id, "error_code": "backend_unreachable"},
+                {"method": method.upper(), "path": path, "request_id": request_id, "error_code": "backend_unavailable"},
             )
-            return ToolResult.fail("backend_unreachable", str(exc), status_code=503)
+            return ToolResult.fail("backend_unavailable", str(exc), status_code=503)
+        except Exception as exc:  # noqa: BLE001
+            self._log_structured_backend_response(
+                context=context,
+                tool_name=tool_name,
+                endpoint=url,
+                status_code=503,
+                body=str(exc),
+            )
+            log_error(
+                "tool.error",
+                exc,
+                {"method": method.upper(), "path": path, "request_id": request_id, "error_code": "backend_unavailable"},
+            )
+            return ToolResult.fail("backend_unavailable", str(exc), status_code=503)
 
-        result = self._to_tool_result(response)
+        self._log_structured_backend_response(
+            context=context,
+            tool_name=tool_name,
+            endpoint=url,
+            status_code=response.status_code,
+            body=response.text,
+        )
+        result = self._to_tool_result(response, success_status_codes=success_status_codes)
         log_event(
             "tool.backend.response",
             output={"success": result.success, "error_code": result.error_code, "status_code": result.status_code},
@@ -109,7 +168,12 @@ class BackendClient:
         )
         return result
 
-    def _to_tool_result(self, response: httpx.Response) -> ToolResult:
+    def _to_tool_result(
+        self,
+        response: httpx.Response,
+        *,
+        success_status_codes: set[int] | None = None,
+    ) -> ToolResult:
         try:
             payload: Any = response.json()
         except ValueError:
@@ -121,6 +185,14 @@ class BackendClient:
                 self._extract_error_message(payload) or "Backend request failed.",
                 status_code=response.status_code,
                 data=payload if isinstance(payload, dict) else None,
+            )
+
+        if success_status_codes is not None and response.status_code not in success_status_codes:
+            return ToolResult.fail(
+                "backend_error",
+                self._extract_error_message(payload) or f"Unexpected backend status: {response.status_code}.",
+                status_code=response.status_code,
+                data=payload if isinstance(payload, dict) else {"body": str(payload)},
             )
 
         if isinstance(payload, dict) and "success" in payload:
@@ -176,3 +248,24 @@ class BackendClient:
                 if isinstance(value, str) and value.strip():
                     return value.strip()
         return None
+
+    @staticmethod
+    def _log_structured_backend_response(
+        *,
+        context: CurrentUserContext,
+        tool_name: str | None,
+        endpoint: str,
+        status_code: int,
+        body: str,
+    ) -> None:
+        if not tool_name:
+            return
+        logger.info(
+            {
+                "user": context.user_id,
+                "tool": tool_name,
+                "endpoint": endpoint,
+                "status": status_code,
+                "body": body,
+            }
+        )

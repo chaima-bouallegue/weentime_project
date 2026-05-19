@@ -34,6 +34,7 @@ type ChatMessageSender = 'user' | 'assistant' | 'system';
 type ChatMessageOrigin = 'text' | 'voice' | 'system';
 type RetryKind = 'text' | 'voice';
 type MessageActionKind = 'route' | 'link' | 'confirm';
+type ConfirmationState = 'pending' | 'executing' | 'success' | 'failure' | 'cancelled';
 type ActionTone = 'success' | 'warning' | 'error' | 'neutral';
 type UnknownRecord = Record<string, unknown>;
 
@@ -92,6 +93,7 @@ interface ChatMessage {
   confirmationId?: string | null;
   confirmationPending?: boolean;
   confirmationResolved?: boolean;
+  confirmationState?: ConfirmationState | null;
   confirmationDecision?: 'approved' | 'cancelled' | null;
   workflow?: AssistantWorkflowState | null;
   readResult?: ChatReadResult | null;
@@ -110,6 +112,7 @@ interface CachedChatMessage {
   audioStatusLabel?: string | null;
   fallbackLabel?: string | null;
   confirmationResolved?: boolean;
+  confirmationState?: ConfirmationState | null;
   confirmationDecision?: 'approved' | 'cancelled' | null;
 }
 
@@ -558,7 +561,6 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     if (this.inFlightConfirmations.has(confirmationId) || this.resolvedConfirmations.has(confirmationId)) {
-      this.markConfirmationResolved(message.id, approved);
       return;
     }
 
@@ -571,8 +573,11 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       this.inFlightConfirmations.delete(confirmationId);
     })).subscribe({
       next: response => {
-        this.resolvedConfirmations.add(confirmationId);
-        this.markConfirmationResolved(message.id, approved);
+        const confirmationState = this.resolveConfirmationState(response, approved);
+        if (confirmationState !== 'pending' && confirmationState !== 'executing') {
+          this.resolvedConfirmations.add(confirmationId);
+        }
+        this.markConfirmationResolved(message.id, confirmationState);
         this.pushAssistantReply(response, 'text');
       },
       error: error => {
@@ -693,9 +698,20 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   confirmationResolutionLabel(message: ChatMessage): string {
-    return message.confirmationDecision === 'cancelled'
-      ? 'Action cancelled'
-      : 'Action approved';
+    switch (message.confirmationState) {
+      case 'failure':
+        return 'Execution failed';
+      case 'cancelled':
+        return 'Action cancelled';
+      case 'executing':
+        return 'Execution in progress';
+      case 'success':
+        return 'Action approved';
+      default:
+        return message.confirmationDecision === 'cancelled'
+          ? 'Action cancelled'
+          : 'Action approved';
+    }
   }
 
   actionToneIcon(tone: ActionTone | undefined): string {
@@ -803,6 +819,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       confirmationId: requiresConfirmation ? confirmationId : null,
       confirmationPending: false,
       confirmationResolved: confirmationId ? this.resolvedConfirmations.has(confirmationId) : false,
+      confirmationState: requiresConfirmation
+        ? (this.resolvedConfirmations.has(confirmationId ?? '') ? 'success' : 'pending')
+        : null,
       confirmationDecision: null,
       workflow,
       readResult,
@@ -1293,6 +1312,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           audioStatusLabel: message.audioStatusLabel ?? null,
           fallbackLabel: message.fallbackLabel ?? null,
           confirmationResolved: message.confirmationResolved === true,
+          confirmationState: message.confirmationState ?? null,
           confirmationDecision: message.confirmationDecision ?? null,
         }));
 
@@ -1333,6 +1353,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           audioStatusLabel: item.audioStatusLabel ?? null,
           fallbackLabel: item.fallbackLabel ?? null,
           confirmationResolved: item.confirmationResolved === true,
+          confirmationState: item.confirmationState
+            ?? (item.confirmationResolved === true
+              ? (item.confirmationDecision === 'cancelled' ? 'cancelled' : 'success')
+              : null),
           confirmationDecision: item.confirmationDecision ?? null,
         }));
     } catch {
@@ -1670,18 +1694,47 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.speaking.set(false);
   }
 
-  private markConfirmationPending(messageId: string, pending: boolean): void {
-    this.patchMessage(messageId, { confirmationPending: pending });
+  private resolveConfirmationState(response: ChatApiResponse, approved: boolean): ConfirmationState {
+    if (!approved) {
+      return response.type === 'error' ? 'failure' : 'cancelled';
+    }
+
+    const actionResult = this.asRecord(response.actionResult ?? response.action_result);
+    if (response.type === 'error') {
+      return 'failure';
+    }
+    if (actionResult?.['success'] === false || actionResult?.['error']) {
+      return 'failure';
+    }
+
+    const toolCalls = Array.isArray(response.toolCalls) ? response.toolCalls : [];
+    for (const call of toolCalls) {
+      const status = this.firstDisplayString(this.asRecord(call)?.['status'])?.toLowerCase();
+      if (status === 'failed' || status === 'denied' || status === 'business_conflict') {
+        return 'failure';
+      }
+    }
+
+    return 'success';
   }
 
-  private markConfirmationResolved(messageId: string, approved?: boolean): void {
+  private markConfirmationPending(messageId: string, pending: boolean): void {
     this.patchMessage(messageId, {
-      confirmationPending: false,
-      confirmationResolved: true,
-      confirmationDecision: approved === false ? 'cancelled' : 'approved',
-      actionLabel: null,
-      actionTarget: null,
-      actionKind: null,
+      confirmationPending: pending,
+      confirmationState: pending ? 'executing' : 'pending',
+    });
+  }
+
+  private markConfirmationResolved(messageId: string, state: ConfirmationState): void {
+    const resolved = state === 'success' || state === 'failure' || state === 'cancelled';
+    this.patchMessage(messageId, {
+      confirmationPending: state === 'executing',
+      confirmationResolved: resolved,
+      confirmationState: state,
+      confirmationDecision: state === 'cancelled' ? 'cancelled' : state === 'success' ? 'approved' : null,
+      actionLabel: resolved ? null : undefined,
+      actionTarget: resolved ? null : undefined,
+      actionKind: resolved ? null : undefined,
     });
   }
 

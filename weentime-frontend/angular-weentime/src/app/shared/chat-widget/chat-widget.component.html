@@ -237,6 +237,7 @@
                 <span
                   *ngIf="message.confirmationResolved"
                   class="message-bubble__resolved"
+                  [attr.data-state]="message.confirmationState || (message.confirmationDecision === 'cancelled' ? 'cancelled' : 'success')"
                 >
                   {{ confirmationResolutionLabel(message) }}
                 </span>

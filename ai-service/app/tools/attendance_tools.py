@@ -13,6 +13,8 @@ from .result import ToolResult, build_read_result, build_write_result
 
 ALL_BUSINESS_ROLES = {"EMPLOYEE", "MANAGER", "RH", "ADMIN"}
 TEAM_PRESENCE_UNAVAILABLE = "Cette vue de presence n'est pas encore disponible pour votre role."
+ATTENDANCE_READ_SUCCESS_CODES = {200}
+ATTENDANCE_WRITE_SUCCESS_CODES = {200, 201}
 
 
 class EmptyToolInput(BaseModel):
@@ -31,6 +33,52 @@ class TeamPresenceInput(BaseModel):
 class AttendanceTools:
     def __init__(self, backend_client: BackendClient) -> None:
         self.backend_client = backend_client
+
+    async def _backend_get(
+        self,
+        path: str,
+        *,
+        context: CurrentUserContext,
+        params: dict[str, Any] | None = None,
+        tool_name: str | None = None,
+        success_status_codes: set[int] | None = None,
+    ) -> ToolResult:
+        try:
+            return await self.backend_client.get(
+                path,
+                context=context,
+                params=params,
+                tool_name=tool_name,
+                success_status_codes=success_status_codes,
+            )
+        except TypeError as exc:
+            if "tool_name" not in str(exc) and "success_status_codes" not in str(exc):
+                raise
+            return await self.backend_client.get(path, context=context, params=params)
+
+    async def _backend_post(
+        self,
+        path: str,
+        *,
+        context: CurrentUserContext,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        tool_name: str | None = None,
+        success_status_codes: set[int] | None = None,
+    ) -> ToolResult:
+        try:
+            return await self.backend_client.post(
+                path,
+                context=context,
+                json=json,
+                headers=headers,
+                tool_name=tool_name,
+                success_status_codes=success_status_codes,
+            )
+        except TypeError as exc:
+            if "tool_name" not in str(exc) and "success_status_codes" not in str(exc):
+                raise
+            return await self.backend_client.post(path, context=context, json=json, headers=headers)
 
     def register(self, registry: ToolRegistry) -> None:
         registry.register(
@@ -194,28 +242,39 @@ class AttendanceTools:
         )
 
     async def get_pointage_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
-        return await self.backend_client.get("/presence/me/today", context=context)
+        return await self._backend_get(
+            "/presence/me/today",
+            context=context,
+            tool_name="attendance.status",
+            success_status_codes=ATTENDANCE_READ_SUCCESS_CODES,
+        )
 
     async def get_pointage_status_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
         return await self.get_pointage_status(_, context)
 
     async def check_in(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
-        return await self.backend_client.post(
+        result = await self._backend_post(
             "/presence/me/check-in",
             context=context,
             json=_attendance_write_body(context, action="check_in"),
+            tool_name="attendance.check_in",
+            success_status_codes=ATTENDANCE_WRITE_SUCCESS_CODES,
         )
+        return _strict_attendance_write_result(result)
 
     async def check_in_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
         result = await self.check_in(_, context)
         return _attendance_write_result(result, "attendance.self.check_in", "Pointage d'entree enregistre.")
 
     async def check_out(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
-        return await self.backend_client.post(
+        result = await self._backend_post(
             "/presence/me/check-out",
             context=context,
             json=_attendance_write_body(context, action="check_out"),
+            tool_name="attendance.check_out",
+            success_status_codes=ATTENDANCE_WRITE_SUCCESS_CODES,
         )
+        return _strict_attendance_write_result(result)
 
     async def check_out_alias(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
         result = await self.check_out(_, context)
@@ -319,6 +378,20 @@ def _attendance_write_result(result: ToolResult, tool_name: str, summary: str) -
         },
         warnings=result.warnings,
         status_code=result.status_code,
+    )
+
+
+def _strict_attendance_write_result(result: ToolResult) -> ToolResult:
+    if not result.success:
+        return result
+    if result.status_code in ATTENDANCE_WRITE_SUCCESS_CODES:
+        return result
+    return ToolResult.fail(
+        "backend_error",
+        "Le backend n'a pas confirme le pointage.",
+        status_code=result.status_code,
+        data=result.data,
+        warnings=result.warnings,
     )
 
 

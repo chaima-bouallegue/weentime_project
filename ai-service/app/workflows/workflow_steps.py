@@ -229,7 +229,9 @@ def build_confirmation_status_response(
 def build_confirmation_execution_response(record: ConfirmationRecord, result: ToolResult) -> AgentResponse:
     known_conflict = is_known_business_conflict(result)
     success_text = _tool_result_summary(result) or action_success_text(record.tool_name, record.tool_input)
-    failure_text = _tool_result_summary(result) or (business_conflict_message(result) if known_conflict else backend_error_message(result))
+    failure_text = _tool_result_summary(result) or (
+        business_conflict_message(result) if known_conflict else backend_error_message(result, tool_name=record.tool_name)
+    )
     return AgentResponse(
         type="execute_action" if result.success else ("answer" if known_conflict else "error"),
         text=success_text if result.success else failure_text,
@@ -302,9 +304,16 @@ def business_conflict_message(result: ToolResult) -> str:
     return message or "Une demande existe déjà sur cette période."
 
 
-def backend_error_message(result: ToolResult) -> str:
+def backend_error_message(result: ToolResult, *, tool_name: str | None = None) -> str:
+    code = str(getattr(result, "error_code", "") or "").lower()
     status_code = getattr(result, "status_code", None)
     message = str(getattr(result, "error_message", "") or "").strip()
+    if tool_name in {"check_in", "check_out", "attendance.self.check_in", "attendance.self.check_out"} and (
+        code in {"backend_unavailable", "backend_unreachable"} or (status_code is not None and int(status_code) >= 500)
+    ):
+        return "Le service de pointage est indisponible actuellement."
+    if status_code == 401:
+        return "Votre session a expire. Veuillez vous reconnecter."
     if status_code == 403:
         return "Vous n'avez pas les droits necessaires pour effectuer cette action."
     if status_code == 404:

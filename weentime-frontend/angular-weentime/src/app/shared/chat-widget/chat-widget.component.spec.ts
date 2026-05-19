@@ -7,10 +7,15 @@ import { TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import {
   ArrowRight,
+  Check,
+  ExternalLink,
+  Loader2,
   LucideAngularModule,
   MessageSquare,
   Mic,
   Move,
+  Play,
+  RotateCcw,
   SendHorizontal,
   ShieldAlert,
   Sparkles,
@@ -40,6 +45,7 @@ class FakeChatService {
   sendMessage = vi.fn();
   confirmAction = vi.fn();
   textToSpeech = vi.fn();
+  extractAssistantMeta = vi.fn(() => ({}));
 }
 
 class FakeVoiceAssistantService {
@@ -74,9 +80,14 @@ describe('ChatWidgetComponent', () => {
         ChatWidgetComponent,
         LucideAngularModule.pick({
           ArrowRight,
+          Check,
+          ExternalLink,
+          Loader2,
           Sparkles,
           Mic,
           Move,
+          Play,
+          RotateCcw,
           X,
           MessageSquare,
           SendHorizontal,
@@ -168,6 +179,58 @@ describe('ChatWidgetComponent', () => {
       actionLabel: 'Se reconnecter',
       actionTarget: '/login',
       actionKind: 'route',
+      isError: true,
+    });
+  });
+
+  it('does not mark a confirmation as approved when the backend returns an error payload', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.confirmAction.mockReturnValue(of({
+      success: false,
+      status: 'error',
+      type: 'error',
+      text: 'Le service de pointage est indisponible actuellement.',
+      message: 'Le service de pointage est indisponible actuellement.',
+      response: 'Le service de pointage est indisponible actuellement.',
+      intent: 'confirmation.check_in',
+      toolCalls: [{ name: 'check_in', status: 'failed' }],
+      actionResult: {
+        success: false,
+        error: 'backend_unavailable',
+        status_code: 503,
+      },
+    }));
+
+    component.messages.set([
+      {
+        id: 'confirm-1',
+        sender: 'assistant',
+        text: "Confirmez-vous le pointage d'entree ?",
+        timestamp: new Date(),
+        confirmationId: 'cf-1',
+        confirmationPending: false,
+        confirmationResolved: false,
+        confirmationState: 'pending',
+        confirmationDecision: null,
+      } as any,
+    ]);
+    fixture.detectChanges();
+
+    component.confirmAssistantAction(component.messages()[0]!, true);
+    fixture.detectChanges();
+
+    expect(component.messages()[0]).toMatchObject({
+      confirmationResolved: true,
+      confirmationState: 'failure',
+      confirmationDecision: null,
+    });
+    expect(fixture.nativeElement.textContent).toContain('Execution failed');
+    expect(fixture.nativeElement.textContent).not.toContain('Action approved');
+    expect(component.messages().at(-1)).toMatchObject({
+      sender: 'system',
+      text: 'Le service de pointage est indisponible actuellement.',
       isError: true,
     });
   });
