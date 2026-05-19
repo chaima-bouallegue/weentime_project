@@ -20,6 +20,9 @@ export interface AnomalyRecord {
 
 export interface AnomalyDashboardResponse {
   success: boolean;
+  /** True when the backend was unreachable and the ml-service served synthetic
+   *  demo rows so the dashboard isn't blank. UI shows a banner. */
+  isDemo: boolean;
   generatedAt: string;
   totalAnomalies: number;
   critical: number;
@@ -55,6 +58,7 @@ interface RawAnomalyRecord {
 
 interface RawAnomalyDashboardResponse {
   success: boolean;
+  is_demo?: boolean;
   generated_at: string;
   total_anomalies: number;
   critical: number;
@@ -79,6 +83,7 @@ interface RawEmployeeRiskResponse {
 
 const EMPTY_DASHBOARD: AnomalyDashboardResponse = {
   success: false,
+  isDemo: false,
   generatedAt: '',
   totalAnomalies: 0,
   critical: 0,
@@ -127,6 +132,7 @@ function mapDashboard(raw: RawAnomalyDashboardResponse | null | undefined): Anom
   const low = anomalies.length === 0 ? 0 : Number(raw.low ?? 0) || 0;
   return {
     success: Boolean(raw.success),
+    isDemo: Boolean(raw.is_demo),
     generatedAt: String(raw.generated_at ?? ''),
     totalAnomalies,
     critical,

@@ -25,19 +25,34 @@ def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def _normalize_role(role: str) -> str:
+    """Spring AuthTokenFilter wraps roles claims directly into
+    ``SimpleGrantedAuthority`` -- no ROLE_ prefix is added by the filter.
+    Controllers gate access with ``@PreAuthorize("hasAuthority('ROLE_RH')")``
+    (literal authority string, not ``hasRole``) so the JWT MUST contain
+    the prefixed name.
+    """
+    upper = (role or "").strip().upper()
+    if not upper:
+        return "ROLE_ADMIN"
+    return upper if upper.startswith("ROLE_") else f"ROLE_{upper}"
+
+
 def _mint_service_token(user_id: int, role: str, tenant_id: int | None) -> str:
     settings = get_settings()
     header = {"alg": "HS256", "typ": "JWT"}
     now = int(time.time())
-    payload = {
+    normalized = _normalize_role(role)
+    payload: dict[str, Any] = {
         "sub": "ml-service",
         "userId": user_id,
-        "roles": [role],
-        "entrepriseId": tenant_id,
+        "roles": [normalized],
         "iss": settings.backend_jwt_issuer,
         "iat": now,
         "exp": now + settings.backend_jwt_ttl_seconds,
     }
+    if tenant_id is not None:
+        payload["entrepriseId"] = tenant_id
     header_b = _b64url(json.dumps(header, separators=(",", ":")).encode())
     payload_b = _b64url(json.dumps(payload, separators=(",", ":")).encode())
     signing_input = f"{header_b}.{payload_b}".encode()

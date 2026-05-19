@@ -1294,3 +1294,15 @@
     &:hover { background: rgba(239, 68, 68, 0.08); }
   }
 }
+
+.ai-demo-banner {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.20);
+  border-radius: var(--wt-radius-sm);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.74rem;
+  color: #92400e;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}

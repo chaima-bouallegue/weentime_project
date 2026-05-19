@@ -149,6 +149,12 @@
       </div>
     </header>
 
+    @if (globalDemo() && !globalLoading()) {
+      <div class="ai-demo-banner" role="status">
+        Mode démonstration — données synthétiques (backend indisponible)
+      </div>
+    }
+
     @if (globalStats().critical > 0) {
       <div class="soc-panel__alert-banner" role="alert">
         <span aria-hidden="true">🚨</span>

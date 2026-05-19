@@ -134,6 +134,7 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   readonly anomalies = signal<AnomalyRecord[]>([]);
   readonly anomaliesLoading = signal(true);
   readonly anomaliesError = signal(false);
+  readonly anomaliesDemo = signal(false);
   readonly criticalCount = computed(() => this.anomalies().filter(a => a.risk === 'CRITICAL').length);
   readonly highCount = computed(() => this.anomalies().filter(a => a.risk === 'HIGH').length);
   readonly mediumCount = computed(() => this.anomalies().filter(a => a.risk === 'MEDIUM').length);
@@ -262,6 +263,7 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   loadTeamAnomalies(): void {
     this.anomaliesLoading.set(true);
     this.anomaliesError.set(false);
+    this.anomaliesDemo.set(false);
     this.anomalySub?.unsubscribe();
     this.anomalySub = this.mlAnomaly.getTeamAnomalies().subscribe({
       next: (response) => {
@@ -271,6 +273,7 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
           .slice(0, 5);
         this.anomalies.set(significant);
         this.anomaliesError.set(!response.success);
+        this.anomaliesDemo.set(Boolean(response.isDemo));
         this.anomaliesLoading.set(false);
       },
       error: () => {

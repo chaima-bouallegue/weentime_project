@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from app.core.config import get_settings
+from app.core.config import get_settings  # noqa: F401 -- used by helpers below
 from app.features.attendance_features import AttendanceRecord, FeatureEngineer
 from app.inference.backend_client import WeenTimeBackendClient
 from app.models.isolation_forest_model import AttendanceAnomalyModel
@@ -164,8 +164,14 @@ class AnomalyDetector:
         token: str | None,
         user_id: int,
         tenant_id: int | None,
-    ) -> list[AttendanceRecord]:
-        """Pull today's company-wide presence via RH endpoint."""
+    ) -> tuple[list[AttendanceRecord], bool]:
+        """Pull today's company-wide presence.
+
+        Returns ``(records, backend_ok)``. ``backend_ok`` is True when the
+        Spring backend responded with a 2xx envelope (even if empty) -- this
+        lets the route layer decide whether to fall back to synthetic demo
+        data when the real backend can't be reached.
+        """
         payload = await self.backend.get(
             "presence/company/today",
             token=token,
@@ -173,7 +179,43 @@ class AnomalyDetector:
             role="RH",
             tenant_id=tenant_id,
         )
-        return _team_status_to_records(payload, today=date.today())
+        backend_ok = bool(payload) and payload.get("success") is not False and "error" not in payload
+        records = _team_status_to_records(payload, today=date.today())
+        return records, backend_ok
+
+    def synthetic_demo_dashboard(self, limit: int = 8) -> AnomalyDashboardResponse:
+        """Produce a populated dashboard from the synthetic parquet.
+
+        Used as a fallback when the Spring backend is unreachable so the UI
+        can still demonstrate the AI surface. Records are flagged
+        ``is_demo=True`` so the Angular client renders a discreet banner.
+        """
+        records = _load_synthetic_anomaly_records(limit=limit)
+        if not records or self.model is None or self.model.model is None:
+            return AnomalyDashboardResponse(
+                success=True,
+                is_demo=True,
+                generated_at=datetime.now(timezone.utc),
+            )
+
+        per_employee: dict[int, list[AttendanceRecord]] = {}
+        for r in records:
+            per_employee.setdefault(r.employee_id, []).append(r)
+
+        anomalies: list[AnomalyRecord] = []
+        for r in records:
+            result = self.analyze_record(r, per_employee.get(r.employee_id))
+            # Force a non-LOW risk for the synthetic ones so the demo card
+            # surface is meaningful (the parquet rows here are pre-selected
+            # anomaly-injected samples).
+            if result.risk == RiskLevel.LOW:
+                result.risk = RiskLevel.MEDIUM
+            anomalies.append(result)
+
+        anomalies.sort(key=lambda a: a.score, reverse=True)
+        dashboard = self._build_dashboard(anomalies)
+        dashboard.is_demo = True
+        return dashboard
 
     async def fetch_employee_history(
         self,
@@ -289,6 +331,63 @@ def _team_status_to_records(payload: dict[str, Any], today: date) -> list[Attend
             )
         )
     return records
+
+
+def _load_synthetic_anomaly_records(limit: int = 8) -> list[AttendanceRecord]:
+    """Load anomaly-injected rows from the synthetic parquet/csv.
+
+    Returns ``[]`` if no synthetic data is available (e.g. before the first
+    training run). Catches every exception so the demo fallback can't itself
+    crash the route.
+    """
+    settings = get_settings()
+    base = settings.training_data_dir_path
+    parquet = base / "synthetic_attendance.parquet"
+    csv = base / "synthetic_attendance.csv"
+    try:
+        import pandas as pd
+
+        if parquet.exists():
+            df = pd.read_parquet(parquet)
+        elif csv.exists():
+            df = pd.read_csv(csv)
+        else:
+            return []
+        if "anomaly_injected" in df.columns:
+            df = df[df["anomaly_injected"].astype(bool)]
+        if df.empty:
+            return []
+        df = df.head(limit)
+        records: list[AttendanceRecord] = []
+        for _, row in df.iterrows():
+            check_in = _parse_iso_dt(row.get("check_in"))
+            check_out = _parse_iso_dt(row.get("check_out"))
+            row_date_raw = row.get("date")
+            try:
+                row_date = date.fromisoformat(str(row_date_raw)[:10]) if row_date_raw else date.today()
+            except ValueError:
+                row_date = date.today()
+            employee_id = int(row.get("employee_id", 0) or 0)
+            records.append(
+                AttendanceRecord(
+                    employee_id=employee_id,
+                    employee_name=str(row.get("employee_name") or f"Demo #{employee_id}"),
+                    date=row_date,
+                    check_in=check_in,
+                    check_out=check_out,
+                    duration_seconds=(
+                        int(row["duration_seconds"]) if row.get("duration_seconds") is not None else None
+                    ),
+                    daily_status=str(row.get("daily_status") or "WORKING") or None,
+                    late_arrival=bool(row.get("late_arrival")) if row.get("late_arrival") is not None else None,
+                    source=str(row.get("source") or "") or None,
+                    localisation=str(row.get("localisation") or "") or None,
+                )
+            )
+        return records
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("synthetic fallback load failed: %s", exc)
+        return []
 
 
 def _history_to_records(payload: dict[str, Any]) -> list[AttendanceRecord]:

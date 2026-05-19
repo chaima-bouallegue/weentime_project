@@ -100,6 +100,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly globalAnomalies = signal<AnomalyRecord[]>([]);
   readonly globalLoading = signal(true);
   readonly globalError = signal(false);
+  readonly globalDemo = signal(false);
   readonly globalStats = computed(() => {
     const list = this.globalAnomalies();
     return {
@@ -270,6 +271,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   loadGlobalAnomalies(): void {
     this.globalLoading.set(true);
     this.globalError.set(false);
+    this.globalDemo.set(false);
     this.mlAnomaly.getDashboardSummary().subscribe({
       next: (response) => {
         const list = (response.anomalies || [])
@@ -278,6 +280,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           .slice(0, 8);
         this.globalAnomalies.set(list);
         this.globalError.set(!response.success);
+        this.globalDemo.set(Boolean(response.isDemo));
         this.globalLoading.set(false);
       },
       error: () => {

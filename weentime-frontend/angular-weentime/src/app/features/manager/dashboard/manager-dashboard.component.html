@@ -190,6 +190,12 @@
       </div>
     }
 
+    @if (anomaliesDemo() && !anomaliesLoading()) {
+      <div class="ai-demo-banner" role="status">
+        Mode démonstration — données synthétiques (backend indisponible)
+      </div>
+    }
+
     @if (anomaliesError() && !anomaliesLoading()) {
       <div class="ai-anomaly-section__error" role="alert">
         <span aria-hidden="true">⚠</span>

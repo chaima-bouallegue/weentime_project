@@ -36,6 +36,28 @@ def _empty_dashboard() -> AnomalyDashboardResponse:
     )
 
 
+async def _company_dashboard(
+    detector: AnomalyDetector,
+    authorization: str | None,
+    user_id: int | None,
+    tenant_id: int | None,
+) -> AnomalyDashboardResponse:
+    token = _extract_bearer(authorization)
+    records, backend_ok = await detector.fetch_today_company(
+        token=token,
+        user_id=user_id or 0,
+        tenant_id=tenant_id,
+    )
+    if records:
+        return await detector.analyze_today(records)
+    if not backend_ok:
+        # Backend errored or unreachable -- demo so the dashboard isn't blank.
+        logger.info("backend unreachable, returning synthetic demo dashboard")
+        return detector.synthetic_demo_dashboard()
+    # Backend OK but no employees clocked in yet -- legitimately empty.
+    return _empty_dashboard()
+
+
 @router.get("/anomalies/today", response_model=AnomalyDashboardResponse)
 async def get_today_anomalies(
     authorization: str | None = Header(default=None),
@@ -43,11 +65,7 @@ async def get_today_anomalies(
     x_tenant_id: int | None = Header(default=None, alias="X-Tenant-Id"),
     detector: AnomalyDetector = Depends(get_detector),
 ) -> AnomalyDashboardResponse:
-    token = _extract_bearer(authorization)
-    records = await detector.fetch_today_company(token=token, user_id=x_user_id or 0, tenant_id=x_tenant_id)
-    if not records:
-        return _empty_dashboard()
-    return await detector.analyze_today(records)
+    return await _company_dashboard(detector, authorization, x_user_id, x_tenant_id)
 
 
 @router.get("/anomalies/dashboard", response_model=AnomalyDashboardResponse)
@@ -59,7 +77,7 @@ async def get_dashboard(
 ) -> AnomalyDashboardResponse:
     # Alias of /anomalies/today -- separate endpoint so the Angular dashboard
     # has a stable URL even if today's source changes.
-    return await get_today_anomalies(authorization, x_user_id, x_tenant_id, detector)
+    return await _company_dashboard(detector, authorization, x_user_id, x_tenant_id)
 
 
 @router.get("/anomalies/employee/{employee_id}", response_model=EmployeeRiskResponse)
@@ -97,13 +115,8 @@ async def get_department_anomalies(
 ) -> AnomalyDashboardResponse:
     # Department scoping isn't yet exposed by presence-service. Falls back to
     # company-wide today and surfaces the dept_id in the payload metadata.
-    token = _extract_bearer(authorization)
-    records = await detector.fetch_today_company(token=token, user_id=x_user_id or 0, tenant_id=x_tenant_id)
-    if not records:
-        return _empty_dashboard()
-    response = await detector.analyze_today(records)
     logger.info("department %s requested -- returning company scope (no per-dept endpoint yet)", dept_id)
-    return response
+    return await _company_dashboard(detector, authorization, x_user_id, x_tenant_id)
 
 
 @router.post("/train/anomaly", response_model=TrainResponse)

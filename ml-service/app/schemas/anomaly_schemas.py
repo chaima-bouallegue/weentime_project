@@ -28,6 +28,9 @@ class AnomalyRecord(BaseModel):
 
 class AnomalyDashboardResponse(BaseModel):
     success: bool = True
+    # True when records come from the synthetic parquet because the Spring
+    # backend was unreachable -- the UI surfaces a discreet banner.
+    is_demo: bool = False
     generated_at: datetime
     total_anomalies: int = 0
     critical: int = 0
