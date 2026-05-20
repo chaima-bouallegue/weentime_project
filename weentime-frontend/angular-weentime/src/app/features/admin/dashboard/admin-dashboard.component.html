@@ -149,9 +149,9 @@
       </div>
     </header>
 
-    @if (globalDemo() && !globalLoading()) {
+    @if (globalBackendUnavailable() && !globalLoading()) {
       <div class="ai-demo-banner" role="status">
-        Mode démonstration — données synthétiques (backend indisponible)
+        Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
       </div>
     }
 

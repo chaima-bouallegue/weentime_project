@@ -392,32 +392,88 @@ def _parse_iso_dt(value: Any) -> datetime | None:
         return None
 
 
-def _team_status_to_records(payload: dict[str, Any], today: date) -> list[AttendanceRecord]:
-    if not isinstance(payload, dict) or not payload.get("data"):
+def _extract_members(payload: Any) -> list[dict[str, Any]]:
+    """Pull the member list out of any of the shapes Spring may return.
+
+    Handles: a bare list; an ApiResponse wrapper ({"data": {...}}); and a
+    direct object ({"members": [...]}). Member arrays may be named members /
+    presences / sessions.
+    """
+    # Format C: bare list
+    if isinstance(payload, list):
+        return [m for m in payload if isinstance(m, dict)]
+    if not isinstance(payload, dict):
         return []
-    data = payload["data"]
-    members = data.get("members") or []
+    # An error envelope from the client wrapper -> no members.
+    if payload.get("success") is False or "error" in payload:
+        return []
+    # Format A: ApiResponse wrapper with nested data.
+    container = payload.get("data") if isinstance(payload.get("data"), (dict, list)) else payload
+    if isinstance(container, list):
+        return [m for m in container if isinstance(m, dict)]
+    if not isinstance(container, dict):
+        return []
+    for key in ("members", "presences", "sessions"):
+        value = container.get(key)
+        if isinstance(value, list):
+            return [m for m in value if isinstance(m, dict)]
+    return []
+
+
+def _member_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_status_to_records(payload: dict[str, Any], today: date) -> list[AttendanceRecord]:
+    members = _extract_members(payload)
     records: list[AttendanceRecord] = []
     for m in members:
-        user_id = m.get("utilisateurId") or m.get("userId")
+        user_id = _member_int(
+            m.get("utilisateurId") or m.get("employeeId") or m.get("userId") or m.get("id")
+        )
         if user_id is None:
             continue
-        check_in = _parse_iso_dt(m.get("heureEntree"))
-        check_out = _parse_iso_dt(m.get("heureSortie"))
+
+        name = (
+            m.get("nomComplet")
+            or m.get("fullName")
+            or f"{m.get('prenom', '') or ''} {m.get('nom', '') or ''}".strip()
+            or f"Employé #{user_id}"
+        )
+
+        check_in = _parse_iso_dt(m.get("heureEntree") or m.get("checkInTime") or m.get("heure_entree"))
+        check_out = _parse_iso_dt(m.get("heureSortie") or m.get("checkOutTime") or m.get("heure_sortie"))
+
+        # duration may be seconds (duration) or hours (totalHeuresTravaillees).
+        duration_seconds: int | None = None
+        raw_duration = m.get("durationSeconds") or m.get("duration")
+        if raw_duration is not None:
+            duration_seconds = _member_int(raw_duration)
+        else:
+            hours = m.get("totalHeuresTravaillees")
+            if isinstance(hours, (int, float)):
+                duration_seconds = int(hours * 3600)
+
         records.append(
             AttendanceRecord(
-                employee_id=int(user_id),
-                employee_name=str(m.get("nomComplet") or f"Employé #{user_id}"),
+                employee_id=user_id,
+                employee_name=str(name),
                 date=today,
                 check_in=check_in,
                 check_out=check_out,
-                duration_seconds=None,
-                daily_status=m.get("status"),
-                late_arrival=m.get("lateArrival"),
-                source=None,
-                localisation=None,
+                duration_seconds=duration_seconds,
+                daily_status=m.get("dailyStatus") or m.get("status") or m.get("presenceStatus"),
+                late_arrival=m.get("lateArrival") if m.get("lateArrival") is not None else m.get("retard"),
+                source=m.get("source"),
+                localisation=m.get("localisation"),
             )
         )
+    logger.info("parsed %d member record(s) from presence payload", len(records))
     return records
 
 

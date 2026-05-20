@@ -101,6 +101,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly globalLoading = signal(true);
   readonly globalError = signal(false);
   readonly globalDemo = signal(false);
+  readonly globalBackendUnavailable = signal(false);
   readonly globalStats = computed(() => {
     const list = this.globalAnomalies();
     return {
@@ -281,6 +282,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.globalAnomalies.set(list);
         this.globalError.set(!response.success);
         this.globalDemo.set(Boolean(response.isDemo));
+        this.globalBackendUnavailable.set(response.backendStatus === 'unavailable');
         this.globalLoading.set(false);
       },
       error: () => {

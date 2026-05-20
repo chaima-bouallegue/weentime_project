@@ -204,3 +204,15 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+.backend-unavailable-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.20);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #92400e;
+}

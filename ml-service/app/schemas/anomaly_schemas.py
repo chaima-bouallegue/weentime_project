@@ -28,9 +28,12 @@ class AnomalyRecord(BaseModel):
 
 class AnomalyDashboardResponse(BaseModel):
     success: bool = True
-    # True when records come from the synthetic parquet because the Spring
-    # backend was unreachable -- the UI surfaces a discreet banner.
+    # Retained for backward-compat with the Angular contract. The service no
+    # longer fabricates synthetic anomalies, so this is always False.
     is_demo: bool = False
+    # "ok" when the presence backend answered; "unavailable" when it could not
+    # be reached / errored (the UI shows an honest banner instead of fake data).
+    backend_status: str = "ok"
     generated_at: datetime
     total_anomalies: int = 0
     critical: int = 0

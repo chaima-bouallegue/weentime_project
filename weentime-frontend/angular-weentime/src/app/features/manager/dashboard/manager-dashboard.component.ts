@@ -135,6 +135,7 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   readonly anomaliesLoading = signal(true);
   readonly anomaliesError = signal(false);
   readonly anomaliesDemo = signal(false);
+  readonly anomaliesBackendUnavailable = signal(false);
   readonly criticalCount = computed(() => this.anomalies().filter(a => a.risk === 'CRITICAL').length);
   readonly highCount = computed(() => this.anomalies().filter(a => a.risk === 'HIGH').length);
   readonly mediumCount = computed(() => this.anomalies().filter(a => a.risk === 'MEDIUM').length);
@@ -274,6 +275,7 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
         this.anomalies.set(significant);
         this.anomaliesError.set(!response.success);
         this.anomaliesDemo.set(Boolean(response.isDemo));
+        this.anomaliesBackendUnavailable.set(response.backendStatus === 'unavailable');
         this.anomaliesLoading.set(false);
       },
       error: () => {

@@ -97,6 +97,12 @@
   </section>
 
   <!-- ═══════════════════ 3. AI ANOMALY FEED ═══════════════════ -->
+  @if (anomalyBackendUnavailable()) {
+    <div class="backend-unavailable-banner">
+      <lucide-angular [img]="ic.refresh" size="16"></lucide-angular>
+      Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
+    </div>
+  }
   <ui-ai-anomaly-feed
     [loading]="anomalyLoading()"
     [anomalies]="anomalies()"

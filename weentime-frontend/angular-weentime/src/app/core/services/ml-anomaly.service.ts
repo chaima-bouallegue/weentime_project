@@ -20,9 +20,10 @@ export interface AnomalyRecord {
 
 export interface AnomalyDashboardResponse {
   success: boolean;
-  /** True when the backend was unreachable and the ml-service served synthetic
-   *  demo rows so the dashboard isn't blank. UI shows a banner. */
+  /** Retained for back-compat; the service no longer fabricates demo data. */
   isDemo: boolean;
+  /** "ok" when presence backend answered, "unavailable" when it errored. */
+  backendStatus: 'ok' | 'unavailable' | 'error';
   generatedAt: string;
   totalAnomalies: number;
   critical: number;
@@ -59,6 +60,7 @@ interface RawAnomalyRecord {
 interface RawAnomalyDashboardResponse {
   success: boolean;
   is_demo?: boolean;
+  backend_status?: string;
   generated_at: string;
   total_anomalies: number;
   critical: number;
@@ -84,6 +86,7 @@ interface RawEmployeeRiskResponse {
 const EMPTY_DASHBOARD: AnomalyDashboardResponse = {
   success: false,
   isDemo: false,
+  backendStatus: 'unavailable',
   generatedAt: '',
   totalAnomalies: 0,
   critical: 0,
@@ -92,6 +95,10 @@ const EMPTY_DASHBOARD: AnomalyDashboardResponse = {
   low: 0,
   anomalies: [],
 };
+
+function safeBackendStatus(value: unknown): 'ok' | 'unavailable' | 'error' {
+  return value === 'unavailable' || value === 'error' ? value : 'ok';
+}
 
 const ALLOWED_RISKS: ReadonlySet<AnomalyRisk> = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 
@@ -133,6 +140,7 @@ function mapDashboard(raw: RawAnomalyDashboardResponse | null | undefined): Anom
   return {
     success: Boolean(raw.success),
     isDemo: Boolean(raw.is_demo),
+    backendStatus: safeBackendStatus(raw.backend_status),
     generatedAt: String(raw.generated_at ?? ''),
     totalAnomalies,
     critical,

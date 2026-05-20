@@ -36,6 +36,20 @@ def _empty_dashboard() -> AnomalyDashboardResponse:
     )
 
 
+def _unavailable_dashboard() -> AnomalyDashboardResponse:
+    """Honest empty state when the presence backend can't be reached.
+
+    NEVER returns synthetic/fake employees -- the UI shows a 'service
+    indisponible' banner instead so users are never misled.
+    """
+    return AnomalyDashboardResponse(
+        success=True,
+        is_demo=False,
+        backend_status="unavailable",
+        generated_at=datetime.now(timezone.utc),
+    )
+
+
 async def _scoped_dashboard(
     detector: AnomalyDetector,
     authorization: str | None,
@@ -51,14 +65,15 @@ async def _scoped_dashboard(
     )
     if records:
         # Backend returned members (even all-absent) -> analyze. The absent
-        # short-circuit yields LOW/filtered, so success=true, is_demo=false,
-        # total_anomalies=0 when nobody is anomalous.
+        # short-circuit yields LOW/filtered, so total_anomalies=0 when nobody
+        # is anomalous, with backend_status="ok".
         return await detector.analyze_today(records)
     if not backend_ok:
-        # Only fall back to synthetic demo when the real backend truly failed.
-        logger.info("backend unreachable (scope=%s), returning synthetic demo dashboard", scope)
-        return detector.synthetic_demo_dashboard()
+        # Honest empty state -- never synthetic data.
+        logger.warning("presence backend unavailable (scope=%s) -> honest empty state", scope)
+        return _unavailable_dashboard()
     # Backend OK but no members returned -- legitimately empty.
+    logger.info("presence backend ok but no members (scope=%s)", scope)
     return _empty_dashboard()
 
 

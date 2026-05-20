@@ -190,9 +190,9 @@
       </div>
     }
 
-    @if (anomaliesDemo() && !anomaliesLoading()) {
+    @if (anomaliesBackendUnavailable() && !anomaliesLoading()) {
       <div class="ai-demo-banner" role="status">
-        Mode démonstration — données synthétiques (backend indisponible)
+        Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
       </div>
     }
 

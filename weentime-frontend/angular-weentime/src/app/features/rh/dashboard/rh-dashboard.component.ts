@@ -112,6 +112,7 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
 
   /* Anomalies. */
   readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
+  readonly anomalyBackendUnavailable = computed(() => this._anomalyData()?.backendStatus === 'unavailable');
   readonly anomalyTotals = computed(() => {
     const d = this._anomalyData();
     const list = d?.anomalies ?? [];

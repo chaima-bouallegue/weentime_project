@@ -144,7 +144,9 @@ class WeenTimeBackendClient:
             return {"success": False, "error": "backend_unreachable", "message": str(exc)}
 
         if response.status_code >= 400:
-            logger.info("backend GET %s -> %d", url, response.status_code)
+            logger.warning(
+                "backend GET %s -> %d body=%s", url, response.status_code, response.text[:500]
+            )
             return {
                 "success": False,
                 "error": "backend_error",
@@ -152,6 +154,11 @@ class WeenTimeBackendClient:
                 "body": response.text[:500],
             }
         try:
-            return response.json()
+            payload = response.json()
         except ValueError:
+            logger.warning("backend GET %s -> 200 but invalid JSON: %s", url, response.text[:300])
             return {"success": False, "error": "invalid_json", "body": response.text[:500]}
+        if logger.isEnabledFor(logging.DEBUG):
+            keys = list(payload.keys()) if isinstance(payload, dict) else f"list[{len(payload)}]"
+            logger.debug("backend GET %s -> 200 keys=%s sample=%s", url, keys, str(payload)[:300])
+        return payload
