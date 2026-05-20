@@ -130,3 +130,29 @@ def test_backend_ok_with_absent_members_is_not_demo():
     # Records present + backend_ok -> route takes analyze_today (not demo).
     assert backend_ok is True
     assert len(records) > 0
+
+
+def test_spring_api_response_with_null_error_is_backend_ok():
+    """Spring ApiResponse includes error=null on success; that is not a failure."""
+
+    class _SpringEnvelopeBackend(_FakeBackend):
+        async def get(self, path, *, token=None, user_id=0, role="RH", tenant_id=None, params=None):
+            payload = await super().get(path, token=token, user_id=user_id, role=role, tenant_id=tenant_id, params=params)
+            return {
+                "success": True,
+                "data": payload["data"],
+                "error": None,
+                "details": None,
+                "message": None,
+            }
+
+    backend = _SpringEnvelopeBackend()
+    detector = AnomalyDetector(backend=backend)
+    token = _mint(["ROLE_RH"])
+
+    records, backend_ok, scope = asyncio.run(detector.fetch_today_for_role(token, user_id=0, tenant_id=None))
+
+    assert backend.calls == ["presence/company/today"]
+    assert scope == "COMPANY"
+    assert backend_ok is True
+    assert len(records) == 2

@@ -129,7 +129,7 @@ public class PresenceController {
     }
 
     @GetMapping("/company/today")
-    @PreAuthorize("hasAuthority('ROLE_RH')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RH','ROLE_ADMIN')")
     public ResponseEntity<ApiResponse<TeamStatusResponse>> getCompanyToday() {
         Long rhUserId = securityUtils.getCurrentUserId();
         log.info("Fetching company today status for RH {}", rhUserId);

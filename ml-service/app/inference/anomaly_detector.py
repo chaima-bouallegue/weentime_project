@@ -233,7 +233,11 @@ class AnomalyDetector:
             role=mint_role,
             tenant_id=tenant_id,
         )
-        backend_ok = bool(payload) and payload.get("success") is not False and "error" not in payload
+        backend_ok = (
+            bool(payload)
+            and payload.get("success") is not False
+            and not payload.get("error")
+        )
         records = _team_status_to_records(payload, today=date.today())
         return records, backend_ok
 
@@ -405,7 +409,7 @@ def _extract_members(payload: Any) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         return []
     # An error envelope from the client wrapper -> no members.
-    if payload.get("success") is False or "error" in payload:
+    if payload.get("success") is False or payload.get("error"):
         return []
     # Format A: ApiResponse wrapper with nested data.
     container = payload.get("data") if isinstance(payload.get("data"), (dict, list)) else payload
