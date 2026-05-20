@@ -41,6 +41,13 @@ import {
 } from 'lucide-angular';
 import { ManagerDashboardService } from './manager-dashboard.service';
 import {
+  AnomalyRecord,
+  MlAnomalyService,
+} from '../../../core/services/ml-anomaly.service';
+import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
+import { AiEmptyStateComponent } from '../../../shared/components/ai-empty-state/ai-empty-state.component';
+import { AiSkeletonCardComponent } from '../../../shared/components/ai-skeleton-card/ai-skeleton-card.component';
+import {
   ManagerDashboardData,
   ManagerTeamMember,
   ManagerApprovalRequest
@@ -69,13 +76,21 @@ interface DashAlert {
 @Component({
   selector: 'app-manager-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule], // Removed DecimalPipe
+  imports: [
+    CommonModule,
+    RouterLink,
+    LucideAngularModule,
+    AnomalyAlertCardComponent,
+    AiEmptyStateComponent,
+    AiSkeletonCardComponent,
+  ],
   templateUrl: './manager-dashboard.component.html',
   styleUrl: './manager-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ManagerDashboardComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ManagerDashboardService);
+  private readonly mlAnomaly = inject(MlAnomalyService);
 
   /* ── icons ──────────────────────────────────────────── */
   protected readonly ic = {
@@ -114,8 +129,27 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   readonly firstName = signal('Manager');
 
   private readonly _data = signal<ManagerDashboardData | null>(null);
+
+  /** Cards rendered in the team anomaly feed. Filtered + sorted at load time. */
+  readonly anomalies = signal<AnomalyRecord[]>([]);
+  readonly anomaliesLoading = signal(true);
+  readonly anomaliesError = signal(false);
+  readonly anomaliesDemo = signal(false);
+  readonly anomaliesBackendUnavailable = signal(false);
+  readonly criticalCount = computed(() => this.anomalies().filter(a => a.risk === 'CRITICAL').length);
+  readonly highCount = computed(() => this.anomalies().filter(a => a.risk === 'HIGH').length);
+  readonly mediumCount = computed(() => this.anomalies().filter(a => a.risk === 'MEDIUM').length);
+  /** Kept for backward compatibility with any external template binding. */
+  readonly anomalyLoading = this.anomaliesLoading;
+  readonly anomalyTotals = computed(() => ({
+    total: this.anomalies().length,
+    critical: this.criticalCount(),
+    high: this.highCount(),
+    medium: this.mediumCount(),
+  }));
   private clockSub?: Subscription;
   private dataSub?: Subscription;
+  private anomalySub?: Subscription;
 
   /* ── computed ───────────────────────────────────────── */
   readonly todayLabel = computed(() =>
@@ -217,12 +251,43 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFirstName();
     this.loadData();
+    this.loadAnomalies();
     this.clockSub = interval(60_000).subscribe(() => this.now.set(new Date()));
   }
 
   ngOnDestroy(): void {
     this.clockSub?.unsubscribe();
     this.dataSub?.unsubscribe();
+    this.anomalySub?.unsubscribe();
+  }
+
+  loadTeamAnomalies(): void {
+    this.anomaliesLoading.set(true);
+    this.anomaliesError.set(false);
+    this.anomaliesDemo.set(false);
+    this.anomalySub?.unsubscribe();
+    this.anomalySub = this.mlAnomaly.getTeamAnomalies().subscribe({
+      next: (response) => {
+        const significant = (response.anomalies || [])
+          .filter(a => a && ['MEDIUM', 'HIGH', 'CRITICAL'].includes(a.risk))
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .slice(0, 5);
+        this.anomalies.set(significant);
+        this.anomaliesError.set(!response.success);
+        this.anomaliesDemo.set(Boolean(response.isDemo));
+        this.anomaliesBackendUnavailable.set(response.backendStatus === 'unavailable');
+        this.anomaliesLoading.set(false);
+      },
+      error: () => {
+        this.anomaliesError.set(true);
+        this.anomaliesLoading.set(false);
+      },
+    });
+  }
+
+  /** Kept name for any internal caller (refresh button etc). */
+  private loadAnomalies(): void {
+    this.loadTeamAnomalies();
   }
 
   /* ── actions ────────────────────────────────────────── */

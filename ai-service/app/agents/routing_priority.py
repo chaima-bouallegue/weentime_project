@@ -117,6 +117,28 @@ def choose_priority_route(
 
 
 
+    if role in {"RH", "ADMIN"} and _has_any(
+        text,
+        (
+            "anomalies de presence", "anomalies de présence",
+            "anomalies aujourd", "alertes pointage",
+            "attendance anomalies", "show anomalies",
+            "warini anomalies", "anomalies mta3 lyoum", "alertes 7dour",
+        ),
+    ):
+        return RoutingDecision("rh", "rh", "rh_anomaly_marker", 0.96, force=True)
+
+    if role == "MANAGER" and _has_any(
+        text,
+        (
+            "anomalies de presence", "anomalies de présence",
+            "anomalies equipe", "anomalies équipe",
+            "team anomalies", "attendance anomalies",
+            "warini anomalies",
+        ),
+    ):
+        return RoutingDecision("manager", "manager", "manager_anomaly_marker", 0.96, force=True)
+
     if role == "MANAGER" and _is_manager_decision(text):
         return RoutingDecision("manager", "manager", "manager_decision_marker", 0.94, force=True)
 

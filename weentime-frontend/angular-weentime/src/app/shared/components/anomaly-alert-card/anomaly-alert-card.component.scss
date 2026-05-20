@@ -1,0 +1,204 @@
+:host {
+  display: block;
+}
+
+.anomaly-card {
+  position: relative;
+  background: var(--wt-card-bg);
+  border: 1px solid var(--wt-card-border);
+  border-radius: var(--wt-radius);
+  padding: 1.25rem;
+  box-shadow: var(--wt-card-shadow);
+  transition: var(--wt-transition);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  overflow: hidden;
+  min-height: 220px;
+
+  /* Risk-coded left band — keeps the card scannable in a grid. */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    background: var(--wt-risk-low);
+    border-radius: var(--wt-radius) 0 0 var(--wt-radius);
+  }
+
+  &--critical::before { background: var(--wt-risk-critical); }
+  &--high::before     { background: var(--wt-risk-high); }
+  &--medium::before   { background: var(--wt-risk-medium); }
+  &--low::before      { background: var(--wt-risk-low); }
+
+  &:hover {
+    box-shadow: var(--wt-card-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  &--compact {
+    padding: 1rem;
+    min-height: 180px;
+  }
+}
+
+.anomaly-card__header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.anomaly-card__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--wt-primary), var(--wt-secondary));
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 10px -4px rgba(108, 99, 255, 0.45);
+}
+
+.anomaly-card__employee {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.anomaly-card__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--wt-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anomaly-card__date {
+  font-size: 0.74rem;
+  color: var(--wt-text-muted);
+}
+
+.anomaly-card__score-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.anomaly-card__score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.anomaly-card__score-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--wt-text-faint);
+  font-weight: 600;
+}
+
+.anomaly-card__reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.anomaly-card__reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--wt-text-strong);
+  padding: 0.3rem 0.55rem;
+  background: rgba(108, 99, 255, 0.04);
+  border-radius: var(--wt-radius-sm);
+  line-height: 1.35;
+}
+
+.anomaly-card__reason-icon {
+  color: var(--wt-warning);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.anomaly-card__explanation {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--wt-text-strong);
+  font-style: italic;
+  padding: 0.55rem 0.65rem;
+  background: var(--wt-primary-light);
+  border-radius: var(--wt-radius-sm);
+  border-left: 2px solid var(--wt-primary);
+  line-height: 1.45;
+}
+
+.anomaly-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.anomaly-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: var(--wt-radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: var(--wt-transition);
+  font: inherit;
+
+  &--ghost {
+    background: transparent;
+    color: var(--wt-text-muted);
+
+    &:hover {
+      background: rgba(108, 99, 255, 0.06);
+      color: var(--wt-text-strong);
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    color: var(--wt-primary);
+    border-color: rgba(108, 99, 255, 0.28);
+
+    &:hover {
+      background: var(--wt-primary-light);
+      border-color: var(--wt-primary);
+    }
+  }
+
+  &--primary {
+    background: linear-gradient(135deg, var(--wt-primary), var(--wt-primary-dark));
+    color: #ffffff;
+    box-shadow: 0 4px 12px -4px rgba(108, 99, 255, 0.55);
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anomaly-card { transition: none; }
+  .anomaly-card:hover { transform: none; }
+  .anomaly-btn:hover { transform: none; }
+}

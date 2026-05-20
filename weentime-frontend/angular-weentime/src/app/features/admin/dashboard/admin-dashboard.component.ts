@@ -37,6 +37,13 @@ import {
   AdminRequest,
   AdminPage
 } from '../admin-api.service';
+import {
+  AnomalyRecord,
+  MlAnomalyService,
+} from '../../../core/services/ml-anomaly.service';
+import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
+import { AiEmptyStateComponent } from '../../../shared/components/ai-empty-state/ai-empty-state.component';
+import { AiSkeletonCardComponent } from '../../../shared/components/ai-skeleton-card/ai-skeleton-card.component';
 
 interface RecentCompanyVm {
   id: number;
@@ -73,13 +80,37 @@ interface HealthItem {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideAngularModule],
+  imports: [
+    CommonModule,
+    RouterLink,
+    LucideAngularModule,
+    AnomalyAlertCardComponent,
+    AiEmptyStateComponent,
+    AiSkeletonCardComponent,
+  ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(AdminApiService);
+  private readonly mlAnomaly = inject(MlAnomalyService);
+
+  /** Global SOC anomaly feed for the admin role. */
+  readonly globalAnomalies = signal<AnomalyRecord[]>([]);
+  readonly globalLoading = signal(true);
+  readonly globalError = signal(false);
+  readonly globalDemo = signal(false);
+  readonly globalBackendUnavailable = signal(false);
+  readonly globalStats = computed(() => {
+    const list = this.globalAnomalies();
+    return {
+      total: list.length,
+      critical: list.filter(a => a.risk === 'CRITICAL').length,
+      high: list.filter(a => a.risk === 'HIGH').length,
+      medium: list.filter(a => a.risk === 'MEDIUM').length,
+    };
+  });
 
   /* ── icons ─────────────────────────────────────────── */
   protected readonly ic = {
@@ -230,11 +261,39 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFirstName();
     this.loadAll();
+    this.loadAnomalies();
     this.clockRef = setInterval(() => this.now.set(new Date()), 60_000);
   }
 
   ngOnDestroy(): void {
     clearInterval(this.clockRef);
+  }
+
+  loadGlobalAnomalies(): void {
+    this.globalLoading.set(true);
+    this.globalError.set(false);
+    this.globalDemo.set(false);
+    this.mlAnomaly.getDashboardSummary().subscribe({
+      next: (response) => {
+        const list = (response.anomalies || [])
+          .filter(a => !!a)
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .slice(0, 8);
+        this.globalAnomalies.set(list);
+        this.globalError.set(!response.success);
+        this.globalDemo.set(Boolean(response.isDemo));
+        this.globalBackendUnavailable.set(response.backendStatus === 'unavailable');
+        this.globalLoading.set(false);
+      },
+      error: () => {
+        this.globalError.set(true);
+        this.globalLoading.set(false);
+      },
+    });
+  }
+
+  private loadAnomalies(): void {
+    this.loadGlobalAnomalies();
   }
 
   /* ── data loading ──────────────────────────────────── */

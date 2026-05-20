@@ -281,6 +281,13 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     @Override
+    public TeamStatusResponse getGlobalTodayStatus() {
+        TeamStatusResponse overview = buildOverview("GLOBAL", null, fetchActiveUsers());
+        overview.setEntrepriseId(null);
+        return overview;
+    }
+
+    @Override
     public PresenceStatsDTO getCompanyStats(Long rhUserId) {
         if (rhUserId == null) {
             throw new IllegalStateException("Authenticated RH user not found");
@@ -409,9 +416,10 @@ public class PresenceServiceImpl implements PresenceService {
                 AttendanceSummaryDTO daySummary = buildTodaySummary(utilisateurId, date, sessions);
                 totalPresent++;
                 AttendanceSession firstSession = sessions.stream()
+                        .filter(session -> session.getCheckInTime() != null)
                         .min(Comparator.comparing(AttendanceSession::getCheckInTime))
                         .orElse(null);
-                if (firstSession != null) {
+                if (firstSession != null && firstSession.getCheckInTime() != null) {
                     arrivalSecondsTotal += firstSession.getCheckInTime().toLocalTime().toSecondOfDay();
                     arrivalDays++;
                     if (Boolean.TRUE.equals(firstSession.getLateArrival())) {
@@ -629,7 +637,11 @@ public class PresenceServiceImpl implements PresenceService {
             throw new IllegalStateException("Authenticated user not found");
         }
         LocalDate effectiveDate = date != null ? date : currentDate();
+        // Drop rows with a null check-in: the natural comparator NPEs on null,
+        // and a single dirty row would 500 the whole company/team overview.
         List<AttendanceSession> sessions = (rawSessions == null ? List.<AttendanceSession>of() : rawSessions).stream()
+                .filter(Objects::nonNull)
+                .filter(session -> session.getCheckInTime() != null)
                 .sorted(Comparator.comparing(AttendanceSession::getCheckInTime))
                 .toList();
         AttendanceSession activeSession = sessions.stream()
@@ -982,7 +994,15 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private long calculateSessionDuration(AttendanceSession session) {
+        if (session == null) {
+            return 0L;
+        }
         if (session.getStatus() == AttendanceSessionStatus.OPEN || session.getCheckOutTime() == null) {
+            // Open/unclosed session: elapsed since check-in. Guard a null check-in
+            // (dirty data) by falling back to the stored duration.
+            if (session.getCheckInTime() == null) {
+                return session.getDuration() != null ? session.getDuration() : 0L;
+            }
             return Math.max(Duration.between(session.getCheckInTime(), currentDateTime()).getSeconds(), 0);
         }
         return session.getDuration() != null ? session.getDuration() : 0L;

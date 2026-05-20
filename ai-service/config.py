@@ -50,6 +50,10 @@ class Settings:
 
         self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
 
+        # ML service (anomaly detection) -- separate port, no /api/v1 prefix.
+        self.ml_service_base_url = os.getenv("ML_SERVICE_BASE_URL", "http://localhost:8001").rstrip("/")
+        self.ml_service_timeout_seconds = float(os.getenv("ML_SERVICE_TIMEOUT_SECONDS", "15"))
+
         self.backend_auth_token = os.getenv("BACKEND_AUTH_TOKEN")
         self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "20"))
         self.backend_retry_attempts = max(1, int(os.getenv("BACKEND_RETRY_ATTEMPTS", "2")))

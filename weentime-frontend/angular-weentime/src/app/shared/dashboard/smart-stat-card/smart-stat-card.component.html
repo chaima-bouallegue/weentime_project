@@ -1,0 +1,34 @@
+<article class="stat" [attr.data-tone]="tone" [class.stat--loading]="loading">
+  <header class="stat__head">
+    <span class="stat__icon" *ngIf="icon" [innerHTML]="icon" aria-hidden="true"></span>
+    <span class="stat__label">{{ label }}</span>
+    <span class="stat__badge" *ngIf="badge" [attr.data-tone]="badgeTone">{{ badge }}</span>
+  </header>
+
+  <div class="stat__value" *ngIf="!loading; else valueSkeleton">
+    <ng-container *ngIf="animatedValue() !== null; else rawValue">
+      <span class="stat__prefix" *ngIf="prefix">{{ prefix }}</span>
+      <strong>{{ animatedValue() }}</strong>
+      <span class="stat__suffix" *ngIf="suffix">{{ suffix }}</span>
+    </ng-container>
+    <ng-template #rawValue>
+      <span class="stat__prefix" *ngIf="prefix">{{ prefix }}</span>
+      <strong>{{ value ?? '—' }}</strong>
+      <span class="stat__suffix" *ngIf="suffix">{{ suffix }}</span>
+    </ng-template>
+  </div>
+
+  <ng-template #valueSkeleton>
+    <div class="stat__value-skeleton" aria-hidden="true"></div>
+  </ng-template>
+
+  <footer class="stat__foot" *ngIf="!loading && (context || trend)">
+    <span class="stat__context" *ngIf="context">{{ context }}</span>
+    <span class="stat__trend" *ngIf="trend" [attr.data-trend]="trend">
+      <span class="stat__trend-arrow" aria-hidden="true">
+        {{ trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→' }}
+      </span>
+      <span *ngIf="trendLabel">{{ trendLabel }}</span>
+    </span>
+  </footer>
+</article>

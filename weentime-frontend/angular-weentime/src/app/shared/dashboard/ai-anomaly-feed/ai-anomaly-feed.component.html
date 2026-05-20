@@ -1,0 +1,64 @@
+<section class="feed" [class.feed--loading]="loading" aria-label="Flux d'anomalies de présence">
+  <header class="feed__head">
+    <div class="feed__title">
+      <span class="feed__ai-badge" aria-hidden="true">IA</span>
+      <div>
+        <h3>{{ title }}</h3>
+        <p>{{ subtitle }}</p>
+      </div>
+    </div>
+    <div class="feed__counters" *ngIf="!loading">
+      <span class="counter" data-tone="critical" *ngIf="critical > 0">{{ critical }} critique</span>
+      <span class="counter" data-tone="high" *ngIf="high > 0">{{ high }} élevé</span>
+      <span class="counter" data-tone="medium" *ngIf="medium > 0">{{ medium }} modéré</span>
+      <span class="counter counter--muted" *ngIf="totalAnomalies === 0">Aucune anomalie</span>
+    </div>
+  </header>
+
+  <div class="feed__body">
+    <div class="feed__skeleton" *ngIf="loading" aria-hidden="true">
+      <div class="row-skeleton" *ngFor="let _ of [0,1,2]"></div>
+    </div>
+
+    <p class="feed__empty" *ngIf="!loading && anomalies.length === 0">{{ emptyMessage }}</p>
+
+    <ul class="feed__list" *ngIf="!loading && anomalies.length > 0">
+      <li
+        class="row"
+        *ngFor="let a of visibleAnomalies; trackBy: trackByAnomaly"
+        [attr.data-tone]="riskTone(a.risk)"
+        [class.row--open]="isExpanded(trackByAnomaly(0, a))"
+      >
+        <button
+          type="button"
+          class="row__main"
+          (click)="toggle(trackByAnomaly(0, a))"
+          [attr.aria-expanded]="isExpanded(trackByAnomaly(0, a))"
+        >
+          <span class="row__avatar" aria-hidden="true">{{ initials(a.employeeName) }}</span>
+          <span class="row__identity">
+            <span class="row__name">{{ a.employeeName }}</span>
+            <span class="row__date">{{ a.date }}</span>
+          </span>
+          <span class="row__progression" [attr.aria-label]="'Score ' + scorePct(a.score) + '%'">
+            <span class="row__bar" [style.width.%]="scorePct(a.score)"></span>
+          </span>
+          <span class="row__score">{{ scorePct(a.score) }}%</span>
+          <span class="row__chevron" aria-hidden="true">
+            {{ isExpanded(trackByAnomaly(0, a)) ? '▾' : '▸' }}
+          </span>
+        </button>
+        <div class="row__detail" *ngIf="isExpanded(trackByAnomaly(0, a))">
+          <p class="row__explanation">{{ a.explanation }}</p>
+          <ul class="row__reasons">
+            <li *ngFor="let reason of a.reasons">{{ reason }}</li>
+          </ul>
+        </div>
+      </li>
+    </ul>
+
+    <p class="feed__overflow" *ngIf="!loading && overflowCount > 0">
+      +{{ overflowCount }} autre(s) anomalie(s) — voir toutes
+    </p>
+  </div>
+</section>

@@ -115,6 +115,83 @@
     </div>
   }
 
+  <!-- ═══════════════════════════════════════════
+       SECTION : SOC AI Monitoring — Global
+       ═══════════════════════════════════════════ -->
+  <section class="soc-panel">
+
+    <header class="soc-panel__header">
+      <div class="soc-panel__title-group">
+        <span class="soc-panel__pulse" [class.active]="globalStats().critical > 0" aria-hidden="true"></span>
+        <div>
+          <h3 class="soc-panel__title">Anomalies de présence — global</h3>
+          <p class="soc-panel__subtitle">Détection IA toutes entreprises</p>
+        </div>
+      </div>
+
+      <div class="soc-panel__stats">
+        <div class="soc-stat soc-stat--critical">
+          <span class="soc-stat__value">{{ globalStats().critical }}</span>
+          <span class="soc-stat__label">Critique</span>
+        </div>
+        <div class="soc-stat soc-stat--high">
+          <span class="soc-stat__value">{{ globalStats().high }}</span>
+          <span class="soc-stat__label">Élevé</span>
+        </div>
+        <div class="soc-stat soc-stat--medium">
+          <span class="soc-stat__value">{{ globalStats().medium }}</span>
+          <span class="soc-stat__label">Modéré</span>
+        </div>
+        <div class="soc-stat soc-stat--total">
+          <span class="soc-stat__value">{{ globalStats().total }}</span>
+          <span class="soc-stat__label">Total</span>
+        </div>
+      </div>
+    </header>
+
+    @if (globalBackendUnavailable() && !globalLoading()) {
+      <div class="ai-demo-banner" role="status">
+        Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
+      </div>
+    }
+
+    @if (globalStats().critical > 0) {
+      <div class="soc-panel__alert-banner" role="alert">
+        <span aria-hidden="true">🚨</span>
+        {{ globalStats().critical }} anomalie{{ globalStats().critical > 1 ? 's' : '' }} critique{{ globalStats().critical > 1 ? 's' : '' }} détectée{{ globalStats().critical > 1 ? 's' : '' }} — action requise
+      </div>
+    }
+
+    @if (globalLoading()) {
+      <div class="soc-panel__grid">
+        @for (i of [1,2,3,4]; track i) {
+          <app-ai-skeleton-card />
+        }
+      </div>
+    }
+
+    @if (globalError() && !globalLoading()) {
+      <div class="soc-panel__error" role="alert">
+        <span aria-hidden="true">⚠</span>
+        Service ML indisponible.
+        <button type="button" (click)="loadGlobalAnomalies()">Réessayer</button>
+      </div>
+    }
+
+    @if (!globalLoading() && !globalError() && globalAnomalies().length === 0) {
+      <app-ai-empty-state />
+    }
+
+    @if (!globalLoading() && globalAnomalies().length > 0) {
+      <div class="soc-panel__grid">
+        @for (anomaly of globalAnomalies(); track anomaly.employeeId + '|' + anomaly.date) {
+          <ui-anomaly-alert-card [anomaly]="anomaly" />
+        }
+      </div>
+    }
+
+  </section>
+
   <!-- ═══════════════════ MAIN GRID ═══════════════════ -->
   @if (!loading()) {
     <div class="main-grid">

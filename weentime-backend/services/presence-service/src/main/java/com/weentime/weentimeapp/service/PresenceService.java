@@ -19,6 +19,7 @@ public interface PresenceService {
     TeamStatusResponse getTeamTodayStatus(Long managerId, Long teamId);
     Page<AttendanceSessionViewDTO> getTeamAttendanceHistory(Long managerId, Long teamId, Pageable pageable);
     TeamStatusResponse getCompanyTodayStatus(Long rhUserId);
+    TeamStatusResponse getGlobalTodayStatus();
     PresenceStatsDTO getCompanyStats(Long rhUserId);
     GlobalPresenceAnalyticsDTO getGlobalAnalytics();
     PresenceStatsDTO getGlobalStats();

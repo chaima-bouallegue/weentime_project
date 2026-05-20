@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+storage/models/*.joblib
+storage/models/*.json
+storage/training_data/*.csv
+storage/training_data/*.parquet
+.pytest_cache/
+.coverage

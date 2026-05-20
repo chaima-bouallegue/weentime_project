@@ -120,6 +120,15 @@ class RHAgent(ConfirmationMixin, DomainAgent):
                 success_text="Voici la presence entreprise aujourd'hui.",
                 confidence=confidence,
             )
+        if intent == "rh.anomaly_dashboard":
+            return await self.read_response(
+                tool_name="rh.anomaly_dashboard",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici les anomalies de présence du jour.",
+                confidence=confidence,
+            )
         if intent == "rh.all_requests":
             return await self._read_rh_requests(context, intent=intent, confidence=confidence)
 
@@ -247,6 +256,19 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         # Presence aujourd'hui — RH-scoped company presence. We accept the
         # prompt with or without the "rh" keyword because the message comes
         # from the RH chatbot widget (role is already known).
+        if has_any(text, (
+            "anomalies de presence", "anomalies de présence",
+            "anomalies presence", "anomalies présence",
+            "anomalies aujourd", "alertes pointage", "alerte pointage",
+            "alertes presence", "alertes présence", "alerte 7dour",
+            "presence anomalies", "attendance anomalies",
+            "show anomalies", "show attendance anomalies",
+            "qui est a risque", "qui est à risque", "who is at risk",
+            "warini anomalies", "chnowa les anomalies",
+            "anomalies mta3 lyoum", "alertes 7dour",
+            "عرض الشذوذات", "موظفون في خطر", "تنبيهات الحضور",
+        )):
+            return "rh.anomaly_dashboard", 0.95
         if has_any(text, ("presence aujourd", "présence aujourd", "presence today", "presence d'aujourd", "qui n a pas pointe", "qui n'a pas pointe", "qui na pas pointe", "retards aujourd", "retard aujourd", "late today")):
             return "rh.presence_today", 0.95
         # Document workload — explicit RH dashboard prompt.

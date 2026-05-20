@@ -152,6 +152,77 @@
   }
 
   <!-- ═══════════════════ MAIN GRID ═══════════════════ -->
+  <!-- ═══════════════════════════════════════════
+       SECTION : AI Anomaly Feed — Équipe
+       ═══════════════════════════════════════════ -->
+  <section class="ai-anomaly-section">
+
+    <header class="ai-anomaly-section__header">
+      <div class="ai-anomaly-section__title-group">
+        <span class="ai-anomaly-section__pulse" [class.pulse-active]="criticalCount() > 0" aria-hidden="true"></span>
+        <div>
+          <h3 class="ai-anomaly-section__title">Anomalies de présence — équipe</h3>
+          <p class="ai-anomaly-section__subtitle">Détection IA en temps réel</p>
+        </div>
+      </div>
+      <div class="ai-anomaly-section__badges">
+        @if (criticalCount() > 0) {
+          <span class="ai-count-badge ai-count-badge--critical">
+            {{ criticalCount() }} critique{{ criticalCount() > 1 ? 's' : '' }}
+          </span>
+        }
+        @if (highCount() > 0) {
+          <span class="ai-count-badge ai-count-badge--high">
+            {{ highCount() }} élevé{{ highCount() > 1 ? 's' : '' }}
+          </span>
+        }
+        @if (!anomaliesLoading() && anomalies().length === 0 && !anomaliesError()) {
+          <span class="ai-count-badge ai-count-badge--ok">Aucune</span>
+        }
+      </div>
+    </header>
+
+    @if (anomaliesLoading()) {
+      <div class="ai-anomaly-section__grid">
+        @for (i of [1,2,3]; track i) {
+          <app-ai-skeleton-card />
+        }
+      </div>
+    }
+
+    @if (anomaliesBackendUnavailable() && !anomaliesLoading()) {
+      <div class="ai-demo-banner" role="status">
+        Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
+      </div>
+    }
+
+    @if (anomaliesError() && !anomaliesLoading()) {
+      <div class="ai-anomaly-section__error" role="alert">
+        <span aria-hidden="true">⚠</span>
+        Service ML temporairement indisponible.
+        <button type="button" (click)="loadTeamAnomalies()">Réessayer</button>
+      </div>
+    }
+
+    @if (!anomaliesLoading() && !anomaliesError() && anomalies().length === 0) {
+      <app-ai-empty-state />
+    }
+
+    @if (!anomaliesLoading() && anomalies().length > 0) {
+      <div class="ai-anomaly-section__grid">
+        @for (anomaly of anomalies(); track anomaly.employeeId + '|' + anomaly.date) {
+          <ui-anomaly-alert-card [anomaly]="anomaly" />
+        }
+      </div>
+      @if (anomalies().length >= 5) {
+        <button type="button" class="ai-anomaly-section__see-all" routerLink="/app/manager/anomalies">
+          Voir toutes les anomalies →
+        </button>
+      }
+    }
+
+  </section>
+
   @if (!loading()) {
     <div class="mgr-grid">
 

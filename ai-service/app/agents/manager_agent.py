@@ -60,6 +60,16 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
                  confidence=confidence,
             )
 
+        if intent == "manager.anomaly_dashboard":
+            return await self.read_response(
+                tool_name="manager.anomaly_dashboard",
+                tool_input={},
+                context=context,
+                intent=intent,
+                success_text="Voici les anomalies de présence du jour pour votre équipe.",
+                confidence=confidence,
+            )
+
         if intent == "manager.team_presence":
             return await self.read_response(
                 tool_name="get_team_presence",
@@ -233,6 +243,15 @@ class ManagerAgent(ConfirmationMixin, DomainAgent):
     def detect_intent(self, message: str, context: CurrentUserContext | None = None) -> tuple[str | None, float]:
         text = (message or "").lower()
 
+        if has_any(text, (
+            "anomalies de presence", "anomalies de présence",
+            "anomalies equipe", "anomalies équipe",
+            "alertes pointage", "alerte pointage",
+            "team anomalies", "attendance anomalies",
+            "who is at risk", "qui est a risque", "qui est à risque",
+            "warini anomalies", "anomalies mta3 lyoum",
+        )):
+            return "manager.anomaly_dashboard", 0.94
         if has_any(text, (
             "horaire equipe", "horaires equipe", "horaire équipe", "horaires équipe",
             "team schedule", "planning equipe", "planning équipe",

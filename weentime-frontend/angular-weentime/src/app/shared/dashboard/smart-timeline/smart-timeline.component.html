@@ -1,0 +1,38 @@
+<section class="timeline" aria-label="Timeline activité RH">
+  <header class="timeline__head">
+    <div>
+      <h3>{{ title }}</h3>
+      <p>{{ subtitle }}</p>
+    </div>
+    <span class="timeline__count" *ngIf="!loading && items.length > 0">{{ items.length }} évènement(s)</span>
+  </header>
+
+  <div class="timeline__body" [class.timeline__body--scroll]="!loading && items.length > maxVisible">
+    <div class="timeline__skeleton" *ngIf="loading" aria-hidden="true">
+      <div class="row-skel" *ngFor="let _ of [0,1,2,3]"></div>
+    </div>
+
+    <p class="timeline__empty" *ngIf="!loading && items.length === 0">{{ emptyMessage }}</p>
+
+    <ol class="timeline__list" *ngIf="!loading && items.length > 0">
+      <li
+        class="entry"
+        *ngFor="let item of visibleItems; trackBy: trackById"
+        [attr.data-tone]="toneFor(item.type)"
+      >
+        <span class="entry__dot" aria-hidden="true"></span>
+        <div class="entry__body">
+          <div class="entry__row">
+            <span class="entry__title">{{ item.title }}</span>
+            <span class="entry__date">{{ item.date }}</span>
+          </div>
+          <p class="entry__desc" *ngIf="item.description">{{ item.description }}</p>
+        </div>
+      </li>
+    </ol>
+
+    <p class="timeline__overflow" *ngIf="!loading && overflowCount > 0">
+      +{{ overflowCount }} entrée(s) supplémentaire(s)
+    </p>
+  </div>
+</section>

@@ -33,6 +33,7 @@ from app.insights import InsightEngine
 from app.intelligence import RoleIntelligenceAgent
 from app.policy import LocalPolicyStore, PolicyRetriever
 from app.providers.router import ProviderRouter
+from app.tools.anomaly_tools import register_anomaly_tools
 from app.tools.attendance_tools import register_attendance_tools
 from app.tools.admin_tools import register_admin_tools
 from app.tools.audit import ToolAuditLogger
@@ -44,6 +45,7 @@ from app.tools.executor import ToolExecutor
 from app.tools.insight_tools import register_insight_tools
 from app.tools.leave_tools import register_leave_tools
 from app.tools.legacy_adapter import register_legacy_hr_tools
+from app.tools.ml_service_client import MLServiceClient
 from app.tools.organisation_structure_tools import register_organisation_structure_tools
 from app.tools.policy_tools import register_policy_tools
 from app.tools.reunion_tools import register_reunion_tools
@@ -150,6 +152,15 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     if not getattr(state, "copilot_schedule_tools_registered", False):
         register_schedule_tools(registry, backend_client)
         state.copilot_schedule_tools_registered = True
+    if not getattr(state, "copilot_anomaly_tools_registered", False):
+        ml_base_url = getattr(settings, "ml_service_base_url", None) if settings else None
+        ml_timeout = float(getattr(settings, "ml_service_timeout_seconds", 15.0)) if settings else 15.0
+        ml_client = getattr(state, "copilot_ml_service_client", None) or MLServiceClient(
+            base_url=ml_base_url, timeout=ml_timeout
+        )
+        register_anomaly_tools(registry, ml_client)
+        state.copilot_ml_service_client = ml_client
+        state.copilot_anomaly_tools_registered = True
     if not getattr(state, "copilot_policy_tools_registered", False):
         register_policy_tools(registry, policy_retriever)
         state.copilot_policy_tools_registered = True
