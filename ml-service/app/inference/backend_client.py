@@ -102,8 +102,12 @@ def _mint_service_token(user_id: int, role: str, tenant_id: int | None) -> str:
         "iat": now,
         "exp": now + settings.backend_jwt_ttl_seconds,
     }
-    if tenant_id is not None:
-        payload["entrepriseId"] = tenant_id
+    # Stamp the entreprise so Spring can scope the RH company query. Prefer an
+    # explicit tenant from the caller; otherwise fall back to the configured
+    # SERVICE_ENTREPRISE_ID. Spring returns an empty overview when this is absent.
+    entreprise_id = tenant_id if tenant_id is not None else settings.service_entreprise_id
+    if entreprise_id is not None:
+        payload["entrepriseId"] = entreprise_id
     header_b = _b64url(json.dumps(header, separators=(",", ":")).encode())
     payload_b = _b64url(json.dumps(payload, separators=(",", ":")).encode())
     signing_input = f"{header_b}.{payload_b}".encode()

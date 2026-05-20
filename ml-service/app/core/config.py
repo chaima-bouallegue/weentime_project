@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # Token issuer config -- matches Spring jwt.expirationMs and jwt.* claim shape.
     backend_jwt_issuer: str = "weentime-ml"
     backend_jwt_ttl_seconds: int = 600
+    # entrepriseId claim stamped on the minted service token. Spring scopes the
+    # RH company query by this tenant; without it the minted token resolves to
+    # no entreprise and /presence/company/today returns an empty overview.
+    service_entreprise_id: int | None = None
 
     # Optional direct DB connection (defaults to presence-service postgres on 5433).
     database_url: str = (
