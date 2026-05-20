@@ -1,0 +1,22 @@
+{
+  "model_version": "v20260519_230741",
+  "feature_names": [
+    "duration_days",
+    "request_type_encoded",
+    "advance_notice_days",
+    "seniority_months",
+    "absences_last_6_months",
+    "late_arrivals_last_30_days",
+    "approval_rate_historical",
+    "anomaly_score_recent",
+    "team_coverage_ratio",
+    "team_members_absent_same_period",
+    "critical_employees_absent",
+    "is_critical_period",
+    "is_monday_or_friday",
+    "is_summer_period",
+    "days_until_period_end"
+  ],
+  "approve_threshold": 0.7,
+  "reject_threshold": 0.35
+}
