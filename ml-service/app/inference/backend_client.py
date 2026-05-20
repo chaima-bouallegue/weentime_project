@@ -107,12 +107,11 @@ def _mint_service_token(user_id: int, role: str, tenant_id: int | None) -> str:
     header_b = _b64url(json.dumps(header, separators=(",", ":")).encode())
     payload_b = _b64url(json.dumps(payload, separators=(",", ":")).encode())
     signing_input = f"{header_b}.{payload_b}".encode()
-    # presence-service stores the secret as hex; tolerate both hex and raw.
-    secret = settings.backend_jwt_secret
-    try:
-        key = bytes.fromhex(secret)
-    except ValueError:
-        key = secret.encode()
+    # CRITICAL: Spring derives its HMAC key with `jwtSecret.getBytes()` -- the
+    # raw UTF-8 bytes of the secret STRING. The secret happens to be valid hex,
+    # but Spring does NOT hex-decode it. We must use the same UTF-8 bytes or the
+    # signatures differ and Spring rejects the token with 401 "Invalid token".
+    key = settings.backend_jwt_secret.encode("utf-8")
     signature = hmac.new(key, signing_input, hashlib.sha256).digest()
     return f"{header_b}.{payload_b}.{_b64url(signature)}"
 
