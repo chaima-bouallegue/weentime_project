@@ -20,7 +20,7 @@
   </div>
 
   <!-- Reasons -->
-  <ul class="anomaly-card__reasons" *ngIf="(anomaly.reasons?.length || 0) > 0">
+  <ul class="anomaly-card__reasons" *ngIf="anomaly.reasons.length > 0">
     <li class="anomaly-card__reason" *ngFor="let reason of anomaly.reasons">
       <span class="anomaly-card__reason-icon" aria-hidden="true">⚠</span>
       <span>{{ reason }}</span>
