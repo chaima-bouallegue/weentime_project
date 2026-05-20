@@ -44,9 +44,7 @@ import {
   AnomalyRecord,
   MlAnomalyService,
 } from '../../../core/services/ml-anomaly.service';
-import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
-import { AiEmptyStateComponent } from '../../../shared/components/ai-empty-state/ai-empty-state.component';
-import { AiSkeletonCardComponent } from '../../../shared/components/ai-skeleton-card/ai-skeleton-card.component';
+import { AiAnomalyFeedComponent } from '../../../shared/dashboard/ai-anomaly-feed/ai-anomaly-feed.component';
 import {
   ManagerDashboardData,
   ManagerTeamMember,
@@ -80,9 +78,7 @@ interface DashAlert {
     CommonModule,
     RouterLink,
     LucideAngularModule,
-    AnomalyAlertCardComponent,
-    AiEmptyStateComponent,
-    AiSkeletonCardComponent,
+    AiAnomalyFeedComponent,
   ],
   templateUrl: './manager-dashboard.component.html',
   styleUrl: './manager-dashboard.component.scss',

@@ -41,9 +41,7 @@ import {
   AnomalyRecord,
   MlAnomalyService,
 } from '../../../core/services/ml-anomaly.service';
-import { AnomalyAlertCardComponent } from '../../../shared/components/anomaly-alert-card/anomaly-alert-card.component';
-import { AiEmptyStateComponent } from '../../../shared/components/ai-empty-state/ai-empty-state.component';
-import { AiSkeletonCardComponent } from '../../../shared/components/ai-skeleton-card/ai-skeleton-card.component';
+import { AiAnomalyFeedComponent } from '../../../shared/dashboard/ai-anomaly-feed/ai-anomaly-feed.component';
 
 interface RecentCompanyVm {
   id: number;
@@ -84,9 +82,7 @@ interface HealthItem {
     CommonModule,
     RouterLink,
     LucideAngularModule,
-    AnomalyAlertCardComponent,
-    AiEmptyStateComponent,
-    AiSkeletonCardComponent,
+    AiAnomalyFeedComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
