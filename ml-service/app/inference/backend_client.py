@@ -62,13 +62,16 @@ def decode_jwt_roles(token: str | None) -> list[str]:
 def select_scope(roles: list[str]) -> tuple[str, str, str]:
     """Map caller roles to (scope, spring_endpoint, mint_role).
 
-    RH/ADMIN see the whole company; a plain MANAGER sees only their team.
-    RH/ADMIN takes precedence when a user holds several roles. Unknown/empty
-    roles default to the company scope (the historical behaviour).
+    ADMIN sees all enterprises; RH sees their company; a plain MANAGER sees
+    only their team. ADMIN takes precedence when a user holds several roles.
+    Unknown/empty roles default to the company scope (the historical behaviour).
     """
-    rh_like = {"ROLE_RH", "RH", "ROLE_ADMIN", "ADMIN"}
+    admin_like = {"ROLE_ADMIN", "ADMIN"}
+    rh_like = {"ROLE_RH", "RH"}
     manager_like = {"ROLE_MANAGER", "MANAGER"}
     role_set = set(roles)
+    if role_set & admin_like:
+        return "GLOBAL", "presence/global/today", "ADMIN"
     if role_set & rh_like:
         return "COMPANY", "presence/company/today", "RH"
     if role_set & manager_like:

@@ -57,7 +57,8 @@ async def _scoped_dashboard(
     tenant_id: int | None,
 ) -> AnomalyDashboardResponse:
     token = _extract_bearer(authorization)
-    # Role-aware scope: MANAGER -> /presence/team/today, RH/ADMIN -> /company/today.
+    # Role-aware scope: MANAGER -> /presence/team/today, RH -> /company/today,
+    # ADMIN -> /presence/global/today.
     records, backend_ok, scope = await detector.fetch_today_for_role(
         token=token,
         user_id=user_id or 0,

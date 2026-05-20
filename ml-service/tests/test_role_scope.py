@@ -6,7 +6,8 @@ from datetime import date
 
 import pytest
 
-from app.inference.anomaly_detector import AnomalyDetector
+from app.api.v1.routes.anomaly_routes import _scoped_dashboard
+from app.inference.anomaly_detector import AnomalyDetector, _team_status_to_records
 from app.inference.backend_client import decode_jwt_roles, select_scope
 
 
@@ -62,9 +63,11 @@ def test_rh_selects_company_endpoint():
     assert role == "RH"
 
 
-def test_admin_selects_company_endpoint():
-    scope, _, _ = select_scope(["ROLE_ADMIN"])
-    assert scope == "COMPANY"
+def test_admin_selects_global_endpoint():
+    scope, endpoint, role = select_scope(["ROLE_ADMIN"])
+    assert scope == "GLOBAL"
+    assert endpoint == "presence/global/today"
+    assert role == "ADMIN"
 
 
 def test_rh_precedence_over_manager():
@@ -121,6 +124,17 @@ def test_rh_token_routes_to_company_endpoint():
     assert scope == "COMPANY"
 
 
+def test_admin_token_routes_to_global_endpoint():
+    backend = _FakeBackend()
+    detector = AnomalyDetector(backend=backend)
+    token = _mint(["ROLE_ADMIN"])
+    records, backend_ok, scope = asyncio.run(detector.fetch_today_for_role(token, user_id=0, tenant_id=None))
+    assert backend.calls == ["presence/global/today"]
+    assert scope == "GLOBAL"
+    assert backend_ok is True
+    assert len(records) == 2
+
+
 def test_backend_ok_with_absent_members_is_not_demo():
     """A 200 with all-absent members must NOT trigger the synthetic demo path."""
     backend = _FakeBackend()
@@ -156,3 +170,68 @@ def test_spring_api_response_with_null_error_is_backend_ok():
     assert scope == "COMPANY"
     assert backend_ok is True
     assert len(records) == 2
+
+
+def test_successful_empty_spring_response_keeps_backend_status_ok():
+    class _EmptySpringEnvelopeBackend:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def get(self, path, *, token=None, user_id=0, role="RH", tenant_id=None, params=None):
+            self.calls.append(path)
+            return {
+                "success": True,
+                "data": {"scope": "GLOBAL", "members": []},
+                "error": None,
+                "details": None,
+                "message": None,
+            }
+
+    backend = _EmptySpringEnvelopeBackend()
+    detector = AnomalyDetector(backend=backend)
+    token = _mint(["ROLE_ADMIN"])
+
+    dashboard = asyncio.run(_scoped_dashboard(detector, f"Bearer {token}", user_id=None, tenant_id=None))
+
+    assert backend.calls == ["presence/global/today"]
+    assert dashboard.backend_status == "ok"
+    assert dashboard.total_anomalies == 0
+    assert dashboard.anomalies == []
+
+
+def test_global_member_payload_parses_camel_case_attendance_fields():
+    records = _team_status_to_records(
+        {
+            "success": True,
+            "data": {
+                "scope": "GLOBAL",
+                "members": [
+                    {
+                        "utilisateurId": 42,
+                        "nomComplet": "Global User",
+                        "status": "PRESENT",
+                        "heureEntree": "09:00",
+                        "heureSortie": "17:30:00",
+                        "durationSeconds": 30600,
+                        "lateArrival": False,
+                        "equipeId": 7,
+                        "equipe": "Produit",
+                        "entrepriseId": 3,
+                        "entreprise": "Weentime SARL",
+                    }
+                ],
+            },
+            "error": None,
+        },
+        today=date(2026, 5, 20),
+    )
+
+    assert len(records) == 1
+    assert records[0].employee_id == 42
+    assert records[0].employee_name == "Global User"
+    assert records[0].check_in is not None
+    assert records[0].check_in.hour == 9
+    assert records[0].check_out is not None
+    assert records[0].check_out.hour == 17
+    assert records[0].duration_seconds == 30600
+    assert records[0].daily_status == "PRESENT"

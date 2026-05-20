@@ -136,6 +136,14 @@ public class PresenceController {
         return ResponseEntity.ok(ApiResponse.success(presenceService.getCompanyTodayStatus(rhUserId)));
     }
 
+    @GetMapping("/global/today")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<TeamStatusResponse>> getGlobalToday() {
+        Long adminId = securityUtils.getCurrentUserId();
+        log.info("Fetching global today status for admin {}", adminId);
+        return ResponseEntity.ok(ApiResponse.success(presenceService.getGlobalTodayStatus()));
+    }
+
     @GetMapping("/company/stats")
     @PreAuthorize("hasAuthority('ROLE_RH')")
     public ResponseEntity<ApiResponse<PresenceStatsDTO>> getCompanyStats() {

@@ -247,7 +247,7 @@ class AnomalyDetector:
         user_id: int,
         tenant_id: int | None,
     ) -> tuple[list[AttendanceRecord], bool]:
-        """Company-wide presence (RH/ADMIN scope) via /presence/company/today."""
+        """Company-wide presence (RH scope) via /presence/company/today."""
         return await self._fetch_scope("presence/company/today", "RH", token, user_id, tenant_id)
 
     async def fetch_today_team(
@@ -267,7 +267,7 @@ class AnomalyDetector:
     ) -> tuple[list[AttendanceRecord], bool, str]:
         """Choose the Spring endpoint from the caller's JWT role.
 
-        MANAGER -> /presence/team/today; RH/ADMIN (or unknown) -> /company/today.
+        MANAGER -> /presence/team/today; RH -> /company/today; ADMIN -> /global/today.
         Returns ``(records, backend_ok, scope)`` so the route can log/branch.
         """
         scope, endpoint, mint_role = select_scope(decode_jwt_roles(token))
@@ -383,7 +383,7 @@ def get_detector() -> AnomalyDetector:
     return _detector
 
 
-def _parse_iso_dt(value: Any) -> datetime | None:
+def _parse_iso_dt(value: Any, default_date: date | None = None) -> datetime | None:
     if not value:
         return None
     try:
@@ -391,6 +391,9 @@ def _parse_iso_dt(value: Any) -> datetime | None:
         # Spring serializes LocalDateTime without timezone; tolerate trailing Z too.
         if text.endswith("Z"):
             text = text.rstrip("Z")
+        if default_date is not None and len(text) <= 8 and ":" in text:
+            pattern = "%H:%M:%S" if text.count(":") == 2 else "%H:%M"
+            return datetime.combine(default_date, datetime.strptime(text, pattern).time())
         return datetime.fromisoformat(text)
     except (ValueError, TypeError):
         return None
@@ -450,12 +453,12 @@ def _team_status_to_records(payload: dict[str, Any], today: date) -> list[Attend
             or f"Employé #{user_id}"
         )
 
-        check_in = _parse_iso_dt(m.get("heureEntree") or m.get("checkInTime") or m.get("heure_entree"))
-        check_out = _parse_iso_dt(m.get("heureSortie") or m.get("checkOutTime") or m.get("heure_sortie"))
+        check_in = _parse_iso_dt(m.get("heureEntree") or m.get("checkInTime") or m.get("heure_entree"), today)
+        check_out = _parse_iso_dt(m.get("heureSortie") or m.get("checkOutTime") or m.get("heure_sortie"), today)
 
         # duration may be seconds (duration) or hours (totalHeuresTravaillees).
         duration_seconds: int | None = None
-        raw_duration = m.get("durationSeconds") or m.get("duration")
+        raw_duration = m.get("durationSeconds") if m.get("durationSeconds") is not None else m.get("duration")
         if raw_duration is not None:
             duration_seconds = _member_int(raw_duration)
         else:

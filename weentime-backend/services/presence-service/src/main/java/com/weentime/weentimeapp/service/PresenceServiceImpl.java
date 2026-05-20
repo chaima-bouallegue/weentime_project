@@ -281,6 +281,13 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     @Override
+    public TeamStatusResponse getGlobalTodayStatus() {
+        TeamStatusResponse overview = buildOverview("GLOBAL", null, fetchActiveUsers());
+        overview.setEntrepriseId(null);
+        return overview;
+    }
+
+    @Override
     public PresenceStatsDTO getCompanyStats(Long rhUserId) {
         if (rhUserId == null) {
             throw new IllegalStateException("Authenticated RH user not found");
