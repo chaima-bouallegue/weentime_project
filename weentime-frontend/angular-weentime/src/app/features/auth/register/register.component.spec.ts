@@ -46,28 +46,26 @@ describe('RegisterComponent invitation code validation', () => {
     const fixture = TestBed.createComponent(RegisterComponent);
     const component = fixture.componentInstance;
 
-    component.registerForm.get('step1.companyCode')?.setValue('WEEN-C3F302B5E8CF');
+    component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
     tick(401);
     authService.response$.next({
       valid: true,
-      enterpriseId: 1,
-      enterpriseName: 'talan',
+      enterpriseId: 123,
+      enterpriseName: 'Weentime SARL',
       status: 'ACTIVE',
-      invitationCode: 'WEEN-C3F302B5E8CF'
+      invitationCode: 'WEEN-22024'
     });
     authService.response$.complete();
 
-    component.nextStep();
-
     expect(component.currentStep()).toBe(2);
-    expect(component.foundCompany()?.id).toBe(1);
+    expect(component.foundCompany()?.id).toBe(123);
   }));
 
   it('shows the closed-enterprise message for ENTERPRISE_CLOSED', fakeAsync(() => {
     const fixture = TestBed.createComponent(RegisterComponent);
     const component = fixture.componentInstance;
 
-    component.registerForm.get('step1.companyCode')?.setValue('WEEN-C3F302B5E8CF');
+    component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
     tick(401);
     authService.response$.error(new HttpErrorResponse({
       status: 409,
@@ -97,7 +95,7 @@ describe('RegisterComponent invitation code validation', () => {
     const fixture = TestBed.createComponent(RegisterComponent);
     const component = fixture.componentInstance;
 
-    component.registerForm.get('step1.companyCode')?.setValue('WEEN-C3F302B5E8CF');
+    component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
     tick(401);
     authService.response$.error(new HttpErrorResponse({
       status: 404,
@@ -108,7 +106,27 @@ describe('RegisterComponent invitation code validation', () => {
     expect(component.codeErrorMessage()).toBe("Code d'invitation invalide ou expiré.");
   }));
 
-  it('normalizes lowercase, spaced, and visual-prefixed codes before calling the API', fakeAsync(() => {
+  it('normalizes lowercase codes before calling the API', fakeAsync(() => {
+    const fixture = TestBed.createComponent(RegisterComponent);
+    const component = fixture.componentInstance;
+
+    component.registerForm.get('step1.companyCode')?.setValue('ween-22024');
+    tick(401);
+
+    expect(authService.validateCompanyCode).toHaveBeenCalledWith('WEEN-22024');
+  }));
+
+  it('normalizes spaced codes before calling the API', fakeAsync(() => {
+    const fixture = TestBed.createComponent(RegisterComponent);
+    const component = fixture.componentInstance;
+
+    component.registerForm.get('step1.companyCode')?.setValue(' WEEN 22024 ');
+    tick(401);
+
+    expect(authService.validateCompanyCode).toHaveBeenCalledWith('WEEN22024');
+  }));
+
+  it('normalizes visual-prefixed codes before calling the API', fakeAsync(() => {
     const fixture = TestBed.createComponent(RegisterComponent);
     const component = fixture.componentInstance;
 

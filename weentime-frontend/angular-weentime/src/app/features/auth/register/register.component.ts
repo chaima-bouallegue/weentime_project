@@ -105,6 +105,11 @@ export class RegisterComponent implements OnDestroy {
             .subscribe(res => {
                 if (res?.valid) {
                     this.foundCompany.set(this.toCompanyInfo(res));
+                    this.isCodeInvalid.set(false);
+                    this.codeErrorMessage.set(null);
+                    if (this.currentStep() === 1) {
+                        this.currentStep.set(2);
+                    }
                 } else if (res?.valid === false) {
                     this.isCodeInvalid.set(true);
                     this.codeErrorMessage.set(this.messageForReason(res.reason, res.message));

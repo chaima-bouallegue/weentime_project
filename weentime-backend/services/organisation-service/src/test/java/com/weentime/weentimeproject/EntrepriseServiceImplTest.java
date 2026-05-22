@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -41,16 +42,29 @@ class EntrepriseServiceImplTest {
     @Test
     void shouldValidateActiveInvitationCode() {
         when(entrepriseRepository.findByNormalizedCodeInvitation(anyCollection()))
-                .thenReturn(Optional.of(enterprise(true)));
+                .thenReturn(Optional.of(enterprise(true, "WEEN-22024")));
 
-        EntrepriseValidationDTO response = service.validateCode("WEEN-1024");
+        EntrepriseValidationDTO response = service.validateCode("WEEN-22024");
 
         assertThat(response.isValid()).isTrue();
         assertThat(response.getEnterpriseId()).isEqualTo(1L);
         assertThat(response.getEnterpriseName()).isEqualTo("Weentime");
         assertThat(response.getStatus()).isEqualTo("ACTIVE");
-        assertThat(response.getInvitationCode()).isEqualTo("WEEN-1024");
+        assertThat(response.getInvitationCode()).isEqualTo("WEEN-22024");
         assertThat(response.getReason()).isNull();
+    }
+
+    @Test
+    void shouldValidateActiveInvitationCodeEvenWhenLegacyExpirationIsPast() {
+        Entreprise activeEnterprise = enterprise(true, "WEEN-22024");
+        activeEnterprise.setCodeExpiration(LocalDateTime.now().minusDays(1));
+        when(entrepriseRepository.findByNormalizedCodeInvitation(anyCollection()))
+                .thenReturn(Optional.of(activeEnterprise));
+
+        EntrepriseValidationDTO response = service.validateCode("WEEN-22024");
+
+        assertThat(response.isValid()).isTrue();
+        assertThat(response.getInvitationCode()).isEqualTo("WEEN-22024");
     }
 
     @Test
@@ -62,7 +76,7 @@ class EntrepriseServiceImplTest {
 
         assertThat(response.isValid()).isFalse();
         assertThat(response.getReason()).isEqualTo("ENTERPRISE_CLOSED");
-        assertThat(response.getMessage()).isEqualTo("Cette entreprise est fermée.");
+        assertThat(response.getMessage()).isEqualTo("Cette entreprise est fermée. Contactez votre administrateur.");
         assertThat(response.getStatus()).isEqualTo("CLOSED");
         assertThat(response.getEnterpriseId()).isEqualTo(1L);
         assertThat(response.getInvitationCode()).isEqualTo("WEEN-1024");
@@ -82,16 +96,16 @@ class EntrepriseServiceImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ween-1024", " WEEN 1024 "})
+    @ValueSource(strings = {"ween-22024", " WEEN 22024 "})
     void shouldNormalizeInvitationCodeBeforeLookup(String rawCode) {
         when(entrepriseRepository.findByNormalizedCodeInvitation(anyCollection()))
-                .thenReturn(Optional.of(enterprise(true)));
+                .thenReturn(Optional.of(enterprise(true, "WEEN-22024")));
 
         service.validateCode(rawCode);
 
         ArgumentCaptor<Collection<String>> candidates = collectionCaptor();
         verify(entrepriseRepository).findByNormalizedCodeInvitation(candidates.capture());
-        assertThat(candidates.getValue()).contains("WEEN-1024");
+        assertThat(candidates.getValue()).contains("WEEN-22024");
     }
 
     @Test

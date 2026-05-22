@@ -14,7 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Objects;
@@ -40,7 +39,7 @@ public class EntrepriseServiceImpl implements EntrepriseService {
     private static final String ENTERPRISE_FULL = "ENTERPRISE_FULL";
     private static final String INVITATION_INVALID_MESSAGE = "Code d'invitation invalide ou expiré.";
     private static final String INVITATION_LIMIT = "Nombre maximal d'utilisateurs atteint pour cette entreprise.";
-    private static final String ENTERPRISE_CLOSED_MESSAGE = "Cette entreprise est fermée.";
+    private static final String ENTERPRISE_CLOSED_MESSAGE = "Cette entreprise est fermée. Contactez votre administrateur.";
 
     @Override
     public EntrepriseResponse createEntreprise(EntrepriseRequest request) {
@@ -113,11 +112,6 @@ public class EntrepriseServiceImpl implements EntrepriseService {
 
         if (!Boolean.TRUE.equals(entreprise.getEstActive())) {
             return invalidValidation(ENTERPRISE_CLOSED, ENTERPRISE_CLOSED_MESSAGE, entreprise);
-        }
-
-        if (entreprise.getCodeExpiration() != null
-                && entreprise.getCodeExpiration().isBefore(LocalDateTime.now())) {
-            return invalidValidation(CODE_NOT_FOUND, INVITATION_INVALID_MESSAGE);
         }
 
         if (entreprise.getMaxUsers() != null && entreprise.getCurrentUsers() != null
