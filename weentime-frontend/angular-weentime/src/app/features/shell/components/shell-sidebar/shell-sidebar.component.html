@@ -53,14 +53,14 @@
             <span class="item-label">{{ item.label }}</span>
             <span class="item-desc">Consulter {{ item.label | lowercase }}</span>
           </div>
-          @if (item.id === 'messages' && messageUnreadCount() > 0) {
-          <span class="nav-badge">{{ messageUnreadCount() > 99 ? '99+' : messageUnreadCount() }}</span>
+          @if (getBadgeCount(item.id) > 0) {
+          <span class="nav-badge">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
           }
           <lucide-icon [img]="iconChevronRight" size="14" class="chevron-indicator"></lucide-icon>
           }
 
-          @if (collapsed() && item.id === 'messages' && messageUnreadCount() > 0) {
-          <span class="nav-badge collapsed">{{ messageUnreadCount() > 99 ? '99+' : messageUnreadCount() }}</span>
+          @if (collapsed() && getBadgeCount(item.id) > 0) {
+          <span class="nav-badge collapsed">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
           }
 
           <!-- Background Glow Effect on Active -->

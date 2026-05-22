@@ -29,12 +29,16 @@ import {
   Bell,
   BarChart,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Search
 } from 'lucide-angular';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LogoComponent } from '../../../../shared/components/logo/logo.component';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { CommunicationStoreService } from '@app/features/communication/services/communication-store.service';
+import { ApprobationService } from '../../../manager/approbations/approbation.service';
+import { RhLeaveStore } from '../../../../core/services/rh-leave.store';
+import { RhTeletravailStore } from '../../../../core/services/rh-teletravail.store';
 
 interface NavItem {
   id: string;
@@ -62,6 +66,9 @@ const ROLE_LABELS: Record<string, string> = {
 export class ShellSidebarComponent {
   private readonly authService = inject(AuthService);
   private readonly communicationStore = inject(CommunicationStoreService);
+  private readonly approbationService = inject(ApprobationService);
+  private readonly rhLeaveStore = inject(RhLeaveStore);
+  private readonly rhTeletravailStore = inject(RhTeletravailStore);
   readonly themeService = inject(ThemeService);
 
   readonly iconDashboard = LayoutDashboard;
@@ -91,6 +98,7 @@ export class ShellSidebarComponent {
   readonly iconBarChart = BarChart;
   readonly iconShield = Shield;
   readonly iconMessageSquare = MessageSquare;
+  readonly iconSearch = Search;
 
   collapsed = signal(false);
   mobileOpen = signal(false);
@@ -133,6 +141,7 @@ export class ShellSidebarComponent {
         { id: 'manager-horaires', label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
         { id: 'manager-autorisations', label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
         { id: 'manager-teletravail', label: 'Teletravail', icon: 'laptop', route: `${base}/teletravail` },
+        { id: 'manager-documents', label: 'Documents', icon: 'folder-open', route: `${base}/documents` },
         { id: 'manager-approbations', label: 'Approbations', icon: 'check-circle', route: `${base}/approbations` }
       );
     }
@@ -141,6 +150,7 @@ export class ShellSidebarComponent {
       items.push(
         { id: 'rh-analytics', label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
         { id: 'rh-planning', label: 'Calendrier Global', icon: 'calendar', route: `${base}/planning` },
+        { id: 'rh-recrutement', label: 'Recrutement', icon: 'search', route: `${base}/recrutement` },
         { id: 'rh-structure', label: 'Structure', icon: 'network', route: `${base}/structure` },
         { id: 'rh-employes', label: 'Employes', icon: 'briefcase', route: `${base}/employes` },
         { id: 'rh-conges', label: 'Conges', icon: 'calendar-check', route: `${base}/conges` },
@@ -194,8 +204,57 @@ export class ShellSidebarComponent {
   readonly roleLabel = computed(() => ROLE_LABELS[this.userRole()] ?? 'Utilisateur');
   readonly messageUnreadCount = this.communicationStore.totalUnread;
 
+  readonly managerPendingApprobationsCount = computed(() => {
+    const pending = this.approbationService.pendingApprobationsSignal();
+    return pending.filter(d => d.type !== 'TELETRAVAIL').length;
+  });
+
+  readonly managerPendingTeletravailCount = computed(() => {
+    const pending = this.approbationService.pendingApprobationsSignal();
+    return pending.filter(d => d.type === 'TELETRAVAIL').length;
+  });
+
+  readonly rhPendingCongesCount = computed(() => {
+    return this.rhLeaveStore.allDemandes().filter(d => d.statut === 'EN_ATTENTE_RH').length;
+  });
+
+  readonly rhPendingTeletravailCount = computed(() => {
+    return this.rhTeletravailStore.demandesEnAttente().length;
+  });
+
   constructor() {
     this.communicationStore.bootstrapUnreadTracking();
+    const role = this.userRole();
+    if (role === 'MANAGER') {
+      this.approbationService.refreshBuckets();
+    } else if (role === 'RH') {
+      this.rhLeaveStore.loadAllDemandes().subscribe();
+      this.rhTeletravailStore.loadAll(true).subscribe();
+    }
+  }
+
+  getBadgeCount(itemId: string): number {
+    const role = this.userRole();
+    if (itemId === 'messages') {
+      return this.messageUnreadCount();
+    }
+    if (role === 'MANAGER') {
+      if (itemId === 'manager-approbations') {
+        return this.managerPendingApprobationsCount();
+      }
+      if (itemId === 'manager-teletravail') {
+        return this.managerPendingTeletravailCount();
+      }
+    }
+    if (role === 'RH') {
+      if (itemId === 'rh-conges') {
+        return this.rhPendingCongesCount();
+      }
+      if (itemId === 'rh-teletravail') {
+        return this.rhPendingTeletravailCount();
+      }
+    }
+    return 0;
   }
 
   navTrackingKey(item: NavItem): string {
@@ -241,6 +300,7 @@ export class ShellSidebarComponent {
       case 'bar-chart': return this.iconBarChart;
       case 'shield': return this.iconShield;
       case 'message-square': return this.iconMessageSquare;
+      case 'search': return this.iconSearch;
       default: return this.iconUser;
     }
   }

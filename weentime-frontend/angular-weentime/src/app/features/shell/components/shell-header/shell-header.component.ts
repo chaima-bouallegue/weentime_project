@@ -126,7 +126,13 @@ import { TemplatePortal } from '@angular/cdk/portal';
       border-bottom: 1px solid #e2e8f0;
       height: 72px;
       position: relative;
-      z-index: 50; /* FIX: au-dessus du contenu mais ne bloque pas les clics en dessous */
+      z-index: 50;
+    }
+
+    .notif-container {
+      position: relative;
+      display: flex;
+      align-items: center;
     }
 
     :host-context(.dark) .shell-header {
@@ -473,11 +479,8 @@ import { TemplatePortal } from '@angular/cdk/portal';
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    @keyframes bell-shake {
-      0%, 100% { transform: rotate(0); }
-      20%, 60% { transform: rotate(10deg); }
-      40%, 80% { transform: rotate(-10deg); }
+    .notif-container {
+      position: relative;
     }
 
     .notification-count {
@@ -684,6 +687,12 @@ import { TemplatePortal } from '@angular/cdk/portal';
     @keyframes badge-pulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.08); }
+    }
+
+    @keyframes bell-shake {
+      0%, 100% { transform: rotate(0); }
+      20%, 60% { transform: rotate(10deg); }
+      40%, 80% { transform: rotate(-10deg); }
     }
 
     @keyframes bell-wiggle {

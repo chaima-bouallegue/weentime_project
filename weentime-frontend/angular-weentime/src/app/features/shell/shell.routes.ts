@@ -52,7 +52,7 @@ import {
   BarChart,
   TrendingUp,
   TrendingDown,
-  ChevronDown,
+  ChevronDown, ChevronUp,
   Info,
   User,
   Mail,
@@ -92,6 +92,7 @@ import {
   Hourglass,
   CalendarRange,
   RefreshCw,
+  Umbrella,
   CalendarX2,
   Clock10,
   Target,
@@ -101,6 +102,9 @@ import {
   Star,
   Flame,
   ShieldAlert,
+  Brain,
+  MapPin,
+  MoreVertical,
   UserCheck as LucideUserCheck,
   ArrowRight as LucideArrowRight
 } from 'lucide-angular';
@@ -229,6 +233,12 @@ export const shellRoutes: Routes = [
     title: 'WeenTime - Teletravail equipe',
     data: { title: 'Teletravail equipe' },
     loadComponent: () => import('../manager/teletravail/manager-teletravail.component').then(m => m.ManagerTeletravailComponent)
+  },
+  {
+    path: 'manager/documents',
+    title: 'WeenTime - Mes documents',
+    data: { title: 'Mes documents' },
+    loadComponent: () => import('../employee/documents/employee-documents.component').then(m => m.EmployeeDocumentsComponent)
   },
   {
     path: 'manager/absences',
@@ -423,7 +433,7 @@ export const shellRoutes: Routes = [
           ChevronDown, ChevronLeft, ChevronRight, Filter,
           Calendar, Clock, Check, X, Search, Plus,
           CheckCircle, XCircle, AlertCircle, FileText,
-          CalendarCheck
+          CalendarCheck, RefreshCw, Umbrella
         })
       }
     ]
@@ -449,6 +459,8 @@ export const shellRoutes: Routes = [
           Download,
           ChevronLeft,
           ChevronRight,
+          ChevronDown,
+          ChevronUp,
           Calendar,
           Check,
           X
@@ -573,6 +585,21 @@ export const shellRoutes: Routes = [
           Calendar, Map, List, Filter, Download, Search, X, TrendingUp, UserMinus, Home, AlertTriangle, AlertCircle, 
           ChevronLeft, ChevronRight, CalendarDays, Landmark, Bell, ArrowLeft, CheckCircle, HelpCircle, Send, Check,
           LayoutGrid, Flame, Activity, UserX, ShieldAlert, Award
+        })
+      }
+    ]
+  },
+  {
+    path: 'rh/recrutement',
+    title: 'WeenTime — Recrutement',
+    data: { title: 'Recrutement' },
+    loadChildren: () => import('../rh/recrutement/recrutement.routes').then(m => m.RECRUTEMENT_ROUTES),
+    providers: [
+      {
+        provide: LUCIDE_ICONS,
+        multi: true,
+        useValue: new LucideIconProvider({
+          Plus, Search, Filter, Briefcase, MoreVertical, ExternalLink, ChevronLeft, Users, Brain, MapPin, Calendar, CheckCircle, XCircle
         })
       }
     ]
