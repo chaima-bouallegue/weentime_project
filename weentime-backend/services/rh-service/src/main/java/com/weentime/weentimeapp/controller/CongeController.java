@@ -26,7 +26,7 @@ public class CongeController {
     private final OrganisationServiceClient organisationServiceClient;
 
     @PostMapping
-    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<CongeDTO> create(@RequestBody CongeDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto));
     }

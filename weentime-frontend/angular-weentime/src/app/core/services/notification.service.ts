@@ -1,7 +1,7 @@
 import { computed, effect, Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, Observable, Subscription, catchError, map, of, tap } from 'rxjs';
+import { EMPTY, Observable, Subscription, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { WebSocketService } from './websocket.service';
 import { AuthService } from './auth.service';
@@ -130,19 +130,33 @@ export class NotificationService {
       return of([]);
     }
     this._loading.set(true);
-    return this.http.get<unknown>(`${this.rhUrl}/mes-notifications`).pipe(
-      catchError(() => this.http.get<unknown>(this.orgUrl)),
-      map(payload => this.extractCollection(payload).map(item => this.normalize(item))),
+
+    // Fetch from both services concurrently to merge all notifications
+    const rh$ = this.http.get<unknown>(`${this.rhUrl}/mes-notifications`).pipe(
+      catchError(() => of([]))
+    );
+    const org$ = this.http.get<unknown>(this.orgUrl).pipe(
+      catchError(() => of([]))
+    );
+
+    return forkJoin([rh$, org$]).pipe(
+      map(([rhData, orgData]) => {
+        const rhList = this.extractCollection(rhData);
+        const orgList = this.extractCollection(orgData);
+        // Merge collections and remove duplicates based on ID
+        const merged = [...rhList, ...orgList];
+        return merged.map(item => this.normalize(item));
+      }),
       tap(serverItems => {
-        // Merge: keep any in-memory items not yet on the server (e.g. just received via WS)
         this._notifications.update(current => {
           const serverIds = new Set(serverItems.map(i => String(i.id)));
           const localOnly = current.filter(i => !serverIds.has(String(i.id)));
+          
+          // Final merged list, sorted by date is handled by the computed 'notifications' signal
           return [...serverItems, ...localOnly];
         });
       }),
       catchError(() => {
-        // Don't clear existing notifications on network failure — just log and keep current state
         this._loading.set(false);
         return of(this._notifications());
       }),
@@ -152,9 +166,17 @@ export class NotificationService {
   }
 
   getUnreadCount(): Observable<number> {
-    return this.http.get<number | { unreadCount?: number }>(`${this.rhUrl}/non-lues/count`).pipe(
-      catchError(() => this.http.get<{ unreadCount?: number }>(`${this.orgUrl}/unread-count`)),
-      map(response => typeof response === 'number' ? response : Number(response?.unreadCount ?? 0)),
+    const rhCount$ = this.http.get<number | { unreadCount?: number }>(`${this.rhUrl}/non-lues/count`).pipe(
+      map(res => typeof res === 'number' ? res : Number(res?.unreadCount ?? 0)),
+      catchError(() => of(0))
+    );
+    const orgCount$ = this.http.get<{ unreadCount?: number }>(`${this.orgUrl}/unread-count`).pipe(
+      map(res => Number(res?.unreadCount ?? 0)),
+      catchError(() => of(0))
+    );
+
+    return forkJoin([rhCount$, orgCount$]).pipe(
+      map(([rh, org]) => rh + org),
       catchError(() => of(this.unreadCount()))
     );
   }

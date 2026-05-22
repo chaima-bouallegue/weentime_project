@@ -59,6 +59,8 @@ public class SecurityConfig {
                                 "/api/v1/rh/teletravails",
                                 "/api/v1/rh/teletravails/**"
                         ).authenticated()
+                        .requestMatchers("/api/v1/internal/recruitment/**").permitAll()
+                        .requestMatchers("/api/v1/public/recrutement/**").permitAll()
                         .requestMatchers("/api/demandes/**").permitAll()
                         .anyRequest().authenticated());
 

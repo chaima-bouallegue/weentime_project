@@ -1620,23 +1620,30 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   private defaultRouteForIntent(intent?: string): string | null {
+    const role = this.assistantRole();
     switch (intent) {
       case 'CREATE_LEAVE':
       case 'GET_LEAVE_BALANCE':
       case 'GET_MY_REQUESTS':
       case 'leave.balance':
       case 'leave.list':
+        if (role === 'RH') return '/app/rh/conges';
+        if (role === 'MANAGER') return '/app/manager/approbations';
         return '/app/employee/conges';
       case 'CREATE_AUTORISATION':
       case 'authorization.list':
         return '/app/employee/autorisations';
       case 'CREATE_TELEWORK':
       case 'telework.list':
+        if (role === 'RH') return '/app/rh/teletravail';
+        if (role === 'MANAGER') return '/app/manager/teletravail';
         return '/app/employee/teletravail';
       case 'REQUEST_DOCUMENT':
       case 'OPEN_DOCUMENT':
       case 'document.list':
-        return this.assistantRole() === 'RH' ? '/app/rh/documents' : '/app/employee/documents';
+        if (role === 'RH') return '/app/rh/documents';
+        if (role === 'MANAGER') return '/app/manager/documents';
+        return '/app/employee/documents';
       case 'GET_NOTIFICATIONS':
         return '/app/notifications';
       case 'GET_TEAM_REQUESTS':

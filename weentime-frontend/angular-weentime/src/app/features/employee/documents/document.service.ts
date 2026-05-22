@@ -96,9 +96,12 @@ export class DocumentService {
     );
   }
 
-  annulerDemande(id: number): Observable<void> {
-    return this.http.put(this.apiConfig.RH.CANCEL_DOCUMENT(id), {}).pipe(
-      map(() => undefined),
+  annulerDemande(id: number): Observable<DemandeDocument> {
+    return this.http.put<unknown>(this.apiConfig.RH.CANCEL_DOCUMENT(id), {}).pipe(
+      map(response => {
+        const data = (response as { data?: unknown })?.data ?? response;
+        return this.mapToDemandeDocument(data);
+      }),
       catchError(err => {
         // Extraire le message d'erreur du backend
         const message =
@@ -142,18 +145,28 @@ export class DocumentService {
 
   private mapStatut(status?: string): DemandeDocument['statut'] {
     switch (status) {
-      // Statuts annulables côté backend → EN_ATTENTE (bouton Annuler visible)
+      case 'DEMANDE_RECUE':
       case 'EN_ATTENTE':
-        return 'EN_ATTENTE';
       case 'EN_ATTENTE_RH':
-        return 'EN_ATTENTE';   // ← CORRIGÉ : était 'EN_COURS', empêchait l'annulation
-      // Statuts non annulables
-      case 'APPROUVEE':
-        return 'PRET';
+      case 'PENDING':
+        return 'EN_ATTENTE';
+      case 'EN_REVISION':
       case 'EN_COURS':
+      case 'VALIDE':
+      case 'SIGNE':
+      case 'GENERATING':
         return 'EN_COURS';
+      case 'ENVOYE':
+      case 'APPROUVE':
+      case 'APPROUVEE':
+      case 'PRET':
+      case 'READY':
+        return 'PRET';
+      case 'REFUSE':
       case 'REFUSEE':
+      case 'REJECTED':
         return 'REFUSE';
+      case 'ANNULE':
       case 'ANNULEE':
         return 'ANNULE';
       default:
