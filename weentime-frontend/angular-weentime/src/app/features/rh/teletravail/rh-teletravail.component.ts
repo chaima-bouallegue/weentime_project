@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -11,6 +11,8 @@ import { DemandesRhListComponent } from './components/demandes-rh-list/demandes-
 import { DecisionRhModalComponent } from './components/decision-rh-modal/decision-rh-modal.component';
 import { HistoriqueGlobalComponent } from './components/historique-global/historique-global.component';
 import { RhTeletravailStore } from '../../../core/services/rh-teletravail.store';
+import { EmployeeTeletravailComponent } from '../../employee/teletravail/employee-teletravail.component';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-rh-teletravail',
@@ -21,7 +23,8 @@ import { RhTeletravailStore } from '../../../core/services/rh-teletravail.store'
     StatsRhCardsComponent,
     DemandesRhListComponent,
     DecisionRhModalComponent,
-    HistoriqueGlobalComponent
+    HistoriqueGlobalComponent,
+    EmployeeTeletravailComponent
   ],
   templateUrl: './rh-teletravail.component.html',
   styleUrl: './rh-teletravail.component.scss',
@@ -31,6 +34,10 @@ export class RhTeletravailComponent implements OnInit {
   private readonly store = inject(RhTeletravailStore);
   private readonly service = inject(TeletravailService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authService = inject(AuthService);
+
+  readonly isRh = computed(() => this.authService.hasRole('RH'));
+  readonly activeTab = signal<'mes-demandes' | 'gestion'>('gestion');
 
   readonly demandesEnAttente = this.store.demandesEnAttente;
   readonly historiqueGlobal = this.store.historiqueGlobal;

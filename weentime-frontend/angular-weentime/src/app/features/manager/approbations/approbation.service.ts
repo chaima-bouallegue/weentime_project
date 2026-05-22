@@ -154,8 +154,12 @@ export class ApprobationService {
       .subscribe({
         next: (response) => {
           const data = response?.data;
+          const currentUserId = this.authService.currentUser()?.id;
           const content = Array.isArray(data?.content) ? data.content : [];
-          const demandes = this.sortDemandes(content.map((dto) => this.mapPendingDemande(dto)));
+          const demandsMapped = content.map((dto) => this.mapPendingDemande(dto));
+          const demandes = this.sortDemandes(
+            currentUserId ? demandsMapped.filter((item) => item.utilisateurId !== currentUserId) : demandsMapped
+          );
 
           this.pendingApprobationsSignal.set(demandes.filter((item) => item.statut === 'EN_ATTENTE_MANAGER'));
           this.forwardedDemandesSignal.set(demandes.filter((item) => item.statut === 'EN_ATTENTE_RH'));
@@ -276,8 +280,7 @@ export class ApprobationService {
       this.fetchDemandesPage<CongeDto>('/conges/manager', 'CONGE', params, (dto) => this.mapConge(dto)),
       this.fetchDemandesPage<AbsenceDto>('/absences/manager', 'ABSENCE', params, (dto) => this.mapAbsence(dto)),
       this.fetchDemandesPage<TeletravailDto>('/rh/teletravails/demandes-equipe', 'TELETRAVAIL', params, (dto) => this.mapTeletravail(dto)),
-      this.fetchDemandesPage<AutorisationDto>('/autorisations/manager', 'AUTORISATION', params, (dto) => this.mapAutorisation(dto)),
-      this.fetchDemandesPage<DocumentDto>('/documents/manager', 'DOCUMENT', params, (dto) => this.mapDocument(dto))
+      this.fetchDemandesPage<AutorisationDto>('/autorisations/manager', 'AUTORISATION', params, (dto) => this.mapAutorisation(dto))
     ]).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({

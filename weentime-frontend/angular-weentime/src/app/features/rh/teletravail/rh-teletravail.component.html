@@ -8,43 +8,61 @@
     </div>
   </header>
 
-  <!-- Zone 1: Stats RH -->
-  <section class="section">
-    <app-stats-rh-cards [stats]="stats()" [isLoading]="isLoading()"></app-stats-rh-cards>
-  </section>
-
-  @if (loadWarning()) {
-    <section class="section">
-      <div class="empty-state-sm">
-        <p>{{ loadWarning() }}</p>
-      </div>
-    </section>
+  @if (isRh()) {
+    <div class="flex border-b border-slate-100 dark:border-slate-800 mb-8 px-6">
+      <button (click)="activeTab.set('mes-demandes')" class="px-6 py-3 font-bold text-sm transition-all border-b-2" [class.border-indigo-600]="activeTab() === 'mes-demandes'" [class.text-indigo-600]="activeTab() === 'mes-demandes'" [class.border-transparent]="activeTab() !== 'mes-demandes'" [class.text-slate-400]="activeTab() !== 'mes-demandes'">
+        Mes demandes
+      </button>
+      <button (click)="activeTab.set('gestion')" class="px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2" [class.border-indigo-600]="activeTab() === 'gestion'" [class.text-indigo-600]="activeTab() === 'gestion'" [class.border-transparent]="activeTab() !== 'gestion'" [class.text-slate-400]="activeTab() !== 'gestion'">
+        <span>Gestion</span>
+        @if (demandesEnAttente().length > 0) {
+          <span class="px-2 py-0.5 text-[10px] font-black bg-rose-500 text-white rounded-full">{{ demandesEnAttente().length }}</span>
+        }
+      </button>
+    </div>
   }
 
-  <!-- Zone 2: Demandes en attente RH -->
-  <section class="section">
-    <div class="section-header">
-      <h2 class="section-title">Demandes en attente de validation RH</h2>
-      <span class="count-badge" [class.pulse]="demandesEnAttente().length > 0">{{ demandesEnAttente().length }}</span>
-    </div>
-    <app-demandes-rh-list
-      [demandes]="demandesEnAttente()"
-      [isLoading]="isLoading()"
-      (approuver)="onApprouver($event)"
-      (refuser)="onRefuser($event)"
-    ></app-demandes-rh-list>
-  </section>
+  @if (activeTab() === 'mes-demandes') {
+    <app-employee-teletravail></app-employee-teletravail>
+  } @else {
+    <!-- Zone 1: Stats RH -->
+    <section class="section">
+      <app-stats-rh-cards [stats]="stats()" [isLoading]="isLoading()"></app-stats-rh-cards>
+    </section>
 
-  <!-- Zone 3: Historique Global -->
-  <section class="section">
-    <div class="section-header">
-      <h2 class="section-title">Historique global</h2>
-    </div>
-    <app-historique-global
-      [demandes]="historiqueGlobal()"
-      [isLoading]="isLoading()"
-    ></app-historique-global>
-  </section>
+    @if (loadWarning()) {
+      <section class="section">
+        <div class="empty-state-sm">
+          <p>{{ loadWarning() }}</p>
+        </div>
+      </section>
+    }
+
+    <!-- Zone 2: Demandes en attente RH -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Demandes en attente de validation RH</h2>
+        <span class="count-badge" [class.pulse]="demandesEnAttente().length > 0">{{ demandesEnAttente().length }}</span>
+      </div>
+      <app-demandes-rh-list
+        [demandes]="demandesEnAttente()"
+        [isLoading]="isLoading()"
+        (approuver)="onApprouver($event)"
+        (refuser)="onRefuser($event)"
+      ></app-demandes-rh-list>
+    </section>
+
+    <!-- Zone 3: Historique Global -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Historique global</h2>
+      </div>
+      <app-historique-global
+        [demandes]="historiqueGlobal()"
+        [isLoading]="isLoading()"
+      ></app-historique-global>
+    </section>
+  }
 </div>
 
 <!-- Decision RH Modal -->

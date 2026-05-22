@@ -5,6 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideAngularModule, AlertTriangle, BadgeCheck, Inbox, RefreshCw, Search, Shield, X, XCircle, Clock3 } from 'lucide-angular';
 import { ApprobationService, Demande } from './approbation.service';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { EmployeeCongesComponent } from '../../employee/conges/employee-conges.component';
 
 type StatusGroup = 'PENDING' | 'FORWARDED' | 'APPROVED' | 'REJECTED' | 'ALL';
 type DecisionAction = 'approve' | 'reject';
@@ -12,7 +14,7 @@ type DecisionAction = 'approve' | 'reject';
 @Component({
   selector: 'app-manager-approbations',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, EmployeeCongesComponent],
   templateUrl: './manager-approbations.component.html',
   styleUrl: './manager-approbations.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -21,6 +23,10 @@ export class ManagerApprobationsComponent {
   private readonly approbationService = inject(ApprobationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly assistantSync = inject(AssistantSyncService);
+  private readonly authService = inject(AuthService);
+
+  protected readonly isManagerOrRh = computed(() => this.authService.hasRole('MANAGER') || this.authService.hasRole('RH'));
+  protected readonly activeTab = signal<'mes-demandes' | 'mon-equipe'>('mon-equipe');
 
   protected readonly iconRefresh = RefreshCw;
   protected readonly iconInbox = Inbox;
