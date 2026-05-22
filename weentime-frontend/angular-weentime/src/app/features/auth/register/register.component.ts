@@ -45,7 +45,7 @@ export class RegisterComponent implements OnDestroy {
     codeErrorMessage = signal<string | null>(null);
 
     private destroy$ = new Subject<void>();
-    private readonly normalizedCompanyCodePattern = /^WEEN-?[A-Z0-9]{4,15}$/;
+    private readonly normalizedCompanyCodePattern = /^[A-Z0-9-]{4,40}$/;
     private readonly companyCodeValidator = (control: AbstractControl): ValidationErrors | null => {
         const code = this.normalizeInvitationCode(control.value);
         return !code || this.isValidCompanyCodeFormat(code) ? null : { companyCode: true };
@@ -302,7 +302,8 @@ export class RegisterComponent implements OnDestroy {
 
     private normalizeInvitationCode(value: unknown): string {
         const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
-        return normalized.startsWith('#') ? normalized.substring(1) : normalized;
+        const withoutHash = normalized.replace(/^#+/, '');
+        return withoutHash.startsWith('N-') ? `WEEN-${withoutHash.substring(2)}` : withoutHash;
     }
 
     private isValidCompanyCodeFormat(code: string): boolean {
@@ -320,9 +321,7 @@ export class RegisterComponent implements OnDestroy {
 
     private handleCompanyCodeError(error: HttpErrorResponse): void {
         const errorBody = error.error;
-        const reason = error.status === 0
-            ? 'NETWORK_ERROR'
-            : errorBody?.reason || errorBody?.error;
+        const reason = this.resolveCompanyCodeErrorReason(error);
 
         this.isCodeInvalid.set(true);
         this.isCheckingCode.set(false);
@@ -335,6 +334,20 @@ export class RegisterComponent implements OnDestroy {
                 message: errorBody?.message || errorBody?.details
             });
         }
+    }
+
+    private resolveCompanyCodeErrorReason(error: HttpErrorResponse): CompanyCodeErrorReason {
+        if (error.status === 0) {
+            return 'NETWORK_ERROR';
+        }
+
+        const errorBody = error.error;
+        const reason = errorBody?.reason || errorBody?.error;
+        if (reason === 'ENTERPRISE_CLOSED' || reason === 'ENTERPRISE_FULL' || reason === 'CODE_NOT_FOUND') {
+            return reason;
+        }
+
+        return error.status === 409 ? 'ENTERPRISE_CLOSED' : 'CODE_NOT_FOUND';
     }
 
     private messageForReason(reason: unknown, fallbackMessage?: string): string {

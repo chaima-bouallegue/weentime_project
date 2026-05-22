@@ -72,6 +72,7 @@ export interface CompanyCodeValidationResponse {
   enterpriseId?: number;
   enterpriseName?: string;
   status?: string;
+  invitationCode?: string;
   reason?: string;
   message?: string;
   id?: number;
@@ -129,7 +130,10 @@ export class AuthService {
 
   validateCompanyCode(code: string): Observable<CompanyCodeValidationResponse> {
     const normalizedCode = this.normalizeInvitationCode(code);
-    return this.http.get<CompanyCodeValidationResponse>(this.apiConfig.ORGANISATION.VALIDATE_COMPANY_CODE(normalizedCode));
+    return this.http.get<CompanyCodeValidationResponse>(
+      this.apiConfig.ORGANISATION.VALIDATE_COMPANY_CODE(normalizedCode),
+      { headers: { 'X-Skip-Error-Toast': 'true' } }
+    );
   }
 
   register(userData: any): Observable<RegisterResponse> {
@@ -365,6 +369,7 @@ export class AuthService {
 
   private normalizeInvitationCode(value: unknown): string {
     const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
-    return normalized.startsWith('#') ? normalized.substring(1) : normalized;
+    const withoutHash = normalized.replace(/^#+/, '');
+    return withoutHash.startsWith('N-') ? `WEEN-${withoutHash.substring(2)}` : withoutHash;
   }
 }

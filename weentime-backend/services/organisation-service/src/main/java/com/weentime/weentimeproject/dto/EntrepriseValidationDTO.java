@@ -16,6 +16,7 @@ public class EntrepriseValidationDTO {
     private Long enterpriseId;
     private String enterpriseName;
     private String status;
+    private String invitationCode;
     private String reason;
     private String message;
 

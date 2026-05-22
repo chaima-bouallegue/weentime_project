@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface EntrepriseRepository extends JpaRepository<Entreprise, Long> {
     boolean existsBySiret(String siret);
     Optional<Entreprise> findByCodeInvitationIgnoreCase(String codeInvitation);
-    @Query("select e from Entreprise e where upper(replace(e.codeInvitation, ' ', '')) in :codes")
+    @Query("select e from Entreprise e where upper(replace(replace(e.codeInvitation, ' ', ''), '#', '')) in :codes")
     Optional<Entreprise> findByNormalizedCodeInvitation(@Param("codes") Collection<String> codes);
     Optional<Entreprise> findByNomIgnoreCase(String nom);
 }

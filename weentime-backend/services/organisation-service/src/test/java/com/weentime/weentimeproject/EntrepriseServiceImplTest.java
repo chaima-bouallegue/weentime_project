@@ -49,6 +49,7 @@ class EntrepriseServiceImplTest {
         assertThat(response.getEnterpriseId()).isEqualTo(1L);
         assertThat(response.getEnterpriseName()).isEqualTo("Weentime");
         assertThat(response.getStatus()).isEqualTo("ACTIVE");
+        assertThat(response.getInvitationCode()).isEqualTo("WEEN-1024");
         assertThat(response.getReason()).isNull();
     }
 
@@ -64,6 +65,7 @@ class EntrepriseServiceImplTest {
         assertThat(response.getMessage()).isEqualTo("Cette entreprise est fermée.");
         assertThat(response.getStatus()).isEqualTo("CLOSED");
         assertThat(response.getEnterpriseId()).isEqualTo(1L);
+        assertThat(response.getInvitationCode()).isEqualTo("WEEN-1024");
     }
 
     @Test
@@ -75,7 +77,7 @@ class EntrepriseServiceImplTest {
 
         assertThat(response.isValid()).isFalse();
         assertThat(response.getReason()).isEqualTo("CODE_NOT_FOUND");
-        assertThat(response.getMessage()).isEqualTo("Code d'invitation invalide.");
+        assertThat(response.getMessage()).isEqualTo("Code d'invitation invalide ou expiré.");
         assertThat(response.getEnterpriseId()).isNull();
     }
 
@@ -92,17 +94,49 @@ class EntrepriseServiceImplTest {
         assertThat(candidates.getValue()).contains("WEEN-1024");
     }
 
+    @Test
+    void shouldLookupSuffixOnlyStoredCodeWhenPrefixedCodeIsProvided() {
+        when(entrepriseRepository.findByNormalizedCodeInvitation(anyCollection()))
+                .thenReturn(Optional.of(enterprise(true, "C3F302B5E8CF")));
+
+        EntrepriseValidationDTO response = service.validateCode("WEEN-C3F302B5E8CF");
+
+        ArgumentCaptor<Collection<String>> candidates = collectionCaptor();
+        verify(entrepriseRepository).findByNormalizedCodeInvitation(candidates.capture());
+        assertThat(candidates.getValue())
+                .contains("WEEN-C3F302B5E8CF", "C3F302B5E8CF", "WEENC3F302B5E8CF");
+        assertThat(response.isValid()).isTrue();
+        assertThat(response.getInvitationCode()).isEqualTo("WEEN-C3F302B5E8CF");
+    }
+
+    @Test
+    void shouldNormalizeVisualHashPrefixBeforeLookup() {
+        when(entrepriseRepository.findByNormalizedCodeInvitation(anyCollection()))
+                .thenReturn(Optional.of(enterprise(true, "WEEN-C3F302B5E8CF")));
+
+        service.validateCode("#N - C3F302B5E8CF");
+
+        ArgumentCaptor<Collection<String>> candidates = collectionCaptor();
+        verify(entrepriseRepository).findByNormalizedCodeInvitation(candidates.capture());
+        assertThat(candidates.getValue())
+                .contains("WEEN-C3F302B5E8CF", "C3F302B5E8CF");
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private ArgumentCaptor<Collection<String>> collectionCaptor() {
         return ArgumentCaptor.forClass(Collection.class);
     }
 
     private Entreprise enterprise(boolean active) {
+        return enterprise(active, "WEEN-1024");
+    }
+
+    private Entreprise enterprise(boolean active, String codeInvitation) {
         return Entreprise.builder()
                 .id(1L)
                 .nom("Weentime")
                 .secteur("Tech")
-                .codeInvitation("WEEN-1024")
+                .codeInvitation(codeInvitation)
                 .estActive(active)
                 .currentUsers(5)
                 .maxUsers(100)

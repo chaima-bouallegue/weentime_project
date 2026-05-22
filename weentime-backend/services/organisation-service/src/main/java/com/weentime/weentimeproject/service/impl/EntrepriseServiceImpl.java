@@ -38,7 +38,7 @@ public class EntrepriseServiceImpl implements EntrepriseService {
     private static final String CODE_NOT_FOUND = "CODE_NOT_FOUND";
     private static final String ENTERPRISE_CLOSED = "ENTERPRISE_CLOSED";
     private static final String ENTERPRISE_FULL = "ENTERPRISE_FULL";
-    private static final String INVITATION_INVALID_MESSAGE = "Code d'invitation invalide.";
+    private static final String INVITATION_INVALID_MESSAGE = "Code d'invitation invalide ou expiré.";
     private static final String INVITATION_LIMIT = "Nombre maximal d'utilisateurs atteint pour cette entreprise.";
     private static final String ENTERPRISE_CLOSED_MESSAGE = "Cette entreprise est fermée.";
 
@@ -132,6 +132,7 @@ public class EntrepriseServiceImpl implements EntrepriseService {
                 .enterpriseId(entreprise.getId())
                 .enterpriseName(entreprise.getNom())
                 .status("ACTIVE")
+                .invitationCode(publicInvitationCode(entreprise))
                 .id(entreprise.getId())
                 .nom(entreprise.getNom())
                 .secteur(entreprise.getSecteur())
@@ -164,10 +165,15 @@ public class EntrepriseServiceImpl implements EntrepriseService {
 
     private Set<String> invitationCodeCandidates(String normalizedCode) {
         Set<String> candidates = new LinkedHashSet<>();
-        candidates.add(normalizedCode);
-        if (normalizedCode.startsWith("WEEN") && !normalizedCode.startsWith("WEEN-") && normalizedCode.length() > 4) {
-            candidates.add("WEEN-" + normalizedCode.substring(4));
+        addInvitationCodeCandidate(candidates, normalizedCode);
+
+        String suffix = invitationSuffix(normalizedCode);
+        if (!suffix.isBlank()) {
+            addInvitationCodeCandidate(candidates, suffix);
+            addInvitationCodeCandidate(candidates, "WEEN-" + suffix);
+            addInvitationCodeCandidate(candidates, "WEEN" + suffix);
         }
+
         return candidates;
     }
 
@@ -176,7 +182,38 @@ public class EntrepriseServiceImpl implements EntrepriseService {
             return "";
         }
         String normalized = code.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
-        return normalized.startsWith("#") ? normalized.substring(1) : normalized;
+        while (normalized.startsWith("#")) {
+            normalized = normalized.substring(1);
+        }
+        if (normalized.startsWith("N-") && normalized.length() > 2) {
+            return "WEEN-" + normalized.substring(2);
+        }
+        return normalized;
+    }
+
+    private void addInvitationCodeCandidate(Set<String> candidates, String candidate) {
+        if (candidate != null && !candidate.isBlank()) {
+            candidates.add(candidate);
+        }
+    }
+
+    private String invitationSuffix(String normalizedCode) {
+        if (normalizedCode.startsWith("WEEN-") && normalizedCode.length() > 5) {
+            return normalizedCode.substring(5);
+        }
+        if (normalizedCode.startsWith("WEEN") && normalizedCode.length() > 4) {
+            return normalizedCode.substring(4);
+        }
+        return "";
+    }
+
+    private String publicInvitationCode(Entreprise entreprise) {
+        String normalized = normalizeInvitationCode(entreprise != null ? entreprise.getCodeInvitation() : null);
+        String suffix = invitationSuffix(normalized);
+        if (!suffix.isBlank()) {
+            return "WEEN-" + suffix;
+        }
+        return normalized.matches("[A-Z0-9]{4,32}") ? "WEEN-" + normalized : normalized;
     }
 
     private EntrepriseValidationDTO invalidValidation(String reason, String message) {
@@ -191,6 +228,7 @@ public class EntrepriseServiceImpl implements EntrepriseService {
                 .enterpriseId(entreprise != null ? entreprise.getId() : null)
                 .enterpriseName(entreprise != null ? entreprise.getNom() : null)
                 .status(entrepriseStatus(entreprise))
+                .invitationCode(entreprise != null ? publicInvitationCode(entreprise) : null)
                 .id(entreprise != null ? entreprise.getId() : null)
                 .nom(entreprise != null ? entreprise.getNom() : null)
                 .secteur(entreprise != null ? entreprise.getSecteur() : null)
