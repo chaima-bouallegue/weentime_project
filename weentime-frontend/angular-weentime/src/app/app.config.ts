@@ -172,7 +172,19 @@ import {
   Wifi,
   X,
   XCircle as XCircleIcon,
-  Zap
+  Zap,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Bold,
+  Italic,
+  Underline,
+  ListOrdered,
+  PanelRightClose,
+  PanelRightOpen,
+  PenTool,
+  PenLine,
+  FilePen
 } from 'lucide-angular';
 
 const allIcons = {
@@ -337,7 +349,19 @@ const allIcons = {
   Users2,
   Wifi,
   X,
-  Zap
+  Zap,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Bold,
+  Italic,
+  Underline,
+  ListOrdered,
+  PanelRightClose,
+  PanelRightOpen,
+  PenTool,
+  PenLine,
+  FilePen
 };
 
 export const appConfig: ApplicationConfig = {
