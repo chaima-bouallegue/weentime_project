@@ -1,0 +1,37 @@
+@if (isLoading()) {
+  <div class="timeline-skeleton">
+    @for (i of [1, 2, 3]; track i) {
+      <div class="skel-row"></div>
+    }
+  </div>
+} @else if (loadError()) {
+  <p class="timeline-error">Impossible de charger l'historique.</p>
+} @else if (entries().length === 0) {
+  <p class="timeline-empty">Aucune action enregistrée pour ce document.</p>
+} @else {
+  <div class="audit-timeline">
+    @for (entry of entries(); track entry.id; let last = $last) {
+      <div class="audit-item" [class.last]="last">
+        <div class="audit-rail">
+          <div class="audit-dot" [attr.data-tone]="visual(entry).tone">
+            <lucide-icon [name]="visual(entry).icon" [size]="14"></lucide-icon>
+          </div>
+          @if (!last) {
+            <div class="audit-line"></div>
+          }
+        </div>
+        <div class="audit-body">
+          <p class="audit-title">{{ entry.actionLabel }}</p>
+          <p class="audit-meta">
+            <span class="audit-author">{{ entry.performedByName }}</span>
+            <span class="audit-sep">·</span>
+            <span class="audit-time">{{ relativeTime(entry.performedAt) }}</span>
+          </p>
+          @if (entry.details) {
+            <p class="audit-detail">{{ entry.details }}</p>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
