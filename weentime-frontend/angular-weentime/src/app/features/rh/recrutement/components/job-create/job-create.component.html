@@ -1,0 +1,307 @@
+<div class="page-container">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-main">
+      <div class="title-group">
+        <button class="back-btn" (click)="goBack()">
+          <i-lucide [img]="ChevronLeft" class="w-5 h-5"></i-lucide>
+          <span>Retour aux offres</span>
+        </button>
+        <h1 class="page-title">{{ jobId() ? 'Modifier l\'offre' : 'Nouvelle offre d\'emploi' }}</h1>
+        <p class="page-subtitle">{{ jobId() ? 'Mettez à jour les informations de votre offre d\'emploi' : 'Créez une fiche de poste attractive pour attirer les meilleurs talents' }}</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-secondary" (click)="saveDraft()" [disabled]="saving()">
+          <i-lucide [img]="Save" class="w-4 h-4"></i-lucide>
+          Brouillon
+        </button>
+        <button class="btn-primary" (click)="publish()" [disabled]="saving() || !isValid">
+          @if (saving()) {
+            <i-lucide [img]="Loader2" class="w-4 h-4 animate-spin"></i-lucide>
+          } @else {
+            <i-lucide [img]="Send" class="w-4 h-4"></i-lucide>
+          }
+          {{ jobId() ? 'Enregistrer les modifications' : 'Publier l\'offre' }}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Section Navigation -->
+  <nav class="section-nav">
+    @for (section of sections; track section.label; let i = $index) {
+      <button
+        class="section-tab"
+        [class.active]="activeSection() === i"
+        (click)="activeSection.set(i)"
+      >
+        <span class="tab-number">{{ i + 1 }}</span>
+        {{ section.label }}
+      </button>
+    }
+  </nav>
+
+  <!-- Form Content -->
+  <div class="form-content">
+    <!-- Section 0: Informations générales -->
+    @if (activeSection() === 0) {
+      <div class="form-section animate-fade-in">
+        <div class="section-card">
+          <div class="section-card-header">
+            <i-lucide [img]="Briefcase" class="section-icon"></i-lucide>
+            <div>
+              <h2>Informations générales</h2>
+              <p>Définissez les caractéristiques principales du poste</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label class="form-label required">Intitulé du poste</label>
+              <input type="text" class="form-input" placeholder="Ex: Développeur Full Stack Senior" [(ngModel)]="form.title">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label required">Département</label>
+              <input type="text" class="form-input" placeholder="Ex: Engineering" [(ngModel)]="form.department">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label required">Localisation</label>
+              <div class="input-with-icon">
+                <i-lucide [img]="MapPin" class="input-icon"></i-lucide>
+                <input type="text" class="form-input has-icon" placeholder="Ex: Paris, France" [(ngModel)]="form.location">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Type de contrat</label>
+              <select class="form-select" [(ngModel)]="form.employmentType">
+                @for (type of employmentTypes; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Mode de travail</label>
+              <div class="radio-group">
+                @for (mode of workModes; track mode.value) {
+                  <label class="radio-card" [class.selected]="form.workMode === mode.value">
+                    <input type="radio" name="workMode" [value]="mode.value" [(ngModel)]="form.workMode">
+                    <span>{{ mode.label }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Niveau d'expérience</label>
+              <select class="form-select" [(ngModel)]="form.experienceLevel">
+                @for (level of experienceLevels; track level.value) {
+                  <option [value]="level.value">{{ level.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Postes ouverts</label>
+              <input type="number" class="form-input" min="1" [(ngModel)]="form.openingsCount">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Date limite</label>
+              <input type="date" class="form-input" [(ngModel)]="form.deadline">
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Section 1: Description -->
+    @if (activeSection() === 1) {
+      <div class="form-section animate-fade-in">
+        <div class="section-card">
+          <div class="section-card-header">
+            <i-lucide [img]="FileText" class="section-icon"></i-lucide>
+            <div>
+              <h2>Description du poste</h2>
+              <p>Décrivez le rôle et les responsabilités associées</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label class="form-label required">Description</label>
+              <textarea class="form-textarea" rows="6"
+                placeholder="Décrivez le poste, l'environnement de travail, les projets..."
+                [(ngModel)]="form.description"></textarea>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label">Responsabilités</label>
+              <textarea class="form-textarea" rows="5"
+                placeholder="Listez les principales responsabilités du poste..."
+                [(ngModel)]="form.responsibilities"></textarea>
+              <span class="form-hint">Astuce : séparez chaque responsabilité par un retour à la ligne</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Section 2: Compétences -->
+    @if (activeSection() === 2) {
+      <div class="form-section animate-fade-in">
+        <div class="section-card">
+          <div class="section-card-header">
+            <i-lucide [img]="Star" class="section-icon"></i-lucide>
+            <div>
+              <h2>Compétences requises</h2>
+              <p>Ajoutez les compétences techniques et humaines recherchées</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <!-- Technical Skills -->
+            <div class="form-group full-width">
+              <label class="form-label">Compétences techniques</label>
+              <div class="tag-input-container">
+                <div class="tags-area">
+                  @for (skill of skillTags(); track skill) {
+                    <span class="skill-tag technical">
+                      {{ skill }}
+                      <button class="tag-remove" (click)="removeSkill(skill)">
+                        <i-lucide [img]="X" class="w-3 h-3"></i-lucide>
+                      </button>
+                    </span>
+                  }
+                  <input
+                    type="text"
+                    class="tag-input"
+                    placeholder="Tapez et appuyez sur Entrée..."
+                    [(ngModel)]="newSkill"
+                    (keydown)="onSkillKeydown($event)"
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Soft Skills -->
+            <div class="form-group full-width">
+              <label class="form-label">Soft skills</label>
+              <div class="tag-input-container">
+                <div class="tags-area">
+                  @for (skill of softSkillTags(); track skill) {
+                    <span class="skill-tag soft">
+                      {{ skill }}
+                      <button class="tag-remove" (click)="removeSoftSkill(skill)">
+                        <i-lucide [img]="X" class="w-3 h-3"></i-lucide>
+                      </button>
+                    </span>
+                  }
+                  <input
+                    type="text"
+                    class="tag-input"
+                    placeholder="Ex: Leadership, Communication..."
+                    [(ngModel)]="newSoftSkill"
+                    (keydown)="onSoftSkillKeydown($event)"
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Expérience minimum (années)</label>
+              <input type="number" class="form-input" min="0" [(ngModel)]="form.minExperienceYears">
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Section 3: Rémunération -->
+    @if (activeSection() === 3) {
+      <div class="form-section animate-fade-in">
+        <div class="section-card">
+          <div class="section-card-header">
+            <i-lucide [img]="DollarSign" class="section-icon"></i-lucide>
+            <div>
+              <h2>Rémunération & Avantages</h2>
+              <p>Définissez la fourchette salariale (optionnel mais recommandé)</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Salaire minimum (annuel brut)</label>
+              <div class="input-with-suffix">
+                <input type="number" class="form-input" placeholder="35000" [(ngModel)]="form.salaryMin">
+                <span class="input-suffix">€</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Salaire maximum (annuel brut)</label>
+              <div class="input-with-suffix">
+                <input type="number" class="form-input" placeholder="55000" [(ngModel)]="form.salaryMax">
+                <span class="input-suffix">€</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Devise</label>
+              <select class="form-select" [(ngModel)]="form.salaryCurrency">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="salary-preview" *ngIf="form.salaryMin || form.salaryMax">
+            <div class="preview-label">Aperçu de l'affichage</div>
+            <div class="preview-value">
+              @if (form.salaryMin && form.salaryMax) {
+                {{ form.salaryMin | number }} - {{ form.salaryMax | number }} {{ form.salaryCurrency }}/an
+              } @else if (form.salaryMin) {
+                À partir de {{ form.salaryMin | number }} {{ form.salaryCurrency }}/an
+              } @else {
+                Jusqu'à {{ form.salaryMax | number }} {{ form.salaryCurrency }}/an
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Bottom Navigation -->
+    <div class="form-navigation">
+      @if (activeSection() > 0) {
+        <button class="btn-secondary" (click)="activeSection.update(v => v - 1)">
+          <i-lucide [img]="ChevronLeft" class="w-4 h-4"></i-lucide>
+          Précédent
+        </button>
+      } @else {
+        <div></div>
+      }
+
+      @if (activeSection() < sections.length - 1) {
+        <button class="btn-primary" (click)="activeSection.update(v => v + 1)">
+          Suivant
+          <i-lucide [img]="Zap" class="w-4 h-4"></i-lucide>
+        </button>
+      } @else {
+        <button class="btn-primary" (click)="publish()" [disabled]="saving() || !isValid">
+          @if (saving()) {
+            <i-lucide [img]="Loader2" class="w-4 h-4 animate-spin"></i-lucide>
+          } @else {
+            <i-lucide [img]="Send" class="w-4 h-4"></i-lucide>
+          }
+          Publier l'offre
+        </button>
+      }
+    </div>
+  </div>
+</div>
