@@ -7,6 +7,7 @@ import {
   AIGenerationResult,
   TypeDocumentConfig
 } from './models/rh-document.model';
+import { DocumentAuditEntry } from './models/document-audit.model';
 import { ApiConfigService } from '../../../core/services/api-config.service';
 
 @Injectable({
@@ -49,6 +50,52 @@ export class RhDocumentService {
     );
   }
 
+  approuverDocument(id: number, contenu: string): Observable<DemandeDocumentRH> {
+    return this.http.put<unknown>(this.apiConfig.RH.APPROUVER_DOCUMENT_RH(id), { contenu }).pipe(
+      map(response => this.mapToFrontend(this.unwrapItem(response))),
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  signerDocument(id: number, signedBy: string): Observable<DemandeDocumentRH> {
+    return this.http.put<unknown>(this.apiConfig.RH.SIGNER_DOCUMENT_RH(id), { signedBy }).pipe(
+      map(response => this.mapToFrontend(this.unwrapItem(response))),
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  getDocumentAudit(id: number): Observable<DocumentAuditEntry[]> {
+    return this.http.get<unknown>(this.apiConfig.RH.GET_DOCUMENT_AUDIT(id)).pipe(
+      map(response => {
+        const raw = this.unwrapCollection(response);
+        return raw.map((item: Record<string, unknown>) => ({
+          id: Number(item['id']),
+          action: String(item['action'] ?? ''),
+          actionLabel: String(item['actionLabel'] ?? item['action'] ?? ''),
+          details: item['details'] != null ? String(item['details']) : undefined,
+          performedBy: Number(item['performedBy']),
+          performedByName: String(item['performedByName'] ?? 'Utilisateur'),
+          performedAt: String(item['performedAt'] ?? new Date().toISOString())
+        }));
+      }),
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  updateStatut(id: number, statut: DemandeDocumentRH['statut'], commentaireRH?: string): Observable<DemandeDocumentRH> {
+    return this.http.put<unknown>(this.apiConfig.RH.UPDATE_DOCUMENT_STATUT(id), { statut, commentaireRH }).pipe(
+      map(response => this.mapToFrontend(this.unwrapItem(response))),
+      catchError(err => throwError(() => err))
+    );
+  }
+
+  envoyerDocument(id: number): Observable<DemandeDocumentRH> {
+    return this.http.put<unknown>(this.apiConfig.RH.ENVOYER_DOCUMENT_RH(id), {}).pipe(
+      map(response => this.mapToFrontend(this.unwrapItem(response))),
+      catchError(err => throwError(() => err))
+    );
+  }
+
   refuser(id: number, commentaireRH: string): Observable<DemandeDocumentRH> {
     return this.http.put<unknown>(this.apiConfig.RH.REFUSE_DOCUMENT_RH(id), { commentaireRH }).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
@@ -68,6 +115,12 @@ export class RhDocumentService {
 
   getDocumentFile(id: number): Observable<Blob> {
     return this.http.get(this.apiConfig.RH.GET_DOCUMENT_FILE_RH(id), {
+      responseType: 'blob'
+    });
+  }
+
+  previewDocumentPdf(id: number, contenu: string): Observable<Blob> {
+    return this.http.post(this.apiConfig.RH.PREVIEW_DOCUMENT_PDF(id), { contenu }, {
       responseType: 'blob'
     });
   }
@@ -98,7 +151,7 @@ export class RhDocumentService {
   }
 
   generateAIDocument(demande: DemandeDocumentRH): Observable<AIGenerationResult> {
-    const body: any = {
+    const body: Record<string, unknown> = {
       type: demande.type,
       label: demande.label,
       employeNom: demande.employe.nom,
@@ -106,7 +159,8 @@ export class RhDocumentService {
       employePoste: demande.employe.poste,
       employeDepartement: demande.employe.departement,
       dateEntree: demande.employe.dateEntree,
-      moisConcerne: demande.moisConcerne
+      moisConcerne: demande.moisConcerne,
+      documentId: demande.id
     };
 
     return this.http.post<AIGenerationResult>(this.apiConfig.RH.GENERATE_DOCUMENT_AI, body).pipe(
@@ -118,6 +172,7 @@ export class RhDocumentService {
     type: string;
     prompt: string;
     employeNom: string;
+    documentId?: number;
     typeDocumentId?: number;
     temperature?: number;
   }): Observable<AIGenerationResult> {
@@ -164,25 +219,45 @@ export class RhDocumentService {
 
   private normalizeStatus(rawStatus: string | undefined): DemandeDocumentRH['statut'] {
     switch (rawStatus) {
+      // New workflow statuses — pass through
+      case 'DEMANDE_RECUE':
+        return 'DEMANDE_RECUE';
+      case 'EN_REVISION':
+        return 'EN_REVISION';
+      case 'VALIDE':
+        return 'VALIDE';
+      case 'SIGNE':
+        return 'SIGNE';
+      case 'ENVOYE':
+        return 'ENVOYE';
+
+      // Legacy statuses — map to new equivalents
       case 'EN_ATTENTE':
       case 'EN_ATTENTE_RH':
-        return 'EN_ATTENTE';
+      case 'PENDING':
+        return 'DEMANDE_RECUE';
       case 'EN_COURS':
-        return 'EN_COURS';
+      case 'GENERATING':
+        return 'EN_REVISION';
       case 'PRET':
       case 'APPROUVE':
-        return 'PRET';
+      case 'READY':
+        return 'ENVOYE';
+
+      // Terminal statuses — keep as-is
       case 'REFUSE':
+      case 'REJECTED':
         return 'REFUSE';
       case 'ANNULE':
         return 'ANNULE';
+
       default:
-        return 'EN_ATTENTE';
+        return 'DEMANDE_RECUE';
     }
   }
 
   private isUrgent(dateCreation: string, statut: DemandeDocumentRH['statut']): boolean {
-    if (statut !== 'EN_ATTENTE') {
+    if (statut !== 'DEMANDE_RECUE') {
       return false;
     }
 
@@ -190,12 +265,16 @@ export class RhDocumentService {
   }
 
   private computeDelayLabel(dateCreation: string, statut: DemandeDocumentRH['statut']): string {
-    if (statut === 'PRET') {
-      return 'Pret';
+    if (statut === 'ENVOYE' || statut === 'SIGNE' || statut === 'VALIDE') {
+      return 'Traité';
     }
 
     if (statut === 'REFUSE') {
-      return 'Refuse';
+      return 'Refusé';
+    }
+
+    if (statut === 'ANNULE') {
+      return 'Annulé';
     }
 
     const elapsedHours = Math.max(Math.floor((Date.now() - new Date(dateCreation).getTime()) / (60 * 60 * 1000)), 0);

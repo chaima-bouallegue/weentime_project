@@ -9,7 +9,7 @@
           </button>
         </div>
         <div class="statut-indicator" [ngClass]="demande.statut.toLowerCase().replace('_', '-')">
-          <lucide-icon [name]="demande.statut === 'PRET' ? 'check-circle' : 'clock'" size="16"></lucide-icon>
+          <lucide-icon [name]="getStatutIcon(demande.statut)" size="16"></lucide-icon>
           <span>{{ getStatutLabel(demande.statut) }}</span>
         </div>
       </header>
@@ -76,56 +76,21 @@
           </div>
         </section>
 
-        <!-- Section: Actions/Historique -->
         <section class="panel-section">
-          <h3 class="section-title">Historique & Actions</h3>
-          <div class="timeline">
-            <div class="timeline-item active">
-              <div class="dot"></div>
-              <div class="content">
-                <p class="title">Demande créée</p>
-                <p class="time">{{ demande.dateCreation | date:'short':'':'fr' }}</p>
-              </div>
-            </div>
-            @if (demande.statut !== 'EN_ATTENTE') {
-              <div class="timeline-item active">
-                <div class="dot"></div>
-                <div class="content">
-                  <p class="title">Traitement initié</p>
-                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
-                </div>
-              </div>
-            }
-            @if (demande.statut === 'PRET') {
-              <div class="timeline-item success">
-                <div class="dot"></div>
-                <div class="content">
-                  <p class="title">Document prêt et envoyé</p>
-                  <p class="desc">{{ demande.generatedByAI ? 'Généré par assistant IA' : 'Uploader manuellement' }}</p>
-                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
-                </div>
-              </div>
-            }
-            @if (demande.statut === 'REFUSE') {
-              <div class="timeline-item error">
-                <div class="dot"></div>
-                <div class="content">
-                  <p class="title">Demande refusée</p>
-                  <p class="desc">{{ demande.commentaireRH }}</p>
-                  <p class="time">{{ demande.dateMiseAJour | date:'short':'':'fr' }}</p>
-                </div>
-              </div>
-            }
-          </div>
+          <h3 class="section-title">Historique des actions</h3>
+          <app-document-timeline
+            [documentId]="demande.id"
+            [refreshTrigger]="auditRefreshTrigger"
+          ></app-document-timeline>
         </section>
       </div>
 
       <footer class="panel-footer">
-        @if (demande.statut === 'EN_ATTENTE' || demande.statut === 'EN_COURS') {
+        @if (demande.statut === 'DEMANDE_RECUE' || demande.statut === 'EN_REVISION') {
           <div class="actions-group">
             <button class="btn-primary ia" (click)="generateAI.emit(demande)">
               <lucide-icon name="sparkles" size="18"></lucide-icon>
-              <span>Générer avec IA</span>
+              <span>Ouvrir l'éditeur</span>
             </button>
             <div class="row">
               <button class="btn-secondary" (click)="uploadDoc.emit(demande)">
@@ -140,7 +105,14 @@
           </div>
         }
 
-        @if (demande.statut === 'PRET') {
+        @if (demande.statut === 'VALIDE' || demande.statut === 'SIGNE') {
+          <button class="btn-primary ia" (click)="generateAI.emit(demande)">
+            <lucide-icon name="pen-tool" size="18"></lucide-icon>
+            <span>Ouvrir l'éditeur</span>
+          </button>
+        }
+
+        @if (demande.statut === 'ENVOYE') {
           <button class="btn-primary view" (click)="viewDoc.emit(demande)">
             <lucide-icon name="eye" size="18"></lucide-icon>
             <span>Consulter le document</span>

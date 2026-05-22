@@ -12,4 +12,5 @@ public class ValiderDocumentRequest {
     private String contenuIA;
     private boolean generatedByAI;
     private String commentaireRH;
+    private String contenu;
 }

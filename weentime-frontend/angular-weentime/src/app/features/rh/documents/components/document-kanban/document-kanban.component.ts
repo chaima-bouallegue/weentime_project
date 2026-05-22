@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { DemandeDocumentRH, StatutDocumentRH } from '../../models/rh-document.model';
+import { ToastService } from '../../../../../core/services/toast.service';
 
 @Component({
   selector: 'app-document-kanban',
@@ -12,6 +13,8 @@ import { DemandeDocumentRH, StatutDocumentRH } from '../../models/rh-document.mo
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DocumentKanbanComponent {
+  private readonly toast = inject(ToastService);
+
   @Input({ required: true }) demandes: DemandeDocumentRH[] = [];
   
   @Output() selectDemande = new EventEmitter<DemandeDocumentRH>();
@@ -19,15 +22,25 @@ export class DocumentKanbanComponent {
   @Output() uploadDoc = new EventEmitter<DemandeDocumentRH>();
   @Output() rejectDemande = new EventEmitter<DemandeDocumentRH>();
   @Output() viewDoc = new EventEmitter<DemandeDocumentRH>();
+  @Output() downloadDoc = new EventEmitter<DemandeDocumentRH>();
   @Output() startProcessing = new EventEmitter<DemandeDocumentRH>();
+  @Output() statusChange = new EventEmitter<{ id: number; targetStatus: StatutDocumentRH }>();
 
-  columns: { label: string; status: StatutDocumentRH }[] = [
-    { label: 'En attente', status: 'EN_ATTENTE' },
-    { label: 'En cours', status: 'EN_COURS' },
-    { label: 'Prêt', status: 'PRET' }
+  draggingId: number | null = null;
+  dragOverStatus: StatutDocumentRH | null = null;
+
+  columns: { label: string; status: StatutDocumentRH; emptyIcon: string; emptyText: string }[] = [
+    { label: 'Demandes reçues', status: 'DEMANDE_RECUE', emptyIcon: 'inbox', emptyText: 'Aucune demande reçue' },
+    { label: 'En révision', status: 'EN_REVISION', emptyIcon: 'clock', emptyText: 'Aucune en cours' },
+    { label: 'Validés', status: 'VALIDE', emptyIcon: 'shield-check', emptyText: 'Aucun document validé' },
+    { label: 'Signés', status: 'SIGNE', emptyIcon: 'pen-tool', emptyText: 'Aucun document signé' },
+    { label: 'Envoyés', status: 'ENVOYE', emptyIcon: 'send', emptyText: 'Aucun document envoyé' }
   ];
 
   getDemandesByStatus(status: StatutDocumentRH): DemandeDocumentRH[] {
+    if (status === 'DEMANDE_RECUE') {
+      return this.demandes.filter(d => d.statut === 'DEMANDE_RECUE' || d.statut === 'EN_ATTENTE');
+    }
     return this.demandes.filter(d => d.statut === status);
   }
 
@@ -67,5 +80,53 @@ export class DocumentKanbanComponent {
     const creation = new Date(dateCreation).getTime();
     const now = new Date().getTime();
     return (now - creation) > (48 * 60 * 60 * 1000);
+  }
+
+  onDragStart(event: DragEvent, demande: DemandeDocumentRH): void {
+    this.draggingId = demande.id;
+    event.dataTransfer?.setData('text/plain', String(demande.id));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onDragEnd(): void {
+    this.draggingId = null;
+    this.dragOverStatus = null;
+  }
+
+  onDragOver(event: DragEvent, status: StatutDocumentRH): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    this.dragOverStatus = status;
+  }
+
+  onDragLeave(status: StatutDocumentRH): void {
+    if (this.dragOverStatus === status) this.dragOverStatus = null;
+  }
+
+  onDrop(event: DragEvent, targetStatus: StatutDocumentRH): void {
+    event.preventDefault();
+    const id = Number(event.dataTransfer?.getData('text/plain'));
+    const demande = this.demandes.find(d => d.id === id);
+    this.draggingId = null;
+    this.dragOverStatus = null;
+    if (!demande) return;
+    if (demande.statut === targetStatus) return;
+    if (!this.isTransitionAllowed(demande.statut, targetStatus)) {
+      this.toast.error('Transition de statut non autorisée');
+      return;
+    }
+    this.statusChange.emit({ id: demande.id, targetStatus });
+  }
+
+  private isTransitionAllowed(from: StatutDocumentRH, to: StatutDocumentRH): boolean {
+    const allowed: Partial<Record<StatutDocumentRH, StatutDocumentRH[]>> = {
+      DEMANDE_RECUE: ['EN_REVISION', 'VALIDE'],
+      EN_ATTENTE: ['EN_REVISION', 'VALIDE'],
+      EN_REVISION: ['VALIDE'],
+      VALIDE: ['SIGNE'],
+      SIGNE: ['ENVOYE'],
+      ENVOYE: []
+    };
+    return (allowed[from] ?? []).includes(to);
   }
 }

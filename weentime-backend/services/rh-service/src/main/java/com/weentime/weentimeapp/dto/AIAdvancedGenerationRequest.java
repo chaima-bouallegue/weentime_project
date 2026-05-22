@@ -5,18 +5,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Requête de génération IA avancée avec contrôle des paramètres.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AIGenerationRequest {
+public class AIAdvancedGenerationRequest {
     private String type;
-    private String label;
+    private String prompt;
     private String employeNom;
-    private String employePrenom;
-    private String employePoste;
-    private String employeDepartement;
-    private String dateEntree;
-    private String moisConcerne;
+    private Long typeDocumentId;
+    private Float temperature;
+    private String language;
     private Long documentId;
 }

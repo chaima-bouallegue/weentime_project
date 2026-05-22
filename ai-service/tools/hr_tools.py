@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+import pypdf
+import logging
 
 from config import Settings
 from tools.api_client import ApiClient, BinaryResult, ToolResult
@@ -56,6 +58,7 @@ class HRTools:
             "get_rh_stats": self.get_rh_stats,
             "get_all_requests": self.get_all_requests,
             "process_request": self.process_request,
+            "analyze_cv": self.analyze_cv,
         }
         handler = dispatch.get(action)
         if handler is None:
@@ -275,21 +278,42 @@ class HRTools:
         access_token: str | None = None,
         role: str = "EMPLOYEE",
     ) -> ToolResult:
-        _ = (payload, user_id)
-        primary_endpoint = "/v1/rh/notifications/mes-notifications" if role.upper() == "RH" else "/v1/notifications"
-        fallback_endpoint = "/v1/notifications" if primary_endpoint != "/v1/notifications" else None
+        _ = (payload, user_id, role)
+        
+        # Fetch from both RH and General notification endpoints to ensure complete coverage
+        endpoints = ["/v1/rh/notifications/mes-notifications", "/v1/notifications"]
+        tasks = [self.api.get(ep, access_token=access_token) for ep in endpoints]
+        responses = await asyncio.gather(*tasks)
+        
+        all_items = []
+        for res in responses:
+            if res.success and isinstance(res.data, list):
+                all_items.extend(res.data)
+            elif res.success and isinstance(res.data, dict) and "items" in res.data:
+                # Handle cases where backend might return an object with items array
+                all_items.extend(res.data["items"])
+        
+        # Deduplicate based on ID
+        unique_items = []
+        seen_ids = set()
+        for item in all_items:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id", ""))
+            if item_id and item_id not in seen_ids:
+                unique_items.append(item)
+                seen_ids.add(item_id)
+            elif not item_id:
+                unique_items.append(item)
 
-        result = await self.api.get(primary_endpoint, access_token=access_token)
-        if not result.success and fallback_endpoint:
-            result = await self.api.get(fallback_endpoint, access_token=access_token)
-        if not result.success:
-            result.text = "Impossible de charger les notifications."
-            return result
-
-        items = result.data if isinstance(result.data, list) else []
-        result.data = {"count": len(items), "items": items}
-        result.text = f"Vous avez {len(items)} notification(s)."
-        return result
+        return ToolResult(
+            success=True,
+            tool="get_notifications",
+            status="success",
+            data={"count": len(unique_items), "items": unique_items},
+            text=f"Vous avez {len(unique_items)} notification(s).",
+            details={"sources_checked": len(endpoints)}
+        )
 
     async def get_my_requests(
         self,
@@ -949,6 +973,86 @@ class HRTools:
         target = self.settings.generated_docs_dir / filename
         target.write_bytes(binary.content or b"")
         return f"{self.settings.public_base_url}/document/files/{filename}"
+
+    async def analyze_cv(
+        self,
+        payload: dict[str, Any],
+        *,
+        user_id: int,
+        access_token: str | None = None,
+        role: str = "RH",
+    ) -> ToolResult:
+        """
+        Analyse un CV (PDF) par rapport à une fiche de poste.
+        """
+        cv_path_str = payload.get("cv_path")
+        job_title = payload.get("job_title", "Poste non spécifié")
+        job_description = payload.get("job_description", "")
+        
+        if not cv_path_str:
+            return ToolResult(success=False, tool="analyze_cv", status="error", text="Chemin du CV manquant.")
+
+        cv_path = Path(cv_path_str)
+        if not cv_path.exists():
+            # Essayer de chercher dans le dossier uploads si le chemin est relatif
+            cv_path = Path("uploads") / cv_path_str
+            if not cv_path.exists():
+                return ToolResult(success=False, tool="analyze_cv", status="error", text=f"Fichier CV introuvable : {cv_path_str}")
+
+        try:
+            cv_text = self._extract_text_from_pdf(cv_path)
+            if not cv_text or len(cv_text) < 50:
+                return ToolResult(success=False, tool="analyze_cv", status="error", text="Contenu du CV trop court ou non lisible.")
+        except Exception as e:
+            return ToolResult(success=False, tool="analyze_cv", status="error", text=f"Erreur d'extraction du CV : {str(e)}")
+
+        system_prompt = """Tu es un expert RH senior. Ta mission est d'évaluer un candidat par rapport à une offre.
+Tu dois retourner UNIQUEMENT un JSON valide avec les champs suivants :
+{
+  "overall_score": <0-100>,
+  "technical_score": <0-100>,
+  "recommendation": "highly_recommended|recommended|needs_review|not_recommended",
+  "summary": "<1-2 phrases de synthèse>",
+  "strengths": ["point1", "point2"],
+  "weaknesses": ["lacune1", "lacune2"]
+}"""
+
+        user_prompt = f"POSTE : {job_title}\nDESCRIPTION : {job_description}\n\nCV CANDIDAT :\n{cv_text[:6000]}"
+
+        # Appel au service de génération interne
+        result = await self.api.post("/v1/ai/generate-document", access_token=access_token, json_body={
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "temperature": 0.1,
+            "provider": "gemini"
+        })
+
+        if not result.success:
+            return result
+
+        try:
+            # Nettoyage du JSON (enlever les balises markdown si présentes)
+            raw_text = result.data.get("content", "") if isinstance(result.data, dict) else ""
+            clean_json = raw_text.strip().removeprefix("```json").removesuffix("```").strip()
+            evaluation = json.loads(clean_json)
+            
+            score = evaluation.get("overall_score", 0)
+            rec = evaluation.get("recommendation", "needs_review")
+            
+            result.data = evaluation
+            result.text = f"Analyse terminée. Score de matching : {score}/100. Recommandation : {rec}."
+            return result
+        except Exception as e:
+            logging.error(f"Erreur de parsing JSON IA : {str(e)}")
+            return ToolResult(success=False, tool="analyze_cv", status="error", text="L'IA a retourné une réponse malformée.")
+
+    def _extract_text_from_pdf(self, path: Path) -> str:
+        text = ""
+        with open(path, "rb") as f:
+            reader = pypdf.PdfReader(f)
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+        return text.strip()
 
     def _to_text(self, value: Any) -> str:
         if value is None:

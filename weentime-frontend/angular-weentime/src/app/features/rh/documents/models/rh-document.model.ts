@@ -1,4 +1,9 @@
 export type StatutDocumentRH =
+  | 'DEMANDE_RECUE'
+  | 'EN_REVISION'
+  | 'VALIDE'
+  | 'SIGNE'
+  | 'ENVOYE'
   | 'EN_ATTENTE'
   | 'EN_COURS'
   | 'PRET'

@@ -1,0 +1,197 @@
+<div class="fixed inset-0 z-[100] bg-gray-50 flex flex-col font-sans editor-root">
+
+  <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 shrink-0 shadow-sm">
+    <div class="flex items-center gap-4">
+      <button (click)="closeEditor.emit()" class="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
+        <lucide-icon name="arrow-left" [size]="20"></lucide-icon>
+      </button>
+      <div>
+        <h2 class="text-lg font-semibold text-gray-800">Éditeur de Document</h2>
+        <p class="text-xs text-gray-500">{{ demande.type }} - {{ demande.employe.nom }} {{ demande.employe.prenom }}</p>
+      </div>
+    </div>
+
+    <div class="hidden md:flex items-center space-x-2">
+      <ng-container *ngFor="let step of steps; let i = index">
+        <div class="flex items-center">
+          <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium transition-all duration-300"
+               [ngClass]="{
+                 'border-[#534AB7] bg-[#534AB7] text-white': i <= getCurrentStepIndex(),
+                 'border-gray-300 bg-white text-gray-400': i > getCurrentStepIndex()
+               }">
+            <lucide-icon *ngIf="i < getCurrentStepIndex()" name="check" [size]="16"></lucide-icon>
+            <span *ngIf="i >= getCurrentStepIndex()">{{ i + 1 }}</span>
+          </div>
+          <span class="ml-2 text-sm font-medium hidden lg:block"
+                [ngClass]="i <= getCurrentStepIndex() ? 'text-[#534AB7]' : 'text-gray-400'">
+            {{ step.label }}
+          </span>
+        </div>
+        <div *ngIf="i < steps.length - 1" class="w-8 h-px mx-2"
+             [ngClass]="i < getCurrentStepIndex() ? 'bg-[#534AB7]' : 'bg-gray-300'">
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="layout-toggle">
+        <button type="button"
+                [class.active]="layoutMode === 'editor'"
+                (click)="setLayoutEditor()"
+                title="Vue éditeur">
+          <lucide-icon name="file-text" [size]="16"></lucide-icon>
+        </button>
+        <button type="button"
+                [class.active]="layoutMode === 'split'"
+                (click)="setLayoutSplit()"
+                title="Vue split éditeur + PDF">
+          <lucide-icon name="layout" [size]="16"></lucide-icon>
+        </button>
+      </div>
+      <button (click)="toggleSidebar()" class="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+        <lucide-icon [name]="isSidebarOpen ? 'panel-right-close' : 'panel-right-open'" [size]="20"></lucide-icon>
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 flex overflow-hidden workspace-main">
+
+    <aside class="bg-white border-r border-gray-200 w-80 shrink-0 flex flex-col transition-all duration-300 ease-in-out z-10"
+           [class.-ml-80]="!isSidebarOpen">
+
+      <div class="p-5 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Informations Employé</h3>
+        <div class="space-y-3 text-sm">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#ede9fe] text-[#534AB7] flex items-center justify-center font-bold shrink-0">
+              {{ demande.employe.prenom[0] }}{{ demande.employe.nom[0] }}
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">{{ demande.employe.nom }} {{ demande.employe.prenom }}</p>
+              <p class="text-gray-500">{{ demande.employe.poste }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 flex-1 overflow-y-auto">
+        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Assistant IA</h3>
+        <div class="space-y-2">
+          <button (click)="onGenerateAI('regenerate')" [disabled]="isProcessing"
+                  class="w-full flex items-center justify-center gap-2 bg-white border border-[#c4b5fd] text-[#534AB7] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#f5f3ff] disabled:opacity-50">
+            <lucide-icon name="sparkles" [size]="16"></lucide-icon>
+            {{ isProcessing ? '...' : (rawHtml ? 'Regénérer' : 'Générer') }}
+          </button>
+          <button (click)="onGenerateAI('formalize')" [disabled]="isProcessing || !rawHtml"
+                  class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50">
+            <lucide-icon name="pen-line" [size]="16"></lucide-icon>
+            Formaliser
+          </button>
+          <button (click)="onGenerateAI('correct')" [disabled]="isProcessing || !rawHtml"
+                  class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50">
+            <lucide-icon name="search" [size]="16"></lucide-icon>
+            Corriger
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="flex-1 flex overflow-hidden editor-workspace" [class.split-active]="isSplitView">
+
+      <div class="editor-pane" [class.half]="isSplitView">
+        <div *ngIf="demande.statut === 'EN_REVISION' || demande.statut === 'DEMANDE_RECUE'"
+             class="editor-toolbar">
+          <button (click)="execCommand('bold')" class="toolbar-btn"><lucide-icon name="bold" [size]="18"></lucide-icon></button>
+          <button (click)="execCommand('italic')" class="toolbar-btn"><lucide-icon name="italic" [size]="18"></lucide-icon></button>
+          <button (click)="execCommand('underline')" class="toolbar-btn"><lucide-icon name="underline" [size]="18"></lucide-icon></button>
+        </div>
+
+        <div class="editor-scroll">
+          <div class="a4-sheet shadow-xl">
+            <div #editorContent
+                 class="document-content outline-none"
+                 [attr.contenteditable]="demande.statut === 'EN_REVISION' || demande.statut === 'DEMANDE_RECUE'"
+                 (input)="onContentChange()"
+                 [innerHTML]="contentHtml">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isSplitView" class="preview-pane">
+        <div class="preview-header">
+          <lucide-icon name="file-text" [size]="16"></lucide-icon>
+          <span>Aperçu PDF</span>
+          <span *ngIf="previewLoading" class="preview-badge">Mise à jour...</span>
+        </div>
+
+        <div class="preview-body">
+          @if (previewLoading) {
+            <div class="preview-skeleton">
+              <div class="skel-line"></div>
+              <div class="skel-line short"></div>
+              <div class="skel-line"></div>
+              <div class="skel-block"></div>
+            </div>
+          } @else if (previewError) {
+            <div class="preview-message error">
+              <p>Impossible de générer l'aperçu PDF.</p>
+              <button type="button" class="preview-retry" (click)="schedulePreviewRefresh()">Réessayer</button>
+            </div>
+          } @else if (previewUrl) {
+            <iframe [src]="previewUrl" class="preview-iframe" title="Aperçu PDF"></iframe>
+          } @else {
+            <p class="preview-message">Saisissez du contenu pour voir l'aperçu.</p>
+          }
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 p-4 shrink-0 flex items-center justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium border border-gray-200">
+      Statut : {{ demande.statut }}
+    </span>
+    <div class="flex items-center gap-3">
+      <button (click)="closeEditor.emit()" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+        Fermer
+      </button>
+      <button *ngIf="demande.statut === 'EN_REVISION' || demande.statut === 'DEMANDE_RECUE'"
+              (click)="onApprouver()" [disabled]="isProcessing || !rawHtml"
+              class="px-5 py-2.5 text-sm font-medium text-white bg-[#534AB7] rounded-lg hover:opacity-90 flex items-center gap-2 disabled:opacity-50">
+        <lucide-icon name="check-circle" [size]="18"></lucide-icon>
+        Approuver
+      </button>
+      <button *ngIf="demande.statut === 'VALIDE'" (click)="openSignatureModal()" [disabled]="isProcessing"
+              class="px-5 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-lg flex items-center gap-2 disabled:opacity-50">
+        <lucide-icon name="pen-tool" [size]="18"></lucide-icon>
+        Signer
+      </button>
+      <button *ngIf="demande.statut === 'SIGNE'" (click)="onEnvoyer()" [disabled]="isProcessing"
+              class="px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg flex items-center gap-2 disabled:opacity-50">
+        <lucide-icon name="send" [size]="18"></lucide-icon>
+        Envoyer
+      </button>
+    </div>
+  </footer>
+
+  <div *ngIf="showSignatureModal" class="fixed inset-0 z-[200] bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <lucide-icon name="pen-tool" class="text-purple-600" [size]="20"></lucide-icon> Signature
+        </h3>
+        <button (click)="closeSignatureModal()"><lucide-icon name="x" [size]="20"></lucide-icon></button>
+      </div>
+      <div class="px-6 py-6">
+        <input type="text" [(ngModel)]="signatureName" class="w-full border rounded-lg p-3 text-center"
+               placeholder="Nom complet" (keyup.enter)="onConfirmSignature()">
+      </div>
+      <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+        <button (click)="closeSignatureModal()" class="px-4 py-2 border rounded-lg">Annuler</button>
+        <button (click)="onConfirmSignature()" [disabled]="!signatureName.trim()" class="px-4 py-2 bg-purple-600 text-white rounded-lg">Confirmer</button>
+      </div>
+    </div>
+  </div>
+</div>

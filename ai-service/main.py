@@ -284,7 +284,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.middleware("http")
 async def observability_request_middleware(request: Request, call_next):
     request_id = ensure_request_id(request.headers.get("X-Request-ID"))
@@ -320,6 +319,7 @@ register_routers(
         RouterSpec(name="health_v2", module_path="app.api.health_v2", critical=True),
         RouterSpec(name="voice_v2", module_path="app.api.voice_v2", critical=True),
         RouterSpec(name="document_generation", module_path="app.api.document_generation", critical=False),
+        RouterSpec(name="recruitment_ia", module_path="app.api.recruitment_ia", critical=False),
     ],
 )
 

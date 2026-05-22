@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,6 +23,22 @@ import java.util.Map;
 public class AiService {
 
     public record AiResponse(String text, int tokens, String model) {}
+
+    public record CvAnalysisResult(
+        double overallScore,
+        double technicalScore,
+        double experienceScore,
+        double competenceScore,
+        String recommendation,
+        String summary,
+        List<String> strengths,
+        List<String> weaknesses,
+        List<String> competencesTrouvees,
+        List<String> competencesManquantes,
+        Integer experienceDetectee,
+        int niveauConfiance,
+        String rawJson
+    ) {}
 
     private final RestTemplate restTemplate;
 
@@ -52,98 +69,37 @@ public class AiService {
         """;
 
     /**
-     * Génère du contenu documentaire via Gemini Flash API.
-     * C'est la méthode principale, remplaçant l'ancien appel Anthropic Claude.
+     * Génère du contenu documentaire. 
+     * Désormais, on délègue tout au ai-service Python (port 8000) 
+     * pour centraliser la gestion des clés et des modèles.
      */
     public AiResponse generateDocument(String prompt) {
-        // Priorité 1 : Gemini Flash (gratuit, rapide)
-        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
-            try {
-                return generateWithGemini(DEFAULT_SYSTEM_PROMPT, prompt, 0.2f);
-            } catch (Exception e) {
-                log.warn("Gemini Flash failed, trying ai-service fallback: {}", e.getMessage());
-            }
-        }
-
-        // Priorité 2 : ai-service FastAPI (Ollama/autre)
+        log.info("Génération de document via la passerelle IA Python...");
         try {
-            return generateWithAiService(prompt);
+            return generateWithAiService(DEFAULT_SYSTEM_PROMPT, prompt, 0.2f);
         } catch (Exception e) {
-            log.error("All AI providers failed: {}", e.getMessage());
-            throw new RuntimeException("Aucun service IA disponible. Veuillez réessayer.", e);
+            log.error("Échec de la génération via la passerelle IA : {}", e.getMessage());
+            throw new RuntimeException("Le service IA est momentanément indisponible. Veuillez réessayer.", e);
         }
     }
 
     /**
-     * Génère du contenu via Gemini Flash avec contrôle total des paramètres.
+     * Méthode pour la génération avancée.
      */
     public AiResponse generateWithGemini(String systemPrompt, String userPrompt, float temperature) {
-        Map<String, Object> body = new HashMap<>();
-
-        // System instruction
-        body.put("system_instruction", Map.of(
-            "parts", List.of(Map.of("text", systemPrompt))
-        ));
-
-        // User content
-        body.put("contents", List.of(Map.of(
-            "role", "user",
-            "parts", List.of(Map.of("text", userPrompt))
-        )));
-
-        // Generation config
-        body.put("generationConfig", Map.of(
-            "temperature", temperature,
-            "maxOutputTokens", 2000
-        ));
-
-        String url = GEMINI_URL + "?key=" + geminiApiKey;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-
-        try {
-            Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
-
-            if (response == null || !response.containsKey("candidates")) {
-                throw new RuntimeException("Réponse Gemini invalide : pas de candidates");
-            }
-
-            List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
-            if (candidates.isEmpty()) {
-                throw new RuntimeException("Réponse Gemini vide");
-            }
-
-            Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
-            List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-            String text = (String) parts.get(0).get("text");
-
-            int tokens = 0;
-            Map<String, Object> usage = (Map<String, Object>) response.get("usageMetadata");
-            if (usage != null && usage.get("totalTokenCount") != null) {
-                tokens = ((Number) usage.get("totalTokenCount")).intValue();
-                log.info("Gemini usage: totalTokens={}", tokens);
-            }
-
-            return new AiResponse(text, tokens, "gemini-2.0-flash");
-        } catch (Exception e) {
-            log.error("Gemini Flash API error: {}", e.getMessage());
-            throw new RuntimeException("Erreur Gemini Flash: " + e.getMessage(), e);
-        }
+        return generateWithAiService(systemPrompt, userPrompt, temperature);
     }
 
     /**
-     * Génère du contenu via le ai-service FastAPI (Ollama local / autre provider).
+     * Appelle le service FastAPI Python (port 8000).
      */
-    private AiResponse generateWithAiService(String prompt) {
-        Map<String, Object> request = Map.of(
-            "system_prompt", DEFAULT_SYSTEM_PROMPT,
-            "user_prompt", prompt,
-            "temperature", 0.2,
-            "max_tokens", 2000,
-            "provider", "ollama"
-        );
+    private AiResponse generateWithAiService(String systemPrompt, String userPrompt, float temperature) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("system_prompt", systemPrompt);
+        request.put("user_prompt", userPrompt);
+        request.put("temperature", temperature);
+        request.put("max_tokens", 2000);
+        request.put("provider", "gemini"); // On demande explicitement Gemini (que nous avons stabilisé)
 
         try {
             Map<String, Object> response = restTemplate.postForObject(
@@ -154,12 +110,102 @@ public class AiService {
             if (response != null && response.containsKey("content")) {
                 String text = (String) response.get("content");
                 int tokens = response.containsKey("tokens_used") ? ((Number) response.get("tokens_used")).intValue() : 0;
-                String model = response.containsKey("model_used") ? (String) response.get("model_used") : "ai-service";
+                String model = response.containsKey("model_used") ? (String) response.get("model_used") : "ai-gateway";
                 return new AiResponse(text, tokens, model);
             }
-            throw new RuntimeException("Réponse ai-service invalide");
+            throw new RuntimeException("Réponse de la passerelle IA invalide");
         } catch (Exception e) {
-            throw new RuntimeException("Erreur ai-service: " + e.getMessage(), e);
+            log.error("Erreur de communication avec la passerelle IA : {}", e.getMessage());
+            throw new RuntimeException("Erreur de connexion au service IA : " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Analyse un CV par rapport à une offre (appel synchrone simple).
+     */
+    public CvAnalysisResult analyzeCv(String cvPath, String jobTitle, String jobDescription) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("cv_path", cvPath);
+        request.put("job_title", jobTitle);
+        request.put("job_description", jobDescription);
+
+        try {
+            Map<String, Object> response = restTemplate.postForObject(
+                aiServiceUrl + "/v1/recrutement/analyze-cv",
+                request, Map.class
+            );
+
+            if (response != null && response.containsKey("overall_score")) {
+                return new CvAnalysisResult(
+                    ((Number) response.get("overall_score")).doubleValue(),
+                    ((Number) response.get("technical_score")).doubleValue(),
+                    0, 0,
+                    (String) response.get("recommendation"),
+                    (String) response.get("summary"),
+                    (java.util.List<String>) response.get("strengths"),
+                    (java.util.List<String>) response.get("weaknesses"),
+                    List.of(), List.of(), null, 0,
+                    (String) response.get("raw_json")
+                );
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Erreur lors de l'analyse CV par l'IA : {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Lance l'évaluation IA enrichie de manière asynchrone (fire-and-forget).
+     * Appelle le nouvel endpoint /recruitment/evaluate-cv du ai-service Python.
+     * Le ai-service fait le callback vers InternalRecruitmentController une fois terminé.
+     */
+    @Async
+    public void evaluateCvAsync(Long applicationId, Long entrepriseId, String cvFilePath,
+                                 String jobTitle, String jobDescription,
+                                 List<String> competencesRequises,
+                                 Integer experienceMinAnnees, String niveauExperience) {
+        try {
+            java.io.File file = new java.io.File(cvFilePath);
+            if (!file.exists()) {
+                log.error("❌ Fichier CV introuvable sur le disque Java: {}", cvFilePath);
+                return;
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+            body.add("application_id", applicationId.toString());
+            body.add("entreprise_id", entrepriseId.toString());
+            body.add("job_title", jobTitle);
+            body.add("job_description", jobDescription != null ? jobDescription : "");
+            
+            // Sérialisation des compétences requises en chaîne JSON
+            String competencesJson = "[]";
+            if (competencesRequises != null && !competencesRequises.isEmpty()) {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                competencesJson = mapper.writeValueAsString(competencesRequises);
+            }
+            body.add("competences_requises", competencesJson);
+            body.add("experience_min_annees", experienceMinAnnees != null ? experienceMinAnnees.toString() : "0");
+            body.add("niveau_experience", niveauExperience != null ? niveauExperience : "NON_SPECIFIE");
+            
+            // Fichier CV binaire
+            body.add("file", new org.springframework.core.io.FileSystemResource(file));
+
+            HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            log.info("🔍 Lancement évaluation IA enrichie via multipart pour candidature #{}", applicationId);
+            restTemplate.postForObject(
+                aiServiceUrl + "/recruitment/evaluate-cv",
+                requestEntity,
+                Map.class
+            );
+            log.info("✅ Évaluation IA lancée avec succès (multipart) pour candidature #{}", applicationId);
+        } catch (Exception e) {
+            log.error("❌ Erreur lors du lancement de l'évaluation IA (multipart) pour candidature #{}: {}",
+                       applicationId, e.getMessage());
         }
     }
 }

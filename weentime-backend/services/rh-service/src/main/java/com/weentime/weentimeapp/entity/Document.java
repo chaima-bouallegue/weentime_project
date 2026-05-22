@@ -4,6 +4,7 @@ package com.weentime.weentimeapp.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "documents")
@@ -39,4 +40,16 @@ public class Document extends Demande {
     private Integer tokensUsed;
 
     private Integer nombreExemplaires;
+
+    @Column(name = "validated_by")
+    private Long validatedBy;
+
+    @Column(name = "validated_at")
+    private LocalDateTime validatedAt;
+
+    @Column(name = "signed_at")
+    private LocalDateTime signedAt;
+
+    @Column(name = "signed_by")
+    private String signedBy;
 }

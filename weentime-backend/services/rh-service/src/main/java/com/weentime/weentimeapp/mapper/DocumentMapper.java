@@ -36,12 +36,17 @@ public interface DocumentMapper {
 
     @Named("mapStatut")
     default StatutDocument mapStatut(StatutDemandeEnum statut) {
-        if (statut == null) return StatutDocument.EN_ATTENTE;
+        if (statut == null) return StatutDocument.DEMANDE_RECUE;
         return switch (statut) {
-            case EN_ATTENTE_MANAGER, EN_ATTENTE_RH -> StatutDocument.EN_ATTENTE;
-            case APPROUVE -> StatutDocument.PRET;
+            case EN_ATTENTE_MANAGER, EN_ATTENTE_RH -> StatutDocument.DEMANDE_RECUE;
+            case APPROUVE -> StatutDocument.ENVOYE;
             case REFUSE -> StatutDocument.REFUSE;
             case ANNULE -> StatutDocument.ANNULE;
+            case DEMANDE_RECUE -> StatutDocument.DEMANDE_RECUE;
+            case EN_REVISION -> StatutDocument.EN_REVISION;
+            case VALIDE -> StatutDocument.VALIDE;
+            case SIGNE -> StatutDocument.SIGNE;
+            case ENVOYE -> StatutDocument.ENVOYE;
         };
     }
 }

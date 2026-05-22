@@ -60,6 +60,10 @@ public class CongeServiceImpl implements CongeService {
         TypeConge typeConge = typeCongeRepository.findById(dto.getTypeCongeId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Type de congé non trouvé"));
 
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isRh = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_RH".equals(a.getAuthority()));
+
         if (Boolean.TRUE.equals(typeConge.getDecompteJours())) {
             SoldeConge solde = soldeCongeRepository.findWithLockByUtilisateurIdAndTypeCongeIdAndAnnee(userId, dto.getTypeCongeId(), annee)
                     .orElseGet(() -> {
@@ -83,7 +87,12 @@ public class CongeServiceImpl implements CongeService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solde insuffisant.");
             }
 
-            solde.setJoursEnAttente(solde.getJoursEnAttente() + nombreJours);
+            if (isRh) {
+                solde.setJoursRestants(solde.getJoursRestants() - nombreJours);
+                solde.setJoursUtilises(solde.getJoursUtilises() + nombreJours);
+            } else {
+                solde.setJoursEnAttente(solde.getJoursEnAttente() + nombreJours);
+            }
             soldeCongeRepository.save(solde);
         }
 
@@ -91,7 +100,15 @@ public class CongeServiceImpl implements CongeService {
         conge.setUtilisateurId(userId);
         conge.setEntrepriseId(entrepriseId);
         conge.setNombreJours(nombreJours);
-        conge.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        
+        if (isRh) {
+            conge.setStatut(StatutDemandeEnum.APPROUVE);
+            conge.setCommentaireValidateur("Auto-approuvée — demande RH");
+            conge.setDateDecision(LocalDateTime.now());
+        } else {
+            conge.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        }
+        
         conge.setDateCreation(LocalDateTime.now());
 
         try {
@@ -106,19 +123,33 @@ public class CongeServiceImpl implements CongeService {
         Conge savedConge = congeRepository.save(conge);
         CongeDTO savedDto = congeMapper.toDto(savedConge);
 
-        try {
-            UserResponse user = organisationServiceClient.getUtilisateurById(userId);
-            if (user != null && user.getManagerId() != null) {
-                asyncNotificationService.sendToUser(user.getManagerId(), NotificationPayload.of(
-                    "CONGE_SOUMIS",
-                    "Nouvelle demande de congé",
-                    user.getPrenom() + " " + user.getNom() + " a soumis une demande.",
-                    "clock", "blue",
-                    savedDto.getId(), "CONGE", "/app/manager/approbations"
-                ), entrepriseId);
+        if (!isRh) {
+            try {
+                UserResponse user = organisationServiceClient.getUtilisateurById(userId);
+                if (user != null && user.getManagerId() != null) {
+                    asyncNotificationService.sendToUser(user.getManagerId(), NotificationPayload.of(
+                        "CONGE_SOUMIS",
+                        "Nouvelle demande de congé",
+                        user.getPrenom() + " " + user.getNom() + " a soumis une demande.",
+                        "clock", "blue",
+                        savedDto.getId(), "CONGE", "/app/manager/approbations"
+                    ), entrepriseId);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to send notification: {}", e.getMessage());
             }
-        } catch (Exception e) {
-            log.warn("Failed to send notification: {}", e.getMessage());
+        } else {
+            try {
+                asyncNotificationService.sendToUser(userId, NotificationPayload.of(
+                    "CONGE_APPROUVE",
+                    "Congé Auto-Approuvé",
+                    "Votre demande de congé (RH) a été auto-approuvée.",
+                    "check-circle", "green",
+                    savedDto.getId(), "CONGE", "/app/employee/conges"
+                ), entrepriseId);
+            } catch (Exception e) {
+                log.warn("Failed to send auto-approve notification: {}", e.getMessage());
+            }
         }
 
         return savedDto;

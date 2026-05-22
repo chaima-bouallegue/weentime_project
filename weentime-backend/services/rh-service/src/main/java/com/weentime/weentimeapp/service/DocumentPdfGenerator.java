@@ -8,6 +8,7 @@ import com.itextpdf.layout.properties.TextAlignment;
 import com.weentime.weentimeapp.dto.UserResponse;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
@@ -90,11 +91,86 @@ public class DocumentPdfGenerator {
             for (String line : content.split("\\R")) {
                 doc.add(new Paragraph(line));
             }
+
+            if (entity.getSignedBy() != null && !entity.getSignedBy().isEmpty()) {
+                doc.add(new Paragraph("\n\n"));
+                String dateStr = entity.getSignedAt() != null 
+                    ? entity.getSignedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    : java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                doc.add(new Paragraph("Signé par : " + entity.getSignedBy() + " — " + dateStr)
+                        .setItalic()
+                        .setTextAlignment(TextAlignment.RIGHT));
+            }
         } catch (IOException e) {
             throw new RuntimeException("Erreur lors de la generation du PDF IA : " + e.getMessage());
         }
 
         return fullPath;
+    }
+
+    public byte[] generatePdfPreviewBytes(com.weentime.weentimeapp.entity.Document entity, UserResponse user, String content) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        String plainText = stripHtml(content);
+
+        try (PdfWriter writer = new PdfWriter(output);
+             PdfDocument pdf = new PdfDocument(writer);
+             Document doc = new Document(pdf)) {
+
+            doc.add(new Paragraph("WEEN TIME HR SOLUTIONS")
+                    .setBold()
+                    .setFontSize(20)
+                    .setTextAlignment(TextAlignment.CENTER));
+            doc.add(new Paragraph("\n"));
+
+            String typeLibelle = entity.getTypeDocument() != null && entity.getTypeDocument().getLibelle() != null
+                    ? entity.getTypeDocument().getLibelle()
+                    : "Document RH";
+            doc.add(new Paragraph(typeLibelle)
+                    .setBold()
+                    .setFontSize(16)
+                    .setTextAlignment(TextAlignment.CENTER));
+            doc.add(new Paragraph("\n"));
+
+            if (plainText.isBlank()) {
+                doc.add(new Paragraph("Apercu du document — contenu en cours de redaction...")
+                        .setItalic());
+            } else {
+                for (String line : plainText.split("\\R")) {
+                    doc.add(new Paragraph(line.isBlank() ? " " : line));
+                }
+            }
+
+            if (entity.getSignedBy() != null && !entity.getSignedBy().isEmpty()) {
+                doc.add(new Paragraph("\n\n"));
+                String dateStr = entity.getSignedAt() != null
+                        ? entity.getSignedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                        : java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                doc.add(new Paragraph("Signe par : " + entity.getSignedBy() + " — " + dateStr)
+                        .setItalic()
+                        .setTextAlignment(TextAlignment.RIGHT));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Erreur lors de la generation de l'apercu PDF : " + e.getMessage());
+        }
+
+        return output.toByteArray();
+    }
+
+    private String stripHtml(String html) {
+        if (html == null || html.isBlank()) {
+            return "";
+        }
+        return html
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</p>", "\n")
+                .replaceAll("(?i)</div>", "\n")
+                .replaceAll("(?i)</li>", "\n")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .trim();
     }
 
     private String buildPath(com.weentime.weentimeapp.entity.Document entity, Long userId, String suffix) {
