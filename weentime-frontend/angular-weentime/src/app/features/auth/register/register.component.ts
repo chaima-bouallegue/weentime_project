@@ -1,11 +1,12 @@
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, isDevMode } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterModule } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { LogoComponent } from '../../../shared/components/logo/logo.component';
 import { ThemeService } from '../../../core/services/theme.service';
-import { AuthService } from '../../../core/services/auth.service';
+import { AuthService, CompanyCodeValidationResponse } from '../../../core/services/auth.service';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil, switchMap, map, tap, of, catchError } from 'rxjs';
 
 interface CompanyInfo {
@@ -14,6 +15,8 @@ interface CompanyInfo {
     industry: string;
     employees: string;
 }
+
+type CompanyCodeErrorReason = 'CODE_NOT_FOUND' | 'ENTERPRISE_CLOSED' | 'ENTERPRISE_FULL' | 'NETWORK_ERROR';
 
 @Component({
     selector: 'app-register',
@@ -39,12 +42,18 @@ export class RegisterComponent implements OnDestroy {
     foundCompany = signal<CompanyInfo | null>(null);
     isCodeInvalid = signal(false);
     isCheckingCode = signal(false);
+    codeErrorMessage = signal<string | null>(null);
 
     private destroy$ = new Subject<void>();
+    private readonly normalizedCompanyCodePattern = /^WEEN-?[A-Z0-9]{4,15}$/;
+    private readonly companyCodeValidator = (control: AbstractControl): ValidationErrors | null => {
+        const code = this.normalizeInvitationCode(control.value);
+        return !code || this.isValidCompanyCodeFormat(code) ? null : { companyCode: true };
+    };
 
     registerForm: FormGroup = this.fb.group({
         step1: this.fb.group({
-            companyCode: ['', [Validators.required, Validators.pattern(/^#?WEEN-[A-Z0-9]{4,15}$/i)]]
+            companyCode: ['', [Validators.required, this.companyCodeValidator]]
         }),
         step2: this.fb.group({
             firstName: ['', [Validators.required, Validators.minLength(2)]],
@@ -72,22 +81,20 @@ export class RegisterComponent implements OnDestroy {
         this.registerForm.get('step1.companyCode')?.valueChanges
             .pipe(
                 debounceTime(400),
-                map(val => (val?.trim() || '').toUpperCase()),
-                map(val => val.startsWith('#') ? val.substring(1) : val),
+                map(val => this.normalizeInvitationCode(val)),
                 distinctUntilChanged(),
                 tap(code => {
                     this.foundCompany.set(null);
                     this.isCodeInvalid.set(false);
-                    const isValidFormat = /^WEEN-[A-Z0-9]{4,15}$/.test(code);
+                    this.codeErrorMessage.set(null);
+                    const isValidFormat = this.isValidCompanyCodeFormat(code);
                     this.isCheckingCode.set(isValidFormat);
                 }),
                 switchMap(code => {
-                    const isValidFormat = /^WEEN-[A-Z0-9]{4,15}$/.test(code);
-                    return isValidFormat
+                    return this.isValidCompanyCodeFormat(code)
                         ? this.authService.validateCompanyCode(code).pipe(
-                              catchError(() => {
-                                  this.isCodeInvalid.set(true);
-                                  this.isCheckingCode.set(false);
+                              catchError((error: HttpErrorResponse) => {
+                                  this.handleCompanyCodeError(error);
                                   return of(null);
                               })
                           )
@@ -96,13 +103,11 @@ export class RegisterComponent implements OnDestroy {
                 takeUntil(this.destroy$)
             )
             .subscribe(res => {
-                if (res) {
-                    this.foundCompany.set({
-                        id: res.id,
-                        name: res.nom,
-                        industry: res.secteur,
-                        employees: res.collaborateurs.toString()
-                    });
+                if (res?.valid) {
+                    this.foundCompany.set(this.toCompanyInfo(res));
+                } else if (res?.valid === false) {
+                    this.isCodeInvalid.set(true);
+                    this.codeErrorMessage.set(this.messageForReason(res.reason, res.message));
                 }
                 this.isCheckingCode.set(false);
             });
@@ -219,6 +224,10 @@ export class RegisterComponent implements OnDestroy {
     }
 
     onSubmit() {
+        if (this.isLoading()) {
+            return;
+        }
+
         if (this.registerForm.invalid) {
             this.registerForm.markAllAsTouched();
             return;
@@ -250,7 +259,15 @@ export class RegisterComponent implements OnDestroy {
             error: (err) => {
                 this.isLoading.set(false);
                 const errorBody = err.error;
-                const message = errorBody?.details || errorBody?.message || 'Une erreur est survenue lors de l\'inscription.';
+                const message = err.status === 0
+                    ? this.messageForReason('NETWORK_ERROR')
+                    : errorBody?.details || errorBody?.message || 'Une erreur est survenue lors de l\'inscription.';
+                if (isDevMode()) {
+                    console.warn('[Register] Registration failed', {
+                        status: err.status,
+                        reason: errorBody?.reason || errorBody?.error
+                    });
+                }
                 this.apiError.set(message);
             }
         });
@@ -260,7 +277,7 @@ export class RegisterComponent implements OnDestroy {
     get f2() { return (this.registerForm.get('step2') as FormGroup).controls; }
     get f4() { return (this.registerForm.get('step4') as FormGroup).controls; }
 
-    get step1Valid() { return this.registerForm.get('step1')?.valid && this.foundCompany(); }
+    get step1Valid() { return !!(this.registerForm.get('step1')?.valid && this.foundCompany() && !this.isCheckingCode()); }
     get step2Valid() { return this.registerForm.get('step2')?.valid; }
 
     isFieldValid(step: number, fieldName: string): boolean {
@@ -281,5 +298,57 @@ export class RegisterComponent implements OnDestroy {
             classes = 'input-valid';
         }
         return classes;
+    }
+
+    private normalizeInvitationCode(value: unknown): string {
+        const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+        return normalized.startsWith('#') ? normalized.substring(1) : normalized;
+    }
+
+    private isValidCompanyCodeFormat(code: string): boolean {
+        return this.normalizedCompanyCodePattern.test(code);
+    }
+
+    private toCompanyInfo(response: CompanyCodeValidationResponse): CompanyInfo {
+        return {
+            id: response.enterpriseId ?? response.id,
+            name: response.enterpriseName ?? response.nom ?? '',
+            industry: response.secteur ?? '',
+            employees: String(response.collaborateurs ?? '')
+        };
+    }
+
+    private handleCompanyCodeError(error: HttpErrorResponse): void {
+        const errorBody = error.error;
+        const reason = error.status === 0
+            ? 'NETWORK_ERROR'
+            : errorBody?.reason || errorBody?.error;
+
+        this.isCodeInvalid.set(true);
+        this.isCheckingCode.set(false);
+        this.codeErrorMessage.set(this.messageForReason(reason, errorBody?.message || errorBody?.details));
+
+        if (isDevMode()) {
+            console.warn('[Register] Invitation code validation failed', {
+                status: error.status,
+                reason,
+                message: errorBody?.message || errorBody?.details
+            });
+        }
+    }
+
+    private messageForReason(reason: unknown, fallbackMessage?: string): string {
+        switch (reason as CompanyCodeErrorReason) {
+            case 'ENTERPRISE_CLOSED':
+                return 'Cette entreprise est fermée. Contactez votre administrateur.';
+            case 'NETWORK_ERROR':
+                return 'Service indisponible. Réessayez plus tard.';
+            case 'ENTERPRISE_FULL':
+                return fallbackMessage || "Code d'invitation invalide ou expiré.";
+            case 'CODE_NOT_FOUND':
+                return "Code d'invitation invalide ou expiré.";
+            default:
+                return fallbackMessage || "Code d'invitation invalide ou expiré.";
+        }
     }
 }

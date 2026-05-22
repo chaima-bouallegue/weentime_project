@@ -1,6 +1,7 @@
 package com.weentime.weentimeproject.controller;
 
 import com.weentime.weentimeproject.dto.request.EntrepriseRequest;
+import com.weentime.weentimeproject.dto.EntrepriseValidationDTO;
 import com.weentime.weentimeproject.dto.response.EntrepriseResponse;
 import com.weentime.weentimeproject.pagination.PageParams;
 import com.weentime.weentimeproject.service.EntrepriseService;
@@ -63,13 +64,16 @@ public class EntrepriseController {
     }
 
     @GetMapping("/validate-code/{code}")
-    public ResponseEntity<?> validateCode(@PathVariable String code) {
-        try {
-            return ResponseEntity.ok(entrepriseService.validateCode(code));
-        } catch (jakarta.persistence.EntityNotFoundException | IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(java.util.Map.of("message", e.getMessage()));
+    public ResponseEntity<EntrepriseValidationDTO> validateCode(@PathVariable String code) {
+        EntrepriseValidationDTO response = entrepriseService.validateCode(code);
+        if (response.isValid()) {
+            return ResponseEntity.ok(response);
         }
+
+        HttpStatus status = "ENTERPRISE_CLOSED".equals(response.getReason()) || "ENTERPRISE_FULL".equals(response.getReason())
+                ? HttpStatus.CONFLICT
+                : HttpStatus.NOT_FOUND;
+        return ResponseEntity.status(status).body(response);
     }
 
     @PostMapping("/{id}/regenerate-code")

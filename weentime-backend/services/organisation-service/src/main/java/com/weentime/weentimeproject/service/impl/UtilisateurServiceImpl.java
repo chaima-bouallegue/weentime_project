@@ -295,6 +295,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                     .orElseGet(() -> createDefaultEntreprise(entrepriseName));
         }
 
+        assertEntrepriseActiveForRegistration(entreprise);
         assertEntrepriseCapacity(entreprise);
 
         Utilisateur utilisateur = Utilisateur.builder()
@@ -825,6 +826,12 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 && entreprise.getCurrentUsers() != null
                 && entreprise.getCurrentUsers() >= entreprise.getMaxUsers()) {
             throw new IllegalStateException("Limite d'utilisateurs atteinte pour cette entreprise.");
+        }
+    }
+
+    private void assertEntrepriseActiveForRegistration(Entreprise entreprise) {
+        if (!Boolean.TRUE.equals(entreprise.getEstActive())) {
+            throw new IllegalStateException("Cette entreprise est fermée. Contactez votre administrateur.");
         }
     }
 

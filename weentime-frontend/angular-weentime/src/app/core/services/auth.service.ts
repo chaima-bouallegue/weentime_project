@@ -67,6 +67,19 @@ export interface RegisterResponse {
   message: string;
 }
 
+export interface CompanyCodeValidationResponse {
+  valid: boolean;
+  enterpriseId?: number;
+  enterpriseName?: string;
+  status?: string;
+  reason?: string;
+  message?: string;
+  id?: number;
+  nom?: string;
+  secteur?: string;
+  collaborateurs?: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -114,8 +127,9 @@ export class AuthService {
     );
   }
 
-  validateCompanyCode(code: string): Observable<any> {
-    return this.http.get<any>(this.apiConfig.ORGANISATION.VALIDATE_COMPANY_CODE(code));
+  validateCompanyCode(code: string): Observable<CompanyCodeValidationResponse> {
+    const normalizedCode = this.normalizeInvitationCode(code);
+    return this.http.get<CompanyCodeValidationResponse>(this.apiConfig.ORGANISATION.VALIDATE_COMPANY_CODE(normalizedCode));
   }
 
   register(userData: any): Observable<RegisterResponse> {
@@ -347,5 +361,10 @@ export class AuthService {
       const record = this.toRecord(value);
       return record ? [record['nom'], record['name'], record['authority'], record['role']] : [];
     });
+  }
+
+  private normalizeInvitationCode(value: unknown): string {
+    const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+    return normalized.startsWith('#') ? normalized.substring(1) : normalized;
   }
 }

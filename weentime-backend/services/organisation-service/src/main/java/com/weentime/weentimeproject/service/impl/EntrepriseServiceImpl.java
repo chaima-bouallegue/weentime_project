@@ -15,7 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -32,8 +35,12 @@ public class EntrepriseServiceImpl implements EntrepriseService {
 
     private static final String ENTREPRISE_NOT_FOUND = "Entreprise non trouvée avec l'id : ";
     private static final String SIRET_ALREADY_EXISTS = "SIRET déjà utilisé : ";
-    private static final String INVITATION_INVALID = "Code d'invitation invalide ou expiré : ";
+    private static final String CODE_NOT_FOUND = "CODE_NOT_FOUND";
+    private static final String ENTERPRISE_CLOSED = "ENTERPRISE_CLOSED";
+    private static final String ENTERPRISE_FULL = "ENTERPRISE_FULL";
+    private static final String INVITATION_INVALID_MESSAGE = "Code d'invitation invalide.";
     private static final String INVITATION_LIMIT = "Nombre maximal d'utilisateurs atteint pour cette entreprise.";
+    private static final String ENTERPRISE_CLOSED_MESSAGE = "Cette entreprise est fermée.";
 
     @Override
     public EntrepriseResponse createEntreprise(EntrepriseRequest request) {
@@ -94,46 +101,42 @@ public class EntrepriseServiceImpl implements EntrepriseService {
     @Override
     @Transactional(readOnly = true)
     public EntrepriseValidationDTO validateCode(String codeInvitation) {
-        try {
-            Entreprise entreprise = entrepriseRepository.findByCodeInvitationIgnoreCase(codeInvitation)
-                    .filter(e -> Boolean.TRUE.equals(e.getEstActive()))
-                    .orElseThrow(() -> new EntityNotFoundException(INVITATION_INVALID + codeInvitation));
-
-            if (entreprise.getCodeExpiration() != null
-                    && entreprise.getCodeExpiration().isBefore(LocalDateTime.now())) {
-                throw new EntityNotFoundException(INVITATION_INVALID + codeInvitation);
-            }
-
-            if (entreprise.getMaxUsers() != null && entreprise.getCurrentUsers() != null
-                    && entreprise.getCurrentUsers() >= entreprise.getMaxUsers()) {
-                throw new IllegalStateException(INVITATION_LIMIT);
-            }
-
-            int collaborateurs = 120;
-            if (entreprise.getDepartements() != null && !entreprise.getDepartements().isEmpty()) {
-                try {
-                    collaborateurs = (int) entreprise.getDepartements().stream()
-                            .filter(Objects::nonNull)
-                            .mapToLong(dep -> dep.getUtilisateurs() != null ? dep.getUtilisateurs().size() : 0)
-                            .sum();
-                } catch (Exception e) {
-                    collaborateurs = 120;
-                }
-            }
-            if (collaborateurs <= 0)
-                collaborateurs = 120;
-
-            return EntrepriseValidationDTO.builder()
-                    .id(entreprise.getId())
-                    .nom(entreprise.getNom())
-                    .secteur(entreprise.getSecteur())
-                    .collaborateurs(collaborateurs)
-                    .build();
-        } catch (EntityNotFoundException | IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Unexpected error during code validation: " + e.getMessage(), e);
+        String normalizedCode = normalizeInvitationCode(codeInvitation);
+        if (normalizedCode.isBlank()) {
+            return invalidValidation(CODE_NOT_FOUND, INVITATION_INVALID_MESSAGE);
         }
+
+        Entreprise entreprise = findByInvitationCode(normalizedCode).orElse(null);
+        if (entreprise == null) {
+            return invalidValidation(CODE_NOT_FOUND, INVITATION_INVALID_MESSAGE);
+        }
+
+        if (!Boolean.TRUE.equals(entreprise.getEstActive())) {
+            return invalidValidation(ENTERPRISE_CLOSED, ENTERPRISE_CLOSED_MESSAGE, entreprise);
+        }
+
+        if (entreprise.getCodeExpiration() != null
+                && entreprise.getCodeExpiration().isBefore(LocalDateTime.now())) {
+            return invalidValidation(CODE_NOT_FOUND, INVITATION_INVALID_MESSAGE);
+        }
+
+        if (entreprise.getMaxUsers() != null && entreprise.getCurrentUsers() != null
+                && entreprise.getCurrentUsers() >= entreprise.getMaxUsers()) {
+            return invalidValidation(ENTERPRISE_FULL, INVITATION_LIMIT, entreprise);
+        }
+
+        int collaborateurs = countCollaborateurs(entreprise);
+
+        return EntrepriseValidationDTO.builder()
+                .valid(true)
+                .enterpriseId(entreprise.getId())
+                .enterpriseName(entreprise.getNom())
+                .status("ACTIVE")
+                .id(entreprise.getId())
+                .nom(entreprise.getNom())
+                .secteur(entreprise.getSecteur())
+                .collaborateurs(collaborateurs)
+                .build();
     }
 
     @Override
@@ -148,9 +151,72 @@ public class EntrepriseServiceImpl implements EntrepriseService {
     @Override
     @Transactional(readOnly = true)
     public EntrepriseResponse getByCode(String codeInvitation) {
-        Entreprise entreprise = entrepriseRepository.findByCodeInvitationIgnoreCase(codeInvitation)
+        String normalizedCode = normalizeInvitationCode(codeInvitation);
+        Entreprise entreprise = findByInvitationCode(normalizedCode)
                 .filter(e -> Boolean.TRUE.equals(e.getEstActive()))
-                .orElseThrow(() -> new EntityNotFoundException(INVITATION_INVALID + codeInvitation));
+                .orElseThrow(() -> new EntityNotFoundException(INVITATION_INVALID_MESSAGE + " : " + codeInvitation));
         return entrepriseMapper.toResponse(entreprise);
+    }
+
+    private java.util.Optional<Entreprise> findByInvitationCode(String normalizedCode) {
+        return entrepriseRepository.findByNormalizedCodeInvitation(invitationCodeCandidates(normalizedCode));
+    }
+
+    private Set<String> invitationCodeCandidates(String normalizedCode) {
+        Set<String> candidates = new LinkedHashSet<>();
+        candidates.add(normalizedCode);
+        if (normalizedCode.startsWith("WEEN") && !normalizedCode.startsWith("WEEN-") && normalizedCode.length() > 4) {
+            candidates.add("WEEN-" + normalizedCode.substring(4));
+        }
+        return candidates;
+    }
+
+    private String normalizeInvitationCode(String code) {
+        if (code == null) {
+            return "";
+        }
+        String normalized = code.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+        return normalized.startsWith("#") ? normalized.substring(1) : normalized;
+    }
+
+    private EntrepriseValidationDTO invalidValidation(String reason, String message) {
+        return invalidValidation(reason, message, null);
+    }
+
+    private EntrepriseValidationDTO invalidValidation(String reason, String message, Entreprise entreprise) {
+        return EntrepriseValidationDTO.builder()
+                .valid(false)
+                .reason(reason)
+                .message(message)
+                .enterpriseId(entreprise != null ? entreprise.getId() : null)
+                .enterpriseName(entreprise != null ? entreprise.getNom() : null)
+                .status(entrepriseStatus(entreprise))
+                .id(entreprise != null ? entreprise.getId() : null)
+                .nom(entreprise != null ? entreprise.getNom() : null)
+                .secteur(entreprise != null ? entreprise.getSecteur() : null)
+                .collaborateurs(entreprise != null ? countCollaborateurs(entreprise) : 0)
+                .build();
+    }
+
+    private String entrepriseStatus(Entreprise entreprise) {
+        if (entreprise == null) {
+            return null;
+        }
+        return Boolean.TRUE.equals(entreprise.getEstActive()) ? "ACTIVE" : "CLOSED";
+    }
+
+    private int countCollaborateurs(Entreprise entreprise) {
+        int collaborateurs = 120;
+        if (entreprise.getDepartements() != null && !entreprise.getDepartements().isEmpty()) {
+            try {
+                collaborateurs = (int) entreprise.getDepartements().stream()
+                        .filter(Objects::nonNull)
+                        .mapToLong(dep -> dep.getUtilisateurs() != null ? dep.getUtilisateurs().size() : 0)
+                        .sum();
+            } catch (Exception e) {
+                collaborateurs = 120;
+            }
+        }
+        return collaborateurs <= 0 ? 120 : collaborateurs;
     }
 }
