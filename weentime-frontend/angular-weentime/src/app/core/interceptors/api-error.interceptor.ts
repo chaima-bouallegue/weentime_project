@@ -5,7 +5,7 @@ import { SKIP_ERROR_TOAST } from '../http/request-context.tokens';
 import { ToastService } from '../services/toast.service';
 import { extractErrorMessage, logWarn, toErrorSummary } from '../utils/logger';
 
-const AUTH_ENDPOINTS = ['/api/v1/auth/login', '/api/v1/auth/verify-2fa', '/api/v1/auth/register'];
+const AUTH_ENDPOINTS = ['/api/v1/auth/login', '/api/v1/auth/verify-2fa', '/api/v1/auth/2fa/verify', '/api/v1/auth/2fa/send', '/api/v1/auth/register'];
 
 export const apiErrorInterceptor: HttpInterceptorFn = (req, next) => {
   const toast = inject(ToastService);

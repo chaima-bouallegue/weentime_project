@@ -1,4 +1,4 @@
-import { Component, inject, signal, Input } from '@angular/core';
+import { Component, inject, signal, Input, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -31,7 +31,7 @@ import { UserProfile } from '../../profile.service';
         <!-- State: Disabled -->
         <ng-container *ngIf="!is2faEnabled && !setupData()">
           <div class="setup-options">
-            <button (click)="startSetup('AUTHENTICATOR')" class="option-btn">
+            <button (click)="startSetup('TOTP')" class="option-btn">
               <div class="option-icon bg-indigo">
                 <lucide-icon name="smartphone" size="18"></lucide-icon>
               </div>
@@ -52,11 +52,22 @@ import { UserProfile } from '../../profile.service';
               </div>
               <lucide-icon name="chevron-right" size="16" class="arrow"></lucide-icon>
             </button>
+
+            <button (click)="startSetup('SMS')" class="option-btn" [disabled]="!profile?.telephone">
+              <div class="option-icon bg-indigo">
+                <lucide-icon name="message-square" size="18"></lucide-icon>
+              </div>
+              <div class="option-text">
+                <span class="option-title">Code SMS</span>
+                <span class="option-desc">{{ profile?.telephone ? 'Recevez un code sur votre téléphone.' : 'Ajoutez un téléphone pour activer cette méthode.' }}</span>
+              </div>
+              <lucide-icon name="chevron-right" size="16" class="arrow"></lucide-icon>
+            </button>
           </div>
         </ng-container>
 
         <!-- State: Setup Authenticator -->
-        <ng-container *ngIf="setupData() && setupType === 'AUTHENTICATOR'">
+        <ng-container *ngIf="setupData() && setupType === 'TOTP'">
           <div class="setup-container animate-fade-in">
             <div class="setup-step">
               <span class="step-number">1</span>
@@ -64,7 +75,7 @@ import { UserProfile } from '../../profile.service';
             </div>
             
             <div class="qr-wrapper">
-              <img [src]="getQrCodeUrl(setupData()!.qrCodeUrl)" alt="QR Code Setup" class="qr-code">
+              <img [src]="setupData()!.qrCodeBase64" alt="QR Code Setup" class="qr-code">
               <div class="secret-box">
                 <span class="secret-label">Clé de configuration :</span>
                 <code class="secret-code">{{ setupData()!.secret }}</code>
@@ -84,6 +95,23 @@ import { UserProfile } from '../../profile.service';
               </button>
             </div>
             
+            <button (click)="cancelSetup()" class="btn-cancel">Annuler</button>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="setupData() && setupType !== 'TOTP'">
+          <div class="setup-container animate-fade-in">
+            <div class="setup-step">
+              <span class="step-number">1</span>
+              <p>Entrez le code à 6 chiffres reçu par {{ setupType === 'SMS' ? 'SMS' : 'email' }}.</p>
+            </div>
+            <div class="verification-row">
+              <input type="text" [(ngModel)]="verificationCode" placeholder="000 000" maxlength="6" class="code-input">
+              <button (click)="confirmSetup()" [disabled]="verificationCode.length < 6 || loading()" class="btn-confirm">
+                <lucide-icon *ngIf="loading()" name="loader-2" size="16" class="animate-spin"></lucide-icon>
+                {{ loading() ? 'Vérification...' : 'Activer 2FA' }}
+              </button>
+            </div>
             <button (click)="cancelSetup()" class="btn-cancel">Annuler</button>
           </div>
         </ng-container>
@@ -109,9 +137,10 @@ import { UserProfile } from '../../profile.service';
                 </button>
               </div>
 
-              <div class="danger-zone">
+            <div class="danger-zone">
                 <h4 class="section-title text-red">Zone de danger</h4>
                 <p class="section-desc">La désactivation du 2FA réduit la sécurité de votre compte.</p>
+                <input type="password" [(ngModel)]="disablePassword" placeholder="Mot de passe actuel" class="code-input" style="letter-spacing:0;text-align:left;margin-bottom:10px;width:100%;">
                 <button (click)="disable2fa()" [disabled]="loading()" class="btn-danger">
                   <lucide-icon *ngIf="loading()" name="loader-2" size="16" class="animate-spin"></lucide-icon>
                   Désactiver 2FA
@@ -263,31 +292,29 @@ import { UserProfile } from '../../profile.service';
     @keyframes spin { to { transform: rotate(360deg); } }
   `]
 })
-export class ProfileTwoFactorComponent {
+export class ProfileTwoFactorComponent implements OnChanges {
   @Input() profile: UserProfile | null = null;
   
   private profileService = inject(ProfileService);
   private toastService = inject(ToastService);
 
   is2faEnabled = false;
-  setupType: 'AUTHENTICATOR' | 'EMAIL' | null = null;
+  setupType: 'TOTP' | 'EMAIL' | 'SMS' | null = null;
   setupData = signal<TwoFactorSetupResponse | null>(null);
   verificationCode = '';
+  disablePassword = '';
   backupCodes = signal<string[]>([]);
   loading = signal(false);
 
-  ngOnInit() {
-    // Check initial state from profile (backend should return 2faStatus or similar)
-    // For now we rely on the component being initialized and will update based on successful setups
-    // TODO: if profile entity had twoFactorEnabled, we'd use it here.
+  ngOnChanges() {
+    this.is2faEnabled = !!this.profile?.twoFactorEnabled;
   }
 
   getQrCodeUrl(url: string): string {
-    // Use public API to generate QR code from the otpauth URL
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    return url;
   }
 
-  startSetup(type: 'AUTHENTICATOR' | 'EMAIL') {
+  startSetup(type: 'TOTP' | 'EMAIL' | 'SMS') {
     this.loading.set(true);
     this.setupType = type;
     this.profileService.setup2fa(type).subscribe({
@@ -296,7 +323,7 @@ export class ProfileTwoFactorComponent {
         this.loading.set(false);
       },
       error: () => {
-        this.toastService.error('Erreur lors de la configuration du 2FA.');
+        this.toastService.error(type === 'SMS' ? 'Service SMS indisponible pour le moment.' : 'Erreur lors de la configuration du 2FA.');
         this.loading.set(false);
       }
     });
@@ -338,10 +365,11 @@ export class ProfileTwoFactorComponent {
     if (!confirm('Êtes-vous sûr de vouloir désactiver le 2FA ?')) return;
 
     this.loading.set(true);
-    this.profileService.disable2fa().subscribe({
+    this.profileService.disable2fa(this.disablePassword).subscribe({
       next: () => {
         this.is2faEnabled = false;
         this.backupCodes.set([]);
+        this.disablePassword = '';
         this.loading.set(false);
         this.toastService.success('2FA désactivé.');
       },

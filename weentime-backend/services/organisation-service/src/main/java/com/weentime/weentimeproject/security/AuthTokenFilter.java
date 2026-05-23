@@ -50,7 +50,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(jwt)) {
                 log.debug("JWT token found in request, validating...");
                 
-                if (jwtUtils.validateJwtToken(jwt)) {
+                if (jwtUtils.validateJwtToken(jwt) && jwtUtils.isAccessToken(jwt)) {
                     String email = jwtUtils.getUserNameFromJwtToken(jwt);
                     List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
 

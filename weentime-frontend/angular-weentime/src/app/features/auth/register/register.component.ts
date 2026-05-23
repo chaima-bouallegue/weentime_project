@@ -61,7 +61,7 @@ export class RegisterComponent implements OnDestroy {
             email: ['', [Validators.required, Validators.email]],
             password: ['', [Validators.required, Validators.minLength(8)]],
             jobTitle: ['', [Validators.required]],
-            phone: ['']
+            phone: ['', [Validators.pattern(/^(\+|00)[0-9\s().-]{8,20}$/)]]
         }),
         step3: this.fb.group({}), // Photo step is optional
         step4: this.fb.group({
@@ -247,7 +247,7 @@ export class RegisterComponent implements OnDestroy {
             prenom: formValue.step2.firstName,
             email: formValue.step2.email,
             motDePasse: formValue.step2.password,
-            telephone: formValue.step2.phone,
+            telephone: this.normalizePhoneNumber(formValue.step2.phone),
             poste: formValue.step2.jobTitle,
             entrepriseId: this.foundCompany()?.id,
             photo: this.base64Photo()
@@ -309,6 +309,18 @@ export class RegisterComponent implements OnDestroy {
         const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
         const withoutHash = normalized.replace(/^#+/, '');
         return withoutHash.startsWith('N-') ? `WEEN-${withoutHash.substring(2)}` : withoutHash;
+    }
+
+    private normalizePhoneNumber(value: unknown): string | undefined {
+        const raw = String(value ?? '').trim();
+        if (!raw) {
+            return undefined;
+        }
+        let normalized = raw.replace(/[\s().-]+/g, '');
+        if (normalized.startsWith('00')) {
+            normalized = `+${normalized.substring(2)}`;
+        }
+        return normalized;
     }
 
     private isValidCompanyCodeFormat(code: string): boolean {

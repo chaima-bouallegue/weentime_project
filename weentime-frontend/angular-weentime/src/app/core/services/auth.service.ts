@@ -43,9 +43,16 @@ export interface LoginResponse {
   entrepriseId?: number;
   roles?: string[];
   requires2FA: boolean;
+  requiresTwoFactor?: boolean;
   tempToken?: string;
+  temporaryToken?: string;
+  availableMethods?: TwoFactorMethod[];
+  maskedEmail?: string;
+  maskedPhone?: string;
   user?: User;
 }
+
+export type TwoFactorMethod = 'TOTP' | 'EMAIL' | 'SMS';
 
 interface ApiResponse<T> {
   success?: boolean;
@@ -108,7 +115,8 @@ export class AuthService {
     return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
-        if (!res.requires2FA && res.token) {
+        const requiresTwoFactor = !!(res.requiresTwoFactor || res.requires2FA);
+        if (!requiresTwoFactor && res.token) {
           return this.fetchProfileAndHandleSuccess(res, rememberMe);
         }
         return of(res);
@@ -116,8 +124,8 @@ export class AuthService {
     );
   }
 
-  verify2fa(code: string, tempToken: string, rememberMe?: boolean): Observable<any> {
-    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, tempToken }).pipe(
+  verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod): Observable<any> {
+    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, temporaryToken, tempToken: temporaryToken, method }).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (res.token) {
@@ -126,6 +134,15 @@ export class AuthService {
         return of(res);
       })
     );
+  }
+
+  send2faCode(method: TwoFactorMethod, temporaryToken: string): Observable<void> {
+    return this.http.post<any>(this.apiConfig.AUTH.SEND_2FA, {
+      method,
+      purpose: 'LOGIN',
+      temporaryToken,
+      tempToken: temporaryToken
+    }).pipe(map(() => void 0));
   }
 
   validateCompanyCode(code: string): Observable<CompanyCodeValidationResponse> {

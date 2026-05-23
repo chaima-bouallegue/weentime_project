@@ -16,6 +16,7 @@ public class UserDetailsImpl implements UserDetails {
     private final Long id;
     private final String email;
     private final String password;
+    private final String telephone;
     private final String statut;
     private final Long entrepriseId;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -27,9 +28,17 @@ public class UserDetailsImpl implements UserDetails {
                            Long entrepriseId,
                            Collection<? extends GrantedAuthority> authorities,
                            boolean twoFactorEnabled, String twoFactorType, String twoFactorSecret) {
+        this(id, email, password, null, statut, entrepriseId, authorities, twoFactorEnabled, twoFactorType, twoFactorSecret);
+    }
+
+    public UserDetailsImpl(Long id, String email, String password, String telephone, String statut,
+                           Long entrepriseId,
+                           Collection<? extends GrantedAuthority> authorities,
+                           boolean twoFactorEnabled, String twoFactorType, String twoFactorSecret) {
         this.id = id;
         this.email = email;
         this.password = password;
+        this.telephone = telephone;
         this.statut = statut;
         this.entrepriseId = entrepriseId;
         this.authorities = authorities;
@@ -52,6 +61,7 @@ public class UserDetailsImpl implements UserDetails {
                 dto.getId(),
                 dto.getEmail(),
                 dto.getMotDePasse(),
+                dto.getTelephone(),
                 dto.getStatut(),
                 dto.getEntrepriseId(),
                 authorities,

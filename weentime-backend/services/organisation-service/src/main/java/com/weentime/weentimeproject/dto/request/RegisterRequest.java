@@ -28,5 +28,6 @@ public class RegisterRequest {
     private String motDePasse;
 
     private String poste;
+    private String telephone;
     private Long entrepriseId;
 }

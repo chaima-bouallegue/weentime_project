@@ -66,6 +66,16 @@ public class JwtUtils {
         return claim instanceof Number ? ((Number) claim).longValue() : null;
     }
 
+    public boolean isAccessToken(String token) {
+        Claims claims = getClaims(token);
+        Object purpose = claims.get("tokenPurpose");
+        Object userId = claims.get("userId");
+        if (purpose == null) {
+            return userId != null;
+        }
+        return "ACCESS".equals(String.valueOf(purpose)) && userId != null;
+    }
+
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);

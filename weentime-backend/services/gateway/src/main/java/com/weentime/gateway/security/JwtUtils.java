@@ -1,6 +1,7 @@
 package com.weentime.gateway.security;
 
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,20 @@ public class JwtUtils {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isAccessToken(String authToken) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken).getBody();
+            Object purpose = claims.get("tokenPurpose");
+            Object userId = claims.get("userId");
+            if (purpose == null) {
+                return userId != null;
+            }
+            return "ACCESS".equals(String.valueOf(purpose)) && userId != null;
         } catch (Exception e) {
             return false;
         }

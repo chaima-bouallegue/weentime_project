@@ -38,3 +38,6 @@ logging:
   level:
     org.springframework.security: DEBUG
     com.weentime: DEBUG
+
+integration:
+  internal-api-key: ${INTERNAL_API_KEY:communication-service-local}

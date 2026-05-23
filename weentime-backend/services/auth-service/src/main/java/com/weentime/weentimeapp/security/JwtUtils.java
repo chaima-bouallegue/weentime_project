@@ -37,6 +37,8 @@ public class JwtUtils {
                         .findFirst()
                         .orElse(null))
                 .claim("entrepriseId", userPrincipal.getEntrepriseId())
+                .claim("tokenPurpose", "ACCESS")
+                .claim("twoFactorVerified", true)
                 .claim("roles", userPrincipal.getAuthorities().stream()
                         .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                         .toList())
@@ -53,6 +55,8 @@ public class JwtUtils {
                 .claim("role", roles == null || roles.isEmpty() ? null : roles.get(0))
                 .claim("userId", userId)
                 .claim("entrepriseId", entrepriseId)
+                .claim("tokenPurpose", "ACCESS")
+                .claim("twoFactorVerified", true)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -63,6 +67,9 @@ public class JwtUtils {
         return Jwts.builder()
                 .setSubject(email)
                 .claim("type", type)
+                .claim("method", type)
+                .claim("tokenPurpose", "2FA")
+                .claim("twoFactorVerified", false)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + 300000)) // 5 minutes
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -70,12 +77,28 @@ public class JwtUtils {
     }
 
     public String getTypeFrom2faToken(String token) {
-        return (String) Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("type");
+        Claims claims = getClaims(token);
+        Object method = claims.get("method");
+        return method != null ? String.valueOf(method) : String.valueOf(claims.get("type"));
+    }
+
+    public boolean isTwoFactorToken(String token) {
+        return "2FA".equals(getTokenPurpose(token));
+    }
+
+    public boolean isAccessToken(String token) {
+        Claims claims = getClaims(token);
+        Object purpose = claims.get("tokenPurpose");
+        boolean hasUserId = claims.get("userId") != null;
+        if (purpose == null) {
+            return hasUserId;
+        }
+        return "ACCESS".equals(String.valueOf(purpose)) && hasUserId;
+    }
+
+    public String getTokenPurpose(String token) {
+        Object purpose = getClaims(token).get("tokenPurpose");
+        return purpose == null ? null : String.valueOf(purpose);
     }
 
     private Key getSigningKey() {
@@ -84,21 +107,12 @@ public class JwtUtils {
     }
 
     public String getUserNameFromJwtToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return getClaims(token).getSubject();
     }
 
     @SuppressWarnings("unchecked")
     public List<String> getRolesFromJwtToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        Claims claims = getClaims(token);
         return (List<String>) claims.get("roles");
     }
 
@@ -116,5 +130,13 @@ public class JwtUtils {
             logger.error("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }

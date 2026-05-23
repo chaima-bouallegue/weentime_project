@@ -31,7 +31,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         LOGGER.info("JWT FILTER URI: {}", uri);
 
-        return uri.startsWith("/api/v1/auth")
+        return uri.equals("/api/v1/auth/login")
+                || uri.equals("/api/v1/auth/register")
+                || uri.equals("/api/v1/auth/verify-2fa")
+                || uri.equals("/api/v1/auth/2fa/verify")
+                || uri.equals("/api/v1/auth/2fa/send")
+                || uri.equals("/api/v1/auth/validate")
                 || "/health".equals(uri)
                 || uri.startsWith("/v3/api-docs")
                 || uri.startsWith("/swagger-ui");
@@ -46,10 +51,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         try {
             String jwt = parseJwt(request);
 
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
+            if (jwt != null && jwtUtils.validateJwtToken(jwt) && jwtUtils.isAccessToken(jwt)) {
 
                 String email = jwtUtils.getUserNameFromJwtToken(jwt);
                 List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
+                if (roles == null) {
+                    roles = List.of();
+                }
 
                 List<SimpleGrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)

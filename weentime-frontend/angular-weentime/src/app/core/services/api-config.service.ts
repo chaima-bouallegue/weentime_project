@@ -83,10 +83,15 @@ export class ApiConfigService {
   readonly AUTH = {
     LOGIN: `${this.API_BASE}/auth/login`,
     REGISTER: `${this.API_BASE}/auth/register`,
-    VERIFY_2FA: `${this.API_BASE}/auth/verify-2fa`,
+    VERIFY_2FA: `${this.API_BASE}/auth/2fa/verify`,
+    SEND_2FA: `${this.API_BASE}/auth/2fa/send`,
     VALIDATE_TOKEN: `${this.API_BASE}/auth/validate`,
     SETUP_2FA: `${this.API_BASE}/auth/2fa/setup`,
+    SETUP_TOTP_2FA: `${this.API_BASE}/auth/2fa/setup/totp`,
+    SETUP_EMAIL_2FA: `${this.API_BASE}/auth/2fa/setup/email`,
+    SETUP_SMS_2FA: `${this.API_BASE}/auth/2fa/setup/sms`,
     CONFIRM_2FA: `${this.API_BASE}/auth/2fa/confirm`,
+    CONFIRM_TOTP_2FA: `${this.API_BASE}/auth/2fa/confirm/totp`,
     DISABLE_2FA: `${this.API_BASE}/auth/2fa/disable`
   };
 

@@ -6,14 +6,22 @@ import com.weentime.weentimeapp.dto.CreateRhRequest;
 import com.weentime.weentimeapp.dto.CreateRhResponse;
 import com.weentime.weentimeapp.dto.JwtResponse;
 import com.weentime.weentimeapp.dto.LoginRequest;
+import com.weentime.weentimeapp.dto.OtpVerificationResponse;
 import com.weentime.weentimeapp.dto.RegisterRequest;
 import com.weentime.weentimeapp.dto.RegisterResponse;
+import com.weentime.weentimeapp.dto.StoreTwoFactorOtpRequest;
+import com.weentime.weentimeapp.dto.TwoFactorDisableRequest;
+import com.weentime.weentimeapp.dto.TwoFactorSendRequest;
+import com.weentime.weentimeapp.dto.TwoFactorSetupResponse;
 import com.weentime.weentimeapp.dto.UtilisateurAuthDTO;
 import com.weentime.weentimeapp.dto.Verify2faRequest;
+import com.weentime.weentimeapp.dto.VerifyTwoFactorOtpRequest;
 import com.weentime.weentimeapp.security.JwtUtils;
 import com.weentime.weentimeapp.security.services.EmailService;
+import com.weentime.weentimeapp.security.services.SmsOtpSender;
 import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
+import feign.FeignException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +55,7 @@ public class AuthController {
     private final OrganisationServiceClient organisationServiceClient;
     private final TwoFactorService twoFactorService;
     private final EmailService emailService;
+    private final SmsOtpSender smsOtpSender;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -70,21 +79,19 @@ public class AuthController {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         if (userDetails.isTwoFactorEnabled()) {
-            String tempToken;
-            if ("EMAIL".equals(userDetails.getTwoFactorType())) {
-                String code = twoFactorService.generateOtpCode();
-                emailService.sendOtpCode(userDetails.getEmail(), code);
-                twoFactorService.saveOtp(userDetails.getEmail(), code);
-                tempToken = jwtUtils.generateTokenFor2FA(userDetails.getEmail(), "EMAIL");
-            } else {
-                tempToken = jwtUtils.generateTokenFor2FA(userDetails.getEmail(), "TOTP");
-            }
+            String method = normalizeTwoFactorMethod(userDetails.getTwoFactorType());
+            String tempToken = jwtUtils.generateTokenFor2FA(userDetails.getEmail(), method);
 
             return ResponseEntity.ok(ApiResponse.success(
                     JwtResponse.builder()
                             .requires2FA(true)
+                            .requiresTwoFactor(true)
                             .tempToken(tempToken)
+                            .temporaryToken(tempToken)
                             .email(userDetails.getEmail())
+                            .availableMethods(availableMethods(method))
+                            .maskedEmail(maskEmail(userDetails.getEmail()))
+                            .maskedPhone(maskPhone(userDetails.getTelephone()))
                             .build(),
                     "2FA requis"
             ));
@@ -121,13 +128,25 @@ public class AuthController {
 
     @PostMapping("/verify-2fa")
     public ResponseEntity<?> verify2fa(@Valid @RequestBody Verify2faRequest request) {
-        if (!jwtUtils.validateJwtToken(request.getTempToken())) {
+        return verify2faCanonical(request);
+    }
+
+    @PostMapping("/2fa/verify")
+    public ResponseEntity<?> verify2faCanonical(@Valid @RequestBody Verify2faRequest request) {
+        String temporaryToken = request.resolveTemporaryToken();
+        if (temporaryToken == null || temporaryToken.isBlank()
+                || !jwtUtils.validateJwtToken(temporaryToken)
+                || !jwtUtils.isTwoFactorToken(temporaryToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("INVALID_TEMP_TOKEN", "Token invalide ou expire"));
         }
 
-        String email = jwtUtils.getUserNameFromJwtToken(request.getTempToken());
-        String type = jwtUtils.getTypeFrom2faToken(request.getTempToken());
+        String email = jwtUtils.getUserNameFromJwtToken(temporaryToken);
+        String type = normalizeTwoFactorMethod(
+                request.getMethod() != null && !request.getMethod().isBlank()
+                        ? request.getMethod()
+                        : jwtUtils.getTypeFrom2faToken(temporaryToken)
+        );
 
         UtilisateurAuthDTO dto = organisationServiceClient.getUserByEmail(email).getBody();
         if (dto == null) {
@@ -142,11 +161,20 @@ public class AuthController {
         }
 
         boolean isValid;
-        if ("TOTP".equals(type)) {
+        if (isTotpMethod(type)) {
             String plainSecret = twoFactorService.decrypt(dto.getTwoFactorSecret());
             isValid = twoFactorService.verifyTotpCode(plainSecret, request.getCode());
         } else {
-            isValid = twoFactorService.verifyStoredOtp(email, request.getCode());
+            OtpVerificationResponse otpResult = organisationServiceClient.verifyTwoFactorOtp(VerifyTwoFactorOtpRequest.builder()
+                    .email(email)
+                    .method(type)
+                    .purpose("LOGIN")
+                    .code(request.getCode())
+                    .build()).getBody();
+            isValid = otpResult != null && otpResult.isValid();
+            if (!isValid && otpResult != null) {
+                return otpFailureResponse(otpResult);
+            }
         }
 
         if (isValid) {
@@ -192,73 +220,84 @@ public class AuthController {
                 .body(ApiResponse.failure("INVALID_2FA_CODE", "Code incorrect"));
     }
 
+    @PostMapping("/2fa/send")
+    public ResponseEntity<?> send2fa(@Valid @RequestBody TwoFactorSendRequest request,
+                                     jakarta.servlet.http.HttpServletRequest servletRequest) {
+        String temporaryToken = request.resolveTemporaryToken();
+        if (temporaryToken == null || temporaryToken.isBlank()
+                || !jwtUtils.validateJwtToken(temporaryToken)
+                || !jwtUtils.isTwoFactorToken(temporaryToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("INVALID_TEMP_TOKEN", "Token invalide ou expire"));
+        }
+
+        String email = jwtUtils.getUserNameFromJwtToken(temporaryToken);
+        String tokenMethod = normalizeTwoFactorMethod(jwtUtils.getTypeFrom2faToken(temporaryToken));
+        String requestedMethod = normalizeTwoFactorMethod(request.getMethod());
+        if (!tokenMethod.equals(requestedMethod)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.failure("METHOD_NOT_ALLOWED", "Méthode 2FA non autorisée pour cette connexion."));
+        }
+
+        UtilisateurAuthDTO user = organisationServiceClient.getUserByEmail(email).getBody();
+        return sendOtpToUser(user, requestedMethod, request.getPurpose(), getClientIp(servletRequest));
+    }
+
     @PostMapping("/2fa/setup")
     public ResponseEntity<?> setup2fa(Authentication authentication, @RequestParam String type) {
+        String normalizedType = normalizeTwoFactorMethod(type);
+        if (isTotpMethod(normalizedType)) {
+            return setupTotp(authentication);
+        }
+        return setupOtpForAuthenticatedUser(authentication, normalizedType, "ENABLE_2FA", null);
+    }
+
+    @PostMapping("/2fa/setup/totp")
+    public ResponseEntity<?> setupTotp(Authentication authentication) {
         String email = getEmailFromAuthentication(authentication);
         if (email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("UNAUTHORIZED", "Utilisateur non authentifie"));
         }
 
-        if ("AUTHENTICATOR".equals(type)) {
-            String secret = twoFactorService.generateTotpSecret();
-            return ResponseEntity.ok(ApiResponse.success(
-                    Map.of(
-                            "secret", secret,
-                            "qrCodeUrl", "otpauth://totp/Weentime:" + email + "?secret=" + secret + "&issuer=Weentime"
-                    ),
-                    "Configuration AUTHENTICATOR generee"
-            ));
-        }
-
-        if ("EMAIL".equals(type)) {
-            String code = twoFactorService.generateOtpCode();
-            emailService.sendOtpCode(email, code);
-            twoFactorService.saveOtp(email, code);
-            String setupToken = jwtUtils.generateTokenFor2FA(email, "EMAIL");
-            return ResponseEntity.ok(ApiResponse.success(Map.of("setupToken", setupToken), "Code OTP envoye par email"));
-        }
-
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.failure("INVALID_2FA_TYPE", "Type 2FA invalide"));
+        String secret = twoFactorService.generateTotpSecret();
+        String otpauthUrl = twoFactorService.buildOtpAuthUrl(email, secret);
+        return ResponseEntity.ok(ApiResponse.success(
+                TwoFactorSetupResponse.builder()
+                        .secret(secret)
+                        .otpauthUrl(otpauthUrl)
+                        .qrCodeBase64(twoFactorService.generateQrCodeBase64(otpauthUrl))
+                        .build(),
+                "Configuration TOTP generee"
+        ));
     }
 
     @PostMapping("/2fa/confirm")
     public ResponseEntity<?> confirm2fa(Authentication authentication, @RequestBody Map<String, String> request) {
+        String type = normalizeTwoFactorMethod(request.get("type"));
+        if (isTotpMethod(type)) {
+            return confirmTotp(authentication, request);
+        }
+        return confirmOtpSetup(authentication, request, type);
+    }
+
+    @PostMapping("/2fa/confirm/totp")
+    public ResponseEntity<?> confirmTotp(Authentication authentication, @RequestBody Map<String, String> request) {
         String email = getEmailFromAuthentication(authentication);
         if (email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("UNAUTHORIZED", "Utilisateur non authentifie"));
         }
 
-        String type = request.get("type");
         String code = request.get("code");
-
-        boolean isValid = false;
-        String secretToSave = null;
-
-        if ("AUTHENTICATOR".equals(type)) {
-            String secret = request.get("secret");
-            isValid = twoFactorService.verifyTotpCode(secret, code);
-            secretToSave = twoFactorService.encrypt(secret);
-        } else if ("EMAIL".equals(type)) {
-            String setupToken = request.get("setupToken");
-            if (jwtUtils.validateJwtToken(setupToken)) {
-                isValid = twoFactorService.verifyStoredOtp(email, code);
-            }
-        }
+        String secret = request.get("secret");
+        boolean isValid = secret != null && code != null && twoFactorService.verifyTotpCode(secret, code);
+        String secretToSave = isValid ? twoFactorService.encrypt(secret) : null;
 
         if (isValid) {
-            organisationServiceClient.update2faSettings(email, true, type, secretToSave);
+            organisationServiceClient.update2faSettings(email, true, "TOTP", secretToSave);
 
-            List<String> backupCodes = new ArrayList<>();
-            List<String> hashedBackupCodes = new ArrayList<>();
-            for (int i = 0; i < 8; i++) {
-                String backupCode = twoFactorService.generateOtpCode();
-                backupCodes.add(backupCode);
-                hashedBackupCodes.add(twoFactorService.hashBackupCode(backupCode));
-            }
-            organisationServiceClient.updateBackupCodes(email, hashedBackupCodes);
+            List<String> backupCodes = refreshBackupCodes(email);
 
             return ResponseEntity.ok(ApiResponse.success(Map.of("backupCodes", backupCodes), "2FA active avec succes"));
         }
@@ -267,12 +306,30 @@ public class AuthController {
                 .body(ApiResponse.failure("INVALID_CONFIRMATION_CODE", "Code de confirmation invalide"));
     }
 
+    @PostMapping("/2fa/setup/email")
+    public ResponseEntity<?> setupEmail2fa(Authentication authentication,
+                                           jakarta.servlet.http.HttpServletRequest servletRequest) {
+        return setupOtpForAuthenticatedUser(authentication, "EMAIL", "ENABLE_2FA", getClientIp(servletRequest));
+    }
+
+    @PostMapping("/2fa/setup/sms")
+    public ResponseEntity<?> setupSms2fa(Authentication authentication,
+                                         jakarta.servlet.http.HttpServletRequest servletRequest) {
+        return setupOtpForAuthenticatedUser(authentication, "SMS", "ENABLE_2FA", getClientIp(servletRequest));
+    }
+
     @PostMapping("/2fa/disable")
-    public ResponseEntity<?> disable2fa(Authentication authentication) {
+    public ResponseEntity<?> disable2fa(Authentication authentication,
+                                        @RequestBody(required = false) TwoFactorDisableRequest request) {
         String email = getEmailFromAuthentication(authentication);
         if (email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("UNAUTHORIZED", "Utilisateur non authentifie"));
+        }
+
+        if (!canDisable2fa(email, request)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.failure("INVALID_2FA_DISABLE_CONFIRMATION", "Mot de passe ou code 2FA valide requis."));
         }
         organisationServiceClient.update2faSettings(email, false, "NONE", null);
         return ResponseEntity.ok(ApiResponse.success(null, "2FA desactive"));
@@ -348,6 +405,189 @@ public class AuthController {
         }
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure("INVALID_TOKEN", "Token is invalid"));
+    }
+
+    private ResponseEntity<?> setupOtpForAuthenticatedUser(Authentication authentication, String method, String purpose, String ipAddress) {
+        String email = getEmailFromAuthentication(authentication);
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("UNAUTHORIZED", "Utilisateur non authentifie"));
+        }
+        UtilisateurAuthDTO user = organisationServiceClient.getUserByEmail(email).getBody();
+        ResponseEntity<?> sendResponse = sendOtpToUser(user, method, purpose, ipAddress);
+        if (!sendResponse.getStatusCode().is2xxSuccessful()) {
+            return sendResponse;
+        }
+        String setupToken = jwtUtils.generateTokenFor2FA(email, method);
+        return ResponseEntity.ok(ApiResponse.success(
+                TwoFactorSetupResponse.builder().setupToken(setupToken).build(),
+                method + " OTP envoye"
+        ));
+    }
+
+    private ResponseEntity<?> confirmOtpSetup(Authentication authentication, Map<String, String> request, String method) {
+        String email = getEmailFromAuthentication(authentication);
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("UNAUTHORIZED", "Utilisateur non authentifie"));
+        }
+        String setupToken = request.get("setupToken");
+        if (setupToken == null || !jwtUtils.validateJwtToken(setupToken) || !jwtUtils.isTwoFactorToken(setupToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("INVALID_SETUP_TOKEN", "Token de configuration invalide ou expire."));
+        }
+        OtpVerificationResponse otpResult = organisationServiceClient.verifyTwoFactorOtp(VerifyTwoFactorOtpRequest.builder()
+                .email(email)
+                .method(method)
+                .purpose("ENABLE_2FA")
+                .code(request.get("code"))
+                .build()).getBody();
+        if (otpResult == null || !otpResult.isValid()) {
+            return otpFailureResponse(otpResult);
+        }
+        organisationServiceClient.update2faSettings(email, true, method, null);
+        List<String> backupCodes = refreshBackupCodes(email);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("backupCodes", backupCodes), "2FA active avec succes"));
+    }
+
+    private ResponseEntity<?> sendOtpToUser(UtilisateurAuthDTO user, String method, String purpose, String ipAddress) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.failure("USER_NOT_FOUND", "Utilisateur non trouve"));
+        }
+        if (!"EMAIL".equals(method) && !"SMS".equals(method)) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.failure("INVALID_2FA_METHOD", "Méthode 2FA invalide."));
+        }
+        if ("SMS".equals(method) && (user.getTelephone() == null || user.getTelephone().isBlank())) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.failure("PHONE_REQUIRED", "Aucun numéro de téléphone n'est associé à ce compte."));
+        }
+
+        String code = twoFactorService.generateOtpCode();
+        try {
+            if ("EMAIL".equals(method)) {
+                emailService.sendOtpCode(user.getEmail(), code);
+            } else {
+                smsOtpSender.sendOtpCode(user.getTelephone(), code);
+            }
+            organisationServiceClient.storeTwoFactorOtp(StoreTwoFactorOtpRequest.builder()
+                    .email(user.getEmail())
+                    .method(method)
+                    .purpose(purpose == null || purpose.isBlank() ? "LOGIN" : purpose)
+                    .codeHash(twoFactorService.hashBackupCode(code))
+                    .ipAddress(ipAddress)
+                    .build());
+        } catch (FeignException.Conflict exception) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiResponse.failure("OTP_RESEND_COOLDOWN", "Patientez avant de demander un nouveau code."));
+        } catch (IllegalStateException exception) {
+            if ("SMS_PROVIDER_NOT_CONFIGURED".equals(exception.getMessage())) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(ApiResponse.failure("SMS_PROVIDER_NOT_CONFIGURED", "Service SMS indisponible pour le moment."));
+            }
+            throw exception;
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Code envoye."));
+    }
+
+    private ResponseEntity<?> otpFailureResponse(OtpVerificationResponse otpResult) {
+        if (otpResult == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.failure("INVALID_2FA_CODE", "Code incorrect."));
+        }
+        HttpStatus status = "TOO_MANY_ATTEMPTS".equals(otpResult.getReason())
+                ? HttpStatus.TOO_MANY_REQUESTS
+                : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status)
+                .body(ApiResponse.failure(otpResult.getReason(), otpResult.getMessage()));
+    }
+
+    private boolean canDisable2fa(String email, TwoFactorDisableRequest request) {
+        if (request == null) {
+            return false;
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            try {
+                authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+                return true;
+            } catch (AuthenticationException exception) {
+                return false;
+            }
+        }
+        if (request.getCode() == null || request.getCode().isBlank()) {
+            return false;
+        }
+        UtilisateurAuthDTO dto = organisationServiceClient.getUserByEmail(email).getBody();
+        if (dto == null || !dto.isTwoFactorEnabled()) {
+            return false;
+        }
+        String method = normalizeTwoFactorMethod(dto.getTwoFactorType());
+        if (isTotpMethod(method)) {
+            return twoFactorService.verifyTotpCode(twoFactorService.decrypt(dto.getTwoFactorSecret()), request.getCode());
+        }
+        OtpVerificationResponse otpResult = organisationServiceClient.verifyTwoFactorOtp(VerifyTwoFactorOtpRequest.builder()
+                .email(email)
+                .method(method)
+                .purpose("LOGIN")
+                .code(request.getCode())
+                .build()).getBody();
+        return otpResult != null && otpResult.isValid();
+    }
+
+    private List<String> refreshBackupCodes(String email) {
+        List<String> backupCodes = new ArrayList<>();
+        List<String> hashedBackupCodes = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            String backupCode = twoFactorService.generateOtpCode();
+            backupCodes.add(backupCode);
+            hashedBackupCodes.add(twoFactorService.hashBackupCode(backupCode));
+        }
+        organisationServiceClient.updateBackupCodes(email, hashedBackupCodes);
+        return backupCodes;
+    }
+
+    private List<String> availableMethods(String method) {
+        return List.of(normalizeTwoFactorMethod(method));
+    }
+
+    private String normalizeTwoFactorMethod(String method) {
+        String normalized = method == null || method.isBlank() ? "TOTP" : method.trim().toUpperCase();
+        return "AUTHENTICATOR".equals(normalized) ? "TOTP" : normalized;
+    }
+
+    private boolean isTotpMethod(String method) {
+        String normalized = normalizeTwoFactorMethod(method);
+        return "TOTP".equals(normalized) || "AUTHENTICATOR".equals(normalized);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "";
+        }
+        String[] parts = email.split("@", 2);
+        String local = parts[0];
+        String visible = local.isEmpty() ? "" : local.substring(0, 1);
+        return visible + "***@" + parts[1];
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return null;
+        }
+        return phone.substring(0, Math.min(4, phone.length())) + " *** ** " + phone.substring(phone.length() - 3);
+    }
+
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private List<String> extractRoles(UtilisateurAuthDTO dto) {

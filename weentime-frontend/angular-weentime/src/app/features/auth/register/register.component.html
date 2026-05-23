@@ -215,6 +215,15 @@
               </div>
 
               <div class="space-y-1.5">
+                <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Téléphone <span class="normal-case tracking-normal text-slate-400">(optionnel)</span></label>
+                <div class="relative">
+                  <lucide-icon name="phone" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
+                  <input formControlName="phone" type="tel" placeholder="+216 XX XXX XXX" class="register-input" [ngClass]="getInputClass(2, 'phone')">
+                </div>
+                <p *ngIf="isFieldInvalid(2, 'phone')" class="text-[10px] text-red-500 font-bold mt-1 ml-1 uppercase tracking-tight">Format international attendu, ex: +216 XX XXX XXX</p>
+              </div>
+
+              <div class="space-y-1.5">
                 <label class="text-[12px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-0.5">Poste / Intitulé de mission</label>
                 <div class="relative">
                   <lucide-icon name="briefcase" size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></lucide-icon>
@@ -290,6 +299,10 @@
                   <div class="space-y-1">
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</p>
                     <p class="font-bold text-slate-700 dark:text-slate-300 truncate pr-2">{{ f2['email'].value }}</p>
+                  </div>
+                  <div class="space-y-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Téléphone</p>
+                    <p class="font-bold text-slate-700 dark:text-slate-300">{{ f2['phone'].value || 'Non renseigné' }}</p>
                   </div>
                   <div class="space-y-1">
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entreprise</p>

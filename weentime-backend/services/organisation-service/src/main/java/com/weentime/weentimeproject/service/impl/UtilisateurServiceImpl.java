@@ -303,6 +303,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .prenom(request.getPrenom().trim())
                 .email(email)
                 .motDePasse(passwordEncoder.encode(request.getMotDePasse()))
+                .telephone(normalizePhoneNumber(request.getTelephone()))
                 .poste(request.getPoste())
                 .statut(StatutUtilisateurEnum.PENDING)
                 .entrepriseId(entreprise.getId())
@@ -344,6 +345,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         if (request.getEmail() == null || !request.getEmail().contains("@")) {
             throw new IllegalArgumentException("Email invalide.");
         }
+        normalizePhoneNumber(request.getTelephone());
     }
 
     private String extractEntrepriseNameFromEmail(String email) {
@@ -937,7 +939,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_EMAIL + email));
 
         utilisateur.setTwoFactorEnabled(enabled);
-        utilisateur.setTwoFactorType(type != null ? TwoFactorTypeEnum.valueOf(type) : TwoFactorTypeEnum.NONE);
+        utilisateur.setTwoFactorType(normalizeTwoFactorType(enabled ? type : "NONE"));
         utilisateur.setTwoFactorSecret(secret);
 
         utilisateurRepository.save(utilisateur);
@@ -1139,6 +1141,32 @@ public class UtilisateurServiceImpl implements UtilisateurService {
         }
 
         return RoleNom.valueOf(normalized);
+    }
+
+    private TwoFactorTypeEnum normalizeTwoFactorType(String type) {
+        if (type == null || type.isBlank()) {
+            return TwoFactorTypeEnum.NONE;
+        }
+        String normalized = type.trim().toUpperCase();
+        if ("AUTHENTICATOR".equals(normalized)) {
+            return TwoFactorTypeEnum.TOTP;
+        }
+        return TwoFactorTypeEnum.valueOf(normalized);
+    }
+
+    private String normalizePhoneNumber(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        String normalized = phone.trim()
+                .replaceAll("[\\s().-]+", "");
+        if (normalized.startsWith("00")) {
+            normalized = "+" + normalized.substring(2);
+        }
+        if (!normalized.matches("^\\+[1-9]\\d{7,14}$")) {
+            throw new IllegalArgumentException("Numéro de téléphone invalide. Utilisez le format international, ex: +21612345678.");
+        }
+        return normalized;
     }
 
     private String resolveAppScope(Utilisateur utilisateur) {

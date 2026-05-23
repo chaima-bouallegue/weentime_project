@@ -73,7 +73,7 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
 
         String token = authHeader.substring(7);
 
-        if (!jwtUtils.validateJwtToken(token)) {
+        if (!jwtUtils.validateJwtToken(token) || !jwtUtils.isAccessToken(token)) {
             return unauthorized(exchange, "Invalid token");
         }
 

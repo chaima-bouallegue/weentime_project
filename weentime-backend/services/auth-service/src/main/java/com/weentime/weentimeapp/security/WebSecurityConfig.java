@@ -57,13 +57,28 @@ public class WebSecurityConfig {
                             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                     )
                     .authorizeHttpRequests(auth ->
-                            auth.requestMatchers("/api/v1/auth/**", "/health").permitAll()
+                            auth.requestMatchers(
+                                            "/api/v1/auth/login",
+                                            "/api/v1/auth/register",
+                                            "/api/v1/auth/verify-2fa",
+                                            "/api/v1/auth/2fa/verify",
+                                            "/api/v1/auth/2fa/send",
+                                            "/api/v1/auth/validate",
+                                            "/health"
+                                    ).permitAll()
+                                    .requestMatchers(
+                                            "/api/v1/auth/2fa/setup",
+                                            "/api/v1/auth/2fa/setup/**",
+                                            "/api/v1/auth/2fa/confirm",
+                                            "/api/v1/auth/2fa/confirm/**",
+                                            "/api/v1/auth/2fa/disable",
+                                            "/api/v1/auth/admin/**"
+                                    ).authenticated()
                                     .requestMatchers("/api/v1/organisations/users/auth/**").permitAll()
                                     .requestMatchers("/api/v1/organisations/roles/**").permitAll()
                                     .requestMatchers("/api/v1/organisations/users/register").permitAll()
                                     .requestMatchers("/api/v1/organisations/entreprises/validate-code/**").permitAll()
                                     .requestMatchers("/api/v1/organisations/by-code/**").permitAll()
-                                    .requestMatchers("/api/v1/auth/2fa/**").authenticated()
                                     .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                     .anyRequest().authenticated()
                     );

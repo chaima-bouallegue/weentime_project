@@ -7,6 +7,7 @@ import com.weentime.weentimeapp.dto.LoginRequest;
 import com.weentime.weentimeapp.dto.Verify2faRequest;
 import com.weentime.weentimeapp.security.JwtUtils;
 import com.weentime.weentimeapp.security.services.EmailService;
+import com.weentime.weentimeapp.security.services.SmsOtpSender;
 import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +49,8 @@ class AuthControllerTest {
     TwoFactorService twoFactorService;
     @MockitoBean
     EmailService emailService;
+    @MockitoBean
+    SmsOtpSender smsOtpSender;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private UserDetailsImpl userDetails;
@@ -85,6 +88,44 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.token").value("jwt-token"))
                 .andExpect(jsonPath("$.error").isEmpty());
+    }
+
+    @Test
+    void login_with_2fa_returns_temporary_token_not_final_jwt() throws Exception {
+        UserDetailsImpl twoFactorUser = new UserDetailsImpl(
+                1L,
+                "user@test.com",
+                "pass",
+                "ACTIF",
+                10L,
+                List.of(new SimpleGrantedAuthority("ROLE_EMPLOYEE")),
+                true,
+                "TOTP",
+                "encrypted-secret"
+        );
+        Authentication twoFactorAuthentication = new UsernamePasswordAuthenticationToken(
+                twoFactorUser,
+                null,
+                twoFactorUser.getAuthorities()
+        );
+        Mockito.when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(twoFactorAuthentication);
+        Mockito.when(jwtUtils.generateTokenFor2FA("user@test.com", "TOTP")).thenReturn("temp-token");
+
+        LoginRequest req = new LoginRequest();
+        req.setEmail("user@test.com");
+        req.setPassword("secret");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.requires2FA").value(true))
+                .andExpect(jsonPath("$.data.requiresTwoFactor").value(true))
+                .andExpect(jsonPath("$.data.tempToken").value("temp-token"))
+                .andExpect(jsonPath("$.data.temporaryToken").value("temp-token"))
+                .andExpect(jsonPath("$.data.token").isEmpty())
+                .andExpect(jsonPath("$.data.availableMethods[0]").value("TOTP"));
     }
 
     @Test

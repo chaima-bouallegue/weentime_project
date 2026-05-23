@@ -2,9 +2,10 @@
 
 import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
-import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { FormBuilder } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService, CompanyCodeValidationResponse } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
@@ -25,29 +26,27 @@ class FakeAuthService {
 
 describe('RegisterComponent invitation code validation', () => {
   let authService: FakeAuthService;
+  let injector: Injector;
 
   beforeEach(async () => {
     authService = new FakeAuthService();
 
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [RegisterComponent],
+    injector = Injector.create({
       providers: [
+        FormBuilder,
         { provide: AuthService, useValue: authService },
         { provide: Router, useValue: { navigate: vi.fn().mockResolvedValue(true) } },
         { provide: ThemeService, useValue: { isDarkMode: vi.fn(() => false), toggleTheme: vi.fn() } }
       ]
     });
-    TestBed.overrideComponent(RegisterComponent, { set: { template: '' } });
-    await TestBed.compileComponents();
+    (globalThis as unknown as { __registerInjector?: Injector }).__registerInjector = injector;
   });
 
-  it('moves to step 2 after a valid active enterprise response', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('moves to step 2 after a valid active enterprise response', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
-    tick(401);
+    await flushCodeDebounce();
     authService.response$.next({
       valid: true,
       enterpriseId: 123,
@@ -59,14 +58,13 @@ describe('RegisterComponent invitation code validation', () => {
 
     expect(component.currentStep()).toBe(2);
     expect(component.foundCompany()?.id).toBe(123);
-  }));
+  });
 
-  it('shows the closed-enterprise message for ENTERPRISE_CLOSED', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('shows the closed-enterprise message for ENTERPRISE_CLOSED', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
-    tick(401);
+    await flushCodeDebounce();
     authService.response$.error(new HttpErrorResponse({
       status: 409,
       statusText: 'Conflict',
@@ -74,14 +72,13 @@ describe('RegisterComponent invitation code validation', () => {
     }));
 
     expect(component.codeErrorMessage()).toBe('Cette entreprise est fermée. Contactez votre administrateur.');
-  }));
+  });
 
-  it('shows the invalid-code message for CODE_NOT_FOUND', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('shows the invalid-code message for CODE_NOT_FOUND', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('invalid-code');
-    tick(401);
+    await flushCodeDebounce();
     authService.response$.error(new HttpErrorResponse({
       status: 404,
       statusText: 'Not Found',
@@ -89,14 +86,13 @@ describe('RegisterComponent invitation code validation', () => {
     }));
 
     expect(component.codeErrorMessage()).toBe("Code d'invitation invalide ou expiré.");
-  }));
+  });
 
-  it('does not expose raw resource-not-found messages', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('does not expose raw resource-not-found messages', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('WEEN-22024');
-    tick(401);
+    await flushCodeDebounce();
     authService.response$.error(new HttpErrorResponse({
       status: 404,
       statusText: 'Not Found',
@@ -104,35 +100,66 @@ describe('RegisterComponent invitation code validation', () => {
     }));
 
     expect(component.codeErrorMessage()).toBe("Code d'invitation invalide ou expiré.");
-  }));
+  });
 
-  it('normalizes lowercase codes before calling the API', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('normalizes lowercase codes before calling the API', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('ween-22024');
-    tick(401);
+    await flushCodeDebounce();
 
     expect(authService.validateCompanyCode).toHaveBeenCalledWith('WEEN-22024');
-  }));
+  });
 
-  it('normalizes spaced codes before calling the API', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('normalizes spaced codes before calling the API', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue(' WEEN 22024 ');
-    tick(401);
+    await flushCodeDebounce();
 
     expect(authService.validateCompanyCode).toHaveBeenCalledWith('WEEN22024');
-  }));
+  });
 
-  it('normalizes visual-prefixed codes before calling the API', fakeAsync(() => {
-    const fixture = TestBed.createComponent(RegisterComponent);
-    const component = fixture.componentInstance;
+  it('normalizes visual-prefixed codes before calling the API', async () => {
+    const component = createComponent();
 
     component.registerForm.get('step1.companyCode')?.setValue('#N - C3F302B5E8CF');
-    tick(401);
+    await flushCodeDebounce();
 
     expect(authService.validateCompanyCode).toHaveBeenCalledWith('WEEN-C3F302B5E8CF');
-  }));
+  });
+
+  it('includes a normalized optional phone number in the registration payload', () => {
+    const component = createComponent();
+    authService.register.mockReturnValue(of({ token: '', userId: 7, email: 'jane@example.com', roles: [], message: 'ok' }));
+
+    component.foundCompany.set({ id: 123, name: 'Weentime SARL', industry: '', employees: '' });
+    component.registerForm.patchValue({
+      step1: { companyCode: 'WEEN-22024' },
+      step2: {
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        password: 'Password123!',
+        jobTitle: 'Manager',
+        phone: '+216 12 345 678'
+      },
+      step4: { acceptTerms: true }
+    });
+
+    component.onSubmit();
+
+    expect(authService.register).toHaveBeenCalledWith(expect.objectContaining({
+      telephone: '+21612345678'
+    }));
+  });
 });
+
+function createComponent(): RegisterComponent {
+  const currentInjector = (globalThis as unknown as { __registerInjector?: Injector }).__registerInjector;
+  return runInInjectionContext(currentInjector!, () => new RegisterComponent());
+}
+
+function flushCodeDebounce(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 450));
+}

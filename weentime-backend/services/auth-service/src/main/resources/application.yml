@@ -41,3 +41,6 @@ jwt:
 application:
   config:
     organisation-service: http://localhost:8190
+
+integration:
+  internal-api-key: ${INTERNAL_API_KEY:communication-service-local}

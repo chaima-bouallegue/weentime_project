@@ -47,7 +47,9 @@ export interface ActivityItem {
 
 export interface TwoFactorSetupResponse {
   secret: string;
-  qrCodeUrl: string;
+  qrCodeUrl?: string;
+  otpauthUrl?: string;
+  qrCodeBase64?: string;
   setupToken?: string;
 }
 
@@ -140,19 +142,27 @@ export class ProfileService {
     );
   }
 
-  setup2fa(type: 'AUTHENTICATOR' | 'EMAIL'): Observable<TwoFactorSetupResponse> {
-    return this.http.post<any>(this.apiConfig.AUTH.SETUP_2FA, {}, { params: { type } }).pipe(
+  setup2fa(type: 'TOTP' | 'AUTHENTICATOR' | 'EMAIL' | 'SMS'): Observable<TwoFactorSetupResponse> {
+    const endpoint = type === 'EMAIL'
+      ? this.apiConfig.AUTH.SETUP_EMAIL_2FA
+      : type === 'SMS'
+        ? this.apiConfig.AUTH.SETUP_SMS_2FA
+        : this.apiConfig.AUTH.SETUP_TOTP_2FA;
+    return this.http.post<any>(endpoint, {}).pipe(
       map(response => this.unwrap<TwoFactorSetupResponse>(response))
     );
   }
 
   confirm2fa(
-    type: 'AUTHENTICATOR' | 'EMAIL',
+    type: 'TOTP' | 'AUTHENTICATOR' | 'EMAIL' | 'SMS',
     code: string,
     secret?: string,
     setupToken?: string
   ): Observable<{ message: string; backupCodes: string[] }> {
-    return this.http.post<any>(this.apiConfig.AUTH.CONFIRM_2FA, {
+    const endpoint = type === 'TOTP' || type === 'AUTHENTICATOR'
+      ? this.apiConfig.AUTH.CONFIRM_TOTP_2FA
+      : this.apiConfig.AUTH.CONFIRM_2FA;
+    return this.http.post<any>(endpoint, {
       type,
       code,
       secret,
@@ -162,8 +172,8 @@ export class ProfileService {
     );
   }
 
-  disable2fa(): Observable<void> {
-    return this.http.post<any>(this.apiConfig.AUTH.DISABLE_2FA, {}).pipe(
+  disable2fa(password?: string, code?: string): Observable<void> {
+    return this.http.post<any>(this.apiConfig.AUTH.DISABLE_2FA, { password, code }).pipe(
       map(() => void 0)
     );
   }

@@ -1,7 +1,9 @@
 package com.weentime.weentimeapp.client;
 
 import com.weentime.weentimeapp.dto.RegisterRequest;
+import com.weentime.weentimeapp.dto.StoreTwoFactorOtpRequest;
 import com.weentime.weentimeapp.dto.UtilisateurAuthDTO;
+import com.weentime.weentimeapp.dto.VerifyTwoFactorOtpRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -24,24 +26,30 @@ public interface OrganisationServiceClient {
     @PostMapping("/api/v1/organisations/users/register")
     ResponseEntity<com.weentime.weentimeapp.dto.UtilisateurAuthDTO> registerUser(@RequestBody RegisterRequest request);
 
-    @PostMapping("/api/v1/organisations/users/2fa/update")
+    @PostMapping("/api/v1/organisations/internal/users/2fa/update")
     ResponseEntity<Void> update2faSettings(@RequestParam("email") String email, 
                                            @RequestParam("enabled") boolean enabled,
                                            @RequestParam(value = "type", required = false) String type,
                                            @RequestParam(value = "secret", required = false) String secret);
 
-    @PostMapping("/api/v1/organisations/users/2fa/backup-codes")
+    @PostMapping("/api/v1/organisations/internal/users/2fa/backup-codes")
     ResponseEntity<Void> updateBackupCodes(@RequestParam("email") String email,
                                             @RequestBody java.util.List<String> codes);
 
-    @PostMapping("/api/v1/organisations/users/2fa/failure")
+    @PostMapping("/api/v1/organisations/internal/users/2fa/failure")
     ResponseEntity<java.util.Map<String, Object>> register2faFailure(@RequestParam("email") String email);
 
-    @PostMapping("/api/v1/organisations/users/2fa/reset")
+    @PostMapping("/api/v1/organisations/internal/users/2fa/reset")
     ResponseEntity<Void> reset2faAttempts(@RequestParam("email") String email);
 
-    @PostMapping("/api/v1/organisations/users/2fa/consume-backup-code")
+    @PostMapping("/api/v1/organisations/internal/users/2fa/consume-backup-code")
     ResponseEntity<Void> consumeBackupCode(@RequestParam("email") String email, @RequestParam("code") String code);
+
+    @PostMapping("/api/v1/organisations/internal/users/2fa/otp")
+    ResponseEntity<Void> storeTwoFactorOtp(@RequestBody StoreTwoFactorOtpRequest request);
+
+    @PostMapping("/api/v1/organisations/internal/users/2fa/otp/verify")
+    ResponseEntity<com.weentime.weentimeapp.dto.OtpVerificationResponse> verifyTwoFactorOtp(@RequestBody VerifyTwoFactorOtpRequest request);
 
     @PostMapping("/api/v1/organisations/internal/create-rh")
     ResponseEntity<com.weentime.weentimeapp.dto.CreateRhResponse> createRhUser(@RequestBody com.weentime.weentimeapp.dto.CreateRhRequest request);

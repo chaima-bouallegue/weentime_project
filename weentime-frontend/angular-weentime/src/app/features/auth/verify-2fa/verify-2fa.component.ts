@@ -1,9 +1,9 @@
-import { Component, OnInit, inject, signal, viewChildren, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, viewChildren, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
-import { AuthService } from '../../../core/services/auth.service';
+import { AuthService, TwoFactorMethod } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LogoComponent } from '../../../shared/components/logo/logo.component';
 
@@ -34,7 +34,7 @@ import { LogoComponent } from '../../../shared/components/logo/logo.component';
     }
   `]
 })
-export class Verify2faComponent implements OnInit, AfterViewInit {
+export class Verify2faComponent implements OnInit, AfterViewInit, OnDestroy {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -42,18 +42,32 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
 
   tempToken = signal<string | null>(null);
   isLoading = signal(false);
+  isSending = signal(false);
   error = signal<string | null>(null);
   showBackupOption = signal(false);
+  availableMethods = signal<TwoFactorMethod[]>(['TOTP']);
+  selectedMethod = signal<TwoFactorMethod>('TOTP');
+  maskedEmail = signal<string | null>(null);
+  maskedPhone = signal<string | null>(null);
+  resendSeconds = signal(0);
 
   // Array of 6 digits
   digits = signal<string[]>(['', '', '', '', '', '']);
 
   private inputElements = viewChildren<ElementRef>('digitInput');
+  private resendTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     const navigationState = this.router.getCurrentNavigation()?.extras.state ?? history.state;
     const tempToken = typeof navigationState?.tempToken === 'string' ? navigationState.tempToken : null;
     this.tempToken.set(tempToken);
+    const methods = Array.isArray(navigationState?.availableMethods) && navigationState.availableMethods.length
+      ? navigationState.availableMethods.map((method: string) => this.normalizeMethod(method)).filter(Boolean)
+      : ['TOTP'];
+    this.availableMethods.set([...new Set(methods)] as TwoFactorMethod[]);
+    this.selectedMethod.set(this.availableMethods()[0] ?? 'TOTP');
+    this.maskedEmail.set(typeof navigationState?.maskedEmail === 'string' ? navigationState.maskedEmail : null);
+    this.maskedPhone.set(typeof navigationState?.maskedPhone === 'string' ? navigationState.maskedPhone : null);
 
     if (!this.tempToken()) {
       void this.router.navigate(['/login'], { replaceUrl: true });
@@ -61,6 +75,10 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
     }
 
     this.rememberMe = !!navigationState?.rememberMe;
+
+    if (this.selectedMethod() !== 'TOTP') {
+      this.sendCode();
+    }
   }
 
   private rememberMe = false;
@@ -73,6 +91,38 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
         inputs[0].nativeElement.focus();
       }
     }, 500);
+  }
+
+  ngOnDestroy() {
+    if (this.resendTimer) {
+      clearInterval(this.resendTimer);
+    }
+  }
+
+  selectMethod(method: TwoFactorMethod) {
+    if (this.selectedMethod() === method || this.isLoading()) return;
+    this.selectedMethod.set(method);
+    this.error.set(null);
+    this.digits.set(['', '', '', '', '', '']);
+    if (method !== 'TOTP') {
+      this.sendCode();
+    }
+  }
+
+  sendCode() {
+    if (!this.tempToken() || this.selectedMethod() === 'TOTP' || this.resendSeconds() > 0) return;
+    this.isSending.set(true);
+    this.error.set(null);
+    this.authService.send2faCode(this.selectedMethod(), this.tempToken()!).subscribe({
+      next: () => {
+        this.isSending.set(false);
+        this.startResendCountdown();
+      },
+      error: (err) => {
+        this.isSending.set(false);
+        this.error.set(this.resolve2faError(err));
+      }
+    });
   }
 
   onInput(event: any, index: number) {
@@ -127,18 +177,14 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.authService.verify2fa(code, this.tempToken()!, this.rememberMe).subscribe({
+    this.authService.verify2fa(code, this.tempToken()!, this.rememberMe, this.selectedMethod()).subscribe({
       next: (res) => {
         this.isLoading.set(false);
         this.redirectByUserRole(res);
       },
       error: (err) => {
         this.isLoading.set(false);
-        if (err.status === 429) {
-          this.error.set("Trop de tentatives. Votre compte est bloqué pour 10 minutes.");
-        } else {
-          this.error.set("Code invalide ou expiré.");
-        }
+        this.error.set(this.resolve2faError(err));
         // Visual feedback
         this.digits.set(['', '', '', '', '', '']);
         this.inputElements()[0].nativeElement.focus();
@@ -162,5 +208,50 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
   toggleBackup() {
     this.showBackupOption.set(!this.showBackupOption());
     this.error.set(null);
+  }
+
+  methodLabel(method: TwoFactorMethod): string {
+    switch (method) {
+      case 'EMAIL': return 'Email';
+      case 'SMS': return 'SMS';
+      default: return 'Authenticator';
+    }
+  }
+
+  methodHint(): string {
+    switch (this.selectedMethod()) {
+      case 'EMAIL':
+        return this.maskedEmail() ? `Code envoyé à ${this.maskedEmail()}` : 'Code envoyé par email.';
+      case 'SMS':
+        return this.maskedPhone() ? `Code envoyé au ${this.maskedPhone()}` : 'Code envoyé par SMS.';
+      default:
+        return 'Entrez le code généré par votre application d’authentification.';
+    }
+  }
+
+  private startResendCountdown() {
+    this.resendSeconds.set(60);
+    if (this.resendTimer) clearInterval(this.resendTimer);
+    this.resendTimer = setInterval(() => {
+      const next = this.resendSeconds() - 1;
+      this.resendSeconds.set(Math.max(0, next));
+      if (next <= 0 && this.resendTimer) {
+        clearInterval(this.resendTimer);
+        this.resendTimer = null;
+      }
+    }, 1000);
+  }
+
+  private normalizeMethod(value: string): TwoFactorMethod | null {
+    const normalized = value.toUpperCase() === 'AUTHENTICATOR' ? 'TOTP' : value.toUpperCase();
+    return ['TOTP', 'EMAIL', 'SMS'].includes(normalized) ? normalized as TwoFactorMethod : null;
+  }
+
+  private resolve2faError(err: any): string {
+    const reason = err?.error?.error || err?.error?.reason;
+    if (err?.status === 0) return 'Service indisponible. Réessayez plus tard.';
+    if (err?.status === 429 || reason === 'TOO_MANY_ATTEMPTS') return 'Trop de tentatives. Réessayez plus tard.';
+    if (reason === 'OTP_EXPIRED' || reason === 'OTP_NOT_FOUND' || reason === 'INVALID_TEMP_TOKEN') return 'Code expiré.';
+    return 'Code incorrect.';
   }
 }

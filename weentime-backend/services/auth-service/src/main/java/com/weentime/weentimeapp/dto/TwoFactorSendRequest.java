@@ -4,13 +4,13 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class Verify2faRequest {
+public class TwoFactorSendRequest {
     @NotBlank
-    private String code;
+    private String method;
 
+    private String purpose = "LOGIN";
     private String tempToken;
     private String temporaryToken;
-    private String method;
 
     public String resolveTemporaryToken() {
         return temporaryToken != null && !temporaryToken.isBlank() ? temporaryToken : tempToken;

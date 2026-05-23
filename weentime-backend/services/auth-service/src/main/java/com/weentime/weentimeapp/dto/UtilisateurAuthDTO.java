@@ -8,6 +8,7 @@ public class UtilisateurAuthDTO {
     private Long id;
     private String email;
     private String motDePasse;
+    private String telephone;
     private String statut;
     private Long entrepriseId;
     private Set<RoleDTO> roles;
@@ -26,6 +27,9 @@ public class UtilisateurAuthDTO {
 
     public String getMotDePasse() { return motDePasse; }
     public void setMotDePasse(String motDePasse) { this.motDePasse = motDePasse; }
+
+    public String getTelephone() { return telephone; }
+    public void setTelephone(String telephone) { this.telephone = telephone; }
 
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }

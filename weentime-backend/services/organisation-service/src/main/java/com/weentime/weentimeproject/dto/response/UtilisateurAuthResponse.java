@@ -21,6 +21,7 @@ public class UtilisateurAuthResponse {
     private Long id;
     private String email;
     private String motDePasse;
+    private String telephone;
     private String statut;
     private Long entrepriseId;
     private Set<RoleDTO> roles;
