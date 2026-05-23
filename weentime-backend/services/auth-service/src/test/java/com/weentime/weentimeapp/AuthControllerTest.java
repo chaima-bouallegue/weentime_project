@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.weentimeapp.client.OrganisationServiceClient;
 import com.weentime.weentimeapp.controller.AuthController;
 import com.weentime.weentimeapp.dto.LoginRequest;
+import com.weentime.weentimeapp.dto.StoreTwoFactorOtpRequest;
+import com.weentime.weentimeapp.dto.TwoFactorSendRequest;
+import com.weentime.weentimeapp.dto.UtilisateurAuthDTO;
 import com.weentime.weentimeapp.dto.Verify2faRequest;
 import com.weentime.weentimeapp.security.JwtUtils;
 import com.weentime.weentimeapp.security.services.EmailService;
@@ -17,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -125,7 +130,40 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.tempToken").value("temp-token"))
                 .andExpect(jsonPath("$.data.temporaryToken").value("temp-token"))
                 .andExpect(jsonPath("$.data.token").isEmpty())
-                .andExpect(jsonPath("$.data.availableMethods[0]").value("TOTP"));
+                .andExpect(jsonPath("$.data.availableMethods[0]").value("TOTP"))
+                .andExpect(jsonPath("$.data.availableMethods[1]").value("EMAIL"));
+    }
+
+    @Test
+    void send2fa_allows_email_fallback_with_valid_temporary_token() throws Exception {
+        UtilisateurAuthDTO dto = new UtilisateurAuthDTO();
+        dto.setEmail("user@test.com");
+        dto.setTwoFactorEnabled(true);
+        dto.setTwoFactorType("TOTP");
+        dto.setTwoFactorSecret("encrypted-secret");
+
+        Mockito.when(jwtUtils.validateJwtToken("temp-token")).thenReturn(true);
+        Mockito.when(jwtUtils.isTwoFactorToken("temp-token")).thenReturn(true);
+        Mockito.when(jwtUtils.getUserNameFromJwtToken("temp-token")).thenReturn("user@test.com");
+        Mockito.when(organisationServiceClient.getUserByEmail("user@test.com")).thenReturn(ResponseEntity.ok(dto));
+        Mockito.when(twoFactorService.generateOtpCode()).thenReturn("123456");
+        Mockito.when(twoFactorService.hashBackupCode("123456")).thenReturn("hashed-code");
+        Mockito.when(organisationServiceClient.storeTwoFactorOtp(any(StoreTwoFactorOtpRequest.class)))
+                .thenReturn(ResponseEntity.status(201).build());
+
+        TwoFactorSendRequest request = new TwoFactorSendRequest();
+        request.setTemporaryToken("temp-token");
+        request.setMethod("EMAIL");
+        request.setPurpose("LOGIN");
+
+        mockMvc.perform(post("/api/v1/auth/2fa/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(emailService).sendOtpCode("user@test.com", "123456");
+        verify(organisationServiceClient).storeTwoFactorOtp(any(StoreTwoFactorOtpRequest.class));
     }
 
     @Test

@@ -16,6 +16,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
+import java.net.URLEncoder;
 import java.security.Key;
 import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +70,9 @@ public class TwoFactorService {
     }
 
     public boolean verifyTotpCode(String secret, String codeStr) {
+        if (secret == null || secret.isBlank() || codeStr == null || !codeStr.matches("\\d{6}")) {
+            return false;
+        }
         try {
             int code = Integer.parseInt(codeStr);
             return googleAuthenticator.authorize(secret, code);
@@ -83,7 +87,12 @@ public class TwoFactorService {
     }
 
     public String buildOtpAuthUrl(String email, String secret) {
-        return "otpauth://totp/WeenTime:" + email + "?secret=" + secret + "&issuer=WeenTime";
+        String issuer = urlEncode("WeenTime");
+        String account = urlEncode(email);
+        return "otpauth://totp/" + issuer + ":" + account
+                + "?secret=" + secret
+                + "&issuer=" + issuer
+                + "&digits=6&period=30";
     }
 
     public String generateQrCodeBase64(String value) {
@@ -166,5 +175,9 @@ public class TwoFactorService {
             throw new IllegalStateException("La cle encryption.secret doit contenir 16, 24 ou 32 octets.");
         }
         return new SecretKeySpec(keyBytes, "AES");
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

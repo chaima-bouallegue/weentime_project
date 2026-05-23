@@ -225,7 +225,7 @@ export class Verify2faComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'SMS':
         return this.maskedPhone() ? `Code envoyé au ${this.maskedPhone()}` : 'Code envoyé par SMS.';
       default:
-        return 'Entrez le code généré par votre application d’authentification.';
+        return 'Entrez le code à 6 chiffres de Google Authenticator / Microsoft Authenticator.';
     }
   }
 
@@ -251,7 +251,9 @@ export class Verify2faComponent implements OnInit, AfterViewInit, OnDestroy {
     const reason = err?.error?.error || err?.error?.reason;
     if (err?.status === 0) return 'Service indisponible. Réessayez plus tard.';
     if (err?.status === 429 || reason === 'TOO_MANY_ATTEMPTS') return 'Trop de tentatives. Réessayez plus tard.';
-    if (reason === 'OTP_EXPIRED' || reason === 'OTP_NOT_FOUND' || reason === 'INVALID_TEMP_TOKEN') return 'Code expiré.';
+    if (reason === 'INVALID_TEMP_TOKEN') return 'Session expirée. Reconnectez-vous.';
+    if (reason === 'OTP_EXPIRED' || reason === 'OTP_NOT_FOUND') return 'Code expiré.';
+    if (reason === 'EMAIL_OTP_PROVIDER_NOT_CONFIGURED' || reason === 'SMS_PROVIDER_NOT_CONFIGURED') return 'Service indisponible. Réessayez plus tard.';
     return 'Code incorrect.';
   }
 }

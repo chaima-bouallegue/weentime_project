@@ -93,7 +93,9 @@ public class JwtUtils {
         if (purpose == null) {
             return hasUserId;
         }
-        return "ACCESS".equals(String.valueOf(purpose)) && hasUserId;
+        return "ACCESS".equals(String.valueOf(purpose))
+                && hasUserId
+                && isTruthy(claims.get("twoFactorVerified"));
     }
 
     public String getTokenPurpose(String token) {
@@ -138,5 +140,9 @@ public class JwtUtils {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    private boolean isTruthy(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 }

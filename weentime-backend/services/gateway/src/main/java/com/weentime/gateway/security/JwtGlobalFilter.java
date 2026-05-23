@@ -41,13 +41,22 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.startsWith("/api/v1/ai/chat/history/");
     }
 
+    private boolean isPublicAuthPath(String path) {
+        return path.equals("/api/v1/auth/login")
+                || path.equals("/api/v1/auth/register")
+                || path.equals("/api/v1/auth/verify-2fa")
+                || path.equals("/api/v1/auth/2fa/verify")
+                || path.equals("/api/v1/auth/2fa/send")
+                || path.equals("/api/v1/auth/validate");
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
         HttpMethod method = exchange.getRequest().getMethod();
 
         if (HttpMethod.OPTIONS.equals(method)
-                || path.startsWith("/api/v1/auth/")
+                || isPublicAuthPath(path)
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/service/")

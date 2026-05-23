@@ -10,6 +10,7 @@ export const environment = {
   // Production keeps the chatbot fully authenticated. Demo/public mode must
   // remain disabled in production builds.
   chatbotPublicMode: false,
+  smsOtpEnabled: false,
 
   // WebSocket base URL used when a specific channel URL is not provided.
   wsUrl: 'http://localhost:8222',

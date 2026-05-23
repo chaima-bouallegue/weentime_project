@@ -35,9 +35,15 @@ public class JwtUtils {
             if (purpose == null) {
                 return userId != null;
             }
-            return "ACCESS".equals(String.valueOf(purpose)) && userId != null;
+            return "ACCESS".equals(String.valueOf(purpose))
+                    && userId != null
+                    && isTruthy(claims.get("twoFactorVerified"));
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private boolean isTruthy(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 }

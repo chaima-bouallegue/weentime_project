@@ -142,7 +142,7 @@ describe('RegisterComponent invitation code validation', () => {
         email: 'jane@example.com',
         password: 'Password123!',
         jobTitle: 'Manager',
-        phone: '+216 12 345 678'
+        telephone: '+216 12 345 678'
       },
       step4: { acceptTerms: true }
     });

@@ -73,7 +73,9 @@ public class JwtUtils {
         if (purpose == null) {
             return userId != null;
         }
-        return "ACCESS".equals(String.valueOf(purpose)) && userId != null;
+        return "ACCESS".equals(String.valueOf(purpose))
+                && userId != null
+                && isTruthy(claims.get("twoFactorVerified"));
     }
 
     public boolean validateJwtToken(String authToken) {
@@ -98,5 +100,9 @@ public class JwtUtils {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    private boolean isTruthy(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 }

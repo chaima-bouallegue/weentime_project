@@ -9,6 +9,7 @@ export const environment = {
   mlServiceUrl: 'http://127.0.0.1:8001',
   // Set to true when the AI service runs with CHATBOT_PUBLIC_MODE=true.
   chatbotPublicMode: false,
+  smsOtpEnabled: false,
   wsUrl: 'http://localhost:8322',
   websocket: {
     notifications: 'http://localhost:8222/ws/notifications',

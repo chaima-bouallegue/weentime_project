@@ -12,11 +12,15 @@ public class SmsOtpSender {
     private final Environment environment;
 
     public void sendOtpCode(String phoneNumber, String code) {
-        if (isDevProfile()) {
+        if (isAvailable()) {
             log.warn("[DEV ONLY] SMS OTP for {}: {}", phoneNumber, code);
             return;
         }
         throw new IllegalStateException("SMS_PROVIDER_NOT_CONFIGURED");
+    }
+
+    public boolean isAvailable() {
+        return isDevProfile();
     }
 
     private boolean isDevProfile() {

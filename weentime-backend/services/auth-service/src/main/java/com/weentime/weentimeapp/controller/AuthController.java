@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.MailException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -89,7 +90,7 @@ public class AuthController {
                             .tempToken(tempToken)
                             .temporaryToken(tempToken)
                             .email(userDetails.getEmail())
-                            .availableMethods(availableMethods(method))
+                            .availableMethods(availableMethods(userDetails))
                             .maskedEmail(maskEmail(userDetails.getEmail()))
                             .maskedPhone(maskPhone(userDetails.getTelephone()))
                             .build(),
@@ -153,6 +154,10 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.failure("USER_NOT_FOUND", "Utilisateur non trouve"));
         }
+        if (!isMethodAvailable(dto, type)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.failure("METHOD_NOT_ALLOWED", "Methode 2FA non autorisee pour cette connexion."));
+        }
 
         if (twoFactorService.isUserLocked(email)
                 || (dto.getLockoutEnd() != null && dto.getLockoutEnd().isAfter(LocalDateTime.now()))) {
@@ -162,6 +167,10 @@ public class AuthController {
 
         boolean isValid;
         if (isTotpMethod(type)) {
+            if (dto.getTwoFactorSecret() == null || dto.getTwoFactorSecret().isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.failure("INVALID_2FA_CONFIGURATION", "Configuration TOTP introuvable."));
+            }
             String plainSecret = twoFactorService.decrypt(dto.getTwoFactorSecret());
             isValid = twoFactorService.verifyTotpCode(plainSecret, request.getCode());
         } else {
@@ -232,14 +241,17 @@ public class AuthController {
         }
 
         String email = jwtUtils.getUserNameFromJwtToken(temporaryToken);
-        String tokenMethod = normalizeTwoFactorMethod(jwtUtils.getTypeFrom2faToken(temporaryToken));
         String requestedMethod = normalizeTwoFactorMethod(request.getMethod());
-        if (!tokenMethod.equals(requestedMethod)) {
+        if (!"EMAIL".equals(requestedMethod) && !"SMS".equals(requestedMethod)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.failure("METHOD_NOT_ALLOWED", "Méthode 2FA non autorisée pour cette connexion."));
         }
 
         UtilisateurAuthDTO user = organisationServiceClient.getUserByEmail(email).getBody();
+        if (!isMethodAvailable(user, requestedMethod)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.failure("METHOD_NOT_ALLOWED", "Methode 2FA non autorisee pour cette connexion."));
+        }
         return sendOtpToUser(user, requestedMethod, request.getPurpose(), getClientIp(servletRequest));
     }
 
@@ -464,13 +476,13 @@ public class AuthController {
                     .body(ApiResponse.failure("PHONE_REQUIRED", "Aucun numéro de téléphone n'est associé à ce compte."));
         }
 
+        if ("SMS".equals(method) && !smsOtpSender.isAvailable()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ApiResponse.failure("SMS_PROVIDER_NOT_CONFIGURED", "Service SMS indisponible pour le moment."));
+        }
+
         String code = twoFactorService.generateOtpCode();
         try {
-            if ("EMAIL".equals(method)) {
-                emailService.sendOtpCode(user.getEmail(), code);
-            } else {
-                smsOtpSender.sendOtpCode(user.getTelephone(), code);
-            }
             organisationServiceClient.storeTwoFactorOtp(StoreTwoFactorOtpRequest.builder()
                     .email(user.getEmail())
                     .method(method)
@@ -478,9 +490,17 @@ public class AuthController {
                     .codeHash(twoFactorService.hashBackupCode(code))
                     .ipAddress(ipAddress)
                     .build());
+            if ("EMAIL".equals(method)) {
+                emailService.sendOtpCode(user.getEmail(), code);
+            } else {
+                smsOtpSender.sendOtpCode(user.getTelephone(), code);
+            }
         } catch (FeignException.Conflict exception) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(ApiResponse.failure("OTP_RESEND_COOLDOWN", "Patientez avant de demander un nouveau code."));
+        } catch (MailException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ApiResponse.failure("EMAIL_OTP_PROVIDER_NOT_CONFIGURED", "Email OTP provider is not configured."));
         } catch (IllegalStateException exception) {
             if ("SMS_PROVIDER_NOT_CONFIGURED".equals(exception.getMessage())) {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -525,6 +545,9 @@ public class AuthController {
         }
         String method = normalizeTwoFactorMethod(dto.getTwoFactorType());
         if (isTotpMethod(method)) {
+            if (dto.getTwoFactorSecret() == null || dto.getTwoFactorSecret().isBlank()) {
+                return false;
+            }
             return twoFactorService.verifyTotpCode(twoFactorService.decrypt(dto.getTwoFactorSecret()), request.getCode());
         }
         OtpVerificationResponse otpResult = organisationServiceClient.verifyTwoFactorOtp(VerifyTwoFactorOtpRequest.builder()
@@ -548,8 +571,39 @@ public class AuthController {
         return backupCodes;
     }
 
-    private List<String> availableMethods(String method) {
-        return List.of(normalizeTwoFactorMethod(method));
+    private List<String> availableMethods(UserDetailsImpl userDetails) {
+        List<String> methods = new ArrayList<>();
+        String primaryMethod = normalizeTwoFactorMethod(userDetails.getTwoFactorType());
+        methods.add(primaryMethod);
+        if (userDetails.getEmail() != null && !userDetails.getEmail().isBlank() && !methods.contains("EMAIL")) {
+            methods.add("EMAIL");
+        }
+        if (userDetails.getTelephone() != null && !userDetails.getTelephone().isBlank()
+                && smsOtpSender.isAvailable() && !methods.contains("SMS")) {
+            methods.add("SMS");
+        }
+        return methods;
+    }
+
+    private List<String> availableMethods(UtilisateurAuthDTO user) {
+        if (user == null) {
+            return List.of();
+        }
+        List<String> methods = new ArrayList<>();
+        String primaryMethod = normalizeTwoFactorMethod(user.getTwoFactorType());
+        methods.add(primaryMethod);
+        if (user.getEmail() != null && !user.getEmail().isBlank() && !methods.contains("EMAIL")) {
+            methods.add("EMAIL");
+        }
+        if (user.getTelephone() != null && !user.getTelephone().isBlank()
+                && smsOtpSender.isAvailable() && !methods.contains("SMS")) {
+            methods.add("SMS");
+        }
+        return methods;
+    }
+
+    private boolean isMethodAvailable(UtilisateurAuthDTO user, String method) {
+        return availableMethods(user).contains(normalizeTwoFactorMethod(method));
     }
 
     private String normalizeTwoFactorMethod(String method) {

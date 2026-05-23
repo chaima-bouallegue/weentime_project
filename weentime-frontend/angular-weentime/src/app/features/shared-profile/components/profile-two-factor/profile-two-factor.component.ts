@@ -5,6 +5,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ProfileService, TwoFactorSetupResponse } from '../../profile.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UserProfile } from '../../profile.service';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-profile-two-factor',
@@ -53,13 +54,13 @@ import { UserProfile } from '../../profile.service';
               <lucide-icon name="chevron-right" size="16" class="arrow"></lucide-icon>
             </button>
 
-            <button (click)="startSetup('SMS')" class="option-btn" [disabled]="!profile?.telephone">
+            <button (click)="startSetup('SMS')" class="option-btn" [disabled]="!smsOtpEnabled || !profile?.telephone">
               <div class="option-icon bg-indigo">
                 <lucide-icon name="message-square" size="18"></lucide-icon>
               </div>
               <div class="option-text">
                 <span class="option-title">Code SMS</span>
-                <span class="option-desc">{{ profile?.telephone ? 'Recevez un code sur votre téléphone.' : 'Ajoutez un téléphone pour activer cette méthode.' }}</span>
+                <span class="option-desc">{{ smsDescription }}</span>
               </div>
               <lucide-icon name="chevron-right" size="16" class="arrow"></lucide-icon>
             </button>
@@ -305,6 +306,7 @@ export class ProfileTwoFactorComponent implements OnChanges {
   disablePassword = '';
   backupCodes = signal<string[]>([]);
   loading = signal(false);
+  readonly smsOtpEnabled = environment.smsOtpEnabled === true;
 
   ngOnChanges() {
     this.is2faEnabled = !!this.profile?.twoFactorEnabled;
@@ -314,7 +316,20 @@ export class ProfileTwoFactorComponent implements OnChanges {
     return url;
   }
 
+  get smsDescription(): string {
+    if (!this.smsOtpEnabled) {
+      return 'Architecture prête, fournisseur SMS non configuré.';
+    }
+    return this.profile?.telephone
+      ? 'Recevez un code sur votre téléphone.'
+      : 'Ajoutez un téléphone pour activer cette méthode.';
+  }
+
   startSetup(type: 'TOTP' | 'EMAIL' | 'SMS') {
+    if (type === 'SMS' && (!this.smsOtpEnabled || !this.profile?.telephone)) {
+      this.toastService.error('Service SMS indisponible pour le moment.');
+      return;
+    }
     this.loading.set(true);
     this.setupType = type;
     this.profileService.setup2fa(type).subscribe({

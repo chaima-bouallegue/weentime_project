@@ -61,7 +61,7 @@ export class RegisterComponent implements OnDestroy {
             email: ['', [Validators.required, Validators.email]],
             password: ['', [Validators.required, Validators.minLength(8)]],
             jobTitle: ['', [Validators.required]],
-            phone: ['', [Validators.pattern(/^(\+|00)[0-9\s().-]{8,20}$/)]]
+            telephone: ['', [Validators.pattern(/^(\+|00)[0-9\s().-]{8,20}$/)]]
         }),
         step3: this.fb.group({}), // Photo step is optional
         step4: this.fb.group({
@@ -247,7 +247,7 @@ export class RegisterComponent implements OnDestroy {
             prenom: formValue.step2.firstName,
             email: formValue.step2.email,
             motDePasse: formValue.step2.password,
-            telephone: this.normalizePhoneNumber(formValue.step2.phone),
+            telephone: this.normalizePhoneNumber(formValue.step2.telephone),
             poste: formValue.step2.jobTitle,
             entrepriseId: this.foundCompany()?.id,
             photo: this.base64Photo()
