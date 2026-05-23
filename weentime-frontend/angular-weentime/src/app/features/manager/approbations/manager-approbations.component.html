@@ -11,141 +11,159 @@
     </button>
   </header>
 
-  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bento-stat-card warning">
-      <div class="stat-icon-box"><lucide-angular [img]="iconInbox" size="24"></lucide-angular></div>
-      <div class="stat-content">
-        <span class="stat-label">En attente</span>
-        <div class="stat-value">{{ pendingCount() }}</div>
-      </div>
-    </div>
-    <div class="bento-stat-card info">
-      <div class="stat-icon-box"><lucide-angular [img]="iconShield" size="24"></lucide-angular></div>
-      <div class="stat-content">
-        <span class="stat-label">Transmis RH</span>
-        <div class="stat-value">{{ forwardedCount() }}</div>
-      </div>
-    </div>
-    <div class="bento-stat-card success">
-      <div class="stat-icon-box"><lucide-angular [img]="iconBadgeCheck" size="24"></lucide-angular></div>
-      <div class="stat-content">
-        <span class="stat-label">Approuves</span>
-        <div class="stat-value">{{ approvedCount() }}</div>
-      </div>
-    </div>
-    <div class="bento-stat-card danger">
-      <div class="stat-icon-box"><lucide-angular [img]="iconXCircle" size="24"></lucide-angular></div>
-      <div class="stat-content">
-        <span class="stat-label">Refuses</span>
-        <div class="stat-value">{{ rejectedCount() }}</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="bento-card p-6 mb-8 filter-panel">
-    <div class="flex flex-col lg:flex-row gap-8 items-center justify-between">
-      <div class="status-tabs">
-        @for (tab of statusTabs; track tab.value) {
-          <button type="button" class="status-tab" [class.active]="statusGroup() === tab.value" (click)="statusGroup.set(tab.value)">
-            {{ tab.label }}
-          </button>
+  @if (isManagerOrRh()) {
+    <div class="flex border-b border-slate-100 dark:border-slate-800 mb-8">
+      <button (click)="activeTab.set('mes-demandes')" class="px-6 py-3 font-bold text-sm transition-all border-b-2" [class.border-indigo-600]="activeTab() === 'mes-demandes'" [class.text-indigo-600]="activeTab() === 'mes-demandes'" [class.border-transparent]="activeTab() !== 'mes-demandes'" [class.text-slate-400]="activeTab() !== 'mes-demandes'">
+        Mes demandes
+      </button>
+      <button (click)="activeTab.set('mon-equipe')" class="px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2" [class.border-indigo-600]="activeTab() === 'mon-equipe'" [class.text-indigo-600]="activeTab() === 'mon-equipe'" [class.border-transparent]="activeTab() !== 'mon-equipe'" [class.text-slate-400]="activeTab() !== 'mon-equipe'">
+        <span>Mon équipe</span>
+        @if (pendingCount() > 0) {
+          <span class="px-2 py-0.5 text-[10px] font-black bg-rose-500 text-white rounded-full">{{ pendingCount() }}</span>
         }
-      </div>
-
-      <div class="flex flex-wrap gap-4 items-center flex-1 justify-end max-w-2xl">
-        <div class="search-box flex-1 min-w-[240px]">
-          <lucide-angular [img]="iconSearch" size="16"></lucide-angular>
-          <input type="text" [ngModel]="employeeFilter()" (ngModelChange)="employeeFilter.set($event)" placeholder="Rechercher un employe ou email">
-        </div>
-
-        <select class="type-select" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)">
-          <option value="">Tous les types</option>
-          @for (type of requestTypes(); track type) {
-            <option [value]="type">{{ requestTypeOptionLabel(type) }}</option>
-          }
-        </select>
-      </div>
-    </div>
-  </section>
-
-  @if (errorMessage()) {
-    <div class="inline-alert mb-8">
-      <lucide-angular [img]="iconAlert" size="18"></lucide-angular>
-      <span>{{ errorMessage() }}</span>
+      </button>
     </div>
   }
 
-  @if (isLoading()) {
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      @for (i of [1,2,3,4,5,6]; track i) {
-        <div class="h-64 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
-      }
-    </div>
-  } @else if (filteredRequests().length === 0) {
-    <div class="bento-card p-20 text-center">
-      <div class="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center mx-auto mb-6">
-        <lucide-angular [img]="iconInbox" size="32" class="text-slate-200"></lucide-angular>
-      </div>
-      <h3 class="text-xl font-black text-slate-900 dark:text-white mb-2">Aucune demande trouvee</h3>
-      <p class="text-slate-400 font-medium">Modifiez vos filtres ou revenez plus tard.</p>
-    </div>
+  @if (activeTab() === 'mes-demandes') {
+    <app-employee-conges></app-employee-conges>
   } @else {
-    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      @for (demande of filteredRequests(); track demande.id) {
-        <article class="request-card bento-card p-6 group">
-          <div class="flex justify-between items-start mb-6">
-            <div class="flex flex-col gap-2">
-              <span class="type-badge">{{ requestTypeLabel(demande) }}</span>
-              <span class="status-badge" [class]="statusMeta(demande.statut).tone">{{ statusMeta(demande.statut).label }}</span>
-            </div>
-            <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ demande.dateCreation | date:'dd MMM, HH:mm' }}</div>
-          </div>
-
-          <div class="flex items-center gap-4 mb-6">
-            <div class="avatar-box group-hover:scale-110 transition-transform">
-              {{ getInitials(requestUserName(demande)) }}
-            </div>
-            <div>
-              <h3 class="font-black text-slate-900 dark:text-white leading-tight group-hover:text-indigo-500 transition-colors">
-                {{ requestUserName(demande) }}
-              </h3>
-              <p class="text-xs text-slate-400 font-medium truncate max-w-[180px]">{{ requestUserEmail(demande) }}</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 mb-6">
-            <div class="info-pill">
-              <span class="pill-label">Periode</span>
-              <span class="pill-value">{{ (demande.dateDebut | date:'dd/MM') || '--' }} au {{ (demande.dateFin | date:'dd/MM') || '--' }}</span>
-            </div>
-            <div class="info-pill">
-              <span class="pill-label">Duree</span>
-              <span class="pill-value font-black">{{ demande.nombreJours ?? 0 }} j</span>
-            </div>
-          </div>
-
-          <div class="description-box mb-6" [title]="requestComment(demande)">
-            {{ requestComment(demande) }}
-          </div>
-
-          <div class="flex justify-between items-center pt-4 border-t border-slate-50 dark:border-slate-800">
-            <span class="age-label" [class.stale]="isStale(demande.dateCreation)">
-              <lucide-angular [img]="iconClock" size="12"></lucide-angular>
-              {{ ageLabel(demande.dateCreation) }}
-            </span>
-
-            @if (demande.statut === 'EN_ATTENTE_MANAGER') {
-              <div class="flex gap-2">
-                <button (click)="openDecision(demande, 'reject')" class="action-btn reject">Refuser</button>
-                <button (click)="openDecision(demande, 'approve')" class="action-btn approve">Valider</button>
-              </div>
-            } @else {
-              <div class="text-[10px] font-black uppercase text-slate-300 italic">Deja traite</div>
-            }
-          </div>
-        </article>
-      }
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bento-stat-card warning">
+        <div class="stat-icon-box"><lucide-angular [img]="iconInbox" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">En attente</span>
+          <div class="stat-value">{{ pendingCount() }}</div>
+        </div>
+      </div>
+      <div class="bento-stat-card info">
+        <div class="stat-icon-box"><lucide-angular [img]="iconShield" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Transmis RH</span>
+          <div class="stat-value">{{ forwardedCount() }}</div>
+        </div>
+      </div>
+      <div class="bento-stat-card success">
+        <div class="stat-icon-box"><lucide-angular [img]="iconBadgeCheck" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Approuves</span>
+          <div class="stat-value">{{ approvedCount() }}</div>
+        </div>
+      </div>
+      <div class="bento-stat-card danger">
+        <div class="stat-icon-box"><lucide-angular [img]="iconXCircle" size="24"></lucide-angular></div>
+        <div class="stat-content">
+          <span class="stat-label">Refuses</span>
+          <div class="stat-value">{{ rejectedCount() }}</div>
+        </div>
+      </div>
     </section>
+
+    <section class="bento-card p-6 mb-8 filter-panel">
+      <div class="flex flex-col lg:flex-row gap-8 items-center justify-between">
+        <div class="status-tabs">
+          @for (tab of statusTabs; track tab.value) {
+            <button type="button" class="status-tab" [class.active]="statusGroup() === tab.value" (click)="statusGroup.set(tab.value)">
+              {{ tab.label }}
+            </button>
+          }
+        </div>
+
+        <div class="flex flex-wrap gap-4 items-center flex-1 justify-end max-w-2xl">
+          <div class="search-box flex-1 min-w-[240px]">
+            <lucide-angular [img]="iconSearch" size="16"></lucide-angular>
+            <input type="text" [ngModel]="employeeFilter()" (ngModelChange)="employeeFilter.set($event)" placeholder="Rechercher un employe ou email">
+          </div>
+
+          <select class="type-select" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)">
+            <option value="">Tous les types</option>
+            @for (type of requestTypes(); track type) {
+              <option [value]="type">{{ requestTypeOptionLabel(type) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </section>
+
+    @if (errorMessage()) {
+      <div class="inline-alert mb-8">
+        <lucide-angular [img]="iconAlert" size="18"></lucide-angular>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    @if (isLoading()) {
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="h-64 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
+        }
+      </div>
+    } @else if (filteredRequests().length === 0) {
+      <div class="bento-card p-20 text-center">
+        <div class="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center mx-auto mb-6">
+          <lucide-angular [img]="iconInbox" size="32" class="text-slate-200"></lucide-angular>
+        </div>
+        <h3 class="text-xl font-black text-slate-900 dark:text-white mb-2">Aucune demande trouvee</h3>
+        <p class="text-slate-400 font-medium">Modifiez vos filtres ou revenez plus tard.</p>
+      </div>
+    } @else {
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        @for (demande of filteredRequests(); track demande.id) {
+          <article class="request-card bento-card p-6 group">
+            <div class="flex justify-between items-start mb-6">
+              <div class="flex flex-col gap-2">
+                <span class="type-badge">{{ requestTypeLabel(demande) }}</span>
+                <span class="status-badge" [class]="statusMeta(demande.statut).tone">{{ statusMeta(demande.statut).label }}</span>
+              </div>
+              <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ demande.dateCreation | date:'dd MMM, HH:mm' }}</div>
+            </div>
+
+            <div class="flex items-center gap-4 mb-6">
+              <div class="avatar-box group-hover:scale-110 transition-transform">
+                {{ getInitials(requestUserName(demande)) }}
+              </div>
+              <div>
+                <h3 class="font-black text-slate-900 dark:text-white leading-tight group-hover:text-indigo-500 transition-colors">
+                  {{ requestUserName(demande) }}
+                </h3>
+                <p class="text-xs text-slate-400 font-medium truncate max-w-[180px]">{{ requestUserEmail(demande) }}</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+              <div class="info-pill">
+                <span class="pill-label">Periode</span>
+                <span class="pill-value">{{ (demande.dateDebut | date:'dd/MM') || '--' }} au {{ (demande.dateFin | date:'dd/MM') || '--' }}</span>
+              </div>
+              <div class="info-pill">
+                <span class="pill-label">Duree</span>
+                <span class="pill-value font-black">{{ demande.nombreJours ?? 0 }} j</span>
+              </div>
+            </div>
+
+            <div class="description-box mb-6" [title]="requestComment(demande)">
+              {{ requestComment(demande) }}
+            </div>
+
+            <div class="flex justify-between items-center pt-4 border-t border-slate-50 dark:border-slate-800">
+              <span class="age-label" [class.stale]="isStale(demande.dateCreation)">
+                <lucide-angular [img]="iconClock" size="12"></lucide-angular>
+                {{ ageLabel(demande.dateCreation) }}
+              </span>
+
+              @if (demande.statut === 'EN_ATTENTE_MANAGER') {
+                <div class="flex gap-2">
+                  <button (click)="openDecision(demande, 'reject')" class="action-btn reject">Refuser</button>
+                  <button (click)="openDecision(demande, 'approve')" class="action-btn approve">Valider</button>
+                </div>
+              } @else {
+                <div class="text-[10px] font-black uppercase text-slate-300 italic">Deja traite</div>
+              }
+            </div>
+          </article>
+        }
+      </section>
+    }
   }
 
   @if (selectedDemande() && selectedAction()) {

@@ -42,6 +42,10 @@ export class ReunionService {
     return this.http.patch<void>(`${this.apiUrl}/${uuid}/cloturer`, { participantsPresents, compteRendu });
   }
 
+  update(uuid: string, data: Partial<Reunion>): Observable<Reunion> {
+    return this.http.patch<Reunion>(`${this.apiUrl}/${uuid}`, data);
+  }
+
   annuler(uuid: string): Observable<void> {
     return this.http.patch<void>(`${this.apiUrl}/${uuid}/annuler`, {});
   }

@@ -90,7 +90,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       border-radius: 20px;
       box-shadow: 0 20px 50px -12px rgba(0,0,0,0.15);
       border: 1px solid #e2e8f0;
-      z-index: 1000;
+      z-index: 2000;
       overflow: hidden;
       display: flex;
       flex-direction: column;

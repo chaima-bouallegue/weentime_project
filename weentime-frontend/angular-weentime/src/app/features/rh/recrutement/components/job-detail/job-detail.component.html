@@ -1,0 +1,306 @@
+<div class="page-container">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <i-lucide [img]="Loader2" class="w-12 h-12 animate-spin"></i-lucide>
+      <p>Chargement de l'offre...</p>
+    </div>
+  } @else if (job(); as j) {
+    <!-- Header -->
+    <header class="page-header">
+      <div class="header-main">
+        <div class="title-group">
+          <button class="back-btn" (click)="goBack()">
+            <i-lucide [img]="ChevronLeft" class="w-5 h-5"></i-lucide>
+            <span>Retour aux offres</span>
+          </button>
+          <div class="title-row">
+            <div class="job-avatar">
+              <i-lucide [img]="Briefcase" class="w-7 h-7"></i-lucide>
+            </div>
+            <div>
+              <h1 class="page-title">{{ j.title }}</h1>
+              <div class="title-meta">
+                <span class="job-status" [attr.data-status]="j.status">{{ getStatusLabel(j.status) }}</span>
+                @if (j.department) {
+                  <span class="meta-sep">•</span>
+                  <span>{{ j.department }}</span>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn-secondary" [routerLink]="['/app/rh/recrutement/modifier', j.id]">
+            <i-lucide [img]="Edit" class="w-4 h-4"></i-lucide>
+            Modifier
+          </button>
+          
+          <button class="btn-danger-outline" (click)="deleteJob()">
+            <i-lucide [img]="Trash2" class="w-4 h-4"></i-lucide>
+            Supprimer
+          </button>
+
+          @if (j.status === 'DRAFT') {
+            <button class="btn-primary" (click)="publishJob()">
+              <i-lucide [img]="Send" class="w-4 h-4"></i-lucide>
+              Publier
+            </button>
+          }
+          @if (j.status === 'PUBLISHED') {
+            <button class="btn-secondary" (click)="closeJob()">
+              <i-lucide [img]="EyeOff" class="w-4 h-4"></i-lucide>
+              Clôturer
+            </button>
+          }
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="detail-grid">
+      <!-- Left: Candidates -->
+      <div class="main-column">
+        <div class="section-card">
+          <div class="section-card-header">
+            <i-lucide [img]="Users" class="section-icon"></i-lucide>
+            <div>
+              <h2>Candidatures <span class="count-badge">{{ applications().length }}</span></h2>
+              <p>Gérez les candidatures reçues pour ce poste</p>
+            </div>
+          </div>
+
+          <div class="candidates-list">
+            @for (app of applications(); track app.id) {
+              <div class="candidate-card-ai">
+                <!-- Row 1: Identity + Score -->
+                <div class="card-top-row">
+                  <div class="candidate-identity">
+                    <div class="candidate-avatar" [style.background]="'hsl(' + (app.id * 67 % 360) + ', 60%, 92%)'">
+                      {{ getInitials(app.firstName, app.lastName) }}
+                    </div>
+                    <div class="candidate-info">
+                      <h4 class="candidate-name">{{ app.firstName }} {{ app.lastName }}</h4>
+                      <div class="candidate-meta">
+                        <span><i-lucide [img]="Mail" class="w-3 h-3"></i-lucide> {{ app.email }}</span>
+                        <span><i-lucide [img]="Calendar" class="w-3 h-3"></i-lucide> {{ formatDate(app.submittedAt) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- AI Score Circle -->
+                  <div class="score-zone">
+                    @if (isAiAnalyzing(app)) {
+                      <div class="score-spinner" title="Analyse IA en cours...">
+                        <i-lucide [img]="Loader2" class="w-6 h-6 animate-spin"></i-lucide>
+                      </div>
+                    } @else if (isAiFailed(app)) {
+                      <div class="score-failed" title="Analyse indisponible">
+                        <i-lucide [img]="AlertTriangle" class="w-5 h-5"></i-lucide>
+                      </div>
+                    } @else if (hasAiResult(app)) {
+                      <div class="score-circle" [style.background]="getScoreGradient(app.aiOverallScore)">
+                        <div class="score-inner">
+                          <span class="score-value">{{ app.aiOverallScore }}</span>
+                          <span class="score-label">/100</span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Row 2: AI Insights -->
+                @if (hasAiResult(app)) {
+                  <div class="ai-insights">
+                    <!-- Recommendation Badge -->
+                    <div class="rec-badge" [class]="getRecommandationClass(app.aiRecommendation)">
+                      ● {{ getRecommandationLabel(app.aiRecommendation) }}
+                    </div>
+
+                    <!-- Competences Tags -->
+                    @if (parseJsonArray(app.aiCompetencesTrouvees).length || parseJsonArray(app.aiCompetencesManquantes).length) {
+                      <div class="competences-row">
+                        @for (comp of parseJsonArray(app.aiCompetencesTrouvees); track comp) {
+                          <span class="comp-tag found">✓ {{ comp }}</span>
+                        }
+                        @for (comp of parseJsonArray(app.aiCompetencesManquantes); track comp) {
+                          <span class="comp-tag missing">✗ {{ comp }}</span>
+                        }
+                      </div>
+                    }
+
+                    <!-- AI Summary -->
+                    @if (app.aiRecommendationSummary) {
+                      <blockquote class="ai-summary">
+                        "{{ app.aiRecommendationSummary }}"
+                      </blockquote>
+                    }
+                  </div>
+                }
+
+                <!-- Row 3: Actions -->
+                <div class="card-actions-row">
+                  <div class="status-zone">
+                    <span class="app-status" [attr.data-status]="app.status">
+                      {{ getAppStatusLabel(app.status) }}
+                    </span>
+                    @if (app.aiNiveauConfiance && hasAiResult(app)) {
+                      <span class="confidence-tag" title="Niveau de confiance de l'analyse IA">
+                        <i-lucide [img]="Brain" class="w-3 h-3"></i-lucide>
+                        {{ app.aiNiveauConfiance }}% confiance
+                      </span>
+                    }
+                  </div>
+
+                  <div class="action-buttons">
+                    @if (app.cvOriginalFilename) {
+                      <button class="action-btn cv" title="Voir le CV" (click)="openCv(app)">
+                        <i-lucide [img]="FileText" class="w-4 h-4"></i-lucide>
+                        <span class="btn-label">CV</span>
+                      </button>
+                    }
+                    <button class="action-btn approve" title="Présélectionner" (click)="shortlistCandidate(app.id)">
+                      <i-lucide [img]="CheckCircle" class="w-4 h-4"></i-lucide>
+                      <span class="btn-label">Shortlister</span>
+                    </button>
+                    <button class="action-btn reject" title="Refuser" (click)="rejectCandidate(app.id)">
+                      <i-lucide [img]="XCircle" class="w-4 h-4"></i-lucide>
+                      <span class="btn-label">Rejeter</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-candidates">
+                <i-lucide [img]="Users" class="w-10 h-10"></i-lucide>
+                <p>Aucune candidature reçue pour le moment</p>
+              </div>
+            }
+          </div>
+
+          <!-- AI Disclaimer -->
+          @if (applications().length > 0) {
+            <div class="ai-disclaimer">
+              <i-lucide [img]="Brain" class="w-4 h-4"></i-lucide>
+              <p>Les scores IA sont une aide à la décision. La décision finale reste à l'appréciation du recruteur.</p>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Right: Job Details Sidebar -->
+      <div class="sidebar-column">
+        <div class="section-card">
+          <h3 class="sidebar-title">Détails de l'offre</h3>
+
+          <div class="detail-list">
+            <div class="detail-item">
+              <i-lucide [img]="MapPin" class="detail-icon"></i-lucide>
+              <div>
+                <span class="detail-label">Localisation</span>
+                <span class="detail-value">{{ j.location || 'Non spécifié' }}</span>
+              </div>
+            </div>
+
+            <div class="detail-item">
+              <i-lucide [img]="Briefcase" class="detail-icon"></i-lucide>
+              <div>
+                <span class="detail-label">Mode de travail</span>
+                <span class="detail-value">{{ getWorkModeLabel(j.workMode) }}</span>
+              </div>
+            </div>
+
+            <div class="detail-item">
+              <i-lucide [img]="Clock" class="detail-icon"></i-lucide>
+              <div>
+                <span class="detail-label">Type de contrat</span>
+                <span class="detail-value">{{ j.employmentType }}</span>
+              </div>
+            </div>
+
+            <div class="detail-item">
+              <i-lucide [img]="Star" class="detail-icon"></i-lucide>
+              <div>
+                <span class="detail-label">Expérience</span>
+                <span class="detail-value">{{ j.experienceLevel }}</span>
+              </div>
+            </div>
+
+            <div class="detail-item">
+              <i-lucide [img]="Calendar" class="detail-icon"></i-lucide>
+              <div>
+                <span class="detail-label">Date limite</span>
+                <span class="detail-value">{{ formatDate(j.deadline) }}</span>
+              </div>
+            </div>
+
+            @if (j.salaryMin || j.salaryMax) {
+              <div class="detail-item salary">
+                <i-lucide [img]="Star" class="detail-icon"></i-lucide>
+                <div>
+                  <span class="detail-label">Rémunération</span>
+                  <span class="detail-value salary-value">
+                    @if (j.salaryMin && j.salaryMax) {
+                      {{ j.salaryMin | number }} - {{ j.salaryMax | number }} {{ j.salaryCurrency }}/an
+                    } @else if (j.salaryMin) {
+                      Dès {{ j.salaryMin | number }} {{ j.salaryCurrency }}/an
+                    }
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Description Card -->
+        @if (j.description) {
+          <div class="section-card">
+            <h3 class="sidebar-title">Description</h3>
+            <p class="description-text">{{ j.description }}</p>
+          </div>
+        }
+
+        <!-- Skills Card -->
+        @if (j.requiredSkills) {
+          <div class="section-card">
+            <h3 class="sidebar-title">Compétences</h3>
+            <div class="skills-list">
+              @for (skill of j.requiredSkills.split(','); track skill) {
+                <span class="skill-tag">{{ skill.trim() }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="empty-state">
+      <h3>Offre introuvable</h3>
+      <p>Cette offre n'existe pas ou a été supprimée.</p>
+      <button class="btn-secondary" (click)="goBack()">Retour</button>
+    </div>
+  }
+  
+  <!-- Delete Confirmation Modal -->
+  @if (showDeleteModal()) {
+    <div class="modal-overlay" (click)="closeDeleteModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-icon warning">
+            <i-lucide [img]="AlertTriangle" class="w-6 h-6"></i-lucide>
+          </div>
+          <h3>Supprimer l'offre ?</h3>
+        </div>
+        
+        <div class="modal-body">
+          <p>Êtes-vous sûr de vouloir supprimer l'offre <strong>"{{ job()?.title }}"</strong> ? Cette action est irréversible.</p>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="closeDeleteModal()">Annuler</button>
+          <button class="btn-danger" (click)="confirmDelete()">Supprimer définitivement</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

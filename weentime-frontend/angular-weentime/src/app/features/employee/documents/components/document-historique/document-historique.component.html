@@ -57,7 +57,7 @@
           <div class="item-meta">
             <span class="meta-date">
               <lucide-icon name="calendar" size="12"></lucide-icon>
-              Demandé le {{ d.dateCreation }}
+              Demandé le {{ d.dateCreation | date:'dd MMM yyyy':'':'fr' }}
             </span>
             <span class="meta-delay">
               <lucide-icon name="clock" size="12"></lucide-icon>

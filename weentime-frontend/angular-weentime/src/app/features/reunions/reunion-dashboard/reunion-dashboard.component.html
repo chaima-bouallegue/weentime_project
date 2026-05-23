@@ -137,9 +137,9 @@
               }
             </div>
             <span class="p-summary">
-              {{ r.participants.length }} participants
+              {{ r.participants.length }} participant{{ r.participants.length > 1 ? 's' : '' }}
               <span class="rsvp-confirmed">
-                · <span class="dot"></span> {{ getConfirmedCount(r) }} confirmés
+                · <span class="dot"></span> {{ getConfirmedCount(r) }} confirmé{{ getConfirmedCount(r) > 1 ? 's' : '' }}
               </span>
             </span>
           </div>

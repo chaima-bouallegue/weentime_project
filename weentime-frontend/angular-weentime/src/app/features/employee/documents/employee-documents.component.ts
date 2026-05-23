@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, OnInit, ChangeDetectionStrategy, DestroyRef, ViewEncapsulation, effect } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, OnDestroy, ChangeDetectionStrategy, DestroyRef, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, FileText, Download, Clock, Loader2, Plus, Info, AlertCircle, FileCheck, Search, Filter } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -11,6 +11,10 @@ import { AnnulationDocumentModalComponent } from './components/annulation-docume
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { WebSocketService } from '../../../core/services/websocket.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { DocumentStatusChangedEvent } from '../../rh/documents/models/document-ws.model';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-employee-documents',
@@ -28,12 +32,15 @@ import { ToastService } from '../../../core/services/toast.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class EmployeeDocumentsComponent implements OnInit {
+export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   private documentService = inject(DocumentService);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
   private assistantWorkflow = inject(AssistantWorkflowService);
   private assistantSync = inject(AssistantSyncService);
+  private wsService = inject(WebSocketService);
+  private authService = inject(AuthService);
+  private wsSub?: Subscription;
 
   // Icons
   readonly iconFile = FileText;
@@ -101,6 +108,19 @@ export class EmployeeDocumentsComponent implements OnInit {
           this.refreshData();
         }
       });
+
+    if (this.authService.getToken()) {
+      this.wsSub = this.wsService.watch<DocumentStatusChangedEvent>('/user/queue/notifications')
+        .subscribe(event => {
+          if (event?.type === 'DOCUMENT_STATUS_CHANGED') {
+            this.refreshData();
+          }
+        });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.wsSub?.unsubscribe();
   }
 
   loadData(): void {
@@ -145,11 +165,11 @@ export class EmployeeDocumentsComponent implements OnInit {
     this.documentService.annulerDemande(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
+        next: updated => {
           this.isAnnulating.set(false);
           this.demandeAnnuler.set(null);
+          this.historique.update(list => list.map(d => d.id === id ? updated : d));
           this.toastService.success('Demande annulée avec succès');
-          this.refreshData();
         },
         error: (err: Error) => {
           this.isAnnulating.set(false);

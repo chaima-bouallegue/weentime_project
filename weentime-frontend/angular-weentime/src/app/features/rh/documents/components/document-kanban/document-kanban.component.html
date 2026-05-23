@@ -1,105 +1,150 @@
 <div class="kanban-container">
   @for (col of columns; track col.status) {
-    <div class="kanban-column">
+    <div
+      class="kanban-column"
+      [attr.data-status]="col.status"
+      [class.drop-target]="dragOverStatus === col.status"
+      (dragover)="onDragOver($event, col.status)"
+      (dragleave)="onDragLeave(col.status)"
+      (drop)="onDrop($event, col.status)"
+    >
       <div class="column-header">
-        <h3 class="column-title">{{ col.label }}</h3>
-        <span class="count-badge">{{ getDemandesByStatus(col.status).length }}</span>
+        <div class="column-header-accent"></div>
+        <div class="column-header-row">
+          <h3 class="column-title">{{ col.label }}</h3>
+          <span class="count-badge">{{ getDemandesByStatus(col.status).length }}</span>
+        </div>
       </div>
 
       <div class="column-body">
-        @for (d of getDemandesByStatus(col.status); track d.id) {
-          <div class="kanban-card" (click)="selectDemande.emit(d)">
-            <!-- Card Header: User -->
+        @for (d of getDemandesByStatus(col.status); track d.id; let i = $index) {
+          <div
+            class="kanban-card"
+            draggable="true"
+            [class.is-dragging]="draggingId === d.id"
+            [class.is-leaving]="draggingId === d.id"
+            [style.animation-delay.ms]="i * 50"
+            (dragstart)="onDragStart($event, d)"
+            (dragend)="onDragEnd()"
+            (click)="selectDemande.emit(d)"
+          >
             <div class="card-header">
               <div class="employe-info">
-                <div class="avatar" [style.background]="getAvatarColor(d.employe.nom)">
+                <div
+                  class="avatar"
+                  [style.background]="'linear-gradient(135deg, ' + getAvatarColor(d.employe.nom) + ', ' + getAvatarColor(d.employe.prenom || d.employe.nom) + ')'"
+                >
                   {{ getInitials(d.employe.nom, d.employe.prenom) }}
                 </div>
                 <div class="user-meta">
-                  <span class="user-name">{{ d.employe.prenom }} {{ d.employe.nom }}</span>
-                  <span class="user-role">{{ d.employe.poste }}</span>
+                  <span
+                    class="user-name"
+                    [title]="d.employe.prenom + ' ' + d.employe.nom"
+                  >{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                  <span class="user-role" [title]="d.employe.poste">{{ d.employe.poste }}</span>
                 </div>
               </div>
-              @if (isUrgent(d.dateCreation) && d.statut === 'EN_ATTENTE') {
-                <span class="urgent-indicator" title="Plus de 48h">
-                  <lucide-icon name="alert-triangle" size="14"></lucide-icon>
-                  URGENT
-                </span>
-              }
             </div>
 
-            <!-- Card Body: Doc Type -->
             <div class="card-body">
               <div class="doc-type" [ngClass]="getTypeColor(d.type)">
-                <lucide-icon [name]="getTypeIcon(d.type)" size="18"></lucide-icon>
-                <span>{{ d.label }}</span>
+                <lucide-icon [name]="getTypeIcon(d.type)" size="16"></lucide-icon>
+                <span class="doc-label">{{ d.label }}</span>
               </div>
               <div class="date-info">
                 <lucide-icon name="calendar" size="14"></lucide-icon>
-                <span>Demandé le {{ d.dateCreation | date:'dd MMM yyyy':'':'fr' }}</span>
+                <span>{{ d.dateCreation | date:'dd/MM/yyyy':'':'fr' }}</span>
               </div>
             </div>
 
-            <!-- Progress Indicator for EN_COURS -->
-            @if (d.statut === 'EN_COURS') {
+            @if (isUrgent(d.dateCreation) && (d.statut === 'DEMANDE_RECUE' || d.statut === 'EN_ATTENTE')) {
+              <span class="urgent-badge">Urgent</span>
+            }
+
+            @if (d.statut === 'EN_REVISION') {
               <div class="card-progress">
-                <div class="progress-label">En cours de traitement...</div>
+                <div class="progress-label">En cours de révision</div>
                 <div class="mini-bar">
-                  <div class="bar-fill animate-pulse"></div>
+                  <div class="bar-fill"></div>
                 </div>
               </div>
             }
 
-            <!-- AI Badge for PRET -->
-            @if (d.statut === 'PRET' && d.generatedByAI) {
+            @if (d.statut === 'ENVOYE' && d.generatedByAI) {
               <div class="ai-badge">
                 <lucide-icon name="sparkles" size="12"></lucide-icon>
                 <span>Généré par IA</span>
               </div>
             }
 
-            <!-- Card Actions -->
             <div class="card-actions" (click)="$event.stopPropagation()">
-              @if (col.status === 'EN_ATTENTE') {
-                <div class="action-grid">
-                  <button class="btn-action generate" (click)="generateAI.emit(d)" title="Générer avec IA">
+              @if (col.status === 'DEMANDE_RECUE') {
+                <div class="action-row">
+                  <button class="btn-action primary" (click)="generateAI.emit(d)">
                     <lucide-icon name="sparkles" size="16"></lucide-icon>
-                    <span>IA</span>
+                    <span>Traiter</span>
                   </button>
-                  <button class="btn-action upload" (click)="uploadDoc.emit(d)" title="Uploader document">
+                  <button class="btn-action secondary" (click)="uploadDoc.emit(d)">
                     <lucide-icon name="upload" size="16"></lucide-icon>
                     <span>Upload</span>
                   </button>
-                  <button class="btn-action reject" (click)="rejectDemande.emit(d)" title="Refuser">
+                  <button class="btn-action icon-only" (click)="rejectDemande.emit(d)" title="Refuser">
                     <lucide-icon name="x" size="16"></lucide-icon>
                   </button>
                 </div>
               }
 
-              @if (col.status === 'EN_COURS') {
-                <div class="action-grid">
-                  <button class="btn-action generate" (click)="generateAI.emit(d)">
+              @if (col.status === 'EN_REVISION') {
+                <div class="action-row">
+                  <button class="btn-action primary" (click)="generateAI.emit(d)">
                     <lucide-icon name="sparkles" size="16"></lucide-icon>
-                    <span>Finaliser via IA</span>
+                    <span>Continuer</span>
                   </button>
-                  <button class="btn-action upload" (click)="uploadDoc.emit(d)">
+                  <button class="btn-action secondary" (click)="uploadDoc.emit(d)">
                     <lucide-icon name="upload" size="16"></lucide-icon>
-                    <span>Uploader</span>
+                    <span>Upload</span>
                   </button>
                 </div>
               }
 
-              @if (col.status === 'PRET') {
-                <button class="btn-view" (click)="viewDoc.emit(d)">
-                  <lucide-icon name="eye" size="16"></lucide-icon>
-                  <span>Voir le document</span>
+              @if (col.status === 'VALIDE') {
+                <div class="action-row">
+                  <button class="btn-action secondary" (click)="generateAI.emit(d)">
+                    <lucide-icon name="eye" size="16"></lucide-icon>
+                    <span>Voir</span>
+                  </button>
+                  <button class="btn-action primary" (click)="generateAI.emit(d)">
+                    <lucide-icon name="send" size="16"></lucide-icon>
+                    <span>Signer</span>
+                  </button>
+                </div>
+              }
+
+              @if (col.status === 'SIGNE') {
+                <button class="btn-action primary full" (click)="generateAI.emit(d)">
+                  <lucide-icon name="pen-tool" size="16"></lucide-icon>
+                  <span>Ouvrir</span>
                 </button>
+              }
+
+              @if (col.status === 'ENVOYE') {
+                <div class="action-row">
+                  <button class="btn-action secondary" (click)="viewDoc.emit(d)">
+                    <lucide-icon name="eye" size="16"></lucide-icon>
+                    <span>Voir</span>
+                  </button>
+                  <button class="btn-action primary" (click)="downloadDoc.emit(d)">
+                    <lucide-icon name="download" size="16"></lucide-icon>
+                    
+                  </button>
+                </div>
               }
             </div>
           </div>
         } @empty {
           <div class="empty-column">
-            <p>Aucune demande ici</p>
+            <lucide-icon [name]="col.emptyIcon" size="28" class="empty-icon"></lucide-icon>
+            <p>{{ col.emptyText }}</p>
           </div>
         }
       </div>

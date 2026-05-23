@@ -37,4 +37,9 @@ public class DemandeDocumentResponse {
 
     // Champs calculés
     private boolean urgente;
+
+    private Long validatedBy;
+    private LocalDateTime validatedAt;
+    private String signedBy;
+    private LocalDateTime signedAt;
 }

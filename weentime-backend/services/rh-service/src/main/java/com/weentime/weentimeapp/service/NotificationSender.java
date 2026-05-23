@@ -18,8 +18,12 @@ public class NotificationSender {
      * Utilise le userId comme identifiant de destination.
      */
     public void sendToUser(Long userId, NotificationPayload payload) {
-        if (userId == null) {
-            log.warn("[WS] Tentative d'envoi à un userId null. Type: {}", payload.type());
+        sendToUser(userId, (Object) payload);
+    }
+
+    public void sendToUser(Long userId, Object payload) {
+        if (userId == null || payload == null) {
+            log.warn("[WS] Tentative d'envoi à un userId null ou payload null");
             return;
         }
         try {
@@ -28,10 +32,9 @@ public class NotificationSender {
                 "/queue/notifications",
                 payload
             );
-            log.info("[WS] Notification {} envoyée à user {}", payload.type(), userId);
+            log.info("[WS] Notification envoyée à user {}", userId);
         } catch (Exception e) {
-            log.error("[WS] Erreur envoi mnotification à user {}: {}", userId, e.getMessage());
-            // Ne pas faire planter le service métier si WS échoue
+            log.error("[WS] Erreur envoi notification à user {}: {}", userId, e.getMessage());
         }
     }
 
@@ -39,13 +42,14 @@ public class NotificationSender {
      * Envoyer à tous les utilisateurs d'un rôle (ex: tous les RH).
      */
     public void sendToRole(String role, NotificationPayload payload) {
-        if (role == null) return;
+        sendToRole(role, (Object) payload);
+    }
+
+    public void sendToRole(String role, Object payload) {
+        if (role == null || payload == null) return;
         try {
-            messagingTemplate.convertAndSend(
-                "/topic/role/" + role.toLowerCase(),
-                payload
-            );
-            log.info("[WS] Notification {} broadcast vers role {}", payload.type(), role);
+            messagingTemplate.convertAndSend("/topic/role/" + role.toLowerCase(), payload);
+            log.info("[WS] Broadcast vers role {} : {}", role, payload);
         } catch (Exception e) {
             log.error("[WS] Erreur broadcast role {}: {}", role, e.getMessage());
         }

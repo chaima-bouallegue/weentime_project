@@ -16,6 +16,21 @@ export const routes: Routes = [
         component: PricingComponent
     },
     {
+        path: 'careers',
+        title: 'WeenTime — Carrières',
+        loadComponent: () => import('./features/recrutement-public/components/careers/careers.component').then(m => m.CareersComponent)
+    },
+    {
+        path: 'careers/:id',
+        title: 'WeenTime — Détail de l\'offre',
+        loadComponent: () => import('./features/recrutement-public/components/job-detail/job-detail.component').then(m => m.JobDetailPublicComponent)
+    },
+    {
+        path: 'careers/:id/apply',
+        title: 'WeenTime — Postuler',
+        loadComponent: () => import('./features/recrutement-public/components/apply/apply.component').then(m => m.ApplyComponent)
+    },
+    {
         path: 'login',
         title: 'WeenTime — Connexion',
         loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent),

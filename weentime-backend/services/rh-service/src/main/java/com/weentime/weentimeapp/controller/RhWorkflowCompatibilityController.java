@@ -56,8 +56,8 @@ public class RhWorkflowCompatibilityController {
                     ? teletravailService.validerRH(id, request.getCommentaire())
                     : teletravailService.rejeterRH(id, request.getCommentaire());
             case DOCUMENT -> approve
-                    ? documentService.updateStatut(id, buildDocumentApproval(request.getCommentaire()))
-                    : documentService.refuser(id, request.getCommentaire());
+                    ? documentService.updateStatut(id, buildDocumentApproval(request.getCommentaire()), SecurityUtils.getCurrentUserId())
+                    : documentService.refuser(id, request.getCommentaire(), SecurityUtils.getCurrentUserId());
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de demande non supporté ou supprimé.");
         };
 

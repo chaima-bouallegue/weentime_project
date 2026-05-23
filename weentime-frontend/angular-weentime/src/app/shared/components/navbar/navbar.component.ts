@@ -22,6 +22,12 @@ import { LogoComponent } from '../logo/logo.component';
     .nav-link {
         @apply transition-colors duration-200;
     }
+    .nav-link-active {
+        @apply text-indigo-600 dark:text-indigo-400 font-bold !important;
+    }
+    .nav-link-active span {
+        @apply scale-x-100 !important;
+    }
   `]
 })
 export class NavbarComponent {
@@ -40,7 +46,7 @@ export class NavbarComponent {
         { label: 'Accueil', path: '/' },
         { label: 'Présentation', path: '/', fragment: 'presentation' },
         { label: 'Fonctionnalités', path: '/', fragment: 'features' },
-        { label: 'Tarif', path: '/pricing' },
+        { label: 'Carrières', path: '/careers' },
         { label: 'Blog', path: '/blog' }
     ];
 

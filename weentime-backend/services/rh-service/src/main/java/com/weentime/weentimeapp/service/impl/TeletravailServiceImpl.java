@@ -76,10 +76,14 @@ public class TeletravailServiceImpl implements TeletravailService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable");
         }
-        
+
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isRh = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_RH".equals(a.getAuthority()));
+
         Long managerId = user.getManagerId();
 
-        if (managerId == null) {
+        if (managerId == null && !isRh) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucun manager n'est assigné à votre profil. Contactez votre RH.");
         }
 
@@ -108,9 +112,16 @@ public class TeletravailServiceImpl implements TeletravailService {
         teletravail.setManagerId(managerId);
         teletravail.setEntrepriseId(user.getEntrepriseId());
 
-        teletravail.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        if (isRh) {
+            teletravail.setStatut(StatutDemandeEnum.APPROUVE);
+            teletravail.setCommentaireRH("Auto-approuvée — demande RH");
+            teletravail.setEtapeActuelle("TERMINE");
+            teletravail.setDateDecision(LocalDateTime.now());
+        } else {
+            teletravail.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+            teletravail.setEtapeActuelle("MANAGER");
+        }
         teletravail.setTypeDemande(TypeDemandeEnum.TELETRAVAIL);
-        teletravail.setEtapeActuelle("MANAGER");
         teletravail.setNombreJours(nombreJours);
         teletravail.setDateCreation(LocalDateTime.now());
 
@@ -120,14 +131,25 @@ public class TeletravailServiceImpl implements TeletravailService {
         TeletravailResponseDTO resultDto = enrichDtoWithUser(saved, user);
         log.info("[TIMING] après enrichDto: {}", System.currentTimeMillis());
 
-        // Notification au manager (async — ne bloque pas le thread HTTP)
-        asyncNotificationService.sendToUser(managerId, NotificationPayload.of(
-            "TELETRAVAIL_SOUMIS",
-            "Nouvelle demande de télétravail",
-            user.getPrenom() + " " + user.getNom() + " a soumis une demande.",
-            "clock", "blue",
-            saved.getId(), "TELETRAVAIL", "/app/manager/teletravail-equipe"
-        ), user.getEntrepriseId());
+        if (!isRh) {
+            // Notification au manager (async — ne bloque pas le thread HTTP)
+            asyncNotificationService.sendToUser(managerId, NotificationPayload.of(
+                "TELETRAVAIL_SOUMIS",
+                "Nouvelle demande de télétravail",
+                user.getPrenom() + " " + user.getNom() + " a soumis une demande.",
+                "clock", "blue",
+                saved.getId(), "TELETRAVAIL", "/app/manager/teletravail-equipe"
+            ), user.getEntrepriseId());
+        } else {
+            // Notification à l'utilisateur RH de son auto-approbation
+            asyncNotificationService.sendToUser(userId, NotificationPayload.of(
+                "TELETRAVAIL_APPROUVE",
+                "Télétravail Auto-Approuvé",
+                "Votre demande de télétravail (RH) a été auto-approuvée.",
+                "check-circle", "green",
+                saved.getId(), "TELETRAVAIL", "/app/employee/teletravail"
+            ), user.getEntrepriseId());
+        }
 
         log.info("[TIMING] après sendToUser: {}", System.currentTimeMillis());
         return resultDto;

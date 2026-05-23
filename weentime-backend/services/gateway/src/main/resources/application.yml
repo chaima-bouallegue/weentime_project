@@ -1,5 +1,5 @@
 server:
-  port: 8322
+  port: 8222
 
 spring:
   application:
@@ -60,7 +60,7 @@ spring:
         - id: rh-service
           uri: http://localhost:8192
           predicates:
-            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**
 
         - id: presence-service
           uri: http://localhost:8193

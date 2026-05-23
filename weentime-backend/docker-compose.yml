@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: 170502
       POSTGRES_DB: weentime
     ports:
-      - "5435:5432"
+      - "5433:5432"
     volumes:
       - weentime-project-postgres-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d

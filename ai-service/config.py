@@ -4,6 +4,19 @@ import logging
 import os
 from functools import lru_cache
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+env_path = Path(__file__).parent / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+    key = os.getenv("GEMINI_API_KEY")
+    if key:
+        print(f"✅ Clé API Gemini chargée : {key[:8]}...{key[-4:]}")
+    else:
+        print("❌ Clé API Gemini manquante dans le .env")
+else:
+    print(f"⚠️ Fichier .env non trouvé à : {env_path}")
 
 DEFAULT_CORS_ORIGINS = ["http://localhost:4200", "http://127.0.0.1:4200"]
 
@@ -48,7 +61,8 @@ class Settings:
             os.getenv("GENERATED_DOCS_DIR", str(self.base_dir / "generated_docs"))
         )
 
-        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
+        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8222/api/v1").rstrip("/")
+        self.java_rh_service_url = os.getenv("JAVA_RH_SERVICE_URL", "http://rh-service:8192").rstrip("/")
 
         # ML service (anomaly detection) -- separate port, no /api/v1 prefix.
         self.ml_service_base_url = os.getenv("ML_SERVICE_BASE_URL", "http://localhost:8001").rstrip("/")
@@ -156,7 +170,8 @@ class Settings:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
+        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "gemini")
+        self.internal_secret = os.getenv("INTERNAL_SECRET", "WeenTimeInternalSecretKey2026")
 
 
         self.data_dir.mkdir(parents=True, exist_ok=True)

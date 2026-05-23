@@ -24,7 +24,6 @@ export class FooterComponent {
             title: 'Produit',
             links: [
                 { label: 'Fonctionnalités', path: '/#features' },
-                { label: 'Tarif', path: '/pricing' },
                 { label: 'Blog', path: '/blog' }
             ]
         },
@@ -41,7 +40,7 @@ export class FooterComponent {
             links: [
                 { label: 'À propos', path: '/about' },
                 { label: 'Contact', path: '/contact' },
-                { label: 'Careers', path: '/careers' }
+                { label: 'Carrières', path: '/careers' }
             ]
         }
     ];

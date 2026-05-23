@@ -54,7 +54,7 @@ export class DocumentHistoriqueComponent {
 
   filters: FilterChip[] = [
     { value: 'TOUS', label: 'Tous' },
-    { value: 'EN_ATTENTE', label: 'En attente' },
+    { value: 'EN_ATTENTE', label: 'En attente RH' },
     { value: 'EN_COURS', label: 'En cours' },
     { value: 'PRET', label: 'Prêts' },
     { value: 'REFUSE', label: 'Refusés' },
@@ -73,7 +73,7 @@ export class DocumentHistoriqueComponent {
   getEmptyMessage(): string {
     const msgs: Record<string, string> = {
       TOUS: 'Aucune demande de document pour le moment',
-      EN_ATTENTE: 'Aucune demande en attente',
+      EN_ATTENTE: 'Aucune demande en attente RH',
       EN_COURS: 'Aucune demande en cours de traitement',
       PRET: 'Aucun document prêt à télécharger',
       REFUSE: 'Aucune demande refusée',

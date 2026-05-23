@@ -1,5 +1,16 @@
 @if (reunion(); as r) {
 <div class="dashboard-bento-container">
+
+  <!-- Back Navigation -->
+  <div class="breadcrumb-bar">
+    <button class="back-btn" (click)="goBack()">
+      <lucide-icon [img]="iconBack" size="20"></lucide-icon>
+      <span>Réunions</span>
+    </button>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">{{ r.titre }}</span>
+  </div>
+
   <!-- Hero Header -->
   <div class="detail-hero">
     <div class="hero-card premium-glass" [attr.data-status]="r.statut">
@@ -8,7 +19,7 @@
         <div class="hero-main">
           <div class="status-indicator-glass">
             <span class="dot"></span>
-            {{ r.statut }}
+            {{ getStatusLabel(r.statut) }}
           </div>
           <h1 class="hero-title">{{ r.titre }}</h1>
           <div class="hero-meta">
@@ -18,7 +29,7 @@
             </div>
             <div class="meta-item">
               <lucide-icon [img]="iconClock" size="20"></lucide-icon>
-              <span>{{ r.heureDebut }} — {{ r.heureFin }}</span>
+              <span>{{ formatTime(r.heureDebut) }} — {{ formatTime(r.heureFin) }}</span>
             </div>
             <div class="meta-item">
               <lucide-icon [img]="r.type === 'EN_LIGNE' ? iconVideo : iconMapPin" size="20"></lucide-icon>
@@ -27,42 +38,72 @@
           </div>
         </div>
         
-        @if (isOrganisateur()) {
-          <div class="hero-actions">
-            @if (r.statut === 'PLANIFIEE') {
-              <button class="hero-btn secondary" (click)="annuler()">
-                <lucide-icon [img]="iconX"></lucide-icon>
-                Annuler
+        <div class="hero-actions">
+          @if (r.statut === Statut.CLOTUREE) {
+            <a href="#compte-rendu" class="hero-btn secondary">
+              <lucide-icon [img]="iconHistory"></lucide-icon>
+              Voir le compte-rendu
+            </a>
+          }
+
+          @if (isOrganisateur()) {
+            @if (r.statut !== Statut.ANNULEE && r.statut !== Statut.CLOTUREE) {
+              <button class="hero-btn secondary" (click)="editMeeting()">
+                <lucide-icon [img]="iconEdit" size="18"></lucide-icon>
+                Modifier
               </button>
             }
-            @if (r.statut === 'PLANIFIEE' || r.statut === 'EN_COURS') {
-              <button class="hero-btn primary" (click)="showCloturerForm.set(true)">
+
+            @if (r.type === 'EN_LIGNE' && r.lienVisio && r.statut !== Statut.ANNULEE && r.statut !== Statut.CLOTUREE) {
+              <a [href]="r.lienVisio" target="_blank" class="hero-btn primary">
+                <lucide-icon [img]="iconPlay"></lucide-icon>
+                {{ r.statut === Statut.PLANIFIEE ? 'Démarrer' : 'Rejoindre' }}
+              </a>
+            }
+
+            @if (r.statut === Statut.PLANIFIEE || r.statut === Statut.EN_COURS) {
+              <button class="hero-btn accent" (click)="openCloturerForm()">
                 <lucide-icon [img]="iconCloturer"></lucide-icon>
-                Clôturer la réunion
+                Clôturer
               </button>
             }
-          </div>
-        }
+
+            @if (r.statut === Statut.PLANIFIEE) {
+              <button class="hero-btn danger-icon" (click)="openAnnulerModal()" title="Annuler la réunion">
+                <lucide-icon [img]="iconX" size="20"></lucide-icon>
+              </button>
+            }
+          }
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- RSVP Tracker (If Upcoming) -->
-  @if (r.statut === 'PLANIFIEE') {
+  <!-- RSVP Tracker -->
+  @if (r.statut === Statut.PLANIFIEE) {
     <div class="rsvp-tracker-glass">
       <div class="rsvp-summary">
         <div class="stat-item">
-          <span class="count">{{ rsvpStats().confirmed }}</span>
+          <div class="stat-header">
+            <span class="count">{{ rsvpStats().confirmed }}</span>
+            <span class="total">/ {{ r.participants.length }}</span>
+          </div>
           <span class="label">Confirmés</span>
           <div class="progress-mini"><div class="fill green" [style.width.%]="(rsvpStats().confirmed / r.participants.length) * 100"></div></div>
         </div>
         <div class="stat-item">
-          <span class="count">{{ rsvpStats().declined }}</span>
+          <div class="stat-header">
+            <span class="count">{{ rsvpStats().declined }}</span>
+            <span class="total">/ {{ r.participants.length }}</span>
+          </div>
           <span class="label">Refusés</span>
           <div class="progress-mini"><div class="fill red" [style.width.%]="(rsvpStats().declined / r.participants.length) * 100"></div></div>
         </div>
         <div class="stat-item">
-          <span class="count">{{ rsvpStats().pending }}</span>
+          <div class="stat-header">
+            <span class="count">{{ rsvpStats().pending }}</span>
+            <span class="total">/ {{ r.participants.length }}</span>
+          </div>
           <span class="label">En attente</span>
           <div class="progress-mini"><div class="fill blue" [style.width.%]="(rsvpStats().pending / r.participants.length) * 100"></div></div>
         </div>
@@ -88,112 +129,275 @@
 
   <!-- Bento Content Grid -->
   <div class="bento-grid detail-grid">
-    <!-- Info Card -->
-    <div class="bento-card col-span-2">
-      <div class="card-header-icon">
-        <lucide-icon [img]="iconInfo" size="24"></lucide-icon>
-        <h3>Description & Agenda</h3>
-      </div>
-      <div class="card-body">
-        <p class="description-text">{{ r.description || 'Aucune description fournie pour cette réunion.' }}</p>
-        
-        @if (r.agenda) {
-          <div class="agenda-box">
-            <h4 class="sub-title">Ordre du jour</h4>
-            <div class="agenda-content">{{ r.agenda }}</div>
+    
+    <!-- LEFT COLUMN -->
+    <div class="grid-col col-span-2">
+      <!-- Info & Agenda Card -->
+      <div class="bento-card">
+        <div class="card-header-icon">
+          <div class="header-main">
+            <lucide-icon [img]="iconInfo" size="24"></lucide-icon>
+            <h3>Description & Agenda</h3>
           </div>
-        }
-
-        @if (r.type === 'EN_LIGNE' && r.lienVisio) {
-          <div class="link-box-glass">
-            <lucide-icon [img]="iconVideo" size="24"></lucide-icon>
-            <div class="link-info">
-              <span class="label">Lien de la visioconférence</span>
-              <a [href]="r.lienVisio" target="_blank" class="url">{{ r.lienVisio }}</a>
-            </div>
-            <lucide-icon [img]="iconChevronRight" size="20"></lucide-icon>
-          </div>
-        }
-      </div>
-    </div>
-
-    <!-- Participants Card -->
-    <div class="bento-card">
-      <div class="card-header-icon">
-        <lucide-icon [img]="iconUsers" size="24"></lucide-icon>
-        <h3>Participants ({{ r.participants.length }})</h3>
-      </div>
-      <div class="participants-scroll">
-        @for (p of r.participants; track p.utilisateurId) {
-          <div class="participant-glass-row">
-            <div class="avatar-wrap">
-              @if (p.photo) {
-                <img [src]="p.photo">
-              } @else {
-                <div class="initials">{{ p.nom?.[0] }}</div>
+        </div>
+        <div class="card-body">
+          <!-- Description Section -->
+          <div class="editable-section">
+            <div class="section-header-inline">
+              <h4 class="sub-title">Description</h4>
+              @if (isOrganisateur() && !isFinalized() && !editingDescription()) {
+                <button class="icon-btn-edit" (click)="startEditDescription()">
+                  <lucide-icon [img]="iconEdit" size="16"></lucide-icon>
+                </button>
               }
-              <div class="rsvp-dot" [attr.data-rsvp]="p.reponse"></div>
             </div>
-            <div class="user-info">
-              <span class="name">{{ p.prenom }} {{ p.nom }}</span>
-              <span class="role">{{ p.reponse }}</span>
-            </div>
+            @if (editingDescription()) {
+              <div class="inline-edit-form">
+                <textarea [(ngModel)]="editDescriptionValue" placeholder="Décrivez l'objet de cette réunion..." rows="4" class="edit-textarea"></textarea>
+                <div class="edit-actions">
+                  <button class="edit-btn cancel" (click)="cancelEditDescription()">Annuler</button>
+                  <button class="edit-btn save" (click)="saveDescription()" [disabled]="isSaving()">
+                    <lucide-icon [img]="iconCheck" size="16"></lucide-icon>
+                    {{ isSaving() ? 'Sauvegarde...' : 'Enregistrer' }}
+                  </button>
+                </div>
+              </div>
+            } @else if (r.description) {
+              <p class="description-text">{{ r.description }}</p>
+            } @else {
+              <div class="empty-state-inline" *ngIf="isOrganisateur() && !isFinalized()">
+                <p>Aucune description. <button class="text-link" (click)="startEditDescription()">Ajouter</button></p>
+              </div>
+            }
           </div>
-        }
+          
+          <!-- Agenda Section -->
+          <div class="editable-section">
+            <div class="section-header-inline">
+              <h4 class="sub-title">Ordre du jour</h4>
+              @if (isOrganisateur() && !isFinalized() && !editingAgenda()) {
+                <button class="icon-btn-edit" (click)="startEditAgenda()">
+                  <lucide-icon [img]="iconEdit" size="16"></lucide-icon>
+                </button>
+              }
+            </div>
+            @if (editingAgenda()) {
+              <div class="inline-edit-form">
+                <textarea [(ngModel)]="editAgendaValue" placeholder="1. Premier point&#10;2. Deuxième point&#10;3. Questions" rows="6" class="edit-textarea"></textarea>
+                <div class="edit-actions">
+                  <button class="edit-btn cancel" (click)="cancelEditAgenda()">Annuler</button>
+                  <button class="edit-btn save" (click)="saveAgenda()" [disabled]="isSaving()">
+                    <lucide-icon [img]="iconCheck" size="16"></lucide-icon>
+                    {{ isSaving() ? 'Sauvegarde...' : 'Enregistrer' }}
+                  </button>
+                </div>
+              </div>
+            } @else if (r.agenda) {
+              <div class="agenda-content">{{ r.agenda }}</div>
+            } @else {
+              <div class="empty-agenda">
+                <p>L'ordre du jour n'a pas encore été défini.</p>
+                @if (isOrganisateur() && !isFinalized()) {
+                  <button class="hero-btn secondary sm" (click)="startEditAgenda()">
+                    <lucide-icon [img]="iconEdit" size="16"></lucide-icon>
+                    Ajouter des points
+                  </button>
+                }
+              </div>
+            }
+          </div>
+
+          @if (r.type === 'EN_LIGNE' && r.lienVisio) {
+            <div class="link-box-glass">
+              <lucide-icon [img]="iconVideo" size="24"></lucide-icon>
+              <div class="link-info">
+                <span class="label">Lien de la visioconférence</span>
+                <a [href]="r.lienVisio" target="_blank" class="url">{{ r.lienVisio }}</a>
+              </div>
+              <lucide-icon [img]="iconChevronRight" size="20"></lucide-icon>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Compte Rendu Card -->
+      <div #compteRenduSection id="compte-rendu" class="bento-card premium-report" 
+           *ngIf="isFinalized() || showCloturerForm()">
+        <div class="card-header-icon">
+          <div class="header-main">
+            <lucide-icon [img]="iconCloturer" size="24" class="text-indigo-600"></lucide-icon>
+            <h3>Compte-rendu</h3>
+            <span class="status-pill" [class.draft]="!isFinalized()" [class.finalized]="isFinalized()">
+              {{ isFinalized() ? 'Finalisé' : 'Brouillon' }}
+            </span>
+          </div>
+          <div class="header-actions">
+            @if (!isFinalized()) {
+              <span class="save-indicator">Sauvegardé il y a {{ lastSaved() }}</span>
+            }
+            <button class="hero-btn secondary sm" (click)="exportPDF()">
+              <lucide-icon [img]="iconDownload" size="18"></lucide-icon>
+              PDF
+            </button>
+            @if (showCloturerForm() && !isFinalized()) {
+              <button class="hero-btn sparkles sm" (click)="generateAIReport()" [disabled]="isGeneratingAI()" [class.loading]="isGeneratingAI()">
+                <lucide-icon [img]="iconSparkles" size="18"></lucide-icon>
+                {{ isGeneratingAI() ? 'Gemini...' : 'IA' }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="report-container">
+          <div class="report-section">
+            <div class="section-title">
+              <lucide-icon [img]="iconInfo" size="18"></lucide-icon>
+              <span>Points discutés</span>
+            </div>
+            @if (isFinalized()) {
+              <div class="section-display">{{ reportPoints() || '—' }}</div>
+            } @else {
+              <textarea [(ngModel)]="reportPoints" placeholder="Ajouter des points..."></textarea>
+            }
+          </div>
+
+          <div class="report-section">
+            <div class="section-title">
+              <lucide-icon [img]="iconTarget" size="18"></lucide-icon>
+              <span>Décisions prises</span>
+            </div>
+            @if (isFinalized()) {
+              <div class="section-display">{{ reportDecisions() || '—' }}</div>
+            } @else {
+              <textarea [(ngModel)]="reportDecisions" placeholder="Ajouter des décisions..."></textarea>
+            }
+          </div>
+
+          <div class="report-section">
+            <div class="section-title">
+              <lucide-icon [img]="iconRepeat" size="18"></lucide-icon>
+              <span>Actions à suivre</span>
+            </div>
+            @if (isFinalized()) {
+              <div class="section-display">{{ reportActions() || '—' }}</div>
+            } @else {
+              <textarea [(ngModel)]="reportActions" placeholder="Ajouter des actions..."></textarea>
+            }
+          </div>
+
+          @if (showCloturerForm() && !isFinalized()) {
+            <div class="modal-actions-footer">
+              <button class="hero-btn secondary" (click)="showCloturerForm.set(false)">Annuler</button>
+              <button class="hero-btn sparkles" (click)="finaliser()">
+                <lucide-icon [img]="iconCheck"></lucide-icon>
+                Finaliser le compte-rendu
+              </button>
+            </div>
+          }
+        </div>
       </div>
     </div>
 
-    <!-- Compte Rendu (If Closed) -->
-    @if (!isLoading() && r.statut === 'CLOTUREE') {
-      <div class="bento-card col-span-3">
+    <!-- RIGHT COLUMN -->
+    <div class="grid-col col-span-1">
+      <!-- Participants Card -->
+      <div class="bento-card">
         <div class="card-header-icon">
-          <lucide-icon [img]="iconHistory" size="24"></lucide-icon>
-          <h3>Compte-rendu de réunion</h3>
+          <lucide-icon [img]="iconUsers" size="24"></lucide-icon>
+          <h3>Participants ({{ r.participants.length }})</h3>
         </div>
-        <div class="report-glass-box">
-          {{ r.compteRendu || 'Aucun compte-rendu n\'a été rédigé.' }}
-        </div>
-      </div>
-    }
-
-    <!-- Cloturer Modal-like card -->
-    @if (showCloturerForm()) {
-      <div class="bento-card col-span-3 highlight-card">
-        <div class="card-header-icon">
-          <lucide-icon [img]="iconCloturer" size="24"></lucide-icon>
-          <h3>Finaliser la réunion</h3>
-        </div>
-        <div class="cloturer-form">
-          <div class="presence-section">
-            <h4 class="sub-title">Qui était présent ?</h4>
-            <div class="presence-grid">
-              @for (p of r.participants; track p.utilisateurId) {
-                <div class="p-check" 
-                     [class.checked]="selectedPresents().includes(p.utilisateurId)"
-                     (click)="togglePresence(p.utilisateurId)">
-                  <div class="check-box">
-                    @if (selectedPresents().includes(p.utilisateurId)) {
-                      <lucide-icon [img]="iconCheck" size="14"></lucide-icon>
-                    }
-                  </div>
-                  <span>{{ p.prenom }} {{ p.nom }}</span>
+        <div class="participants-scroll">
+          @for (p of r.participants; track p.utilisateurId) {
+            <div class="participant-glass-row">
+              <div class="avatar-wrap">
+                @if (p.photo) {
+                  <img [src]="p.photo">
+                } @else {
+                  <div class="initials">{{ getInitials(p) }}</div>
+                }
+                <div class="rsvp-dot" [attr.data-rsvp]="p.reponse"></div>
+              </div>
+              <div class="user-info">
+                <span class="name">{{ formatName(p.prenom + ' ' + p.nom) }}</span>
+                <span class="status-badge" [attr.data-rsvp]="p.reponse">{{ getRsvpLabel(p.reponse) }}</span>
+              </div>
+              
+              @if (isOrganisateur() && !isFinalized()) {
+                <div class="row-actions">
+                  @if (p.reponse === RSVP.EN_ATTENTE) {
+                    <button class="action-btn" (click)="sendReminder(p)" title="Envoyer un rappel">
+                      <lucide-icon [img]="iconBell" size="16"></lucide-icon>
+                    </button>
+                  }
+                  <button class="action-btn danger" (click)="removeParticipant(p)" title="Retirer">
+                    <lucide-icon [img]="iconTrash" size="16"></lucide-icon>
+                  </button>
                 </div>
               }
             </div>
-          </div>
-          
-          <div class="form-group">
-            <label>Notes & Décisions (Compte-rendu)</label>
-            <textarea [(ngModel)]="compteRendu" placeholder="Rédigez ici les points clés abordés..."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button class="hero-btn secondary" (click)="showCloturerForm.set(false)">Annuler</button>
-            <button class="hero-btn primary" (click)="cloturer()">Enregistrer le compte-rendu</button>
-          </div>
+          }
         </div>
       </div>
-    }
+
+      <!-- Presence Checklist Card -->
+      <div class="bento-card sticky-top" *ngIf="showCloturerForm() || isFinalized()">
+        <div class="card-header-icon">
+          <lucide-icon [img]="iconUsers" size="24"></lucide-icon>
+          <div class="header-with-counter">
+            <h3>Participants présents</h3>
+            <span class="presence-counter">{{ checkedCount() }} / {{ r.participants.length }}</span>
+          </div>
+        </div>
+        <div class="presence-list-vertical">
+          @for (p of r.participants; track p.utilisateurId) {
+            <div class="p-list-row" 
+                 [class.checked]="selectedPresents().includes(p.utilisateurId)"
+                 [class.disabled]="isFinalized()"
+                 (click)="togglePresence(p.utilisateurId)">
+              <div class="check-circle">
+                <lucide-icon [img]="iconCheck" size="14" *ngIf="selectedPresents().includes(p.utilisateurId)"></lucide-icon>
+              </div>
+              <span class="name">{{ formatName(p.prenom + ' ' + p.nom) }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
+
+<!-- ===== MODAL: Annuler la réunion ===== -->
+@if (showAnnulerModal()) {
+  <div class="modal-overlay" (click)="showAnnulerModal.set(false)">
+    <div class="modal-card modal-danger" (click)="$event.stopPropagation()">
+      <div class="modal-icon-wrapper danger">
+        <lucide-icon [img]="iconAlert" size="32"></lucide-icon>
+      </div>
+      <h2>Annuler cette réunion ?</h2>
+      <p>Cette action est <strong>irréversible</strong>. Tous les participants seront notifiés de l'annulation et ne pourront plus accéder à cette réunion.</p>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" (click)="showAnnulerModal.set(false)">Non, garder</button>
+        <button class="modal-btn confirm-danger" (click)="confirmAnnuler()">Oui, annuler la réunion</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ===== MODAL: Confirmer la clôture ===== -->
+@if (showCloturerConfirm()) {
+  <div class="modal-overlay" (click)="showCloturerConfirm.set(false)">
+    <div class="modal-card modal-info" (click)="$event.stopPropagation()">
+      <div class="modal-icon-wrapper info">
+        <lucide-icon [img]="iconCloturer" size="32"></lucide-icon>
+      </div>
+      <h2>Finaliser et clôturer ?</h2>
+      <p>Le compte-rendu sera verrouillé et envoyé aux <strong>{{ reunion()?.participants?.length }} participant{{ (reunion()?.participants?.length ?? 0) > 1 ? 's' : '' }}</strong>. Vous pourrez toujours l'exporter en PDF.</p>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" (click)="showCloturerConfirm.set(false)">Revenir</button>
+        <button class="modal-btn confirm-primary" (click)="confirmCloturer()">Confirmer la clôture</button>
+      </div>
+    </div>
+  </div>
+}
 }

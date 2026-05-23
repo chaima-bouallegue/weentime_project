@@ -61,7 +61,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.startsWith("/api/v1/organisations/users/by-email")
                 || path.startsWith("/api/v1/organisations/entreprises/validate-code/")
                 || path.startsWith("/api/v1/organisations/by-code/")
-                || isPublicChatbotPath(path)) {
+                || isPublicChatbotPath(path)
+                || path.startsWith("/api/v1/public/")) {
             return chain.filter(exchange);
         }
 

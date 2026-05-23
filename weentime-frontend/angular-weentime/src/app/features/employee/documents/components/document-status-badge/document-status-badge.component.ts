@@ -10,7 +10,7 @@ interface BadgeConfig {
 }
 
 const BADGE_MAP: Record<StatutDocument, BadgeConfig> = {
-  EN_ATTENTE: { label: 'En attente', icon: 'clock', colorClass: 'badge-warning' },
+  EN_ATTENTE: { label: 'En attente RH', icon: 'clock', colorClass: 'badge-warning' },
   EN_COURS: { label: 'En cours', icon: 'loader-2', colorClass: 'badge-info' },
   PRET: { label: 'Pret', icon: 'check', colorClass: 'badge-success' },
   REFUSE: { label: 'Refuse', icon: 'x', colorClass: 'badge-danger' },

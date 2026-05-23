@@ -81,9 +81,34 @@ ALTER TABLE public.jours_feries
     ADD COLUMN IF NOT EXISTS entreprise_id bigint,
     ADD COLUMN IF NOT EXISTS is_global boolean;
 
-UPDATE public.jours_feries
-SET nom = COALESCE(nom, libelle, description, 'Jour ferie')
-WHERE nom IS NULL;
+DO $$
+DECLARE
+    has_libelle boolean;
+    has_description boolean;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'jours_feries' AND column_name = 'libelle'
+    ) INTO has_libelle;
+
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'jours_feries' AND column_name = 'description'
+    ) INTO has_description;
+
+    IF has_libelle AND has_description THEN
+        EXECUTE 'UPDATE public.jours_feries SET nom = COALESCE(nom, libelle, description, $inner$Jour ferie$inner$) WHERE nom IS NULL';
+    ELSIF has_libelle THEN
+        EXECUTE 'UPDATE public.jours_feries SET nom = COALESCE(nom, libelle, $inner$Jour ferie$inner$) WHERE nom IS NULL';
+    ELSIF has_description THEN
+        EXECUTE 'UPDATE public.jours_feries SET nom = COALESCE(nom, description, $inner$Jour ferie$inner$) WHERE nom IS NULL';
+    ELSE
+        UPDATE public.jours_feries
+        SET nom = COALESCE(nom, 'Jour ferie')
+        WHERE nom IS NULL;
+    END IF;
+END
+$$;
 
 UPDATE public.jours_feries
 SET is_global = COALESCE(is_global, true)

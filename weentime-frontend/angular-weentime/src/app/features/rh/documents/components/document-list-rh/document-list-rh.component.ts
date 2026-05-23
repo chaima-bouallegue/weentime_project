@@ -64,6 +64,11 @@ export class DocumentListRhComponent {
 
   getStatutLabel(statut: string): string {
     switch (statut) {
+      case 'DEMANDE_RECUE': return 'Demande reçue';
+      case 'EN_REVISION': return 'En révision';
+      case 'VALIDE': return 'Approuvé';
+      case 'SIGNE': return 'Signé';
+      case 'ENVOYE': return 'Envoyé';
       case 'EN_ATTENTE': return 'En attente';
       case 'EN_COURS': return 'En cours';
       case 'PRET': return 'Prêt';

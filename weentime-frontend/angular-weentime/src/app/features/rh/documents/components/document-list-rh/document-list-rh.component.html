@@ -55,27 +55,27 @@
               @if (d.generatedByAI) {
                 <span class="ai-badge">IA</span>
               }
-              @if (d.urgente && d.statut === 'EN_ATTENTE') {
+              @if (d.urgente && d.statut === 'DEMANDE_RECUE') {
                 <span class="urgent-tag">URGENT</span>
               }
             </div>
           </td>
           <td>{{ d.dateCreation | date:'dd/MM/yyyy HH:mm' }}</td>
           <td>
-            <span class="delai-text" [class.urgent]="d.urgente && d.statut === 'EN_ATTENTE'">{{ d.delaiEstime }}</span>
+            <span class="delai-text" [class.urgent]="d.urgente && d.statut === 'DEMANDE_RECUE'">{{ d.delaiEstime }}</span>
           </td>
           <td>
             <div class="statut-badge" [ngClass]="getStatutClass(d.statut)">
               {{ getStatutLabel(d.statut) }}
-              @if (d.generatedByAI && d.statut === 'PRET') {
+              @if (d.generatedByAI && d.statut === 'ENVOYE') {
                 <lucide-icon name="sparkles" size="10"></lucide-icon>
               }
             </div>
           </td>
           <td (click)="$event.stopPropagation()">
             <div class="actions">
-              @if (d.statut === 'EN_ATTENTE' || d.statut === 'EN_COURS') {
-                <button class="btn-icon ia" (click)="generateAI.emit(d)" title="Générer avec IA">
+              @if (d.statut === 'DEMANDE_RECUE' || d.statut === 'EN_REVISION') {
+                <button class="btn-icon ia" (click)="generateAI.emit(d)" title="Traiter">
                   <lucide-icon name="sparkles" size="16"></lucide-icon>
                 </button>
                 <button class="btn-icon upload" (click)="uploadDoc.emit(d)" title="Uploader">
@@ -86,7 +86,13 @@
                 </button>
               }
 
-              @if (d.statut === 'PRET') {
+              @if (d.statut === 'VALIDE' || d.statut === 'SIGNE') {
+                <button class="btn-icon ia" (click)="generateAI.emit(d)" title="Ouvrir l'éditeur">
+                  <lucide-icon name="pen-tool" size="16"></lucide-icon>
+                </button>
+              }
+
+              @if (d.statut === 'ENVOYE') {
                 <button class="btn-icon view" (click)="viewDoc.emit(d)" title="Voir document">
                   <lucide-icon name="eye" size="16"></lucide-icon>
                 </button>

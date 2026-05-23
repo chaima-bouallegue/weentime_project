@@ -18,4 +18,5 @@ public class AIGenerationRequest {
     private String employeDepartement;
     private String dateEntree;
     private String moisConcerne;
+    private Long documentId;
 }

@@ -1,16 +1,20 @@
 package com.weentime.weentimeapp.controller;
 
 import com.weentime.weentimeapp.client.OrganisationServiceClient;
+import com.weentime.weentimeapp.dto.AIAdvancedGenerationRequest;
 import com.weentime.weentimeapp.dto.AIGenerationRequest;
 import com.weentime.weentimeapp.dto.AIGenerationResult;
 import com.weentime.weentimeapp.dto.ApiResponse;
 import com.weentime.weentimeapp.dto.CreateDocumentRequest;
 import com.weentime.weentimeapp.dto.DemandeDocumentResponse;
+import com.weentime.weentimeapp.dto.DocumentAuditLogResponse;
+import com.weentime.weentimeapp.dto.DocumentPreviewRequest;
 import com.weentime.weentimeapp.dto.PageResponse;
 import com.weentime.weentimeapp.dto.StatsDocumentsDTO;
 import com.weentime.weentimeapp.dto.UpdateStatutRequest;
 import com.weentime.weentimeapp.dto.UtilisateurAuthResponse;
 import com.weentime.weentimeapp.dto.ValiderDocumentRequest;
+import com.weentime.weentimeapp.dto.SignerDocumentRequest;
 import com.weentime.weentimeapp.service.AiService;
 import com.weentime.weentimeapp.service.DocumentService;
 import lombok.RequiredArgsConstructor;
@@ -59,19 +63,19 @@ public class DocumentController {
     }
 
     @GetMapping("/mes-demandes")
-    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
     public ResponseEntity<List<DemandeDocumentResponse>> getMesDemandes() {
         return ResponseEntity.ok(service.getMesDemandes(getUserId()));
     }
 
     @PutMapping("/{id}/annuler")
-    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
     public ResponseEntity<DemandeDocumentResponse> annuler(@PathVariable Long id) {
         return ResponseEntity.ok(service.annulerDemande(id, getUserId()));
     }
 
     @GetMapping("/{id}/telecharger")
-    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
     public ResponseEntity<Resource> telecharger(@PathVariable Long id) {
         Resource resource = service.telechargerDocument(id, getUserId());
         return ResponseEntity.ok()
@@ -85,7 +89,25 @@ public class DocumentController {
     public ResponseEntity<DemandeDocumentResponse> updateStatut(
             @PathVariable Long id,
             @RequestBody UpdateStatutRequest request) {
-        return ResponseEntity.ok(service.updateStatut(id, request));
+        return ResponseEntity.ok(service.updateStatut(id, request, getUserId()));
+    }
+
+    @GetMapping("/{id}/audit")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<List<DocumentAuditLogResponse>> getDocumentAudit(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getDocumentAudit(id, getRhEntrepriseId()));
+    }
+
+    @PostMapping("/{id}/preview")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<byte[]> previewPdf(
+            @PathVariable Long id,
+            @RequestBody DocumentPreviewRequest request) {
+        byte[] pdf = service.previewPdf(id, request != null ? request.getContenu() : null, getRhEntrepriseId());
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview-" + id + ".pdf\"")
+                .body(pdf);
     }
 
     @GetMapping("/rh/demandes")
@@ -117,7 +139,30 @@ public class DocumentController {
     public ResponseEntity<DemandeDocumentResponse> valider(
             @PathVariable Long id,
             @RequestBody ValiderDocumentRequest request) {
-        return ResponseEntity.ok(service.valider(id, request));
+        return ResponseEntity.ok(service.valider(id, request, getUserId()));
+    }
+
+    @PutMapping("/{id}/approuver")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<DemandeDocumentResponse> approuver(
+            @PathVariable Long id,
+            @RequestBody ValiderDocumentRequest request) {
+        return ResponseEntity.ok(service.approuver(id, request, getUserId()));
+    }
+
+    @PutMapping("/{id}/signer")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<DemandeDocumentResponse> signer(
+            @PathVariable Long id,
+            @RequestBody SignerDocumentRequest request) {
+        return ResponseEntity.ok(service.signer(id, request, getUserId()));
+    }
+
+    @PutMapping("/{id}/envoyer")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<DemandeDocumentResponse> envoyer(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(service.envoyer(id, getUserId()));
     }
 
     @PostMapping(path = "/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -125,7 +170,7 @@ public class DocumentController {
     public ResponseEntity<DemandeDocumentResponse> uploadDocument(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file) {
-        return ResponseEntity.ok(service.uploadDocumentRh(id, file, getRhEntrepriseId()));
+        return ResponseEntity.ok(service.uploadDocumentRh(id, file, getRhEntrepriseId(), getUserId()));
     }
 
     @PutMapping("/{id}/refuser")
@@ -133,13 +178,13 @@ public class DocumentController {
     public ResponseEntity<DemandeDocumentResponse> refuser(
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(service.refuser(id, body.get("commentaireRH")));
+        return ResponseEntity.ok(service.refuser(id, body.get("commentaireRH"), getUserId()));
     }
 
     @GetMapping("/{id}/file")
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<Resource> viewDocument(@PathVariable Long id) {
-        Resource resource = service.telechargerDocumentRh(id, getRhEntrepriseId());
+        Resource resource = service.telechargerDocumentRh(id, getRhEntrepriseId(), getUserId());
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
@@ -168,12 +213,44 @@ public class DocumentController {
         );
 
         AiService.AiResponse aiResponse = aiService.generateDocument(prompt);
+        if (request.getDocumentId() != null) {
+            service.logAiGeneration(request.getDocumentId(), getUserId(),
+                    "Génération IA — " + request.getLabel());
+        }
         return ResponseEntity.ok(AIGenerationResult.builder()
                 .contenu(aiResponse.text())
                 .tokensUsed(aiResponse.tokens())
                 .modelUsed(aiResponse.model())
                 .type(request.getType())
                 .employeNom(request.getEmployePrenom() + " " + request.getEmployeNom())
+                .dateGeneration(java.time.LocalDateTime.now().toString())
+                .build());
+    }
+
+    @PostMapping("/rh/generate-ai-advanced")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<AIGenerationResult> generateAIDocumentAdvanced(@RequestBody AIAdvancedGenerationRequest request) {
+        log.info("Génération avancée de document via l'IA demandée pour : {}", request.getEmployeNom());
+        float temp = request.getTemperature() != null ? request.getTemperature() : 0.2f;
+        String systemPrompt = "Tu es le rédacteur documentaire officiel de l'entreprise.\n" +
+                "Ton : Professionnel, Formel, Neutre.\n" +
+                "Retourne uniquement le contenu du document, sans balises markdown.";
+        AiService.AiResponse aiResponse = aiService.generateWithGemini(
+                systemPrompt,
+                request.getPrompt(),
+                temp
+        );
+        log.info("Génération avancée complétée.");
+        if (request.getDocumentId() != null) {
+            service.logAiGeneration(request.getDocumentId(), getUserId(),
+                    "Génération IA avancée — " + request.getType());
+        }
+        return ResponseEntity.ok(AIGenerationResult.builder()
+                .contenu(aiResponse.text())
+                .tokensUsed(aiResponse.tokens())
+                .modelUsed(aiResponse.model())
+                .type(request.getType())
+                .employeNom(request.getEmployeNom())
                 .dateGeneration(java.time.LocalDateTime.now().toString())
                 .build());
     }

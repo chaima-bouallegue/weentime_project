@@ -13,11 +13,13 @@ import {
 import { DecisionModalComponent } from './components/decision-modal/decision-modal.component';
 import { DemandesListComponent } from './components/demandes-list/demandes-list.component';
 import { StatsCardsComponent } from './components/stats-cards/stats-cards.component';
+import { EmployeeTeletravailComponent } from '../../employee/teletravail/employee-teletravail.component';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-manager-teletravail',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, StatsCardsComponent, DemandesListComponent, DecisionModalComponent],
+  imports: [CommonModule, LucideAngularModule, StatsCardsComponent, DemandesListComponent, DecisionModalComponent, EmployeeTeletravailComponent],
   templateUrl: './manager-teletravail.component.html',
   styleUrl: './manager-teletravail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -25,7 +27,11 @@ import { StatsCardsComponent } from './components/stats-cards/stats-cards.compon
 export class ManagerTeletravailComponent implements OnInit {
   private readonly service = inject(TeletravailService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authService = inject(AuthService);
   private readonly defaultStatusConfig = { label: 'Statut inconnu', color: 'badge-gray', icon: 'help-circle' } as const;
+
+  protected readonly isManagerOrRh = computed(() => this.authService.hasRole('MANAGER') || this.authService.hasRole('RH'));
+  protected readonly activeTab = signal<'mes-demandes' | 'mon-equipe'>('mon-equipe');
 
   readonly demandesEnAttente = signal<DemandeTeletravailWorkflow[]>([]);
   readonly historique = signal<DemandeTeletravailWorkflow[]>([]);

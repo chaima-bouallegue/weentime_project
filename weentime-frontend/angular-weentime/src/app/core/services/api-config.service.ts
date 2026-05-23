@@ -230,6 +230,12 @@ export class ApiConfigService {
     GET_RH_DOCUMENT_STATS: `${this.API_BASE}/documents/rh/stats`,
     PASSER_DOCUMENT_EN_COURS: (id: number) => `${this.API_BASE}/documents/${id}/passer-en-cours`,
     VALIDATE_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/valider`,
+    APPROUVER_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/approuver`,
+    SIGNER_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/signer`,
+    ENVOYER_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/envoyer`,
+    UPDATE_DOCUMENT_STATUT: (id: number) => `${this.API_BASE}/documents/${id}/statut`,
+    GET_DOCUMENT_AUDIT: (id: number) => `${this.API_BASE}/documents/${id}/audit`,
+    PREVIEW_DOCUMENT_PDF: (id: number) => `${this.API_BASE}/documents/${id}/preview`,
     REFUSE_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/refuser`,
     UPLOAD_DOCUMENT_RH: (id: number) => `${this.API_BASE}/documents/${id}/upload`,
     GET_DOCUMENT_FILE_RH: (id: number) => `${this.API_BASE}/documents/${id}/file`,
@@ -269,6 +275,29 @@ export class ApiConfigService {
     UPDATE_JOUR_FERIE: (id: number) => `${this.API_BASE}/rh/jours-feries/${id}`,
     DELETE_JOUR_FERIE: (id: number) => `${this.API_BASE}/rh/jours-feries/${id}`,
     CHECK_JOUR_FERIE: (date: string) => `${this.API_BASE}/rh/jours-feries/check/${date}`
+  };
+
+  // ─────────────────────────────────────────────
+  // RECRUTEMENT ENDPOINTS
+  // ─────────────────────────────────────────────
+  readonly RECRUTEMENT = {
+    // RH
+    GET_JOBS: `${this.API_BASE}/recrutement/jobs`,
+    CREATE_JOB: `${this.API_BASE}/recrutement/jobs`,
+    GET_JOB_BY_ID: (id: number) => `${this.API_BASE}/recrutement/jobs/${id}`,
+    UPDATE_JOB: (id: number) => `${this.API_BASE}/recrutement/jobs/${id}`,
+    PUBLISH_JOB: (id: number) => `${this.API_BASE}/recrutement/jobs/${id}/publish`,
+    CLOSE_JOB: (id: number) => `${this.API_BASE}/recrutement/jobs/${id}/close`,
+    DELETE_JOB: (id: number) => `${this.API_BASE}/recrutement/jobs/${id}`,
+    GET_APPLICATIONS: (jobId: number) => `${this.API_BASE}/recrutement/jobs/${jobId}/applications`,
+    UPDATE_APP_STATUS: (id: number) => `${this.API_BASE}/recrutement/applications/${id}/status`,
+    ADD_APP_NOTE: (id: number) => `${this.API_BASE}/recrutement/applications/${id}/notes`,
+    GET_APP_CV: (id: number) => `${this.API_BASE}/recrutement/applications/${id}/cv`,
+
+    // Public
+    GET_PUBLIC_JOBS: `${this.API_BASE}/public/recrutement/jobs`,
+    GET_PUBLIC_JOB_BY_ID: (id: number) => `${this.API_BASE}/public/recrutement/jobs/${id}`,
+    SUBMIT_APPLICATION: (jobId: number) => `${this.API_BASE}/public/recrutement/jobs/${jobId}/apply`
   };
 
   // ─────────────────────────────────────────────

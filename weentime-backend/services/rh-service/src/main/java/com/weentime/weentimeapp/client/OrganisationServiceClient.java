@@ -5,7 +5,10 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "organisation-service", url = "${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}", path = "/api/v1/organisations/users")
+@FeignClient(name = "organisation-service", 
+             contextId = "organisationServiceClient",
+             url = "${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}", 
+             path = "/api/v1/organisations/users")
 public interface OrganisationServiceClient {
 
     @GetMapping("/{id}")

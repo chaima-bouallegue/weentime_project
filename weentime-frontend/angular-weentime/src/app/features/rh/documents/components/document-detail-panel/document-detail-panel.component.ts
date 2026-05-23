@@ -2,17 +2,19 @@ import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from 
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { DemandeDocumentRH } from '../../models/rh-document.model';
+import { DocumentTimelineComponent } from '../document-timeline/document-timeline.component';
 
 @Component({
   selector: 'app-document-detail-panel',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, DocumentTimelineComponent],
   templateUrl: './document-detail-panel.component.html',
   styleUrl: './document-detail-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DocumentDetailPanelComponent {
   @Input({ required: true }) demande: DemandeDocumentRH | null = null;
+  @Input() auditRefreshTrigger = 0;
   @Output() close = new EventEmitter<void>();
   @Output() generateAI = new EventEmitter<DemandeDocumentRH>();
   @Output() uploadDoc = new EventEmitter<DemandeDocumentRH>();
@@ -32,12 +34,27 @@ export class DocumentDetailPanelComponent {
 
   getStatutLabel(statut: string): string {
     switch (statut) {
+      case 'DEMANDE_RECUE': return 'Demande reçue';
+      case 'EN_REVISION': return 'En cours de révision';
+      case 'VALIDE': return 'Document approuvé';
+      case 'SIGNE': return 'Document signé';
+      case 'ENVOYE': return 'Document envoyé';
       case 'EN_ATTENTE': return 'En attente de traitement';
       case 'EN_COURS': return 'En cours de traitement';
       case 'PRET': return 'Document prêt';
       case 'REFUSE': return 'Demande refusée';
       case 'ANNULE': return 'Demande annulée';
       default: return statut;
+    }
+  }
+
+  getStatutIcon(statut: string): string {
+    switch (statut) {
+      case 'ENVOYE': return 'check-circle';
+      case 'SIGNE': return 'pen-tool';
+      case 'VALIDE': return 'shield-check';
+      case 'REFUSE': return 'x-circle';
+      default: return 'clock';
     }
   }
 }

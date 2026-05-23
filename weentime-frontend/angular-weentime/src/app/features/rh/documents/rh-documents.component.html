@@ -1,24 +1,28 @@
-<div class="page-container">
-  <!-- Header Section -->
+<div class="page-container" [class.kanban-page]="activeTab() === 'gestion' && vueActive() === 'kanban'">
   <header class="page-header">
     <div class="header-main">
       <div class="title-group">
-        <h1 class="page-title">Gestion des documents RH</h1>
-        <p class="page-subtitle">Suivez et générez les documents officiels pour vos collaborateurs</p>
+        <h1 class="page-title">Gestion des documents</h1>
+        <p class="page-subtitle">
+          @if (activeTab() === 'gestion') {
+            {{ demandesFiltrees().length }} demande{{ demandesFiltrees().length > 1 ? 's' : '' }} active{{ demandesFiltrees().length > 1 ? 's' : '' }}
+          } @else {
+            Suivez et générez les documents officiels pour vos collaborateurs
+          }
+        </p>
       </div>
-      
+
       <div class="header-actions">
-        <!-- View Toggle -->
         <div class="view-toggle">
-          <button 
-            [class.active]="vueActive() === 'kanban'" 
+          <button
+            [class.active]="vueActive() === 'kanban'"
             (click)="vueActive.set('kanban')"
             title="Vue Kanban"
           >
             <lucide-icon name="kanban" size="18"></lucide-icon>
           </button>
-          <button 
-            [class.active]="vueActive() === 'liste'" 
+          <button
+            [class.active]="vueActive() === 'liste'"
             (click)="vueActive.set('liste')"
             title="Vue Liste"
           >
@@ -26,56 +30,84 @@
           </button>
         </div>
 
-        <!-- Search Bar -->
         <div class="search-box">
           <lucide-icon name="search" size="18"></lucide-icon>
-          <input 
-            type="text" 
-            placeholder="Rechercher un employé ou document..." 
+          <input
+            type="text"
+            placeholder="Rechercher un employé..."
             [(ngModel)]="searchQuery"
           >
         </div>
       </div>
     </div>
+
   </header>
 
-  <!-- Stats Section -->
-  <app-document-stats [stats]="stats()"></app-document-stats>
+  @if (isRh()) {
+    <div class="rh-tabs">
+      <button
+        (click)="activeTab.set('mes-demandes')"
+        class="rh-tab"
+        [class.active]="activeTab() === 'mes-demandes'"
+      >
+        Mes demandes
+      </button>
+      <button
+        (click)="activeTab.set('gestion')"
+        class="rh-tab"
+        [class.active]="activeTab() === 'gestion'"
+      >
+        <span>Gestion</span>
+        @if (demandesFiltrees().length > 0) {
+          <span class="rh-tab-badge">{{ demandesFiltrees().length }}</span>
+        }
+      </button>
+    </div>
+  }
 
-  <!-- Main Content Area -->
-  <main class="content-area">
-    @if (isLoading()) {
-      <div class="loading-state">
-        <lucide-icon name="loader-2" size="48" class="animate-spin text-indigo-500"></lucide-icon>
-        <p>Chargement des demandes...</p>
-      </div>
-    } @else {
-      @if (vueActive() === 'kanban') {
-        <app-document-kanban 
-          [demandes]="demandesFiltrees()"
-          (selectDemande)="onSelectDemande($event)"
-          (generateAI)="onGenerateAI($event)"
-          (uploadDoc)="onUploadDoc($event)"
-          (rejectDemande)="onRejectDemande($event)"
-          (viewDoc)="onViewDoc($event)"
-        ></app-document-kanban>
-      } @else {
-        <app-document-list-rh
-          [demandes]="demandesFiltrees()"
-          (selectDemande)="onSelectDemande($event)"
-          (generateAI)="onGenerateAI($event)"
-          (uploadDoc)="onUploadDoc($event)"
-          (rejectDemande)="onRejectDemande($event)"
-          (viewDoc)="onViewDoc($event)"
-        ></app-document-list-rh>
-      }
+  @if (activeTab() === 'mes-demandes') {
+    <app-employee-documents></app-employee-documents>
+  } @else {
+    @if (vueActive() !== 'kanban') {
+      <app-document-stats [stats]="stats()"></app-document-stats>
     }
-  </main>
 
-  <!-- Modals & Panels -->
+    <main class="content-area" [class.content-area--kanban]="vueActive() === 'kanban'">
+      @if (isLoading()) {
+        <div class="loading-state">
+          <lucide-icon name="loader-2" size="48" class="animate-spin text-indigo-500"></lucide-icon>
+          <p>Chargement des demandes...</p>
+        </div>
+      } @else {
+        @if (vueActive() === 'kanban') {
+          <app-document-kanban
+            [demandes]="demandesFiltrees()"
+            (selectDemande)="onSelectDemande($event)"
+            (generateAI)="onGenerateAI($event)"
+            (uploadDoc)="onUploadDoc($event)"
+            (rejectDemande)="onRejectDemande($event)"
+            (viewDoc)="onViewDoc($event)"
+            (downloadDoc)="onDownloadDoc($event)"
+            (statusChange)="handleKanbanStatusChange($event)"
+          ></app-document-kanban>
+        } @else {
+          <app-document-list-rh
+            [demandes]="demandesFiltrees()"
+            (selectDemande)="onSelectDemande($event)"
+            (generateAI)="onGenerateAI($event)"
+            (uploadDoc)="onUploadDoc($event)"
+            (rejectDemande)="onRejectDemande($event)"
+            (viewDoc)="onViewDoc($event)"
+          ></app-document-list-rh>
+        }
+      }
+    </main>
+  }
+
   @if (showDetailPanel()) {
     <app-document-detail-panel
       [demande]="demandeSelectionnee()"
+      [auditRefreshTrigger]="auditRefreshTrigger()"
       (close)="showDetailPanel.set(false)"
       (generateAI)="onGenerateAI($event); showDetailPanel.set(false)"
       (uploadDoc)="onUploadDoc($event); showDetailPanel.set(false)"
@@ -84,12 +116,15 @@
     ></app-document-detail-panel>
   }
 
-  @if (showAIModal()) {
-    <app-ai-generation-modal
-      [demande]="demandeSelectionnee()"
-      (close)="showAIModal.set(false)"
-      (validate)="handleAIGeneration($event)"
-    ></app-ai-generation-modal>
+  @if (showEditor() && demandeSelectionnee()) {
+    <app-rh-document-editor
+      [demande]="demandeSelectionnee()!"
+      (closeEditor)="showEditor.set(false)"
+      (approuver)="handleApprouver($event)"
+      (signer)="handleSigner($event)"
+      (envoyer)="handleEnvoyer($event)"
+      (generateAI)="handleEditorAIGeneration($event)"
+    ></app-rh-document-editor>
   }
 
   @if (showUploadModal()) {

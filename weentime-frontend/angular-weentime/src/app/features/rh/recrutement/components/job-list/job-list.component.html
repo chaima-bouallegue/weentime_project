@@ -1,0 +1,178 @@
+<div class="page-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-main">
+      <div class="title-group">
+        <h1 class="page-title">Recrutement</h1>
+        <p class="page-subtitle">Gérez vos offres d'emploi et suivez les candidatures</p>
+      </div>
+
+      <div class="header-actions">
+        <!-- Search Bar -->
+        <div class="search-box">
+          <i-lucide [img]="Search" class="search-icon"></i-lucide>
+          <input
+            type="text"
+            placeholder="Rechercher une offre..."
+            [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)"
+          >
+        </div>
+
+        <a routerLink="nouveau" class="btn-primary" id="btn-new-job">
+          <i-lucide [img]="Plus" class="w-4 h-4"></i-lucide>
+          Nouvelle Offre
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card" (click)="statusFilter.set('ALL')" [class.active]="statusFilter() === 'ALL'">
+      <div class="stat-icon total">
+        <i-lucide [img]="Briefcase" class="w-5 h-5"></i-lucide>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats().total }}</span>
+        <span class="stat-label">Total offres</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="statusFilter.set('PUBLISHED')" [class.active]="statusFilter() === 'PUBLISHED'">
+      <div class="stat-icon published">
+        <i-lucide [img]="Eye" class="w-5 h-5"></i-lucide>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats().published }}</span>
+        <span class="stat-label">Publiées</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="statusFilter.set('DRAFT')" [class.active]="statusFilter() === 'DRAFT'">
+      <div class="stat-icon draft">
+        <i-lucide [img]="FileText" class="w-5 h-5"></i-lucide>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats().draft }}</span>
+        <span class="stat-label">Brouillons</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="statusFilter.set('CLOSED')" [class.active]="statusFilter() === 'CLOSED'">
+      <div class="stat-icon closed">
+        <i-lucide [img]="Archive" class="w-5 h-5"></i-lucide>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats().closed }}</span>
+        <span class="stat-label">Clôturées</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <main class="content-area">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <i-lucide [img]="Loader2" class="w-12 h-12 animate-spin"></i-lucide>
+        <p>Chargement des offres...</p>
+      </div>
+    } @else if (hasError()) {
+      <div class="empty-state">
+        <div class="empty-icon error">
+          <i-lucide [img]="Briefcase" class="w-12 h-12"></i-lucide>
+        </div>
+        <h3>Impossible de charger les offres</h3>
+        <p>Veuillez vérifier que le service RH est démarré et réessayer.</p>
+        <button class="btn-secondary" (click)="loadJobs()">
+          Réessayer
+        </button>
+      </div>
+    } @else if (filteredJobs().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i-lucide [img]="Search" class="w-12 h-12"></i-lucide>
+        </div>
+        @if (searchQuery() || statusFilter() !== 'ALL') {
+          <h3>Aucun résultat</h3>
+          <p>Essayez de modifier vos critères de recherche.</p>
+          <button class="btn-secondary" (click)="searchQuery.set(''); statusFilter.set('ALL')">
+            Réinitialiser les filtres
+          </button>
+        } @else {
+          <h3>Aucune offre d'emploi</h3>
+          <p>Commencez par créer votre première fiche de poste pour attirer les meilleurs talents.</p>
+          <a routerLink="nouveau" class="btn-primary">
+            <i-lucide [img]="Plus" class="w-4 h-4"></i-lucide>
+            Créer une offre
+          </a>
+        }
+      </div>
+    } @else {
+      <!-- Job Cards Grid -->
+      <div class="jobs-grid">
+        @for (job of filteredJobs(); track job.id) {
+          <a class="job-card" [routerLink]="[job.id]">
+            <!-- Card Header -->
+            <div class="job-card-header">
+              <div class="job-avatar">
+                <i-lucide [img]="Briefcase" class="w-6 h-6"></i-lucide>
+              </div>
+              <span class="job-status" [attr.data-status]="job.status">
+                {{ getStatusLabel(job.status) }}
+              </span>
+            </div>
+
+            <!-- Card Body -->
+            <h3 class="job-title">{{ job.title }}</h3>
+
+            <div class="job-meta">
+              @if (job.department) {
+                <span class="meta-item">
+                  <i-lucide [img]="Users" class="w-3.5 h-3.5"></i-lucide>
+                  {{ job.department }}
+                </span>
+              }
+              @if (job.location) {
+                <span class="meta-item">
+                  <i-lucide [img]="MapPin" class="w-3.5 h-3.5"></i-lucide>
+                  {{ job.location }}
+                </span>
+              }
+            </div>
+
+            <!-- Tags -->
+            <div class="job-tags">
+              @if (job.employmentType) {
+                <span class="tag contract">{{ getContractLabel(job.employmentType) }}</span>
+              }
+              @if (job.workMode) {
+                <span class="tag work-mode">{{ getWorkModeLabel(job.workMode) }}</span>
+              }
+              @if (job.openingsCount && job.openingsCount > 1) {
+                <span class="tag openings">{{ job.openingsCount }} postes</span>
+              }
+            </div>
+
+            <!-- Card Footer -->
+            <div class="job-card-footer">
+              <div class="job-date">
+                <i-lucide [img]="Calendar" class="w-3.5 h-3.5"></i-lucide>
+                {{ formatDate(job.createdAt) }}
+              </div>
+              @if (job.salaryMin || job.salaryMax) {
+                <div class="job-salary">
+                  @if (job.salaryMin && job.salaryMax) {
+                    {{ job.salaryMin / 1000 }}k - {{ job.salaryMax / 1000 }}k €
+                  } @else if (job.salaryMin) {
+                    Dès {{ job.salaryMin / 1000 }}k €
+                  }
+                </div>
+              }
+            </div>
+          </a>
+        }
+      </div>
+    }
+  </main>
+</div>
