@@ -10,6 +10,7 @@ import java.util.List;
 
 @Repository
 public interface TypeCongeRepository extends JpaRepository<TypeConge, Long> {
+
     @Query("""
             select t
             from TypeConge t
@@ -18,4 +19,5 @@ public interface TypeCongeRepository extends JpaRepository<TypeConge, Long> {
             order by t.libelle asc
             """)
     List<TypeConge> findAllByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
 }

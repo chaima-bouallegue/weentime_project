@@ -4,6 +4,7 @@ import com.weentime.weentimeapp.dto.TypeCongeDTO;
 import com.weentime.weentimeapp.entity.TypeConge;
 import com.weentime.weentimeapp.mapper.TypeCongeMapper;
 import com.weentime.weentimeapp.repository.TypeCongeRepository;
+import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.TypeCongeService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.weentime.weentimeapp.security.SecurityUtils;
 import java.util.List;
 import java.util.Objects;
 
@@ -55,7 +55,7 @@ public class TypeCongeServiceImpl implements TypeCongeService {
         TypeConge entity = typeCongeRepository.findById(id)
                 .filter(t -> canAccess(t, entrepriseId))
                 .orElseThrow(() -> new EntityNotFoundException("TypeConge not found or access denied"));
-        
+
         entity.setLibelle(dto.getLibelle());
         entity.setNombreJoursMax(dto.getNombreJoursMax());
         entity.setDecompteJours(dto.getDecompteJours());

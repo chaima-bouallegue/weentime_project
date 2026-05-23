@@ -4,6 +4,7 @@ import com.weentime.weentimeapp.dto.TypeAutorisationDTO;
 import com.weentime.weentimeapp.entity.TypeAutorisation;
 import com.weentime.weentimeapp.mapper.TypeAutorisationMapper;
 import com.weentime.weentimeapp.repository.TypeAutorisationRepository;
+import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.TypeAutorisationService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.weentime.weentimeapp.security.SecurityUtils;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,7 +27,9 @@ public class TypeAutorisationServiceImpl implements TypeAutorisationService {
     @Override
     public TypeAutorisationDTO create(TypeAutorisationDTO dto) {
         TypeAutorisation entity = mapper.toEntity(dto);
-        entity.setEntrepriseId(requireEntrepriseId());
+        if (entity.getEntrepriseId() == null) {
+            entity.setEntrepriseId(SecurityUtils.getCurrentEntrepriseId());
+        }
         return mapper.toDto(repository.save(entity));
     }
 
@@ -54,11 +56,10 @@ public class TypeAutorisationServiceImpl implements TypeAutorisationService {
         TypeAutorisation existingEntity = repository.findById(id)
                 .filter(t -> canAccess(t, entrepriseId))
                 .orElseThrow(() -> new EntityNotFoundException("TypeAutorisation not found or access denied"));
-        
         existingEntity.setLibelle(dto.getLibelle());
         existingEntity.setMaxHeuresMois(dto.getMaxHeuresMois());
         existingEntity.setRequireJustificatif(dto.getRequireJustificatif());
-        
+
         return mapper.toDto(repository.save(existingEntity));
     }
 

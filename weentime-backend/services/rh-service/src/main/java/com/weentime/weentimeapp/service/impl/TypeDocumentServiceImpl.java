@@ -67,28 +67,62 @@ public class TypeDocumentServiceImpl implements TypeDocumentService {
         entity.setEntrepriseId(entrepriseId);
         entity.setLibelle(dto.getLibelle());
         entity.setCode(dto.getCode());
-        if (dto.getCategorie() != null) entity.setCategorie(dto.getCategorie());
-        if (dto.getDescription() != null) entity.setDescription(dto.getDescription());
-        if (dto.getIcone() != null) entity.setIcone(dto.getIcone());
-        if (dto.getOrdre() != null) entity.setOrdre(dto.getOrdre());
-        if (dto.getActif() != null) entity.setActif(dto.getActif());
+        if (dto.getCategorie() != null) {
+            entity.setCategorie(dto.getCategorie());
+        }
+        if (dto.getDescription() != null) {
+            entity.setDescription(dto.getDescription());
+        }
+        if (dto.getIcone() != null) {
+            entity.setIcone(dto.getIcone());
+        }
+        if (dto.getOrdre() != null) {
+            entity.setOrdre(dto.getOrdre());
+        }
+        if (dto.getActif() != null) {
+            entity.setActif(dto.getActif());
+        }
 
-        if (dto.getModeGeneration() != null) entity.setModeGeneration(dto.getModeGeneration());
-        if (dto.getContentTemplate() != null) entity.setContentTemplate(dto.getContentTemplate());
-        if (dto.getAiPromptTemplate() != null) entity.setAiPromptTemplate(dto.getAiPromptTemplate());
-        if (dto.getAiModel() != null) entity.setAiModel(dto.getAiModel());
-        if (dto.getAiTemperature() != null) entity.setAiTemperature(dto.getAiTemperature());
-        if (dto.getVariablesAutorisees() != null) entity.setVariablesAutorisees(dto.getVariablesAutorisees());
-        if (dto.getLanguesDisponibles() != null) entity.setLanguesDisponibles(dto.getLanguesDisponibles());
+        if (dto.getModeGeneration() != null) {
+            entity.setModeGeneration(dto.getModeGeneration());
+        }
+        if (dto.getContentTemplate() != null) {
+            entity.setContentTemplate(dto.getContentTemplate());
+        }
+        if (dto.getAiPromptTemplate() != null) {
+            entity.setAiPromptTemplate(dto.getAiPromptTemplate());
+        }
+        if (dto.getAiModel() != null) {
+            entity.setAiModel(dto.getAiModel());
+        }
+        if (dto.getAiTemperature() != null) {
+            entity.setAiTemperature(dto.getAiTemperature());
+        }
+        if (dto.getVariablesAutorisees() != null) {
+            entity.setVariablesAutorisees(dto.getVariablesAutorisees());
+        }
+        if (dto.getLanguesDisponibles() != null) {
+            entity.setLanguesDisponibles(dto.getLanguesDisponibles());
+        }
 
-        if (dto.getWorkflowType() != null) entity.setWorkflowType(dto.getWorkflowType());
-        if (dto.getNiveauConfidentialite() != null) entity.setNiveauConfidentialite(dto.getNiveauConfidentialite());
-        if (dto.getRequireSignature() != null) entity.setRequireSignature(dto.getRequireSignature());
-        if (dto.getDelaiTraitementJours() != null) entity.setDelaiTraitementJours(dto.getDelaiTraitementJours());
+        if (dto.getWorkflowType() != null) {
+            entity.setWorkflowType(dto.getWorkflowType());
+        }
+        if (dto.getNiveauConfidentialite() != null) {
+            entity.setNiveauConfidentialite(dto.getNiveauConfidentialite());
+        }
+        if (dto.getRequireSignature() != null) {
+            entity.setRequireSignature(dto.getRequireSignature());
+        }
+        if (dto.getDelaiTraitementJours() != null) {
+            entity.setDelaiTraitementJours(dto.getDelaiTraitementJours());
+        }
         entity.setMaxDemandesParMois(dto.getMaxDemandesParMois());
 
         entity.setDureeValiditeJours(dto.getDureeValiditeJours());
-        if (dto.getVersionning() != null) entity.setVersionning(dto.getVersionning());
+        if (dto.getVersionning() != null) {
+            entity.setVersionning(dto.getVersionning());
+        }
         entity.setRetentionMois(dto.getRetentionMois());
 
         entity.setEnableTemplate(dto.getEnableTemplate());
@@ -122,18 +156,44 @@ public class TypeDocumentServiceImpl implements TypeDocumentService {
     }
 
     private void applyDefaults(TypeDocument entity) {
-        if (entity.getModeGeneration() == null) entity.setModeGeneration("TEMPLATE_ONLY");
-        if (entity.getAiModel() == null) entity.setAiModel("GEMINI_FLASH");
-        if (entity.getAiTemperature() == null) entity.setAiTemperature(0.2f);
-        if (entity.getWorkflowType() == null) entity.setWorkflowType("RH_VALIDATION");
-        if (entity.getNiveauConfidentialite() == null) entity.setNiveauConfidentialite("PUBLIC");
-        if (entity.getCategorie() == null) entity.setCategorie("ADMINISTRATIF");
-        if (entity.getActif() == null) entity.setActif(true);
-        if (entity.getLanguesDisponibles() == null) entity.setLanguesDisponibles("fr");
-        if (entity.getDelaiTraitementJours() == null) entity.setDelaiTraitementJours(3);
-        if (entity.getOrdre() == null) entity.setOrdre(0);
-        if (entity.getRequireSignature() == null) entity.setRequireSignature(false);
-        if (entity.getVersionning() == null) entity.setVersionning(false);
-        if (entity.getEnableTemplate() == null) entity.setEnableTemplate(false);
+        if (entity.getModeGeneration() == null) {
+            entity.setModeGeneration("TEMPLATE_ONLY");
+        }
+        if (entity.getAiModel() == null) {
+            entity.setAiModel("GEMINI_FLASH");
+        }
+        if (entity.getAiTemperature() == null) {
+            entity.setAiTemperature(0.2f);
+        }
+        if (entity.getWorkflowType() == null) {
+            entity.setWorkflowType("RH_VALIDATION");
+        }
+        if (entity.getNiveauConfidentialite() == null) {
+            entity.setNiveauConfidentialite("PUBLIC");
+        }
+        if (entity.getCategorie() == null) {
+            entity.setCategorie("ADMINISTRATIF");
+        }
+        if (entity.getActif() == null) {
+            entity.setActif(true);
+        }
+        if (entity.getLanguesDisponibles() == null) {
+            entity.setLanguesDisponibles("fr");
+        }
+        if (entity.getDelaiTraitementJours() == null) {
+            entity.setDelaiTraitementJours(3);
+        }
+        if (entity.getOrdre() == null) {
+            entity.setOrdre(0);
+        }
+        if (entity.getRequireSignature() == null) {
+            entity.setRequireSignature(false);
+        }
+        if (entity.getVersionning() == null) {
+            entity.setVersionning(false);
+        }
+        if (entity.getEnableTemplate() == null) {
+            entity.setEnableTemplate(false);
+        }
     }
 }

@@ -35,6 +35,10 @@ public class RhSoldeServiceImpl implements RhSoldeService {
     private final SoldeAuditLogRepository auditLogRepository;
     private final OrganisationServiceClient organisationServiceClient;
 
+    private double getDefaultMaxDays(TypeConge type) {
+        return type.getNombreJoursMax() != null ? type.getNombreJoursMax().doubleValue() : 0.0;
+    }
+
     private Long getEntrepriseId() {
         Long eid = SecurityUtils.getCurrentEntrepriseId();
         if (eid == null) {
@@ -93,7 +97,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                 .collect(Collectors.groupingBy(SoldeConge::getUtilisateurId));
 
         // 3. Fetch active leave types for this enterprise
-        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(eid);
+        List<TypeConge> activeTypes = typeCongeRepository.findAll();
 
         // 4. Merge
         List<EmployeeSoldeResponse> content = pagedUsers.stream().map(u -> {
@@ -158,7 +162,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
             targetIds = organisationServiceClient.findUserIdsByEntrepriseId(eid);
         }
 
-        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
+        List<TypeConge> types = typeCongeRepository.findAll();
 
         for (Long uid : targetIds) {
             for (TypeConge type : types) {
@@ -167,11 +171,10 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                 if (existing.isEmpty()) {
                     SoldeConge solde = SoldeConge.builder()
                             .utilisateurId(uid)
-                            .entrepriseId(eid)
                             .typeCongeId(type.getId())
                             .annee(currentYear)
-                            .joursAcquis((double) type.getNombreJoursMax())
-                            .joursRestants((double) type.getNombreJoursMax())
+                            .joursAcquis(getDefaultMaxDays(type))
+                            .joursRestants(getDefaultMaxDays(type))
                             .joursUtilises(0.0)
                             .joursEnAttente(0.0)
                             .build();
@@ -198,7 +201,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         // enterprise
         // For simplicity, we just proceed but we could check the AuditLog
 
-        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
+        List<TypeConge> types = typeCongeRepository.findAll();
         Map<Long, TypeConge> typeMap = types.stream().collect(Collectors.toMap(TypeConge::getId, t -> t));
 
         for (Long uid : targetIds) {
@@ -207,13 +210,12 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                         .findByUtilisateurIdAndTypeCongeIdAndAnnee(uid, type.getId(), annee)
                         .orElse(SoldeConge.builder()
                                 .utilisateurId(uid)
-                                .entrepriseId(eid)
                                 .typeCongeId(type.getId())
                                 .annee(annee)
                                 .build());
 
-                solde.setJoursAcquis((double) type.getNombreJoursMax());
-                solde.setJoursRestants((double) type.getNombreJoursMax());
+                solde.setJoursAcquis(getDefaultMaxDays(type));
+                solde.setJoursRestants(getDefaultMaxDays(type));
                 solde.setJoursUtilises(0.0);
                 solde.setJoursEnAttente(0.0);
                 soldeCongeRepository.save(solde);
@@ -289,8 +291,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         int targetAnnee = LocalDate.now().getYear();
         List<SoldeConge> userSoldes = soldeCongeRepository
                 .findByUtilisateurIdInAndAnnee(Collections.singletonList(utilisateurId), targetAnnee);
-        Long eid = getEntrepriseId();
-        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(eid);
+        List<TypeConge> activeTypes = typeCongeRepository.findAll();
 
         return activeTypes.stream().map(t -> {
             Optional<SoldeConge> sc = userSoldes.stream().filter(s -> s.getTypeCongeId().equals(t.getId())).findFirst();

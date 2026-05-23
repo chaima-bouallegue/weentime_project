@@ -2,6 +2,12 @@ package com.weentime.weentimeapp;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.Locale;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
 		"spring.cloud.config.enabled=false",
@@ -18,8 +24,31 @@ import org.springframework.boot.test.context.SpringBootTest;
 })
 class RhServiceApplicationTests {
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	@Test
 	void contextLoads() {
+	}
+
+	@Test
+	void contextLoadsWithEnterpriseAgnosticSharedTables() {
+		assertThat(hasColumn("type_conges", "entreprise_id")).isFalse();
+		assertThat(hasColumn("type_documents", "entreprise_id")).isFalse();
+		assertThat(hasColumn("type_autorisations", "entreprise_id")).isFalse();
+		assertThat(hasColumn("solde_conges", "entreprise_id")).isFalse();
+
+		assertThat(hasColumn("demandes", "entreprise_id")).isTrue();
+	}
+
+	private boolean hasColumn(String tableName, String columnName) {
+		Integer count = jdbcTemplate.queryForObject(
+				"select count(*) from information_schema.columns where lower(table_name) = ? and lower(column_name) = ?",
+				Integer.class,
+				tableName.toLowerCase(Locale.ROOT),
+				columnName.toLowerCase(Locale.ROOT)
+		);
+		return count != null && count > 0;
 	}
 
 }

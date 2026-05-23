@@ -1,12 +1,21 @@
 package com.weentime.weentimeapp.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "type_documents", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"entreprise_id", "code"}),
-    @UniqueConstraint(columnNames = {"entreprise_id", "libelle"})
+        @UniqueConstraint(columnNames = {"entreprise_id", "code"}),
+        @UniqueConstraint(columnNames = {"entreprise_id", "libelle"})
 })
 @Data
 @NoArgsConstructor
@@ -20,8 +29,6 @@ public class TypeDocument {
 
     @Column(name = "entreprise_id")
     private Long entrepriseId;
-
-    // ── Section A : Identité & Classification ──
 
     @Column(nullable = false)
     private String libelle;
@@ -44,8 +51,6 @@ public class TypeDocument {
 
     @Builder.Default
     private Boolean actif = true;
-
-    // ── Section B : Moteur de Génération ──
 
     @Column(name = "mode_generation", length = 30)
     @Builder.Default
@@ -72,8 +77,6 @@ public class TypeDocument {
     @Builder.Default
     private String languesDisponibles = "fr";
 
-    // ── Section C : Workflow & Validation ──
-
     @Column(name = "workflow_type", length = 30)
     @Builder.Default
     private String workflowType = "RH_VALIDATION";
@@ -92,8 +95,6 @@ public class TypeDocument {
     @Column(name = "max_demandes_par_mois")
     private Integer maxDemandesParMois;
 
-    // ── Section D : Cycle de Vie ──
-
     @Column(name = "duree_validite_jours")
     private Integer dureeValiditeJours;
 
@@ -102,8 +103,6 @@ public class TypeDocument {
 
     @Column(name = "retention_mois")
     private Integer retentionMois;
-
-    // ── Legacy (conservé pour compatibilité) ──
 
     @Deprecated
     private Boolean enableTemplate;

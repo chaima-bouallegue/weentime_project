@@ -68,7 +68,6 @@ public class CongeServiceImpl implements CongeService {
                                 : 25.0;
                         SoldeConge newSolde = SoldeConge.builder()
                                 .utilisateurId(userId)
-                                .entrepriseId(entrepriseId)
                                 .typeCongeId(dto.getTypeCongeId())
                                 .annee(annee)
                                 .joursAcquis(initialBalance)

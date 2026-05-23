@@ -14,10 +14,8 @@ public class TypeAutorisation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     @Column(name = "entreprise_id")
     private Long entrepriseId;
-
     @Column(nullable = false, unique = true)
     private String libelle;
 

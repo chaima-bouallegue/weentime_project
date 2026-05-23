@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface SoldeCongeRepository extends JpaRepository<SoldeConge, Long> {
     List<SoldeConge> findByUtilisateurId(Long utilisateurId);
+    List<SoldeConge> findByUtilisateurIdAndAnnee(Long utilisateurId, Integer annee);
     Optional<SoldeConge> findByUtilisateurIdAndTypeCongeId(Long utilisateurId, Long typeCongeId);
     List<SoldeConge> findByUtilisateurIdInAndAnnee(java.util.List<Long> utilisateurIds, Integer annee);
     Optional<SoldeConge> findByUtilisateurIdAndTypeCongeIdAndAnnee(Long utilisateurId, Long typeCongeId, Integer annee);
@@ -20,6 +21,4 @@ public interface SoldeCongeRepository extends JpaRepository<SoldeConge, Long> {
     Optional<SoldeConge> findWithLockByUtilisateurIdAndTypeCongeIdAndAnnee(Long utilisateurId, Long typeCongeId, Integer annee);
 
     boolean existsByAnnee(Integer annee);
-    List<SoldeConge> findAllByEntrepriseId(Long entrepriseId);
-    List<SoldeConge> findAllByEntrepriseIdAndAnnee(Long entrepriseId, Integer annee);
 }
