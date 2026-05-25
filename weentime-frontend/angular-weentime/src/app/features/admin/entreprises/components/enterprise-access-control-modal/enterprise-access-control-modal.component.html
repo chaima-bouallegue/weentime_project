@@ -1,0 +1,107 @@
+<div class="access-modal-overlay" (click)="!saving() && close.emit()">
+  <div class="access-modal" (click)="$event.stopPropagation()">
+    <header class="access-header">
+      <div>
+        <div class="access-kicker">
+          <lucide-icon name="shield-check" size="16"></lucide-icon>
+          <span>RBAC entreprise</span>
+        </div>
+        <h2>Contr&ocirc;ler les acc&egrave;s - {{ entreprise?.nom }}</h2>
+        <p>Associez les RH et managers autoris&eacute;s pour cette entreprise.</p>
+      </div>
+
+      <button type="button" class="icon-button" (click)="close.emit()" [disabled]="saving()" aria-label="Fermer">
+        <lucide-icon name="x" size="20"></lucide-icon>
+      </button>
+    </header>
+
+    <main class="access-body">
+      @if (loading()) {
+        <div class="state-panel">
+          <lucide-icon name="loader-2" size="28" class="animate-spin"></lucide-icon>
+          <span>Chargement des utilisateurs...</span>
+        </div>
+      } @else if (error()) {
+        <div class="state-panel error">
+          <lucide-icon name="alert-circle" size="28"></lucide-icon>
+          <span>{{ error() }}</span>
+          <button type="button" (click)="loadAccessControl()">Reessayer</button>
+        </div>
+      } @else if (accessControl()) {
+        <section class="access-section">
+          <div class="section-heading">
+            <div>
+              <h3>RH autoris&eacute;s</h3>
+              <p>{{ selectedRhIds().size }} selectionne(s)</p>
+            </div>
+            <span class="count-pill">{{ accessControl()?.rhUsers?.length || 0 }}</span>
+          </div>
+
+          @if ((accessControl()?.rhUsers?.length || 0) > 0) {
+            <div class="user-list">
+              @for (user of accessControl()?.rhUsers ?? []; track user.id) {
+                <label class="user-row" [class.selected]="isSelected('rh', user.id)">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected('rh', user.id)"
+                    [disabled]="saving()"
+                    (change)="toggleUser('rh', user.id, $any($event.target).checked)"
+                  >
+                  <span class="user-avatar">{{ user.fullName.substring(0, 2).toUpperCase() }}</span>
+                  <span class="user-info">
+                    <strong>{{ user.fullName }}</strong>
+                    <small>{{ user.email }}</small>
+                  </span>
+                  <span class="role-badge">RH</span>
+                </label>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">Aucun RH disponible.</div>
+          }
+        </section>
+
+        <section class="access-section">
+          <div class="section-heading">
+            <div>
+              <h3>Managers autoris&eacute;s</h3>
+              <p>{{ selectedManagerIds().size }} selectionne(s)</p>
+            </div>
+            <span class="count-pill">{{ accessControl()?.managerUsers?.length || 0 }}</span>
+          </div>
+
+          @if ((accessControl()?.managerUsers?.length || 0) > 0) {
+            <div class="user-list">
+              @for (user of accessControl()?.managerUsers ?? []; track user.id) {
+                <label class="user-row" [class.selected]="isSelected('manager', user.id)">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected('manager', user.id)"
+                    [disabled]="saving()"
+                    (change)="toggleUser('manager', user.id, $any($event.target).checked)"
+                  >
+                  <span class="user-avatar">{{ user.fullName.substring(0, 2).toUpperCase() }}</span>
+                  <span class="user-info">
+                    <strong>{{ user.fullName }}</strong>
+                    <small>{{ user.email }}</small>
+                  </span>
+                  <span class="role-badge manager">Manager</span>
+                </label>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">Aucun manager disponible.</div>
+          }
+        </section>
+      }
+    </main>
+
+    <footer class="access-footer">
+      <button type="button" class="btn-ghost" (click)="close.emit()" [disabled]="saving()">Annuler</button>
+      <button type="button" class="btn-primary" (click)="save()" [disabled]="loading() || saving() || !!error()">
+        <lucide-icon [name]="saving() ? 'loader-2' : 'save'" size="18" [class.animate-spin]="saving()"></lucide-icon>
+        <span>{{ saving() ? 'Enregistrement...' : 'Enregistrer' }}</span>
+      </button>
+    </footer>
+  </div>
+</div>

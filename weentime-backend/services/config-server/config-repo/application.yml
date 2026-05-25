@@ -6,7 +6,7 @@ eureka:
     fetch-registry: true
     registry-fetch-interval-seconds: 10
     service-url:
-      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8761}/eureka}
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 management:
   endpoints:

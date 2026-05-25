@@ -98,13 +98,7 @@ export class ProfileComponent {
   });
 
   constructor() {
-    this.profileService.getProfile().subscribe({
-      next: (p) => {
-        this.profile.set(p);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false)
-    });
+    this.refreshProfile();
   }
 
   onAvatarChanged(url: string): void {
@@ -116,5 +110,16 @@ export class ProfileComponent {
 
   onProfileUpdated(profile: UserProfile): void {
     this.profile.set(profile);
+  }
+
+  refreshProfile(): void {
+    this.loading.set(true);
+    this.profileService.getProfile().subscribe({
+      next: (p) => {
+        this.profile.set(p);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false)
+    });
   }
 }

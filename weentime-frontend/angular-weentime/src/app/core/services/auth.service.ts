@@ -37,11 +37,15 @@ export interface User {
 
 export interface LoginResponse {
   token?: string;
+  type?: string;
   id?: number;
   userId?: number;
   email: string;
   entrepriseId?: number;
   roles?: string[];
+  mfaRequired?: boolean;
+  mfaToken?: string;
+  message?: string;
   requires2FA: boolean;
   requiresTwoFactor?: boolean;
   tempToken?: string;
@@ -52,7 +56,7 @@ export interface LoginResponse {
   user?: User;
 }
 
-export type TwoFactorMethod = 'TOTP' | 'EMAIL' | 'SMS';
+export type TwoFactorMethod = 'TOTP';
 
 interface ApiResponse<T> {
   success?: boolean;
@@ -96,6 +100,7 @@ export class AuthService {
   private router = inject(Router);
   private readonly apiConfig = inject(ApiConfigService);
   private readonly rolePriority = ['ADMIN', 'RH', 'MANAGER', 'EMPLOYEE'];
+  private readonly mfaChallengeStorageKey = 'weentime_mfa_challenge';
 
   /** Single source of truth for authentication state */
   currentUser = signal<User | null>(null);
@@ -115,9 +120,12 @@ export class AuthService {
     return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
-        const requiresTwoFactor = !!(res.requiresTwoFactor || res.requires2FA);
+        const requiresTwoFactor = !!(res.mfaRequired || res.requiresTwoFactor || res.requires2FA);
         if (!requiresTwoFactor && res.token) {
           return this.fetchProfileAndHandleSuccess(res, rememberMe);
+        }
+        if (requiresTwoFactor) {
+          this.storeMfaChallenge(res, rememberMe);
         }
         return of(res);
       })
@@ -125,10 +133,11 @@ export class AuthService {
   }
 
   verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod): Observable<any> {
-    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, temporaryToken, tempToken: temporaryToken, method }).pipe(
+    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, mfaToken: temporaryToken }).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (res.token) {
+          this.clearMfaChallenge();
           return this.fetchProfileAndHandleSuccess(res, rememberMe ?? true);
         }
         return of(res);
@@ -137,12 +146,31 @@ export class AuthService {
   }
 
   send2faCode(method: TwoFactorMethod, temporaryToken: string): Observable<void> {
-    return this.http.post<any>(this.apiConfig.AUTH.SEND_2FA, {
-      method,
-      purpose: 'LOGIN',
-      temporaryToken,
-      tempToken: temporaryToken
-    }).pipe(map(() => void 0));
+    return of(void 0);
+  }
+
+  getMfaChallenge(): { mfaToken: string; rememberMe: boolean; email?: string } | null {
+    try {
+      const raw = sessionStorage.getItem(this.mfaChallengeStorageKey);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as { mfaToken?: string; rememberMe?: boolean; email?: string };
+      return parsed.mfaToken
+        ? { mfaToken: parsed.mfaToken, rememberMe: parsed.rememberMe !== false, email: parsed.email }
+        : null;
+    } catch {
+      this.clearMfaChallenge();
+      return null;
+    }
+  }
+
+  clearMfaChallenge(): void {
+    try {
+      sessionStorage.removeItem(this.mfaChallengeStorageKey);
+    } catch {
+      // Ignore storage access failures.
+    }
   }
 
   validateCompanyCode(code: string): Observable<CompanyCodeValidationResponse> {
@@ -259,6 +287,23 @@ export class AuthService {
   private clearStorage(): void {
     this.safeRemoveStorage('token');
     this.safeRemoveStorage('user');
+    this.clearMfaChallenge();
+  }
+
+  private storeMfaChallenge(res: LoginResponse, rememberMe: boolean): void {
+    const mfaToken = res.mfaToken ?? res.temporaryToken ?? res.tempToken;
+    if (!mfaToken) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(this.mfaChallengeStorageKey, JSON.stringify({
+        mfaToken,
+        rememberMe,
+        email: res.email
+      }));
+    } catch {
+      // Navigation state still carries the challenge when sessionStorage is unavailable.
+    }
   }
 
   private storeValue(key: string, value: string, rememberMe: boolean): void {

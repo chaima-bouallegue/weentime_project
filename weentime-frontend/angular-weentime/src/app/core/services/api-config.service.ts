@@ -5,13 +5,13 @@ import { environment } from '../../../environments/environment';
  * Centralized API configuration for the WeenTime application.
  * All API endpoints are defined here for easy maintenance and consistency.
  * 
- * API Gateway: http://localhost:8222/api/v1/
+ * API Gateway: http://localhost:8322/api/v1/
  * 
  * Services routed through gateway:
- * - auth-service (8081)
- * - organisation-service (8090)
- * - rh-service (8092)
- * - presence-service (8093)
+ * - auth-service (8181)
+ * - organisation-service (8190)
+ * - rh-service (8192)
+ * - presence-service (8193)
  */
 @Injectable({
   providedIn: 'root'
@@ -83,16 +83,13 @@ export class ApiConfigService {
   readonly AUTH = {
     LOGIN: `${this.API_BASE}/auth/login`,
     REGISTER: `${this.API_BASE}/auth/register`,
-    VERIFY_2FA: `${this.API_BASE}/auth/2fa/verify`,
-    SEND_2FA: `${this.API_BASE}/auth/2fa/send`,
+    VERIFY_2FA: `${this.API_BASE}/auth/mfa/verify`,
     VALIDATE_TOKEN: `${this.API_BASE}/auth/validate`,
-    SETUP_2FA: `${this.API_BASE}/auth/2fa/setup`,
-    SETUP_TOTP_2FA: `${this.API_BASE}/auth/2fa/setup/totp`,
-    SETUP_EMAIL_2FA: `${this.API_BASE}/auth/2fa/setup/email`,
-    SETUP_SMS_2FA: `${this.API_BASE}/auth/2fa/setup/sms`,
-    CONFIRM_2FA: `${this.API_BASE}/auth/2fa/confirm`,
-    CONFIRM_TOTP_2FA: `${this.API_BASE}/auth/2fa/confirm/totp`,
-    DISABLE_2FA: `${this.API_BASE}/auth/2fa/disable`
+    SETUP_2FA: `${this.API_BASE}/auth/mfa/setup`,
+    SETUP_TOTP_2FA: `${this.API_BASE}/auth/mfa/setup`,
+    CONFIRM_2FA: `${this.API_BASE}/auth/mfa/enable`,
+    CONFIRM_TOTP_2FA: `${this.API_BASE}/auth/mfa/enable`,
+    DISABLE_2FA: `${this.API_BASE}/auth/mfa/disable`
   };
 
   // ─────────────────────────────────────────────

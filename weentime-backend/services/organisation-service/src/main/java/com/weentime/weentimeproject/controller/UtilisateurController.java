@@ -5,6 +5,7 @@ import com.weentime.weentimeproject.dto.request.UtilisateurRequest;
 import com.weentime.weentimeproject.dto.request.ValidationRequest;
 import com.weentime.weentimeproject.dto.response.UtilisateurResponse;
 import com.weentime.weentimeproject.pagination.PageParams;
+import com.weentime.weentimeproject.service.InternalServiceKeyValidator;
 import com.weentime.weentimeproject.service.UtilisateurService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class UtilisateurController {
 
     private final UtilisateurService utilisateurService;
+    private final InternalServiceKeyValidator internalServiceKeyValidator;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
@@ -75,7 +77,9 @@ public class UtilisateurController {
 
     @GetMapping("/auth/by-email")
     public ResponseEntity<com.weentime.weentimeproject.dto.response.UtilisateurAuthResponse> getUtilisateurForAuth(
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String internalServiceKey,
             @RequestParam String email) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getUtilisateurForAuth(email));
     }
 

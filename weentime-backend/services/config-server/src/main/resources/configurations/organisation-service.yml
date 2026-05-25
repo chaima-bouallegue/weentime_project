@@ -4,30 +4,22 @@ server:
 spring:
   application:
     name: organisation-service
-    config:
-     import:
   datasource:
     url: jdbc:postgresql://localhost:5433/organisation_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
-
-  cloud:
-    config:
-      enabled: false
-  config:
-    import:
-      optional:configserver: http://localhost:8988
-      datasource:
-        url: jdbc:postgresql://localhost:5433/organisation_db
-      username: weentime
-      password: 170502
-      driver-class-name: org.postgresql.Driver
+    hikari:
       connection-timeout: 5000
       initialization-fail-timeout: 1
       maximum-pool-size: 10
       idle-timeout: 10000
       max-lifetime: 30000
+  cloud:
+    config:
+      enabled: false
+  config:
+    import: optional:configserver:http://localhost:8988
   flyway:
     baseline-on-migrate: true
     validate-on-migrate: false
@@ -41,17 +33,19 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 
 eureka:
-  eureka:
-    client:
-      service-url:
-        defaultZone: http://localhost:8761/eureka/
-    server:
-      enable-self-preservation: false
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8861/eureka/
+  server:
+    enable-self-preservation: false
 
 management:
   endpoint:
@@ -66,7 +60,7 @@ management:
 
 application:
   config:
-    rh-service: ${RH_SERVICE_URL:http://rh-service/api/v1/rh}
+    rh-service: ${RH_SERVICE_URL:http://localhost:8192}
 
 spring.cloud.openfeign.client.config:
   default:
@@ -109,4 +103,3 @@ resilience4j:
         timeoutDuration: 2s
       organisationService:
         timeoutDuration: 2s
-

@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8222}
+  port: ${SERVER_PORT:8322}
 
 spring:
   cloud:
@@ -36,7 +36,7 @@ spring:
         - id: rh-service
           uri: ${RH_SERVICE_URI:http://localhost:8192}
           predicates:
-            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**
         - id: presence-service
           uri: ${PRESENCE_SERVICE_URI:http://localhost:8193}
           predicates:
@@ -98,3 +98,13 @@ springdoc:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}

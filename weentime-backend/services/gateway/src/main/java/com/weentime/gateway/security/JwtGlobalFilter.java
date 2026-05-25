@@ -44,9 +44,7 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
     private boolean isPublicAuthPath(String path) {
         return path.equals("/api/v1/auth/login")
                 || path.equals("/api/v1/auth/register")
-                || path.equals("/api/v1/auth/verify-2fa")
-                || path.equals("/api/v1/auth/2fa/verify")
-                || path.equals("/api/v1/auth/2fa/send")
+                || path.equals("/api/v1/auth/mfa/verify")
                 || path.equals("/api/v1/auth/validate");
     }
 

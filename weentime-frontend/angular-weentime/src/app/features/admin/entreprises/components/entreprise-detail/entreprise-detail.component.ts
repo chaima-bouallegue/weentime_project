@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, ArrowLeft, Edit3, Trash2, X, Copy, ExternalLink, Mail, Phone, MapPin, Briefcase } from 'lucide-angular';
+import { LucideAngularModule, ArrowLeft, Edit3, Trash2, X, Copy, ExternalLink, Mail, Phone, MapPin, Briefcase, ShieldCheck } from 'lucide-angular';
 import { Entreprise } from '../../entreprise.service';
 import { ToastService } from '../../../../../core/services/toast.service';
 
@@ -21,6 +21,7 @@ export class EntrepriseDetailComponent {
   @Output() close = new EventEmitter<void>();
   @Output() edit = new EventEmitter<Entreprise>();
   @Output() delete = new EventEmitter<Entreprise>();
+  @Output() controlAccess = new EventEmitter<Entreprise>();
 
   private _entreprise = signal<Entreprise | null>(null);
   private toastService = inject(ToastService);
@@ -35,6 +36,7 @@ export class EntrepriseDetailComponent {
   readonly iconPhone = Phone;
   readonly iconMap = MapPin;
   readonly iconBriefcase = Briefcase;
+  readonly iconAccess = ShieldCheck;
 
   constructor() {}
 

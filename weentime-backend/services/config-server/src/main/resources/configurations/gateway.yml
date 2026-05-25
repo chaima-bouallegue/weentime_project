@@ -1,5 +1,5 @@
 server:
-  port: 8222
+  port: 8322
 
 spring:
   application:
@@ -99,12 +99,14 @@ spring:
             - Path=/ws-communication, /ws-communication/**
 
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
-    enabled: false
-    register-with-eureka: false
-    fetch-registry: false
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://localhost:8861/eureka/
   server:
     enable-self-preservation: false
 

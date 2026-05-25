@@ -54,6 +54,26 @@ export interface EntrepriseRequest {
   secteur?: string;
 }
 
+export interface EnterpriseAccessUser {
+  id: number;
+  fullName: string;
+  email: string;
+  role: 'ROLE_RH' | 'ROLE_MANAGER' | string;
+  allowed: boolean;
+}
+
+export interface EnterpriseAccessControl {
+  enterpriseId: number;
+  enterpriseName: string;
+  rhUsers: EnterpriseAccessUser[];
+  managerUsers: EnterpriseAccessUser[];
+}
+
+export interface EnterpriseAccessControlRequest {
+  rhUserIds: number[];
+  managerUserIds: number[];
+}
+
 export interface Departement {
   id: number;
   nom: string;
@@ -111,6 +131,22 @@ export class EntrepriseService {
 
   deleteEntreprise(id: number): Observable<void> {
     return this.http.delete<void>(`${this.API_URL}/${id}`);
+  }
+
+  getEnterpriseAccessControl(enterpriseId: number): Observable<EnterpriseAccessControl> {
+    return this.http.get<EnterpriseAccessControl>(
+      `${this.api.getApiBase()}/admin/entreprises/${enterpriseId}/access-control`
+    );
+  }
+
+  updateEnterpriseAccessControl(
+    enterpriseId: number,
+    payload: EnterpriseAccessControlRequest
+  ): Observable<EnterpriseAccessControl> {
+    return this.http.put<EnterpriseAccessControl>(
+      `${this.api.getApiBase()}/admin/entreprises/${enterpriseId}/access-control`,
+      payload
+    );
   }
 
   // Departements

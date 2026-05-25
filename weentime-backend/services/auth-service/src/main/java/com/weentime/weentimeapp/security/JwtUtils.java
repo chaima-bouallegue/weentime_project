@@ -64,11 +64,16 @@ public class JwtUtils {
     }
 
     public String generateTokenFor2FA(String email, String type) {
+        return generateMfaLoginToken(email, type);
+    }
+
+    public String generateMfaLoginToken(String email, String type) {
         return Jwts.builder()
                 .setSubject(email)
                 .claim("type", type)
                 .claim("method", type)
-                .claim("tokenPurpose", "2FA")
+                .claim("purpose", "MFA_LOGIN")
+                .claim("tokenPurpose", "MFA_LOGIN")
                 .claim("twoFactorVerified", false)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + 300000)) // 5 minutes
@@ -83,7 +88,12 @@ public class JwtUtils {
     }
 
     public boolean isTwoFactorToken(String token) {
-        return "2FA".equals(getTokenPurpose(token));
+        String purpose = getTokenPurpose(token);
+        return "MFA_LOGIN".equals(purpose) || "2FA".equals(purpose);
+    }
+
+    public boolean isMfaLoginToken(String token) {
+        return "MFA_LOGIN".equals(getTokenPurpose(token));
     }
 
     public boolean isAccessToken(String token) {

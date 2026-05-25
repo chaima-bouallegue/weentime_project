@@ -2,10 +2,11 @@
 CREATE TABLE IF NOT EXISTS job_postings (
     id BIGSERIAL PRIMARY KEY,
     entreprise_id BIGINT NOT NULL,
+    entreprise_name VARCHAR(255),
     title VARCHAR(200) NOT NULL,
     department VARCHAR(100),
-    employment_type VARCHAR(50), -- FULL_TIME, PART_TIME, etc.
-    experience_level VARCHAR(50), -- JUNIOR, MID, SENIOR
+    employment_type VARCHAR(50),
+    experience_level VARCHAR(50),
     min_experience_years INTEGER,
     required_skills TEXT,
     soft_skills TEXT,
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS job_postings (
     salary_min INTEGER,
     salary_max INTEGER,
     salary_currency VARCHAR(3) DEFAULT 'EUR',
-    work_mode VARCHAR(20), -- ONSITE, HYBRID, REMOTE
+    work_mode VARCHAR(20),
     location VARCHAR(200),
     deadline DATE,
     openings_count INTEGER DEFAULT 1,
@@ -46,13 +47,11 @@ CREATE TABLE IF NOT EXISTS applications (
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- IA Matching (Phase 2)
     ai_overall_score DECIMAL(5,2),
     ai_technical_score DECIMAL(5,2),
     ai_recommendation VARCHAR(50),
     ai_recommendation_summary TEXT,
-    ai_analysis_json TEXT, -- JSON complet retourné par Gemini
+    ai_analysis_json TEXT,
     ai_status VARCHAR(20) DEFAULT 'PENDING'
 );
 

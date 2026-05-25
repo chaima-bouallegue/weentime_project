@@ -29,9 +29,7 @@ export class JwtInterceptor implements HttpInterceptor {
     const token = localStorage.getItem('token');
     const isAuthRequest =
       request.url.includes('/api/v1/auth/login') ||
-      request.url.includes('/api/v1/auth/verify-2fa') ||
-      request.url.includes('/api/v1/auth/2fa/verify') ||
-      request.url.includes('/api/v1/auth/2fa/send') ||
+      request.url.includes('/api/v1/auth/mfa/verify') ||
       request.url.includes('/api/v1/auth/register');
 
     let clonedRequest = request;

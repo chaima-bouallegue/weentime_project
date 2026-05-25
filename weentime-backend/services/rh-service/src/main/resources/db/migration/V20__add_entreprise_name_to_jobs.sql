@@ -1,6 +1,11 @@
 DO $$
 BEGIN
-    IF NOT EXISTS (
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'job_postings'
+    ) AND NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
         WHERE table_schema = 'public'

@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8090}
+  port: ${SERVER_PORT:8190}
 
 spring:
   datasource:
@@ -26,6 +26,15 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
 
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
+
 management:
   health:
     db:
@@ -33,7 +42,7 @@ management:
 
 application:
   config:
-    rh-service: ${RH_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8092}/api/v1/rh}
+    rh-service: ${RH_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}/api/v1/rh}
 
 resilience4j:
   circuitbreaker:

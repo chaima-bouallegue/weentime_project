@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8093}
+  port: ${SERVER_PORT:8193}
 
 spring:
   datasource:
@@ -25,6 +25,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 management:
   health:

@@ -1,5 +1,5 @@
 server:
-  port: 8222
+  port: 8322
 
 spring:
   application:
@@ -106,10 +106,12 @@ spring:
 
 # 🌐 Eureka (optionnel mais OK en local)
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
-    enabled: false
-    register-with-eureka: false
-    fetch-registry: false
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
       defaultZone: http://localhost:8861/eureka/
   server:

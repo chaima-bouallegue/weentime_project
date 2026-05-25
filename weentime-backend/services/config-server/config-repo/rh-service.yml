@@ -42,7 +42,7 @@ integration:
   organisation-service:
     url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}
   presence-service:
-    url: ${PRESENCE_SERVICE_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8093}}
+    url: ${PRESENCE_SERVICE_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8193}}
 
 resilience4j:
   circuitbreaker:
@@ -71,3 +71,12 @@ resilience4j:
 logging:
   level:
     com.weentime.weentimeapp: INFO
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}

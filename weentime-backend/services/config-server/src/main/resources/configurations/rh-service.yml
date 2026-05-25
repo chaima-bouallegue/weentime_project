@@ -4,13 +4,11 @@ server:
 spring:
   application:
     name: rh-service
-
   datasource:
     url: jdbc:postgresql://localhost:5433/rh_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -18,14 +16,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
   cloud:
     config:
       enabled: false
   config:
-    import:
-      optional:configserver: http://localhost:8988
-
+    import: optional:configserver:http://localhost:8988
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -34,11 +29,22 @@ spring:
     connect-retries: 2
 
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://localhost:8861/eureka/
   server:
     enable-self-preservation: false
+
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   expirationMs: 86400000
+
+integration:
+  organisation-service:
+    url: http://localhost:8190
+  presence-service:
+    url: http://localhost:8193

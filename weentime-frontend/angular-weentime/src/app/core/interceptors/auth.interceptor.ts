@@ -20,9 +20,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
   const isAuthRequest =
     req.url.includes('/api/v1/auth/login') ||
-    req.url.includes('/api/v1/auth/verify-2fa') ||
-    req.url.includes('/api/v1/auth/2fa/verify') ||
-    req.url.includes('/api/v1/auth/2fa/send') ||
+    req.url.includes('/api/v1/auth/mfa/verify') ||
     req.url.includes('/api/v1/auth/register');
 
   let clonedRequest = req;

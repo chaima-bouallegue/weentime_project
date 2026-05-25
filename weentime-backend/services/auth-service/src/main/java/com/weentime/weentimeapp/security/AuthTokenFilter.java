@@ -33,6 +33,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
         return uri.equals("/api/v1/auth/login")
                 || uri.equals("/api/v1/auth/register")
+                || uri.equals("/api/v1/auth/mfa/verify")
                 || uri.equals("/api/v1/auth/verify-2fa")
                 || uri.equals("/api/v1/auth/2fa/verify")
                 || uri.equals("/api/v1/auth/2fa/send")

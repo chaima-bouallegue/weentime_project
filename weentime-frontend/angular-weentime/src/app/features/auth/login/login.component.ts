@@ -72,15 +72,13 @@ export class LoginComponent implements AfterViewInit {
       )
       .subscribe({
         next: (response) => {
-          if (response.requiresTwoFactor || response.requires2FA) {
-            void this.router.navigate(['/auth/verify-2fa'], {
+          if (response.mfaRequired || response.requiresTwoFactor || response.requires2FA) {
+            void this.router.navigate(['/verify-2fa'], {
               state: {
                 fromLogin: true,
                 rememberMe: formValue.rememberMe,
-                tempToken: response.temporaryToken ?? response.tempToken ?? null,
-                availableMethods: response.availableMethods ?? [],
-                maskedEmail: response.maskedEmail ?? null,
-                maskedPhone: response.maskedPhone ?? null
+                tempToken: response.mfaToken ?? response.temporaryToken ?? response.tempToken ?? null,
+                availableMethods: ['TOTP']
               }
             });
             return;

@@ -157,7 +157,7 @@
                       </div>
                       <h4 class="font-black text-slate-900 dark:text-white">Authentification Forte</h4>
                     </div>
-                    <app-profile-two-factor [profile]="profile()" />
+                    <app-profile-two-factor [profile]="profile()" (refreshProfile)="refreshProfile()" />
                   </section>
                 </div>
               }

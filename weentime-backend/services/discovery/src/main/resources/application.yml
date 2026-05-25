@@ -3,9 +3,21 @@ spring:
     import: optional:configserver:http://localhost:8988
   application:
     name: discovery-service
-  
+
 server:
   port: 8861
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      # Local Eureka server is 8861, not the default 8761
+      defaultZone: http://localhost:8861/eureka/
+  instance:
+    prefer-ip-address: true
+  server:
+    enable-self-preservation: false
 
 
 

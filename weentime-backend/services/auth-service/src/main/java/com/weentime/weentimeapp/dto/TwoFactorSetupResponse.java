@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TwoFactorSetupResponse {
     private String secret;
+    private String qrCodeUri;
     private String otpauthUrl;
     private String qrCodeBase64;
     private String setupToken;

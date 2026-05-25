@@ -6,6 +6,7 @@ import { EntrepriseListComponent } from './components/entreprise-list/entreprise
 import { EntrepriseDetailComponent } from './components/entreprise-detail/entreprise-detail.component';
 import { EntrepriseFormComponent } from './components/entreprise-form/entreprise-form.component';
 import { EntrepriseDeleteConfirmComponent } from './components/entreprise-delete-confirm/entreprise-delete-confirm.component';
+import { EnterpriseAccessControlModalComponent } from './components/enterprise-access-control-modal/enterprise-access-control-modal.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
@@ -17,7 +18,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     EntrepriseListComponent,
     EntrepriseDetailComponent,
     EntrepriseFormComponent,
-    EntrepriseDeleteConfirmComponent
+    EntrepriseDeleteConfirmComponent,
+    EnterpriseAccessControlModalComponent
   ],
   templateUrl: './entreprises.component.html',
   styleUrl: './entreprises.component.scss',
@@ -40,8 +42,10 @@ export class EntreprisesComponent {
   // UI State Signals
   isFormOpen = signal(false);
   isDeleteConfirmOpen = signal(false);
+  isAccessControlOpen = signal(false);
   entrepriseToEdit = signal<Entreprise | null>(null);
   entrepriseToDelete = signal<Entreprise | null>(null);
+  entrepriseForAccessControl = signal<Entreprise | null>(null);
 
   // Computed
   filteredEntreprises = computed(() => {
@@ -103,6 +107,16 @@ export class EntreprisesComponent {
     this.isDeleteConfirmOpen.set(true);
   }
 
+  openAccessControl(entreprise: Entreprise): void {
+    this.entrepriseForAccessControl.set(entreprise);
+    this.isAccessControlOpen.set(true);
+  }
+
+  closeAccessControl(): void {
+    this.isAccessControlOpen.set(false);
+    this.entrepriseForAccessControl.set(null);
+  }
+
   onFormSaved(): void {
     this.isFormOpen.set(false);
     this.loadEntreprises();
@@ -111,6 +125,11 @@ export class EntreprisesComponent {
   onDeleted(): void {
     this.isDeleteConfirmOpen.set(false);
     this.selectedId.set(null);
+    this.loadEntreprises();
+  }
+
+  onAccessControlSaved(): void {
+    this.closeAccessControl();
     this.loadEntreprises();
   }
 }

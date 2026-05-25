@@ -60,6 +60,7 @@ public class WebSecurityConfig {
                             auth.requestMatchers(
                                             "/api/v1/auth/login",
                                             "/api/v1/auth/register",
+                                            "/api/v1/auth/mfa/verify",
                                             "/api/v1/auth/verify-2fa",
                                             "/api/v1/auth/2fa/verify",
                                             "/api/v1/auth/2fa/send",
@@ -67,6 +68,9 @@ public class WebSecurityConfig {
                                             "/health"
                                     ).permitAll()
                                     .requestMatchers(
+                                            "/api/v1/auth/mfa/setup",
+                                            "/api/v1/auth/mfa/enable",
+                                            "/api/v1/auth/mfa/disable",
                                             "/api/v1/auth/2fa/setup",
                                             "/api/v1/auth/2fa/setup/**",
                                             "/api/v1/auth/2fa/confirm",

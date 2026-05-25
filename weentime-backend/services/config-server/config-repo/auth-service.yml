@@ -1,6 +1,5 @@
 server:
-
-  port: ${SERVER_PORT:8081}
+  port: ${SERVER_PORT:8181}
 
 spring:
   main:
@@ -36,6 +35,15 @@ resilience4j:
 logging:
   level:
     com.weentime.weentimeapp: INFO
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 integration:
   internal-api-key: ${INTERNAL_API_KEY:communication-service-local}

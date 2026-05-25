@@ -43,6 +43,12 @@ export const routes: Routes = [
         data: { hideLayout: true }
     },
     {
+        path: 'verify-2fa',
+        title: 'WeenTime - Verification',
+        loadComponent: () => import('./features/auth/verify-2fa/verify-2fa.component').then(m => m.Verify2faComponent),
+        data: { hideLayout: true }
+    },
+    {
         path: 'auth/verify-2fa',
         title: 'WeenTime — Vérification',
         loadComponent: () => import('./features/auth/verify-2fa/verify-2fa.component').then(m => m.Verify2faComponent),

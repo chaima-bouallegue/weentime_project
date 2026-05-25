@@ -24,9 +24,13 @@ spring:
     port: 1027
 
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://localhost:8861/eureka/
   server:
     enable-self-preservation: false
 

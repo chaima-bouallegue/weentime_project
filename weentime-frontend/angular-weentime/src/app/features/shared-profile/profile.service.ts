@@ -47,10 +47,27 @@ export interface ActivityItem {
 
 export interface TwoFactorSetupResponse {
   secret: string;
+  qrCodeUri?: string;
   qrCodeUrl?: string;
   otpauthUrl?: string;
   qrCodeBase64?: string;
   setupToken?: string;
+}
+
+export interface DisableMfaPayload {
+  password: string;
+  code: string;
+}
+
+export function normalizeMfaTotpCode(code?: string): string {
+  return (code ?? '').replace(/\D/g, '').trim();
+}
+
+export function buildMfaDisablePayload(password?: string, code?: string): DisableMfaPayload {
+  return {
+    password: password ?? '',
+    code: normalizeMfaTotpCode(code)
+  };
 }
 
 @Injectable({
@@ -142,38 +159,23 @@ export class ProfileService {
     );
   }
 
-  setup2fa(type: 'TOTP' | 'AUTHENTICATOR' | 'EMAIL' | 'SMS'): Observable<TwoFactorSetupResponse> {
-    const endpoint = type === 'EMAIL'
-      ? this.apiConfig.AUTH.SETUP_EMAIL_2FA
-      : type === 'SMS'
-        ? this.apiConfig.AUTH.SETUP_SMS_2FA
-        : this.apiConfig.AUTH.SETUP_TOTP_2FA;
-    return this.http.post<any>(endpoint, {}).pipe(
+  setup2fa(type: 'TOTP' | 'AUTHENTICATOR' = 'TOTP'): Observable<TwoFactorSetupResponse> {
+    return this.http.post<any>(this.apiConfig.AUTH.SETUP_TOTP_2FA, {}).pipe(
       map(response => this.unwrap<TwoFactorSetupResponse>(response))
     );
   }
 
   confirm2fa(
-    type: 'TOTP' | 'AUTHENTICATOR' | 'EMAIL' | 'SMS',
-    code: string,
-    secret?: string,
-    setupToken?: string
+    type: 'TOTP' | 'AUTHENTICATOR',
+    code: string
   ): Observable<{ message: string; backupCodes: string[] }> {
-    const endpoint = type === 'TOTP' || type === 'AUTHENTICATOR'
-      ? this.apiConfig.AUTH.CONFIRM_TOTP_2FA
-      : this.apiConfig.AUTH.CONFIRM_2FA;
-    return this.http.post<any>(endpoint, {
-      type,
-      code,
-      secret,
-      setupToken
-    }).pipe(
+    return this.http.post<any>(this.apiConfig.AUTH.CONFIRM_TOTP_2FA, { code }).pipe(
       map(response => this.unwrap<{ message: string; backupCodes: string[] }>(response))
     );
   }
 
   disable2fa(password?: string, code?: string): Observable<void> {
-    return this.http.post<any>(this.apiConfig.AUTH.DISABLE_2FA, { password, code }).pipe(
+    return this.http.post<any>(this.apiConfig.AUTH.DISABLE_2FA, buildMfaDisablePayload(password, code)).pipe(
       map(() => void 0)
     );
   }
