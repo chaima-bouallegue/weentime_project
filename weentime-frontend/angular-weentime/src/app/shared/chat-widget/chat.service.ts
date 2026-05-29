@@ -1,10 +1,10 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { withAiChatWidgetContext } from '../../core/http/request-context.tokens';
 import { AuthService, User } from '../../core/services/auth.service';
-import { AiCopilotEnvelope, AiCopilotService } from '../../core/services/ai-copilot.service';
+import { AiCopilotEnvelope, AiCopilotService, detectAiMessageLanguage, resolveAiServiceEndpoint } from '../../core/services/ai-copilot.service';
 import {
   AssistantActionResult,
   AssistantFormFill,
@@ -77,7 +77,7 @@ export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
   private readonly aiCopilot = inject(AiCopilotService);
-  private readonly endpoint = environment.aiServiceUrl;
+  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
 
   sendMessage(message: string): Observable<ChatApiResponse> {
     return this.aiCopilot.sendChatV2(message).pipe(
@@ -107,21 +107,35 @@ export class ChatService {
     if (!context) {
       return throwError(() => new Error('Utilisateur non authentifie.'));
     }
+    if (!context.token) {
+      return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
+    }
+    const language = detectAiMessageLanguage(message, navigator.language || 'fr-FR');
+    const requestId = this.createRequestId('legacy-chat');
+    const role = this.resolveRole(context.user);
 
     return this.http
       .post<ChatApiResponse>(`${this.endpoint}/chat`, {
         user_id: context.user.id,
-        role: this.resolveRole(context.user),
+        role,
         message,
         access_token: context.token,
         metadata: {
           channel: 'chat',
+          language,
+          detectedLanguage: language,
+          requested_language: language,
+          response_language: language,
           preferences: {
             locale: navigator.language || 'fr-FR',
-            role: this.resolveRole(context.user),
+            language,
+            role,
           },
         },
-      }, { context: withAiChatWidgetContext() })
+      }, {
+        headers: this.aiHeaders(requestId, context.user, context.token),
+        context: withAiChatWidgetContext(),
+      })
       .pipe(catchError(error => this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.")));
   }
 
@@ -130,17 +144,30 @@ export class ChatService {
     if (!context) {
       return throwError(() => new Error('Utilisateur non authentifie.'));
     }
+    if (!context.token) {
+      return throwError(() => new Error('Session expirée, reconnectez-vous.'));
+    }
+    const requestId = this.createRequestId('chat-history');
 
     return this.http
       .get<ChatHistoryResponse>(`${this.endpoint}/chat/history/${context.user.id}`, {
+        headers: this.aiHeaders(requestId, context.user, context.token),
         context: withAiChatWidgetContext(),
       })
       .pipe(catchError(error => this.rethrowApiError(error, "L'historique AI n'a pas pu etre charge.")));
   }
 
   textToSpeech(text: string): Observable<TtsResponse> {
+    const context = this.getUserContext();
+    const requestId = this.createRequestId('chat-tts');
+    const options = context?.user
+      ? {
+          headers: this.aiHeaders(requestId, context.user, context.token),
+          context: withAiChatWidgetContext(),
+        }
+      : { context: withAiChatWidgetContext() };
     return this.http
-      .post<TtsResponse>(`${this.endpoint}/tts`, { text }, { context: withAiChatWidgetContext() })
+      .post<TtsResponse>(`${this.endpoint}/tts`, { text }, options)
       .pipe(catchError(error => this.rethrowApiError(error, "La lecture audio n'a pas pu etre generee.")));
   }
 
@@ -317,10 +344,10 @@ export class ChatService {
       const apiMessage = this.extractApiErrorMessage(error.error);
 
       if (error.status === 0) {
-        return new Error("Le gateway AI est indisponible pour le moment.");
+        return new Error('Service IA indisponible.');
       }
       if (error.status === 401) {
-        return new Error('Votre session a expire. Veuillez vous reconnecter.');
+        return new Error('Session expirée, reconnectez-vous.');
       }
       if (error.status === 403) {
         return new Error("Vous n'avez pas la permission d'utiliser cette action AI.");
@@ -335,10 +362,10 @@ export class ChatService {
         return new Error('Trop de requetes AI en cours. Reessayez dans quelques instants.');
       }
       if (error.status === 404) {
-        return new Error("La route AI du gateway est introuvable.");
+        return new Error("La route IA est introuvable sur le service AI.");
       }
       if (error.status >= 500) {
-        return new Error(apiMessage ?? 'Le service AI est temporairement indisponible.');
+        return new Error(apiMessage ?? 'Service IA indisponible.');
       }
 
       if (apiMessage) {
@@ -368,6 +395,23 @@ export class ChatService {
     const body = payload as Record<string, unknown>;
     const data = this.readObject(body['data']);
     const statusText = typeof body['status'] === 'string' ? body['status'].trim().toLowerCase() : '';
+    const bodyError = this.readObject(body['error']);
+    const dataError = this.readObject(data?.['error']);
+    const codeMessage = this.apiErrorCodeMessage(
+      body['code'],
+      body['error_code'],
+      body['kind'],
+      data?.['code'],
+      data?.['error_code'],
+      data?.['kind'],
+      bodyError?.['code'],
+      bodyError?.['error_code'],
+      dataError?.['code'],
+      dataError?.['error_code'],
+    );
+    if (codeMessage) {
+      return codeMessage;
+    }
     if (statusText === 'retry') {
       return ChatService.RETRY_MESSAGE;
     }
@@ -412,11 +456,9 @@ export class ChatService {
       const nestedCode = typeof (nestedError as Record<string, unknown>)['code'] === 'string'
         ? String((nestedError as Record<string, unknown>)['code']).trim().toLowerCase()
         : '';
-      if (nestedCode === 'provider_unavailable' || nestedCode === 'ollama_unavailable') {
-        return 'Le provider AI est temporairement indisponible.';
-      }
-      if (nestedCode === 'permission_denied' || nestedCode === 'forbidden') {
-        return "Vous n'avez pas la permission d'utiliser cette action AI.";
+      const nestedCodeMessage = this.apiErrorCodeMessage(nestedCode);
+      if (nestedCodeMessage) {
+        return nestedCodeMessage;
       }
     }
 
@@ -430,6 +472,28 @@ export class ChatService {
       }
     }
 
+    return null;
+  }
+
+  private apiErrorCodeMessage(...values: unknown[]): string | null {
+    for (const value of values) {
+      const code = typeof value === 'string' ? value.trim().toLowerCase() : '';
+      if (!code) {
+        continue;
+      }
+      if (code === 'auth_required' || code === 'missing_jwt' || code === 'invalid_jwt' || code === 'expired_jwt') {
+        return 'Session expirée, reconnectez-vous.';
+      }
+      if (code === 'access_denied' || code === 'permission_denied' || code === 'forbidden') {
+        return "Vous n'avez pas la permission d'utiliser cette action AI.";
+      }
+      if (code === 'backend_unavailable' || code === 'gateway_unavailable') {
+        return 'Backend métier indisponible.';
+      }
+      if (code === 'provider_unavailable' || code === 'ollama_unavailable') {
+        return 'Le provider AI est temporairement indisponible.';
+      }
+    }
     return null;
   }
 
@@ -464,6 +528,34 @@ export class ChatService {
       return 'Une action identique est deja en cours.';
     }
     return value;
+  }
+
+  private aiHeaders(requestId: string, user: User, token: string | null): HttpHeaders {
+    const headers: Record<string, string> = {
+      'X-Request-ID': requestId,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const role = this.resolveRole(user);
+    if (role) {
+      headers['X-User-Role'] = role.toUpperCase();
+    }
+    const entrepriseId = user.entrepriseId ?? user.entreprise?.id;
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      const value = String(entrepriseId);
+      headers['X-Entreprise-Id'] = value;
+      headers['X-Company-Id'] = value;
+      headers['X-Tenant-Id'] = value;
+    }
+    return new HttpHeaders(headers);
+  }
+
+  private createRequestId(prefix: string): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private readString(value: unknown): string | undefined {

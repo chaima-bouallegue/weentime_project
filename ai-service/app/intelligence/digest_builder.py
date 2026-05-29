@@ -115,6 +115,9 @@ class RoleDigestBuilder:
             calls.append(call)
             warnings.extend(section_warnings)
             citations.extend(section.citations)
+            preflight = context.metadata.get("_backend_gateway_preflight")
+            if isinstance(preflight, ToolResult) and not preflight.success:
+                break
 
         priorities = self.priority_engine.prioritize(role=role_context.role, sections=[section.to_dict() for section in sections])
         return RoleDigest(

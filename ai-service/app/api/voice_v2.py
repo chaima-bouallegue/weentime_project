@@ -14,6 +14,7 @@ from app.context.jwt_parser import extract_bearer_token
 from app.core.copilot_engine import ensure_copilot_services, process_copilot_message
 from app.models.agent_models import AgentResponse
 from app.models.envelopes import ApiEnvelope
+from app.nlp.language_detector import resolve_response_language
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.workflows.workflow_steps import apply_safe_request_metadata
@@ -46,10 +47,12 @@ def _public_chatbot_mode_enabled() -> bool:
 
 
 def _metadata_requests_public_context(metadata: dict[str, Any] | None) -> bool:
-    if _public_chatbot_mode_enabled():
-        return True
     if not isinstance(metadata, dict):
         return False
+    if _public_chatbot_mode_enabled() and (
+        metadata.get("chatbotPublicContext") is True or metadata.get("chatbot_public_context") is True
+    ):
+        return True
     return metadata.get("chatbotPublicContext") is True or metadata.get("chatbot_public_context") is True
 
 
@@ -83,7 +86,23 @@ def _voice_workflow_metadata(
     resolved["app_state"] = app_state
     if language:
         resolved.setdefault("language", language)
+        resolved.setdefault("requested_language", language)
+        resolved.setdefault("response_language", language)
+        resolved.setdefault("detectedLanguage", language)
+        resolved.setdefault("detected_language", language)
+        resolved.setdefault("stt_language", language)
     return resolved
+
+
+def _set_voice_language_metadata(metadata: dict[str, Any], language: str) -> dict[str, Any]:
+    metadata["language"] = language
+    metadata["requested_language"] = language
+    metadata["requestedLanguage"] = language
+    metadata["response_language"] = language
+    metadata["responseLanguage"] = language
+    metadata["detectedLanguage"] = language
+    metadata["detected_language"] = language
+    return metadata
 
 
 def _build_anonymous_voice_context(
@@ -164,20 +183,30 @@ async def voice_v2(
                 processed = await processor.process_upload(audio_file, context=context, language_hint=language_hint)
                 stored = processed.stored_audio
                 stt_result = processed.stt
-                context.language = processed.detected_language
-                context.metadata["language"] = processed.detected_language
-                apply_safe_request_metadata(context, parsed_metadata, language=processed.detected_language)
+                transcript_for_language = (stt_result.cleaned_text or stt_result.raw_text or "").strip()
+                parsed_metadata["original_text"] = transcript_for_language
+                response_language = resolve_response_language(
+                    transcript_for_language,
+                    parsed_metadata,
+                    stt_language=processed.detected_language or stt_result.language,
+                )
+                _set_voice_language_metadata(parsed_metadata, response_language)
+                parsed_metadata["stt_language"] = stt_result.language
+                parsed_metadata["sttLanguage"] = stt_result.language
+                context.language = response_language
+                context.metadata["language"] = response_language
+                apply_safe_request_metadata(context, parsed_metadata, language=response_language)
                 context.metadata["voice_language_confidence"] = stt_result.language_confidence
                 if stt_result.status == "no_input":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id))
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id, language=response_language))
                 if stt_result.status == "retry":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "unclean_transcription", resolved_request_id))
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "unclean_transcription", resolved_request_id, language=response_language))
                 if stt_result.status == "unavailable":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "stt_unavailable", resolved_request_id))
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "stt_unavailable", resolved_request_id, language=response_language))
                 if stt_result.status == "cancelled":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_cancelled", resolved_request_id))
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_cancelled", resolved_request_id, language=response_language))
                 if stt_result.status != "success" or not (stt_result.cleaned_text or "").strip():
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_processing_failed", resolved_request_id))
+                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_processing_failed", resolved_request_id, language=response_language))
 
                 transcript = (stt_result.cleaned_text or "").strip()
                 confirmation_response = await _maybe_handle_voice_confirmation(
@@ -192,7 +221,7 @@ async def voice_v2(
                     if voice_role_router.can_handle(transcript, context):
                         with start_span(
                             "voice.role_intelligence",
-                            {"user_id": context.user_id, "role": context.role, "language": processed.detected_language},
+                            {"user_id": context.user_id, "role": context.role, "language": response_language},
                         ):
                             response = await voice_role_router.handle(transcript, context)
                             log_event(
@@ -204,20 +233,26 @@ async def voice_v2(
                                 },
                             )
                     else:
-                        with start_span("voice.copilot", {"user_id": context.user_id, "language": processed.detected_language}):
+                        with start_span("voice.copilot", {"user_id": context.user_id, "language": response_language}):
                             response = await process_copilot_message(
                                 context.user_id,
                                 transcript,
                                 extract_bearer_token(authorization),
                                 context.role,
                                 channel="voice",
-                                metadata={**parsed_metadata, "language": processed.detected_language, "voice_v2": True},
+                                metadata={
+                                    **parsed_metadata,
+                                    "language": response_language,
+                                    "requested_language": response_language,
+                                    "response_language": response_language,
+                                    "voice_v2": True,
+                                },
                                 context=context,
                             )
                             log_event(
                                 "voice.copilot",
                                 metadata={
-                                    "detected_language": processed.detected_language,
+                                    "detected_language": response_language,
                                     "status": getattr(response, "type", "unknown"),
                                     "cleaned_empty": False,
                                 },
@@ -232,7 +267,7 @@ async def voice_v2(
                     audio_url = await _safe_generate_tts(
                         processor,
                         text,
-                        language=processed.detected_language,
+                        language=response_language,
                         request_id=resolved_request_id,
                     )
                 tts_unavailable = bool(generate_tts and text and not audio_url)
@@ -244,12 +279,14 @@ async def voice_v2(
                         "requestId": resolved_request_id,
                         "transcript": transcript,
                         "transcription": transcript,
-                        "detectedLanguage": processed.detected_language,
-                        "detected_language": processed.detected_language,
+                        "detectedLanguage": response_language,
+                        "detected_language": response_language,
                         "languageConfidence": stt_result.language_confidence,
                         "language_confidence": stt_result.language_confidence,
-                        "responseLocale": processed.detected_language,
-                        "response_locale": processed.detected_language,
+                        "responseLocale": response_language,
+                        "response_locale": response_language,
+                        "response_language": response_language,
+                        "requested_language": response_language,
                         "text": text,
                         "response": text,
                         "message": text,
@@ -272,10 +309,10 @@ async def voice_v2(
                     return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload).model_dump(mode="json"))
             except asyncio.CancelledError:
                 log_event("voice.v2.cancelled", metadata={"request_id": resolved_request_id})
-                return JSONResponse(status_code=200, content=_voice_error_with_request_id("audio_cancelled", resolved_request_id))
+                return JSONResponse(status_code=200, content=_voice_error_with_request_id("audio_cancelled", resolved_request_id, language=language_hint))
             except Exception as exc:  # noqa: BLE001
                 log_error("voice.v2.unhandled", exc)
-                return JSONResponse(status_code=500, content=_voice_error_with_request_id("audio_processing_failed", resolved_request_id))
+                return JSONResponse(status_code=500, content=_voice_error_with_request_id("audio_processing_failed", resolved_request_id, language=language_hint))
             finally:
                 processor.cleanup(stored)
     finally:
@@ -372,8 +409,8 @@ async def _safe_generate_tts(
         return None
 
 
-def _voice_error_with_request_id(code: str, request_id: str) -> dict[str, Any]:
-    payload = voice_error_payload(code)
+def _voice_error_with_request_id(code: str, request_id: str, *, language: str | None = None) -> dict[str, Any]:
+    payload = voice_error_payload(code, language=language)
     payload["data"] = {"request_id": request_id, "requestId": request_id}
     error = payload.get("error")
     if isinstance(error, dict):

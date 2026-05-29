@@ -1,0 +1,53 @@
+@startuml
+title Diagramme de séquence système — S’authentifier
+autonumber
+
+actor "Utilisateur" as Utilisateur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+database "Base de données\nPostgreSQL" as DB
+
+Utilisateur -> Angular : Saisir email et mot de passe
+Angular -> Gateway : Envoyer la demande d'authentification
+Gateway -> AuthService : Transmettre la requête
+AuthService -> DB : Vérifier les identifiants
+DB --> AuthService : Résultat de vérification
+
+alt Identifiants valides
+    opt MFA activée
+        AuthService --> Gateway : Demander la vérification MFA
+        Gateway --> Angular : Retourner une demande de code MFA
+        Angular --> Utilisateur : Afficher le formulaire MFA
+        Utilisateur -> Angular : Saisir le code MFA
+        Angular -> Gateway : Envoyer le code MFA
+        Gateway -> AuthService : Transmettre le code MFA
+        AuthService -> DB : Valider le code MFA
+        DB --> AuthService : Résultat de validation
+
+        alt Code MFA valide
+            AuthService -> AuthService : Générer le jeton JWT
+            AuthService --> Gateway : Retourner le jeton JWT
+            Gateway --> Angular : Retourner l'accès autorisé
+            Angular --> Utilisateur : Rediriger vers l'espace autorisé
+        else Code MFA invalide
+            AuthService --> Gateway : Refuser la vérification MFA
+            Gateway --> Angular : Retourner une erreur MFA
+            Angular --> Utilisateur : Afficher le message d'erreur
+        end
+    end
+
+    opt MFA non activée
+        AuthService -> AuthService : Générer le jeton JWT
+        AuthService --> Gateway : Retourner le jeton JWT
+        Gateway --> Angular : Retourner l'accès autorisé
+        Angular --> Utilisateur : Rediriger vers l'espace autorisé
+    end
+else Identifiants invalides
+    AuthService --> Gateway : Refuser l'authentification
+    Gateway --> Angular : Retourner une erreur
+    Angular --> Utilisateur : Afficher le message d'erreur
+end
+
+caption Authentification sécurisée avec JWT et MFA conditionnelle.
+@enduml

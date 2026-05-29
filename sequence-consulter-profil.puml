@@ -1,0 +1,32 @@
+@startuml
+title Diagramme de séquence système — Consulter son profil
+autonumber
+
+actor "Utilisateur" as Utilisateur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth/RBAC Service" as RBAC
+control "User Service" as UserService
+database "Base de données\nPostgreSQL" as DB
+
+Utilisateur -> Angular : Cliquer sur profil
+Angular -> Gateway : Demander les informations du profil
+Gateway -> RBAC : Vérifier le jeton JWT
+
+alt Session valide
+    RBAC --> Gateway : Session autorisée
+    Gateway -> UserService : Transmettre la demande du profil
+    UserService -> UserService : Identifier l'utilisateur connecté
+    UserService -> DB : Récupérer profil, sécurité et activité
+    DB --> UserService : Données du profil
+    UserService --> Gateway : Retourner les informations
+    Gateway --> Angular : Transmettre le profil
+    Angular --> Utilisateur : Afficher les informations personnelles
+else Session expirée
+    RBAC --> Gateway : JWT invalide ou expiré
+    Gateway --> Angular : Retourner une erreur d'authentification
+    Angular --> Utilisateur : Afficher l'erreur et rediriger vers la connexion
+end
+
+caption Consultation du profil utilisateur avec vérification de session JWT.
+@enduml

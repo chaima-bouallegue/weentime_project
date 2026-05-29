@@ -6,6 +6,7 @@ from typing import Any
 from .current_user import CurrentUserContext
 from .jwt_parser import BUSINESS_ROLES, JwtClaims, JwtVerificationError, extract_bearer_token, normalize_role, normalize_roles, parse_jwt
 from .permissions import permissions_for_role
+from app.i18n.response_localizer import translate
 
 
 @dataclass(slots=True)
@@ -76,6 +77,12 @@ class ContextBuilder:
             return context
 
         if not getattr(profile_result, "success", False):
+            status_code = getattr(profile_result, "status_code", None)
+            error_code = str(getattr(profile_result, "error_code", "") or "").lower()
+            if status_code == 401 or error_code in {"auth_required", "missing_jwt", "invalid_jwt", "expired_jwt"}:
+                raise ContextError("auth_required", translate("auth_required", language), 401)
+            if status_code == 403 or error_code in {"access_denied", "permission_denied", "forbidden"}:
+                raise ContextError("access_denied", translate("access_denied", language), 403)
             context.warnings.append("backend_profile_unavailable")
             self._validate_final_context(context, claims=claims)
             return context
@@ -120,7 +127,7 @@ class ContextBuilder:
             token=token,
             locale=locale,
             language=language,
-            metadata={"jwt_verified": claims.verified},
+            metadata={"jwt_verified": claims.verified, "authorization_header": f"Bearer {token}"},
         )
 
     def _validate_final_context(

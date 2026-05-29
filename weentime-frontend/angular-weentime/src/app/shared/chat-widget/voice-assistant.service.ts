@@ -5,7 +5,7 @@ import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { withAiChatWidgetContext } from '../../core/http/request-context.tokens';
 import { AuthService, User } from '../../core/services/auth.service';
-import { resolveAiConversationId, resolveAiServiceEndpoint, resolvePreferredAiLanguage } from '../../core/services/ai-copilot.service';
+import { resolveAiConversationId, resolveAiServiceEndpoint, resolveStoredAiConversationLanguage } from '../../core/services/ai-copilot.service';
 import { ChatApiResponse } from './chat.service';
 import { NormalizedVoiceAiResponse, normalizeVoiceAiResponse } from './voice-response-normalizer';
 import { safeDisplayText, safeTrimmedString } from './safe-text.util';
@@ -297,6 +297,15 @@ export class VoiceAssistantService {
     const voiceMetadata: Record<string, unknown> = {
       channel: 'voice',
       language,
+      detectedLanguage: language,
+      detected_language: language,
+      requested_language: language,
+      requestedLanguage: language,
+      response_language: language,
+      responseLanguage: language,
+      stt_language: language,
+      sttLanguage: language,
+      mode: 'voice',
       chatbotPublicContext: environment.chatbotPublicMode === true,
       userId: context.user.id,
       current_page: currentPage,
@@ -307,17 +316,15 @@ export class VoiceAssistantService {
     };
     if (role) {
       voiceMetadata['role'] = role.toUpperCase();
+      voiceMetadata['agentRole'] = role.toUpperCase();
+      voiceMetadata['agent_role'] = role.toUpperCase();
     }
     if (typeof entrepriseId === 'number' && entrepriseId > 0) {
       voiceMetadata['entrepriseId'] = entrepriseId;
       voiceMetadata['companyId'] = entrepriseId;
     }
     voiceFormData.append('metadata', JSON.stringify(voiceMetadata));
-    const headerInit: Record<string, string> = { 'X-Request-ID': requestId };
-    if (context.token) {
-      headerInit['Authorization'] = `Bearer ${context.token}`;
-    }
-    const headers = new HttpHeaders(headerInit);
+    const headers = this.aiHeaders(requestId, context.user, context.token);
     this.debugVoiceRequest('v2/voice', requestId);
 
     try {
@@ -372,17 +379,12 @@ export class VoiceAssistantService {
       `audio.${extension}`
     );
 
-    const fallbackHeaderInit: Record<string, string> = { 'X-Request-ID': requestId };
-    if (context.token) {
-      fallbackHeaderInit['Authorization'] = `Bearer ${context.token}`;
-    }
-
     return firstValueFrom(
       this.http.post<AudioStreamResponse>(
         `${this.endpoint}/audio-stream`,
         formData,
         {
-          headers: new HttpHeaders(fallbackHeaderInit),
+          headers: this.aiHeaders(requestId, context.user, context.token),
           context: requestContext,
         }
       )
@@ -490,6 +492,10 @@ export class VoiceAssistantService {
 
   private getUserContext(): { user: User; token: string | null } | null {
     const user = this.authService.currentUser() ?? this.readStoredUser();
+    const token = this.authService.getToken();
+    if (this.hasPendingMfaChallenge()) {
+      return null;
+    }
     if (!user?.id) {
       if (environment.chatbotPublicMode) {
         const fallbackUser: User = { id: 1, email: 'demo@weentime.local', roles: ['EMPLOYEE'], role: 'EMPLOYEE' };
@@ -497,7 +503,10 @@ export class VoiceAssistantService {
       }
       return null;
     }
-    return { user, token: this.authService.getToken() };
+    if (!token) {
+      return null;
+    }
+    return { user, token };
   }
 
   private resolveRole(user: User | null | undefined): string | null {
@@ -512,6 +521,35 @@ export class VoiceAssistantService {
         : '';
 
     return primaryRole.length > 0 ? primaryRole.replace(/^ROLE_/i, '') : null;
+  }
+
+  private aiHeaders(requestId: string, user: User, token: string | null): HttpHeaders {
+    const headers: Record<string, string> = {
+      'X-Request-ID': requestId,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const role = this.resolveRole(user);
+    if (role) {
+      headers['X-User-Role'] = role.toUpperCase();
+    }
+    const entrepriseId = user.entrepriseId ?? user.entreprise?.id;
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      const value = String(entrepriseId);
+      headers['X-Entreprise-Id'] = value;
+      headers['X-Company-Id'] = value;
+      headers['X-Tenant-Id'] = value;
+    }
+    return new HttpHeaders(headers);
+  }
+
+  private hasPendingMfaChallenge(): boolean {
+    const maybeAuth = this.authService as AuthService & { getMfaChallenge?: () => unknown };
+    if (typeof maybeAuth.getMfaChallenge !== 'function') {
+      return false;
+    }
+    return !!maybeAuth.getMfaChallenge();
   }
 
   private readStoredUser(): User | null {
@@ -778,7 +816,7 @@ export class VoiceAssistantService {
   }
 
   private resolveLanguageHint(): string {
-    return resolvePreferredAiLanguage(
+    return resolveStoredAiConversationLanguage(
       typeof navigator !== 'undefined' ? navigator.language : null,
     );
   }

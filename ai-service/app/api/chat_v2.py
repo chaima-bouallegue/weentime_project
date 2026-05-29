@@ -10,14 +10,57 @@ from app.context.context_builder import ContextError
 from app.context.current_user import CurrentUserContext
 from app.context.jwt_parser import extract_bearer_token
 from app.core.copilot_engine import ensure_copilot_services, process_copilot_message
+from app.i18n.response_localizer import translate
 from app.models.agent_models import AgentResponse, ChatV2Request, ConfirmActionRequest
 from app.models.envelopes import ApiEnvelope
+from app.nlp.language_detector import resolve_response_language, response_script
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.workflows.workflow_steps import apply_safe_request_metadata
 from config import get_settings
 
 router = APIRouter()
+
+
+def _payload_language_metadata(payload: Any) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    for attr, key in (
+        ("language", "language"),
+        ("detectedLanguage", "detectedLanguage"),
+        ("detected_language", "detected_language"),
+        ("stt_language", "stt_language"),
+        ("requested_language", "requested_language"),
+        ("response_language", "response_language"),
+    ):
+        value = getattr(payload, attr, None)
+        if isinstance(value, str) and value.strip():
+            metadata[key] = value.strip()
+    mode = getattr(payload, "mode", None)
+    if isinstance(mode, str) and mode.strip():
+        metadata["mode"] = mode.strip()
+    return metadata
+
+
+def _set_language_metadata(metadata: dict[str, Any], language: str) -> dict[str, Any]:
+    metadata["language"] = language
+    metadata["requested_language"] = language
+    metadata["requestedLanguage"] = language
+    metadata["response_language"] = language
+    metadata["responseLanguage"] = language
+    metadata.setdefault("detectedLanguage", language)
+    metadata.setdefault("detected_language", language)
+    metadata.setdefault("locale", _locale_for_language(language))
+    if "original_text" in metadata:
+        metadata.setdefault("response_script", response_script(str(metadata.get("original_text") or "")))
+    return metadata
+
+
+def _locale_for_language(language: str | None) -> str:
+    if language == "en":
+        return "en-US"
+    if language in {"ar", "tn"}:
+        return "ar-TN"
+    return "fr-FR"
 
 
 def _public_chatbot_mode_enabled() -> bool:
@@ -97,11 +140,10 @@ async def chat_v2(
         request_id=request_id,
         channel=payload.channel or "chat",
     )
-    payload_language = None
-    if isinstance(payload_metadata, dict):
-        candidate = payload_metadata.get("language")
-        if isinstance(candidate, str) and candidate.strip():
-            payload_language = candidate.strip()
+    payload_metadata.update(_payload_language_metadata(payload))
+    payload_metadata["original_text"] = payload.message
+    payload_language = resolve_response_language(payload.message, payload_metadata)
+    _set_language_metadata(payload_metadata, payload_language)
     payload_role = None
     if isinstance(payload_metadata, dict):
         for key in ("role", "chatbotMode", "chatbot_mode"):
@@ -144,6 +186,12 @@ async def chat_v2(
                 if isinstance(payload_data, dict):
                     payload_data["request_id"] = request_id
                     payload_data["requestId"] = request_id
+                    payload_data["detectedLanguage"] = payload_language
+                    payload_data["detected_language"] = payload_language
+                    payload_data["responseLocale"] = payload_language
+                    payload_data["response_locale"] = payload_language
+                    payload_data["response_language"] = payload_language
+                    payload_data["requested_language"] = payload_language
                 log_event(
                     "response.compose",
                     input={"message": payload.message, "channel": payload.channel},
@@ -178,6 +226,12 @@ async def chat_v2(
                         if isinstance(payload_data, dict):
                             payload_data["request_id"] = request_id
                             payload_data["requestId"] = request_id
+                            payload_data["detectedLanguage"] = payload_language
+                            payload_data["detected_language"] = payload_language
+                            payload_data["responseLocale"] = payload_language
+                            payload_data["response_locale"] = payload_language
+                            payload_data["response_language"] = payload_language
+                            payload_data["requested_language"] = payload_language
                         return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload_data).model_dump(mode="json"))
                     except Exception as inner:
                         log_error("ai.chat_v2.public_fallback_failed", inner)
@@ -209,6 +263,9 @@ async def confirm_chat_action(
         request_id=request_id,
         channel="chat",
     )
+    confirm_metadata.update(_payload_language_metadata(payload))
+    payload_language = resolve_response_language(None, confirm_metadata)
+    _set_language_metadata(confirm_metadata, payload_language)
     try:
         with start_span("ai.confirmation.request", {"approved": payload.approved}):
             anonymous_context: CurrentUserContext | None = None
@@ -218,7 +275,7 @@ async def confirm_chat_action(
                     confirm_metadata,
                     user_id=getattr(payload, "user_id", None),
                     role_hint=None,
-                    language=None,
+                    language=payload_language,
                     channel="chat",
                 )
                 log_event(
@@ -236,7 +293,7 @@ async def confirm_chat_action(
                     access_token=bearer_token,
                     context=anonymous_context,
                     channel="chat",
-                    metadata={**confirm_metadata, "locale": "fr-FR"},
+                    metadata={**confirm_metadata, "locale": _locale_for_language(payload_language)},
                 )
             except ContextError as exc:
                 if public_context_requested and exc.status_code == 401 and anonymous_context is None:
@@ -244,7 +301,7 @@ async def confirm_chat_action(
                         confirm_metadata,
                         user_id=getattr(payload, "user_id", None),
                         role_hint=None,
-                        language=None,
+                        language=payload_language,
                         channel="chat",
                     )
                     try:
@@ -254,7 +311,7 @@ async def confirm_chat_action(
                             access_token=None,
                             context=fallback_context,
                             channel="chat",
-                            metadata={**confirm_metadata, "locale": "fr-FR"},
+                            metadata={**confirm_metadata, "locale": _locale_for_language(payload_language)},
                         )
                     except ContextError as inner_exc:
                         log_error("ai.confirmation.context_error", inner_exc, {"code": inner_exc.code, "status_code": inner_exc.status_code})
@@ -271,6 +328,7 @@ async def confirm_chat_action(
                     request_id=request_id,
                     confirmation_id=payload.confirmation_id,
                     status="not_found",
+                    language=payload_language,
                 )
             if result.state.error_code == "confirmation_expired":
                 return _controlled_confirmation_response(
@@ -280,6 +338,7 @@ async def confirm_chat_action(
                     request_id=request_id,
                     confirmation_id=payload.confirmation_id,
                     status="expired",
+                    language=payload_language,
                 )
             if result.state.error_code == "confirmation_already_used":
                 return _controlled_confirmation_response(
@@ -290,12 +349,19 @@ async def confirm_chat_action(
                     confirmation_id=payload.confirmation_id,
                     status="already_used",
                     success=True,
+                    language=payload_language,
                 )
 
             response = result.response
             response_payload = response.model_dump(mode="json")
             response_payload["request_id"] = request_id
             response_payload["requestId"] = request_id
+            response_payload["detectedLanguage"] = payload_language
+            response_payload["detected_language"] = payload_language
+            response_payload["responseLocale"] = payload_language
+            response_payload["response_locale"] = payload_language
+            response_payload["response_language"] = payload_language
+            response_payload["requested_language"] = payload_language
             log_event(
                 "response.compose",
                 output=response_payload,
@@ -338,17 +404,16 @@ async def reset_chat_session(
         request_id=request_id,
         channel=payload.channel or "chat",
     )
+    payload_metadata.update(_payload_language_metadata(payload))
     payload_role = None
-    payload_language = None
+    payload_language = resolve_response_language(payload.message, payload_metadata)
+    _set_language_metadata(payload_metadata, payload_language)
     if isinstance(payload_metadata, dict):
         for key in ("role", "chatbotMode", "chatbot_mode"):
             value = payload_metadata.get(key)
             if isinstance(value, str) and value.strip():
                 payload_role = value.strip()
                 break
-        candidate = payload_metadata.get("language")
-        if isinstance(candidate, str) and candidate.strip():
-            payload_language = candidate.strip()
     try:
         anonymous_context: CurrentUserContext | None = None
         public_context_requested = _metadata_requests_public_context(payload_metadata)
@@ -443,7 +508,9 @@ def _controlled_confirmation_response(
     confirmation_id: str | None,
     status: str,
     success: bool = False,
+    language: str | None = None,
 ) -> JSONResponse:
+    text = _localized_confirmation_text(text, language)
     response = AgentResponse(
         type="answer" if success else "error",
         text=text,
@@ -470,6 +537,17 @@ def _controlled_confirmation_response(
         raw["data"] = payload
         return JSONResponse(status_code=200, content=raw)
     return JSONResponse(status_code=200, content=envelope.model_dump(mode="json"))
+
+
+def _localized_confirmation_text(text: str, language: str | None) -> str:
+    normalized = " ".join((text or "").strip().lower().split())
+    key_by_text = {
+        "confirmation introuvable ou expiree.": "confirmation_not_found",
+        "cette confirmation a expire.": "confirmation_expired",
+        "cette action a deja ete traitee.": "confirmation_already_used",
+    }
+    key = key_by_text.get(normalized)
+    return translate(key, language) if key else text
 
 
 def _response_payload(response: Any) -> Any:

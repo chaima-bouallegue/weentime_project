@@ -8,7 +8,7 @@ from app.context.jwt_parser import JwtClaims
 from app.guards.guard_result import GuardResult
 from app.memory.confirmation_store import ConfirmationRecord
 from app.models.agent_models import AgentResponse, ToolCallRecord
-from app.nlp.language_detector import detect_language
+from app.nlp.language_detector import resolve_response_language
 from app.tools.result import ToolResult, get_read_result
 
 from .workflow_state import WorkflowState
@@ -17,10 +17,8 @@ SUPPORTED_WORKFLOW_LANGUAGES = {"fr", "en", "ar", "tn"}
 
 
 def resolve_workflow_language(message: str, metadata: dict[str, Any] | None = None) -> str:
-    provided = str((metadata or {}).get("language") or "").lower().strip()
-    if provided in SUPPORTED_WORKFLOW_LANGUAGES:
-        return provided
-    return detect_language(message)
+    language = resolve_response_language(message, metadata)
+    return language if language in SUPPORTED_WORKFLOW_LANGUAGES else "fr"
 
 
 SAFE_CONTEXT_METADATA_ALIASES: dict[str, tuple[str, ...]] = {
@@ -31,6 +29,10 @@ SAFE_CONTEXT_METADATA_ALIASES: dict[str, tuple[str, ...]] = {
     "session_id": ("session_id", "sessionId"),
     "channel": ("channel",),
     "language": ("language",),
+    "requested_language": ("requested_language", "requestedLanguage"),
+    "response_language": ("response_language", "responseLanguage"),
+    "detected_language": ("detected_language", "detectedLanguage"),
+    "stt_language": ("stt_language", "sttLanguage"),
 }
 
 
@@ -53,6 +55,9 @@ def apply_safe_request_metadata(
             context.metadata[canonical] = value
     if language:
         context.metadata["language"] = language
+        context.metadata["requested_language"] = language
+        context.metadata["response_language"] = language
+        context.language = language
     current_page = _normalized_text(context.metadata.get("current_page"))
     if current_page:
         context.metadata["current_page"] = current_page

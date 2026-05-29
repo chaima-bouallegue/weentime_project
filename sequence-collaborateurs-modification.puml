@@ -1,0 +1,56 @@
+@startuml
+title Diagramme de séquence — Modification d'un collaborateur
+autonumber
+
+actor "Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Choisir une action sur un collaborateur
+Angular --> Acteur : Afficher le formulaire
+Acteur -> Angular : Saisir ou modifier les informations
+
+opt Affectation à un département
+  Acteur -> Angular : Sélectionner le département
+end
+
+opt Affectation à une équipe
+  Acteur -> Angular : Sélectionner l'équipe
+end
+
+opt Affectation d'un manager
+  Acteur -> Angular : Sélectionner le manager
+end
+
+loop Pour chaque opération de gestion
+  Angular -> Gateway : Envoyer la demande
+
+  ref over Acteur, AuthService
+  S'authentifier()
+  end ref
+
+  Gateway -> OrganisationService : Transmettre l'opération
+
+  ref over Gateway, OrganisationService
+  Contrôler les accès (RBAC)
+  end ref
+
+  OrganisationService -> DB : Vérifier collaborateur et affectations
+
+  alt Données valides
+    OrganisationService -> DB : Enregistrer les changements
+    DB --> OrganisationService : Confirmer l'enregistrement
+    OrganisationService --> Gateway : Retourner la confirmation
+    Gateway --> Angular : Transmettre la confirmation
+    Angular --> Acteur : Afficher le résultat
+  else Données invalides
+    OrganisationService --> Gateway : Retourner l'erreur métier
+    Gateway --> Angular : Transmettre l'erreur
+    Angular --> Acteur : Afficher le message d'erreur
+  end
+end
+
+@enduml

@@ -1,0 +1,50 @@
+@startuml
+title Diagramme de séquence système — Gérer les entreprises
+autonumber
+
+actor "Administrateur" as Admin
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth/RBAC Service" as RBAC
+control "Organisation Service" as OrganisationService
+database "Base de données\nPostgreSQL" as DB
+
+Admin -> Angular : Accéder au module entreprises
+Angular -> Gateway : Demander la liste des entreprises
+Gateway -> RBAC : Vérifier le jeton JWT
+RBAC -> RBAC : Vérifier le rôle ADMIN
+
+alt Accès autorisé
+    Gateway -> OrganisationService : Transmettre la demande
+    OrganisationService -> DB : Récupérer les entreprises
+    DB --> OrganisationService : Liste des entreprises
+    OrganisationService --> Gateway : Retourner la liste
+    Gateway --> Angular : Transmettre les entreprises
+    Angular --> Admin : Afficher la liste
+
+    Admin -> Angular : Ajouter, modifier, changer statut ou supprimer
+    Angular -> Gateway : Envoyer l'opération entreprise
+    Gateway -> RBAC : Vérifier JWT et rôle ADMIN
+    RBAC --> Gateway : Autorisation confirmée
+    Gateway -> OrganisationService : Transmettre l'opération
+    OrganisationService -> OrganisationService : Valider les données
+
+    alt Opération réussie
+        OrganisationService -> DB : Sauvegarder les changements
+        DB --> OrganisationService : Confirmation
+        OrganisationService --> Gateway : Retourner le résultat
+        Gateway --> Angular : Confirmer l'opération
+        Angular --> Admin : Afficher la confirmation
+    else Erreur
+        OrganisationService --> Gateway : Accès refusé, entreprise introuvable ou données invalides
+        Gateway --> Angular : Transmettre l'erreur
+        Angular --> Admin : Afficher le message d'erreur
+    end
+else Accès refusé
+    RBAC --> Gateway : Refuser l'accès
+    Gateway --> Angular : Retourner une erreur d'autorisation
+    Angular --> Admin : Afficher accès refusé
+end
+
+caption Gestion des entreprises avec contrôle du rôle ADMIN.
+@enduml

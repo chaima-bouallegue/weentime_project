@@ -106,7 +106,11 @@
               <span class="message-bubble__time">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
 
-            <p class="message-bubble__text" [attr.dir]="messageDirection(message)">{{ message.text }}</p>
+            <div
+              class="message-bubble__text"
+              [attr.dir]="messageDirection(message)"
+              [innerHTML]="renderMessageHtml(message)"
+            ></div>
 
             <section
               *ngIf="message.origin === 'voice' || message.detectedLanguage || message.audioStatusLabel || message.fallbackLabel"
@@ -161,7 +165,26 @@
               <span>{{ message.actionResultDisplay.text }}</span>
             </section>
 
-            <section *ngIf="message.readResult" class="message-bubble__read-result">
+            <section
+              *ngIf="message.readResult && readResultFailed(message.readResult)"
+              class="message-bubble__read-result message-bubble__read-result--error"
+            >
+              <div class="message-bubble__read-head">
+                <span>{{ readResultErrorTitle(message) }}</span>
+                <span *ngIf="readResultModuleLabel(message.readResult)">
+                  {{ readResultModuleLabel(message.readResult) }}
+                </span>
+              </div>
+
+              <p class="message-bubble__read-empty">
+                {{ readResultErrorMessage(message.readResult) }}
+              </p>
+            </section>
+
+            <section
+              *ngIf="message.readResult && !readResultFailed(message.readResult)"
+              class="message-bubble__read-result"
+            >
               <div class="message-bubble__read-head">
                 <span>{{ message.readResult.summary || 'Resultat' }}</span>
                 <span *ngIf="message.readResult.count !== undefined">
@@ -270,7 +293,7 @@
                   [disabled]="loading()"
                 >
                   <lucide-icon name="rotate-ccw" [size]="14"></lucide-icon>
-                  <span>Reessayer</span>
+                  <span>{{ retryButtonLabel(message) }}</span>
                 </button>
               </div>
             </div>
@@ -308,6 +331,8 @@
           type="button"
           class="chat-panel__voice"
           [class.chat-panel__voice--recording]="recording()"
+          [class.chat-panel__voice--busy]="voiceBusy()"
+          [class.chat-panel__voice--error]="voiceState() === 'audioError' || voiceState() === 'authExpired'"
           (click)="toggleRecording()"
           [disabled]="voiceDisabled()"
           [attr.aria-label]="voiceButtonLabel()"
@@ -318,6 +343,7 @@
         <button
           type="button"
           class="chat-panel__send"
+          [class.chat-panel__send--loading]="loading()"
           (click)="sendMessage()"
           [disabled]="!canSend()"
           aria-label="Envoyer"

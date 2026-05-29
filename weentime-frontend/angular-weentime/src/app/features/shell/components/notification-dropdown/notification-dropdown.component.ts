@@ -18,7 +18,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
             <span class="unread-pill">{{ unreadCount() }} non lues</span>
           }
         </div>
-        <button (click)="markAllAsRead()" class="mark-all-btn" [disabled]="unreadCount() === 0">
+        <button (click)="markAllAsRead()" class="mark-all-btn" [disabled]="unreadCount() === 0 || loading()">
           Tout lire
         </button>
       </div>
@@ -32,7 +32,21 @@ import { NotificationService, Notification } from '../../../../core/services/not
 
       <!-- List -->
       <div class="notif-list custom-scrollbar">
-        @if (filteredNotifications().length === 0) {
+        @if (loading()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Chargement des notifications...</p>
+          </div>
+        } @else if (error()) {
+          <div class="error-state">
+            <div class="error-icon">
+              <lucide-icon name="wifi-off" size="38"></lucide-icon>
+            </div>
+            <p>Notifications indisponibles</p>
+            <span class="empty-sub">{{ error() }}</span>
+            <button type="button" class="retry-btn" (click)="reload()">Réessayer</button>
+          </div>
+        } @else if (filteredNotifications().length === 0) {
           <div class="empty-state">
             <div class="empty-illustration">
               <lucide-icon name="bell-off" size="48"></lucide-icon>
@@ -90,7 +104,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       border-radius: 20px;
       box-shadow: 0 20px 50px -12px rgba(0,0,0,0.15);
       border: 1px solid #e2e8f0;
-      z-index: 2000;
+      z-index: 10000;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -181,6 +195,64 @@ import { NotificationService, Notification } from '../../../../core/services/not
       max-height: 480px;
       overflow-y: auto;
       padding: 16px 0;
+    }
+
+    .loading-state,
+    .error-state {
+      padding: 56px 36px;
+      text-align: center;
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+    }
+
+    .loading-state p,
+    .error-state p {
+      margin: 0;
+      color: #1e293b;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    :host-context(.dark) .loading-state p,
+    :host-context(.dark) .error-state p {
+      color: #f8fafc;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 3px solid #e2e8f0;
+      border-top-color: #534AB7;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .error-icon {
+      width: 76px;
+      height: 76px;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .retry-btn {
+      margin-top: 6px;
+      padding: 9px 14px;
+      border: none;
+      border-radius: 10px;
+      background: #534AB7;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .date-group {
@@ -345,6 +417,21 @@ import { NotificationService, Notification } from '../../../../core/services/not
     .custom-scrollbar::-webkit-scrollbar { width: 5px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     :host-context(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+
+    @media (max-width: 520px) {
+      .notif-panel {
+        position: fixed;
+        top: 72px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-height: calc(100vh - 88px);
+      }
+
+      .notif-list {
+        max-height: calc(100vh - 260px);
+      }
+    }
   `]
 })
 export class NotificationDropdownComponent implements OnInit {
@@ -356,6 +443,8 @@ export class NotificationDropdownComponent implements OnInit {
   
   notifications = this.notificationService.notifications;
   unreadCount = this.notificationService.unreadCount;
+  loading = this.notificationService.loading;
+  error = this.notificationService.error;
 
   ngOnInit(): void {
     this.notificationService.getNotifications().subscribe();
@@ -421,6 +510,10 @@ export class NotificationDropdownComponent implements OnInit {
 
   markAllAsRead(): void {
     this.notificationService.markAllAsRead();
+  }
+
+  reload(): void {
+    this.notificationService.getNotifications().subscribe();
   }
 
   clearAll(): void {

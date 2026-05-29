@@ -4,6 +4,7 @@ from typing import Any
 
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import ToolCallRecord
+from app.tools.result import ToolResult
 
 from .admin_diagnostics import AdminDiagnostics, collect_admin_runtime_status
 from .digest_builder import (
@@ -77,6 +78,9 @@ class AdminDigestBuilder(RoleDigestBuilder):
             calls.append(call)
             warnings.extend(section_warnings)
             citations.extend(section.citations)
+            preflight = context.metadata.get("_backend_gateway_preflight")
+            if isinstance(preflight, ToolResult) and not preflight.success:
+                break
 
         section_dicts = [section.to_dict() for section in sections]
         runtime_status = self.runtime_status or collect_admin_runtime_status()

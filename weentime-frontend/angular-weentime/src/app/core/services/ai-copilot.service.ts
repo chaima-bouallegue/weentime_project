@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, catchError, map, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { withAiChatWidgetContext } from '../http/request-context.tokens';
 import { AuthService } from './auth.service';
@@ -51,6 +51,38 @@ export interface AiCopilotEnvelope<T = AiCopilotChatData> {
 
 export type AiLanguageCode = 'fr' | 'en' | 'ar' | 'tn';
 
+const AI_ARABIC_RE = /[\u0600-\u06FF]/;
+const AI_LATIN_RE = /[a-zA-ZÀ-ÿ']+/g;
+const AI_EN_HINTS = new Set([
+  'i', 'want', 'request', 'leave', 'tomorrow', 'check', 'clock', 'in', 'out',
+  'document', 'telework', 'remote', 'hours', 'week', 'policy', 'status',
+  'attendance', 'presence', 'team', 'admin', 'manager', 'open', 'download',
+  'my', 'need', 'would', 'like', 'from', 'home', 'show', 'summary', 'daily',
+  'today', 'platform', 'stats', 'statistics', 'display', 'please', 'hello', 'hi',
+]);
+const AI_FR_HINTS = new Set([
+  'je', 'veux', 'conge', 'congé', 'demain', 'pointage', 'pointe', 'pointer',
+  'sortie', 'entree', 'entrée', 'teletravail', 'télétravail', 'document',
+  'attestation', 'autorisation', 'heures', 'semaine', 'solde', 'statut',
+  'demande', 'demander', 'besoin', 'souhaite', 'voudrais', 'vacances',
+  'absence', 'presence', 'equipe', 'aujourd', 'hui', 'montre', 'affiche',
+  'résumé', 'resume', 'jour', 'état', 'etat',
+]);
+const AI_TN_HINTS = new Set([
+  'nheb', 'n7eb', 'nhib', 'bghit', 'tounsi', 'tounes', 'ghodwa', 'baad',
+  'ba3d', 'pointi', 'npointi', 'pointit', 'rani', 'jit', 'dakhla', 'dakhel',
+  'khrajt', 'khrouj', 'kharrej', 'nokhrej', 'konji', 'congi', 'ena', 'chkon',
+  'chnowa', 'chkoun', 'kadeh', 'adech', 'mazeli', 'fama', 'famma', 'swaye3',
+  'war9a', 'khidma', 'nkhdem', 'khirja', 'dok', 'taw', 'aandi', 'andi',
+  '3andi', 'naamel', 'naamela', 'najem', 'aatini', 'nzid', 'nchouf', 'tasrih',
+  'warini', 'lyoum', 'hedha', 'hetha', 'kifeh', '9adeh', '9addeh',
+  'ma3andich', 'chniya', 'chneya', 'shnowa', 'achnowa',
+]);
+const AI_ARABIC_TN_HINTS = [
+  'شنوة', 'شنو', 'اشنو', 'آشنو', 'قداش', 'فما', 'نحب', 'توا', 'تو', 'هاذا',
+  'هذا', 'كيفاش', 'علاش', 'اليوم',
+];
+
 export function resolvePreferredAiLanguage(browserLanguage?: string | null): AiLanguageCode {
   const normalized = String(browserLanguage ?? '').trim().toLowerCase().replace('_', '-');
   if (!normalized) {
@@ -68,13 +100,40 @@ export function resolvePreferredAiLanguage(browserLanguage?: string | null): AiL
   return 'fr';
 }
 
+export function detectAiMessageLanguage(
+  message: string | null | undefined,
+  browserLanguage?: string | null,
+): AiLanguageCode {
+  const value = String(message ?? '').trim().toLowerCase();
+  const fallback = resolvePreferredAiLanguage(browserLanguage);
+  if (!value) {
+    return fallback;
+  }
+  if (AI_ARABIC_RE.test(value)) {
+    return AI_ARABIC_TN_HINTS.some(term => value.includes(term)) ? 'tn' : 'ar';
+  }
+  const tokens = new Set(value.match(AI_LATIN_RE) ?? []);
+  if ([...tokens].some(token => AI_TN_HINTS.has(token))) {
+    return 'tn';
+  }
+  const enScore = [...tokens].filter(token => AI_EN_HINTS.has(token)).length;
+  const frScore = [...tokens].filter(token => AI_FR_HINTS.has(token)).length;
+  if (enScore > frScore && enScore > 0) {
+    return 'en';
+  }
+  if (frScore > 0 || /[éèêàùç]/.test(value)) {
+    return 'fr';
+  }
+  return fallback;
+}
+
 export function resolveAiServiceEndpoint(
   aiServiceUrl: string | null | undefined,
   aiDebugUrl: string | null | undefined,
 ): string {
-  const gatewayCandidate = String(aiServiceUrl ?? '').trim().replace(/\/+$/, '');
-  if (gatewayCandidate) {
-    return gatewayCandidate;
+  const configuredCandidate = String(aiServiceUrl ?? '').trim().replace(/\/+$/, '');
+  if (configuredCandidate) {
+    return configuredCandidate;
   }
 
   const debugCandidate = String(aiDebugUrl ?? '').trim().replace(/\/+$/, '');
@@ -82,10 +141,11 @@ export function resolveAiServiceEndpoint(
     return debugCandidate;
   }
 
-  return 'http://localhost:8000';
+  return 'http://127.0.0.1:8000';
 }
 
 export const AI_CHAT_SESSION_STORAGE_KEY = 'weentime.ai.chat.session_id';
+export const AI_CHAT_LANGUAGE_STORAGE_KEY = 'weentime.ai.chat.response_language';
 
 export function resolveAiConversationId(): string {
   const generated = createBrowserRequestId('chat-session');
@@ -98,6 +158,24 @@ export function resolveAiConversationId(): string {
   }
   window.sessionStorage.setItem(AI_CHAT_SESSION_STORAGE_KEY, generated);
   return generated;
+}
+
+export function rememberAiConversationLanguage(language: AiLanguageCode): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.sessionStorage.setItem(AI_CHAT_LANGUAGE_STORAGE_KEY, language);
+}
+
+export function resolveStoredAiConversationLanguage(browserLanguage?: string | null): AiLanguageCode {
+  if (typeof window === 'undefined') {
+    return resolvePreferredAiLanguage(browserLanguage);
+  }
+  const stored = window.sessionStorage.getItem(AI_CHAT_LANGUAGE_STORAGE_KEY) as AiLanguageCode | null;
+  if (stored === 'fr' || stored === 'en' || stored === 'ar' || stored === 'tn') {
+    return stored;
+  }
+  return resolvePreferredAiLanguage(browserLanguage);
 }
 
 function createBrowserRequestId(prefix: string): string {
@@ -117,8 +195,17 @@ function resolveCurrentPage(): string {
 export interface AiChatMetadata {
   channel: 'chat';
   language: AiLanguageCode;
+  detectedLanguage?: AiLanguageCode;
+  detected_language?: AiLanguageCode;
+  requested_language?: AiLanguageCode;
+  requestedLanguage?: AiLanguageCode;
+  response_language?: AiLanguageCode;
+  responseLanguage?: AiLanguageCode;
+  mode?: 'text' | 'voice';
   chatbotPublicContext?: boolean;
   role?: string;
+  agentRole?: string;
+  agent_role?: string;
   userId?: number;
   entrepriseId?: number;
   companyId?: number;
@@ -133,12 +220,17 @@ export interface AiChatRequestPayload {
   message: string;
   session_id?: string;
   user_id?: number;
+  mode?: 'text' | 'voice';
+  language?: AiLanguageCode;
+  detectedLanguage?: AiLanguageCode;
+  requested_language?: AiLanguageCode;
+  response_language?: AiLanguageCode;
   metadata: AiChatMetadata;
 }
 
 export function buildAiChatRequestPayload(
   message: string,
-  options?: {
+  options?: number | {
     userId?: number;
     role?: string | null;
     entrepriseId?: number | null;
@@ -147,13 +239,22 @@ export function buildAiChatRequestPayload(
     sessionId?: string | null;
   },
 ): AiChatRequestPayload {
-  const sessionId = options?.sessionId || resolveAiConversationId();
-  const currentPage = options?.currentPage?.trim() || resolveCurrentPage();
+  const resolvedOptions = typeof options === 'number' ? { userId: options } : options;
+  const sessionId = resolvedOptions?.sessionId || resolveAiConversationId();
+  const currentPage = resolvedOptions?.currentPage?.trim() || resolveCurrentPage();
+  const browserLanguage = typeof navigator !== 'undefined' ? navigator.language : null;
+  const language = detectAiMessageLanguage(message, browserLanguage);
+  rememberAiConversationLanguage(language);
   const metadata: AiChatMetadata = {
     channel: 'chat',
-    language: resolvePreferredAiLanguage(
-      typeof navigator !== 'undefined' ? navigator.language : null,
-    ),
+    language,
+    detectedLanguage: language,
+    detected_language: language,
+    requested_language: language,
+    requestedLanguage: language,
+    response_language: language,
+    responseLanguage: language,
+    mode: 'text',
     chatbotPublicContext: environment.chatbotPublicMode === true,
     current_page: currentPage,
     currentPage,
@@ -161,23 +262,31 @@ export function buildAiChatRequestPayload(
     conversationId: sessionId,
     session_id: sessionId,
   };
-  if (options?.role && options.role.trim().length > 0) {
-    metadata.role = options.role.trim().replace(/^ROLE_/i, '').toUpperCase();
+  if (resolvedOptions?.role && resolvedOptions.role.trim().length > 0) {
+    const role = resolvedOptions.role.trim().replace(/^ROLE_/i, '').toUpperCase();
+    metadata.role = role;
+    metadata.agentRole = role;
+    metadata.agent_role = role;
   }
-  if (typeof options?.userId === 'number' && options.userId > 0) {
-    metadata.userId = options.userId;
+  if (typeof resolvedOptions?.userId === 'number' && resolvedOptions.userId > 0) {
+    metadata.userId = resolvedOptions.userId;
   }
-  if (typeof options?.entrepriseId === 'number' && options.entrepriseId > 0) {
-    metadata.entrepriseId = options.entrepriseId;
+  if (typeof resolvedOptions?.entrepriseId === 'number' && resolvedOptions.entrepriseId > 0) {
+    metadata.entrepriseId = resolvedOptions.entrepriseId;
   }
-  const companyId = options?.companyId ?? options?.entrepriseId;
+  const companyId = resolvedOptions?.companyId ?? resolvedOptions?.entrepriseId;
   if (typeof companyId === 'number' && companyId > 0) {
     metadata.companyId = companyId;
   }
   return {
     message,
     session_id: sessionId,
-    user_id: options?.userId,
+    user_id: resolvedOptions?.userId,
+    mode: 'text',
+    language,
+    detectedLanguage: language,
+    requested_language: language,
+    response_language: language,
     metadata,
   };
 }
@@ -191,23 +300,45 @@ export class AiCopilotService {
 
   sendChatV2(message: string): Observable<AiCopilotEnvelope> {
     const user = this.authService.currentUser();
+    const token = this.authService.getToken();
+    if (this.requiresLogin(user, token)) {
+      return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
+    }
     const requestId = this.createRequestId('chat');
-    this.debugRequest('chat.v2', requestId);
     const role = this.resolveRole(user);
-    return this.http.post<AiCopilotEnvelope>(
-      `${this.endpoint}/v2/chat`,
-      buildAiChatRequestPayload(message, {
+    const url = `${this.endpoint}/v2/chat`;
+    const payload = buildAiChatRequestPayload(message, {
         userId: user?.id,
         role,
         entrepriseId: user?.entrepriseId ?? user?.entreprise?.id,
         companyId: user?.entrepriseId ?? user?.entreprise?.id,
         currentPage: this.currentPage(),
         sessionId: resolveAiConversationId(),
-      }),
+      });
+    const headers = this.authHeaders(requestId, user, token);
+    this.debugChatRequest('chat.v2', requestId, url, payload, headers);
+    return this.http.post<AiCopilotEnvelope>(
+      url,
+      payload,
       {
-        headers: this.authHeaders(requestId),
+        headers,
         context: withAiChatWidgetContext(),
+        observe: 'response',
       },
+    ).pipe(
+      tap(response => this.debugChatResponse('chat.v2', requestId, response.status)),
+      map(response => response.body ?? {
+        success: false,
+        data: null,
+        error: {
+          code: 'empty_ai_response',
+          message: 'Service IA indisponible.',
+        },
+      }),
+      catchError(error => {
+        this.debugChatError('chat.v2', requestId, error);
+        return throwError(() => error);
+      }),
     );
   }
 
@@ -219,14 +350,26 @@ export class AiCopilotService {
     const requestId = this.createRequestId('reset');
     this.debugRequest('chat.reset', requestId);
     const user = this.authService.currentUser();
+    const token = this.authService.getToken();
+    if (this.requiresLogin(user, token)) {
+      return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
+    }
     const role = this.resolveRole(user);
     const sessionIdValue = sessionId || resolveAiConversationId();
     const currentPage = this.currentPage();
+    const language = resolveStoredAiConversationLanguage(
+      typeof navigator !== 'undefined' ? navigator.language : null,
+    );
     const metadata: Record<string, unknown> = {
       channel: 'chat',
-      language: resolvePreferredAiLanguage(
-        typeof navigator !== 'undefined' ? navigator.language : null,
-      ),
+      language,
+      detectedLanguage: language,
+      detected_language: language,
+      requested_language: language,
+      requestedLanguage: language,
+      response_language: language,
+      responseLanguage: language,
+      mode: 'text',
       chatbotPublicContext: environment.chatbotPublicMode === true,
       current_page: currentPage,
       currentPage,
@@ -236,6 +379,8 @@ export class AiCopilotService {
     };
     if (role) {
       metadata['role'] = role;
+      metadata['agentRole'] = role;
+      metadata['agent_role'] = role;
     }
     if (user?.id) {
       metadata['userId'] = user.id;
@@ -247,9 +392,9 @@ export class AiCopilotService {
     }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/reset`,
-      { message: '', user_id: user?.id, session_id: sessionIdValue, metadata },
+      { message: '', user_id: user?.id, session_id: sessionIdValue, language, detectedLanguage: language, requested_language: language, response_language: language, metadata },
       {
-        headers: this.authHeaders(requestId),
+        headers: this.authHeaders(requestId, user, token),
         context: withAiChatWidgetContext(),
       },
     );
@@ -259,14 +404,26 @@ export class AiCopilotService {
     const requestId = this.createRequestId('confirm');
     this.debugRequest('chat.confirm', requestId);
     const user = this.authService.currentUser();
+    const token = this.authService.getToken();
+    if (this.requiresLogin(user, token)) {
+      return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
+    }
     const role = this.resolveRole(user);
     const sessionId = resolveAiConversationId();
     const currentPage = this.currentPage();
+    const language = resolveStoredAiConversationLanguage(
+      typeof navigator !== 'undefined' ? navigator.language : null,
+    );
     const metadata: Record<string, unknown> = {
       channel: 'chat',
-      language: resolvePreferredAiLanguage(
-        typeof navigator !== 'undefined' ? navigator.language : null,
-      ),
+      language,
+      detectedLanguage: language,
+      detected_language: language,
+      requested_language: language,
+      requestedLanguage: language,
+      response_language: language,
+      responseLanguage: language,
+      mode: 'text',
       chatbotPublicContext: environment.chatbotPublicMode === true,
       current_page: currentPage,
       currentPage,
@@ -276,6 +433,8 @@ export class AiCopilotService {
     };
     if (role) {
       metadata['role'] = role;
+      metadata['agentRole'] = role;
+      metadata['agent_role'] = role;
     }
     if (user?.id) {
       metadata['userId'] = user.id;
@@ -287,9 +446,9 @@ export class AiCopilotService {
     }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
-      { confirmation_id: confirmationId, approved, user_id: user?.id, metadata },
+      { confirmation_id: confirmationId, approved, user_id: user?.id, language, detectedLanguage: language, requested_language: language, response_language: language, metadata },
       {
-        headers: this.authHeaders(requestId),
+        headers: this.authHeaders(requestId, user, token),
         context: withAiChatWidgetContext(),
       },
     );
@@ -307,8 +466,11 @@ export class AiCopilotService {
     return primary.length > 0 ? primary.replace(/^ROLE_/i, '').toUpperCase() : null;
   }
 
-  private authHeaders(requestId?: string): HttpHeaders {
-    const token = this.authService.getToken();
+  private authHeaders(
+    requestId?: string,
+    user: ReturnType<AuthService['currentUser']> = this.authService.currentUser(),
+    token: string | null = this.authService.getToken(),
+  ): HttpHeaders {
     const headers: Record<string, string> = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -316,7 +478,39 @@ export class AiCopilotService {
     if (requestId) {
       headers['X-Request-ID'] = requestId;
     }
+    const role = this.resolveRole(user);
+    if (role) {
+      headers['X-User-Role'] = role;
+    }
+    const entrepriseId = user?.entrepriseId ?? user?.entreprise?.id;
+    if (typeof entrepriseId === 'number' && entrepriseId > 0) {
+      const value = String(entrepriseId);
+      headers['X-Entreprise-Id'] = value;
+      headers['X-Company-Id'] = value;
+      headers['X-Tenant-Id'] = value;
+    }
     return new HttpHeaders(headers);
+  }
+
+  private requiresLogin(user: ReturnType<AuthService['currentUser']>, token: string | null): boolean {
+    if (token) {
+      return false;
+    }
+    if (user?.id) {
+      return true;
+    }
+    if (this.hasPendingMfaChallenge()) {
+      return true;
+    }
+    return environment.chatbotPublicMode !== true;
+  }
+
+  private hasPendingMfaChallenge(): boolean {
+    const maybeAuth = this.authService as AuthService & { getMfaChallenge?: () => unknown };
+    if (typeof maybeAuth.getMfaChallenge !== 'function') {
+      return false;
+    }
+    return !!maybeAuth.getMfaChallenge();
   }
 
   private createRequestId(prefix: string): string {
@@ -331,5 +525,53 @@ export class AiCopilotService {
     if (!environment.production) {
       console.debug('[ai-copilot]', flow, { requestId });
     }
+  }
+
+  private debugChatRequest(
+    flow: string,
+    requestId: string,
+    url: string,
+    payload: AiChatRequestPayload | Record<string, unknown>,
+    headers: HttpHeaders,
+  ): void {
+    if (environment.production) {
+      return;
+    }
+    console.debug('[ai-copilot]', flow, {
+      requestId,
+      url,
+      payload,
+      headers: this.redactHeaders(headers),
+    });
+  }
+
+  private debugChatResponse(flow: string, requestId: string, status: number): void {
+    if (environment.production) {
+      return;
+    }
+    console.debug('[ai-copilot]', `${flow}.response`, { requestId, status });
+  }
+
+  private debugChatError(flow: string, requestId: string, error: unknown): void {
+    if (environment.production) {
+      return;
+    }
+    const httpError = error as { status?: unknown; message?: unknown; error?: unknown };
+    console.debug('[ai-copilot]', `${flow}.error`, {
+      requestId,
+      status: typeof httpError?.status === 'number' ? httpError.status : null,
+      message: typeof httpError?.message === 'string' ? httpError.message : String(error),
+      error: httpError?.error ?? null,
+    });
+  }
+
+  private redactHeaders(headers: HttpHeaders): Record<string, string> {
+    return headers.keys().reduce<Record<string, string>>((acc, key) => {
+      const value = headers.get(key) ?? '';
+      acc[key] = key.toLowerCase() === 'authorization'
+        ? value.replace(/^Bearer\s+.+$/i, 'Bearer ***')
+        : value;
+      return acc;
+    }, {});
   }
 }

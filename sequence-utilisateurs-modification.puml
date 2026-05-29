@@ -1,0 +1,33 @@
+@startuml
+title Diagramme de séquence — Modification d'un utilisateur
+autonumber
+
+actor "Administrateur ou Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Sélectionner une action utilisateur
+Angular --> Acteur : Afficher le formulaire
+Acteur -> Angular : Saisir ou modifier les informations
+Angular -> Gateway : Envoyer les données
+
+ref over Acteur, Gateway
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre l'opération
+
+ref over Gateway, OrganisationService
+Contrôler les accès (RBAC)
+end ref
+
+OrganisationService -> OrganisationService : Valider les données
+OrganisationService -> DB : Sauvegarder les changements
+DB --> OrganisationService : Confirmer la sauvegarde
+OrganisationService --> Gateway : Retourner la confirmation
+Gateway --> Angular : Transmettre la confirmation
+Angular --> Acteur : Afficher la confirmation
+
+@enduml

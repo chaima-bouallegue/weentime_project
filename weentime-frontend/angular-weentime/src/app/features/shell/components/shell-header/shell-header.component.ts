@@ -8,6 +8,7 @@ import { PointageService } from '../../../../features/employee/pointage/pointage
 import { NotificationService } from '../../../../core/services/notification.service';
 import { CommunicationStoreService } from '@app/features/communication/services/communication-store.service';
 import { NotificationDropdownComponent } from '../notification-dropdown/notification-dropdown.component';
+import { environment } from '../../../../../environments/environment';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
@@ -72,7 +73,15 @@ import { TemplatePortal } from '@angular/cdk/portal';
             </a>
 
             <div class="notif-container">
-              <button (click)="notifOpen.set(!notifOpen())" class="action-btn" [class.has-badge]="unreadCount() > 0" [class.shake]="shakeBell()" data-tooltip="Notifications">
+              <button
+                type="button"
+                (click)="toggleNotifications($event)"
+                class="action-btn"
+                [class.has-badge]="unreadCount() > 0"
+                [class.shake]="shakeBell()"
+                [attr.aria-expanded]="notifOpen()"
+                aria-haspopup="dialog"
+                data-tooltip="Notifications">
                 <lucide-icon name="bell" size="18"></lucide-icon>
                 @if (unreadCount() > 0) {
                   <span class="btn-badge btn-badge--danger">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
@@ -126,7 +135,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
       border-bottom: 1px solid #e2e8f0;
       height: 72px;
       position: relative;
-      z-index: 50;
+      z-index: 1200;
     }
 
     .notif-container {
@@ -811,6 +820,24 @@ export class ShellHeaderComponent {
     this.authService.logout();
   }
 
+  toggleNotifications(event: MouseEvent): void {
+    event.stopPropagation();
+    const nextOpen = !this.notifOpen();
+    this.dropdownOpen.set(false);
+    this.notifOpen.set(nextOpen);
+
+    if (!environment.production) {
+      console.debug('[Notifications] Bell click fired', {
+        open: nextOpen,
+        unreadCount: this.unreadCount()
+      });
+    }
+
+    if (nextOpen) {
+      this.notificationService.getNotifications().subscribe();
+    }
+  }
+
   private normalizeRole(role: string | null | undefined): string {
     const normalized = String(role ?? '').trim().toUpperCase();
     return normalized.startsWith('ROLE_') ? normalized.substring('ROLE_'.length) : normalized;
@@ -825,7 +852,11 @@ export class ShellHeaderComponent {
     }
 
     const path = event.composedPath() as HTMLElement[];
-    const isInsideNotif = path.some(el => el?.classList?.contains?.('notif-wrapper'));
+    const isInsideNotif = path.some(el =>
+      el?.classList?.contains?.('notif-container')
+      || el?.classList?.contains?.('notif-panel')
+      || (typeof el?.tagName === 'string' && el.tagName.toLowerCase() === 'app-notification-dropdown')
+    );
     const isInsideDropdown = path.some(el => el?.classList?.contains?.('user-dropdown-wrapper'));
 
     if (this.notifOpen() && !isInsideNotif) {

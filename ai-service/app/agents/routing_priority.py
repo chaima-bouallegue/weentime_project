@@ -371,6 +371,7 @@ def _is_role_digest(text: str) -> bool:
             "resume de ma journee", "résumé de ma journée", "ma journee", "ma journée",
             "digest", "briefing", "priorites", "priorités", "que dois-je faire", "quoi faire",
             "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
+            "chnowa resume lyoum", "chnowa résumé lyoum", "quoi r sum aujourd hui",
             "donne moi resume", "aatini resume", "que dois je faire aujourd hui",
             "today's team summary", "todays team summary", "today s team summary", "team summary", "manager briefing",
             "resume equipe", "resume de mon equipe", "résumé équipe", "résumé de mon équipe",

@@ -8,6 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LogoComponent } from '../../../shared/components/logo/logo.component';
 import { AuthService, LoginResponse } from '../../../core/services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -73,6 +74,7 @@ export class LoginComponent implements AfterViewInit {
       .subscribe({
         next: (response) => {
           if (response.mfaRequired || response.requiresTwoFactor || response.requires2FA) {
+            this.startPerf('navigation');
             void this.router.navigate(['/verify-2fa'], {
               state: {
                 fromLogin: true,
@@ -80,11 +82,11 @@ export class LoginComponent implements AfterViewInit {
                 tempToken: response.mfaToken ?? response.temporaryToken ?? response.tempToken ?? null,
                 availableMethods: ['TOTP']
               }
-            });
+            }).finally(() => this.endPerf('navigation'));
             return;
           }
 
-          this.redirectByRole(response);
+          this.redirectByRole(response, formValue.rememberMe);
         },
         error: (error) => {
           this.apiError.set(this.resolveLoginError(error));
@@ -124,7 +126,7 @@ export class LoginComponent implements AfterViewInit {
     return control.invalid ? 'invalid' : 'valid';
   }
 
-  private redirectByRole(response: LoginResponse): void {
+  private redirectByRole(response: LoginResponse, rememberMe: boolean): void {
     const role = response.user?.role || response.roles?.[0] || response.user?.roles?.[0] || '';
 
     if (!role) {
@@ -134,7 +136,10 @@ export class LoginComponent implements AfterViewInit {
     }
 
     const destination = this.resolveRouteForRole(role);
-    void this.router.navigate([destination]);
+    this.startPerf('navigation');
+    void this.router.navigate([destination]).then(() => {
+      this.authService.refreshCurrentUserInBackground(rememberMe);
+    }).finally(() => this.endPerf('navigation'));
   }
 
   private resolveRouteForRole(role: string): string {
@@ -169,6 +174,18 @@ export class LoginComponent implements AfterViewInit {
         return 'Impossible de joindre le serveur. Verifiez votre connexion.';
       default:
         return backendMessage || 'Connexion impossible pour le moment.';
+    }
+  }
+
+  private startPerf(label: string): void {
+    if (!environment.production) {
+      console.time(`[login] ${label}`);
+    }
+  }
+
+  private endPerf(label: string): void {
+    if (!environment.production) {
+      console.timeEnd(`[login] ${label}`);
     }
   }
 }

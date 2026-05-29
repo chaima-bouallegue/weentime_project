@@ -30,7 +30,7 @@ def reset_state(client: TestClient) -> None:
     state.copilot_ready = False
     state.copilot_backend_client = FakeBackendClient()
     state.copilot_context_builder = ContextBuilder(FakeBackendClient(), jwt_secret=TEST_JWT_SECRET)
-    state.settings = SimpleNamespace(backend_timeout_seconds=1, backend_base_url="http://localhost:8222/api/v1")
+    state.settings = SimpleNamespace(backend_timeout_seconds=1, backend_base_url="http://localhost:8322/api/v1")
 
 
 def test_missing_confirmation_returns_controlled_envelope_not_http_404() -> None:

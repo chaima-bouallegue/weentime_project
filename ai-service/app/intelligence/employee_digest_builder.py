@@ -4,6 +4,7 @@ from typing import Any
 
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import ToolCallRecord
+from app.tools.result import ToolResult
 
 from .digest_builder import (
     RoleDigest,
@@ -62,6 +63,9 @@ class EmployeeDigestBuilder(RoleDigestBuilder):
             calls.append(call)
             warnings.extend(section_warnings)
             citations.extend(section.citations)
+            preflight = context.metadata.get("_backend_gateway_preflight")
+            if isinstance(preflight, ToolResult) and not preflight.success:
+                break
 
         section_dicts = [section.to_dict() for section in sections]
         reminders = self.reminder_engine.build_employee_reminders(section_dicts)

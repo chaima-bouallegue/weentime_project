@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor Acteur as Responsable RH
+    participant Angular as Interface Angular
+    participant Gateway as API Gateway
+    participant AuthService as Auth Service
+    participant OrganisationService as Organisation Service
+    participant DB as Base de données PostgreSQL
+
+    Acteur->>Angular: Accéder au module Équipes
+    Angular->>Gateway: Demander la liste des équipes
+    rect rgb(245,245,245)
+        Note over Acteur,AuthService: S'authentifier()
+    end
+    Gateway->>OrganisationService: Transmettre la demande
+    rect rgb(245,245,245)
+        Note over Gateway,OrganisationService: Contrôler les accès (RBAC)
+    end
+    OrganisationService->>DB: Rechercher les équipes avec départements
+    DB-->>OrganisationService: Retourner les équipes
+    alt Équipes disponibles
+        OrganisationService-->>Gateway: Retourner la liste
+        Gateway-->>Angular: Transmettre les données
+        Angular-->>Acteur: Afficher les équipes
+    else Aucune équipe
+        OrganisationService-->>Gateway: Retourner une liste vide
+        Gateway-->>Angular: Transmettre la liste vide
+        Angular-->>Acteur: Afficher l'état vide
+    end

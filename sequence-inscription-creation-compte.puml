@@ -1,0 +1,30 @@
+@startuml
+title Diagramme de séquence — Création du compte utilisateur
+autonumber
+
+actor "Utilisateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Saisir les informations personnelles
+Acteur -> Angular : Définir le mot de passe
+
+opt Photo de profil ajoutée
+  Acteur -> Angular : Ajouter une photo de profil
+end
+
+Angular -> Gateway : Envoyer la demande d'inscription
+Gateway -> AuthService : Transmettre la demande
+AuthService -> OrganisationService : Transmettre les données utilisateur
+OrganisationService -> OrganisationService : Valider les données
+OrganisationService -> DB : Enregistrer le compte utilisateur
+DB --> OrganisationService : Confirmer l'enregistrement
+OrganisationService --> AuthService : Retourner la confirmation
+AuthService --> Gateway : Retourner la confirmation
+Gateway --> Angular : Transmettre la confirmation
+Angular --> Acteur : Afficher le message de confirmation
+
+@enduml

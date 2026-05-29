@@ -1,0 +1,30 @@
+@startuml
+title Diagramme de séquence — Consultation des utilisateurs
+autonumber
+
+actor "Administrateur ou Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Accéder au module Utilisateurs
+Angular -> Gateway : Demander la liste des utilisateurs
+
+ref over Acteur, Gateway
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre la demande
+
+ref over Gateway, OrganisationService
+Contrôler les accès (RBAC)
+end ref
+
+OrganisationService -> DB : Récupérer la liste des utilisateurs
+DB --> OrganisationService : Retourner les utilisateurs
+OrganisationService --> Gateway : Retourner la liste
+Gateway --> Angular : Transmettre la liste
+Angular --> Acteur : Afficher la liste
+
+@enduml

@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor Acteur as Responsable RH
+    participant Angular as Interface Angular
+    participant Gateway as API Gateway
+    participant AuthService as Auth Service
+    participant OrganisationService as Organisation Service
+    participant DB as Base de données PostgreSQL
+
+    Acteur->>Angular: Accéder au module Collaborateurs
+    Angular->>Gateway: Demander la liste des collaborateurs
+    rect rgb(245,245,245)
+        Note over Acteur,AuthService: S'authentifier()
+    end
+    Gateway->>OrganisationService: Transmettre la demande
+    rect rgb(245,245,245)
+        Note over Gateway,OrganisationService: Contrôler les accès (RBAC)
+    end
+    opt Recherche ou filtrage
+        Acteur->>Angular: Saisir critères de recherche
+        Angular->>Gateway: Transmettre les critères
+        Gateway->>OrganisationService: Ajouter les critères à la requête
+    end
+    OrganisationService->>DB: Rechercher les collaborateurs
+    DB-->>OrganisationService: Retourner les collaborateurs
+    alt Collaborateurs trouvés
+        OrganisationService-->>Gateway: Retourner la liste
+        Gateway-->>Angular: Transmettre les données
+        Angular-->>Acteur: Afficher les collaborateurs
+    else Aucun résultat
+        OrganisationService-->>Gateway: Retourner une liste vide
+        Gateway-->>Angular: Transmettre la liste vide
+        Angular-->>Acteur: Afficher l'état vide
+    end

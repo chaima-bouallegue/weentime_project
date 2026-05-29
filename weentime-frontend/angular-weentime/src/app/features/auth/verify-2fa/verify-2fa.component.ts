@@ -6,6 +6,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LogoComponent } from '../../../shared/components/logo/logo.component';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-verify-2fa',
@@ -130,21 +131,27 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
   private redirectByUserRole(response: any): void {
     const rawRole = response.roles?.[0] || this.authService.currentUser()?.roles?.[0] || 'EMPLOYEE';
     const role = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+    let destination = '/app/employee/dashboard';
 
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        void this.router.navigate(['/app/admin/dashboard']);
+        destination = '/app/admin/dashboard';
         break;
       case 'RH':
-        void this.router.navigate(['/app/rh/dashboard']);
+        destination = '/app/rh/dashboard';
         break;
       case 'MANAGER':
-        void this.router.navigate(['/app/manager/dashboard']);
+        destination = '/app/manager/dashboard';
         break;
       default:
-        void this.router.navigate(['/app/employee/dashboard']);
+        destination = '/app/employee/dashboard';
         break;
     }
+
+    this.startPerf('navigation');
+    void this.router.navigate([destination]).then(() => {
+      this.authService.refreshCurrentUserInBackground(this.rememberMe);
+    }).finally(() => this.endPerf('navigation'));
   }
 
   private resolve2faError(error: any): string {
@@ -154,5 +161,17 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
       return 'Session MFA expirée, reconnectez-vous';
     }
     return 'Code invalide ou expiré';
+  }
+
+  private startPerf(label: string): void {
+    if (!environment.production) {
+      console.time(`[mfa] ${label}`);
+    }
+  }
+
+  private endPerf(label: string): void {
+    if (!environment.production) {
+      console.timeEnd(`[mfa] ${label}`);
+    }
   }
 }

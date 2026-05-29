@@ -43,6 +43,8 @@ class EmployeeCopilot(BaseRoleCopilot):
             "what should i do today", "today's summary", "today summary",
             # TN
             "chnowa najem naamel", "shnowa najem naamel", "achnowa naamel",
+            "chnowa resume lyoum", "chnowa résumé lyoum", "resume lyoum",
+            "quoi r sum aujourd hui", "r sum aujourd hui",
         )
         if personal or any(term in text for term in briefing_markers):
             return "employee.daily_briefing", 0.92

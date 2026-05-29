@@ -65,6 +65,8 @@ class ToolResult(BaseModel):
     error_code: str | None = None
     error_message: str | None = None
     status_code: int | None = None
+    module: str | None = None
+    user_message: str | None = None
 
     @classmethod
     def ok(cls, data: Any = None, *, warnings: list[str] | None = None, status_code: int | None = None) -> "ToolResult":
@@ -79,6 +81,8 @@ class ToolResult(BaseModel):
         status_code: int | None = None,
         data: Any = None,
         warnings: list[str] | None = None,
+        module: str | None = None,
+        user_message: str | None = None,
     ) -> "ToolResult":
         return cls(
             success=False,
@@ -87,4 +91,6 @@ class ToolResult(BaseModel):
             error_code=code,
             error_message=message,
             status_code=status_code,
+            module=module,
+            user_message=user_message,
         )

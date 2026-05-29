@@ -171,6 +171,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   });
   readonly panelTitle = computed(() => `${this.roleLabel()} AI`);
   readonly recording = computed(() => this.voiceState() === 'listening');
+  readonly voiceBusy = computed(() => this.isVoiceBusyState(this.voiceState()));
   readonly canSend = computed(() => this.input().trim().length > 0 && !this.loading() && !this.recording());
   readonly voiceDisabled = computed(() => this.loading() || this.voiceState() === 'authExpired');
   readonly quickActions = computed(() => {
@@ -300,7 +301,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       case 'success':
         return 'Voice reply ready';
       case 'authExpired':
-        return 'Votre session a expire. Veuillez vous reconnecter.';
+        return 'Session expirée, reconnectez-vous.';
       case 'audioError':
         return 'Voice currently unavailable';
       default:
@@ -602,6 +603,122 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     return (Array.isArray(readResult.items) ? readResult.items : []).slice(0, 5);
   }
 
+  readResultFailed(readResult: ChatReadResult | null | undefined): boolean {
+    if (!readResult) {
+      return false;
+    }
+    if (readResult.error !== null && readResult.error !== undefined) {
+      return true;
+    }
+    return typeof readResult.backendStatus === 'number' && readResult.backendStatus >= 500;
+  }
+
+  readResultRetryable(readResult: ChatReadResult | null | undefined): boolean {
+    if (!readResult || !this.readResultFailed(readResult)) {
+      return false;
+    }
+    const code = this.readResultErrorCode(readResult);
+    return code === 'backend_unavailable'
+      || code === 'backend_unreachable'
+      || (typeof readResult.backendStatus === 'number' && readResult.backendStatus >= 500);
+  }
+
+  readResultRequiresLogin(readResult: ChatReadResult | null | undefined): boolean {
+    const code = this.readResultErrorCode(readResult);
+    return code === 'auth_required'
+      || code === 'missing_jwt'
+      || code === 'invalid_jwt'
+      || code === 'expired_jwt'
+      || readResult?.backendStatus === 401;
+  }
+
+  readResultAccessDenied(readResult: ChatReadResult | null | undefined): boolean {
+    const code = this.readResultErrorCode(readResult);
+    return code === 'access_denied'
+      || code === 'permission_denied'
+      || code === 'forbidden'
+      || readResult?.backendStatus === 403;
+  }
+
+  readResultErrorTitle(message: ChatMessage): string {
+    if (this.readResultRequiresLogin(message.readResult)) {
+      switch (this.normalizedMessageLanguage(message)) {
+        case 'en':
+          return 'Session expired';
+        case 'ar':
+          return 'انتهت الجلسة';
+        case 'tn':
+          return 'Session wfet';
+        default:
+          return 'Session expirée';
+      }
+    }
+    if (this.readResultAccessDenied(message.readResult)) {
+      switch (this.normalizedMessageLanguage(message)) {
+        case 'en':
+          return 'Access denied';
+        case 'ar':
+          return 'تم رفض الوصول';
+        case 'tn':
+          return 'Access refusé';
+        default:
+          return 'Accès refusé';
+      }
+    }
+    switch (this.normalizedMessageLanguage(message)) {
+      case 'en':
+        return 'Backend unavailable';
+      case 'ar':
+        return 'الخدمة غير متاحة';
+      case 'tn':
+        return 'Service moch disponible';
+      default:
+        return 'Service indisponible';
+    }
+  }
+
+  readResultErrorMessage(readResult: ChatReadResult | null | undefined): string {
+    if (!readResult) {
+      return '';
+    }
+    const record = this.asRecord(readResult.error);
+    return this.firstDisplayString(
+      record?.['user_message'],
+      record?.['userMessage'],
+      record?.['message'],
+      readResult.summary,
+    ) ?? '';
+  }
+
+  reconnectButtonLabel(message: ChatMessage): string {
+    switch (this.normalizedMessageLanguage(message)) {
+      case 'en':
+        return 'Log in';
+      case 'ar':
+        return 'تسجيل الدخول';
+      case 'tn':
+        return 'Connecti';
+      default:
+        return 'Reconnecter';
+    }
+  }
+
+  readResultModuleLabel(readResult: ChatReadResult | null | undefined): string | null {
+    if (!readResult) {
+      return null;
+    }
+    const record = this.asRecord(readResult.error);
+    const module = this.firstDisplayString(record?.['module']);
+    if (module) {
+      return module;
+    }
+    const toolName = readResult.toolName ?? '';
+    if (!toolName) {
+      return null;
+    }
+    return toolName.includes('.') ? toolName.split('.', 1)[0] : toolName.split('_', 1)[0];
+  }
+
   readItemLabel(item: unknown): string {
     if (typeof item === 'string' || typeof item === 'number') {
       return String(item);
@@ -714,6 +831,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     }
   }
 
+  retryButtonLabel(message: ChatMessage): string {
+    switch (this.normalizedMessageLanguage(message)) {
+      case 'en':
+        return 'Retry';
+      case 'ar':
+        return 'إعادة المحاولة';
+      case 'tn':
+        return 'Aawed';
+      default:
+        return 'Reessayer';
+    }
+  }
+
   actionToneIcon(tone: ActionTone | undefined): string {
     switch (tone) {
       case 'success':
@@ -775,6 +905,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     const actionResultDisplay = this.extractActionResultDisplay(
       normalized.actionResult ?? response.actionResult ?? response.action_result
     );
+    const actionResultSource = normalized.actionResult ?? response.actionResult ?? response.action_result;
     const fallbackLabel = this.extractFallbackLabel(normalized.fallback, normalized.warnings);
     const requiresConfirmation = normalized.requiresConfirmation
       || !!confirmationId
@@ -788,9 +919,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     const isCapabilityCard = this.isCapabilityUnavailableKind(
       normalized.actionResult ?? response.actionResult ?? response.action_result
     );
+    const readResultFailed = this.readResultFailed(readResult);
+    const readResultRetryable = this.readResultRetryable(readResult);
+    const readResultRequiresLogin = this.readResultRequiresLogin(readResult);
+    const actionRequiresLogin = this.actionResultRequiresLogin(actionResultSource);
+    const actionAccessDenied = this.actionResultAccessDenied(actionResultSource);
     const isHardError = !isCapabilityCard
-      && (response.type === 'error' || (normalized.success === false && !requiresConfirmation && !readResult));
-    const isError = isHardError || isWorkflowFailure || (!!readResult?.error && !readResult.empty);
+      && ((response.type === 'error' && !readResult) || (normalized.success === false && !requiresConfirmation && !readResult));
+    const isError = isHardError || isWorkflowFailure || readResultFailed;
+    const loginActionNeeded = readResultRequiresLogin || actionRequiresLogin;
+    const retryableHardError = isHardError && !loginActionNeeded && !actionAccessDenied;
+    const actionOverride = loginActionNeeded
+      ? { label: this.reconnectButtonLabel({ detectedLanguage } as ChatMessage), target: '/login', kind: 'route' as const }
+      : null;
 
     const message: ChatMessage = {
       id: this.createMessageId(),
@@ -806,16 +947,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       toolLabels,
       actionResultDisplay,
       isError,
-      retryable: isHardError || (isWorkflowFailure && workflow?.can_retry === true),
-      retryKind: (isHardError || isWorkflowFailure) ? retryKind : undefined,
-      retryPayload: isHardError
+      retryable: retryableHardError || readResultRetryable || (isWorkflowFailure && workflow?.can_retry === true),
+      retryKind: (retryableHardError || readResultRetryable || isWorkflowFailure) ? retryKind : undefined,
+      retryPayload: retryableHardError
         ? (retryKind === 'text' ? this.lastSubmittedText ?? undefined : undefined)
+        : readResultRetryable
+          ? (retryKind === 'text' ? this.lastSubmittedText ?? undefined : undefined)
         : isWorkflowFailure && workflow?.can_retry
           ? 'reprends le workflow'
           : undefined,
-      actionLabel: isHardError || isWorkflowFailure || requiresConfirmation ? null : messageAction?.label ?? null,
-      actionTarget: isHardError || isWorkflowFailure || requiresConfirmation ? null : messageAction?.target ?? null,
-      actionKind: isHardError || isWorkflowFailure || requiresConfirmation ? null : messageAction?.kind ?? null,
+      actionLabel: actionOverride?.label ?? (isHardError || readResultFailed || isWorkflowFailure || requiresConfirmation ? null : messageAction?.label ?? null),
+      actionTarget: actionOverride?.target ?? (isHardError || readResultFailed || isWorkflowFailure || requiresConfirmation ? null : messageAction?.target ?? null),
+      actionKind: actionOverride?.kind ?? (isHardError || readResultFailed || isWorkflowFailure || requiresConfirmation ? null : messageAction?.kind ?? null),
       confirmationId: requiresConfirmation ? confirmationId : null,
       confirmationPending: false,
       confirmationResolved: confirmationId ? this.resolvedConfirmations.has(confirmationId) : false,
@@ -991,7 +1134,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.pushMessage({
       id: this.createMessageId(),
       sender: 'system',
-      text: 'Votre session a expire. Veuillez vous reconnecter.',
+      text: 'Session expirée, reconnectez-vous.',
       timestamp: new Date(),
       origin: origin === 'voice' ? 'voice' : origin === 'text' ? 'text' : 'system',
       isError: true,
@@ -1126,6 +1269,152 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   messageDirection(message: ChatMessage): 'rtl' | 'ltr' {
     return this.isArabicText(message.text) ? 'rtl' : 'ltr';
+  }
+
+  renderMessageHtml(message: ChatMessage): string {
+    const text = safeDisplayText(message.text);
+    if (!text) {
+      return '';
+    }
+    return this.renderMarkdownText(text);
+  }
+
+  private renderMarkdownText(text: string): string {
+    const normalized = text.replace(/\r\n?/g, '\n');
+    const codeBlockPattern = /```([a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g;
+    let cursor = 0;
+    let output = '';
+    let match: RegExpExecArray | null;
+
+    while ((match = codeBlockPattern.exec(normalized)) !== null) {
+      output += this.renderMarkdownBlocks(normalized.slice(cursor, match.index));
+      const code = match[2] ?? '';
+      output += `<pre><code>${this.escapeHtml(code.trimEnd())}</code></pre>`;
+      cursor = match.index + match[0].length;
+    }
+
+    output += this.renderMarkdownBlocks(normalized.slice(cursor));
+    return output || `<p>${this.escapeHtml(normalized)}</p>`;
+  }
+
+  private renderMarkdownBlocks(text: string): string {
+    const lines = text.split('\n');
+    const html: string[] = [];
+    let paragraph: string[] = [];
+    let listItems: string[] = [];
+    let listType: 'ul' | 'ol' | null = null;
+
+    const flushParagraph = () => {
+      if (paragraph.length === 0) {
+        return;
+      }
+      html.push(`<p>${this.renderInlineMarkdown(paragraph.join(' ').trim())}</p>`);
+      paragraph = [];
+    };
+
+    const flushList = () => {
+      if (!listType || listItems.length === 0) {
+        return;
+      }
+      html.push(`<${listType}>${listItems.join('')}</${listType}>`);
+      listItems = [];
+      listType = null;
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushParagraph();
+        flushList();
+        continue;
+      }
+
+      const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+      const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+      if (unordered || ordered) {
+        flushParagraph();
+        const nextType: 'ul' | 'ol' = unordered ? 'ul' : 'ol';
+        if (listType && listType !== nextType) {
+          flushList();
+        }
+        listType = nextType;
+        listItems.push(`<li>${this.renderInlineMarkdown((unordered ?? ordered)?.[1] ?? '')}</li>`);
+        continue;
+      }
+
+      flushList();
+      paragraph.push(trimmed);
+    }
+
+    flushParagraph();
+    flushList();
+    return html.join('');
+  }
+
+  private renderInlineMarkdown(text: string): string {
+    const parts = text.split(/(`[^`]*`)/g);
+    return parts.map(part => {
+      if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+        return `<code>${this.escapeHtml(part.slice(1, -1))}</code>`;
+      }
+      return this.renderLinksAndEmphasis(part);
+    }).join('');
+  }
+
+  private renderLinksAndEmphasis(text: string): string {
+    const markdownLinkPattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    let output = '';
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = markdownLinkPattern.exec(text)) !== null) {
+      output += this.renderPlainInline(text.slice(cursor, match.index));
+      const label = this.renderPlainInline(match[1] ?? '');
+      const href = this.escapeAttribute(match[2] ?? '');
+      output += `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+      cursor = match.index + match[0].length;
+    }
+
+    output += this.renderPlainInline(text.slice(cursor));
+    return output;
+  }
+
+  private renderPlainInline(text: string): string {
+    const urlPattern = /https?:\/\/[^\s<>()]+/g;
+    let output = '';
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = urlPattern.exec(text)) !== null) {
+      output += this.renderEmphasis(text.slice(cursor, match.index));
+      const url = match[0];
+      const href = this.escapeAttribute(url);
+      output += `<a href="${href}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(url)}</a>`;
+      cursor = match.index + url.length;
+    }
+
+    output += this.renderEmphasis(text.slice(cursor));
+    return output;
+  }
+
+  private renderEmphasis(text: string): string {
+    return this.escapeHtml(text)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\b__([^_]+)__\b/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private escapeAttribute(value: string): string {
+    return this.escapeHtml(value).replace(/`/g, '&#96;');
   }
 
   private extractActionResultDisplay(value: unknown): ActionResultDisplay | null {
@@ -1417,6 +1706,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       this.pushSessionExpiredMessage(retryKind);
       return;
     }
+    if (this.isPermissionDeniedMessage(message)) {
+      this.pushSystemError(message);
+      return;
+    }
     if (this.isSoftNoSpeechMessage(message)) {
       this.pushMessage({
         id: this.createMessageId(),
@@ -1443,8 +1736,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return "Une erreur inattendue a interrompu la reponse de l'assistant.";
     }
     const normalized = raw.toLowerCase();
-    if (normalized.includes('session') && normalized.includes('expire')) {
-      return 'Votre session a expire. Veuillez vous reconnecter.';
+    if ((normalized.includes('session') && normalized.includes('expire')) || normalized.includes('auth_required') || raw.includes('401')) {
+      return 'Session expirée, reconnectez-vous.';
     }
     if (normalized.includes('permission') || normalized.includes('forbidden') || raw.includes('403')) {
       return "Vous n'avez pas les droits necessaires pour cette action.";
@@ -1452,11 +1745,28 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     if (normalized.includes('429') || normalized.includes('trop de requetes') || normalized.includes('too many')) {
       return 'Le service AI limite temporairement les requetes. Reessayez dans quelques instants.';
     }
-    if (normalized.includes('gateway ai est indisponible') || normalized.includes('backend') || normalized.includes('inaccessible')) {
-      return 'Le backend AI est indisponible pour le moment.';
+    if (
+      normalized.includes('backend metier')
+      || normalized.includes('backend métier')
+      || normalized.includes('backend_unavailable')
+      || normalized.includes('all connection attempts failed')
+      || normalized.includes('backend service is temporarily unavailable')
+      || normalized.includes('service metier')
+      || normalized.includes('service métier')
+    ) {
+      return 'Backend métier indisponible.';
+    }
+    if (
+      normalized.includes('service ia indisponible')
+      || normalized.includes('gateway ai est indisponible')
+      || normalized.includes('backend ai')
+      || normalized.includes('network')
+      || normalized.includes('inaccessible')
+    ) {
+      return 'Service IA indisponible.';
     }
     if (normalized.includes('route ai') || normalized.includes('404 not found') || normalized.includes('http failure response')) {
-      return "La route AI est indisponible via le gateway. Verifiez la configuration de l'API.";
+      return "La route IA est introuvable sur le service AI.";
     }
     if (normalized.includes('provider ai') || normalized.includes('assistant temporairement indisponible') || normalized.includes('ollama')) {
       return 'Le provider AI est temporairement indisponible.';
@@ -1480,7 +1790,21 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private isAuthExpiredMessage(message: string | null | undefined): boolean {
     const normalized = (message || '').trim().toLowerCase();
-    return normalized.includes('session') && normalized.includes('expire');
+    return (normalized.includes('session') && normalized.includes('expir'))
+      || normalized.includes('session wfet')
+      || normalized.includes('انتهت الجلسة');
+  }
+
+  private isPermissionDeniedMessage(message: string | null | undefined): boolean {
+    const normalized = (message || '').trim().toLowerCase();
+    return normalized.includes('permission')
+      || normalized.includes('forbidden')
+      || normalized.includes('access denied')
+      || normalized.includes('accès refus')
+      || normalized.includes('acces refus')
+      || normalized.includes('droits necessaires')
+      || normalized.includes('droits nécessaires')
+      || normalized.includes('تم رفض الوصول');
   }
 
   private isVoiceBusyState(state: VoiceAssistantState): boolean {
@@ -1509,6 +1833,81 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return value.trim();
     }
     return null;
+  }
+
+  private normalizedMessageLanguage(message: ChatMessage): 'fr' | 'en' | 'ar' | 'tn' {
+    const value = String(message.detectedLanguage ?? '').trim().toLowerCase();
+    if (value.startsWith('en')) {
+      return 'en';
+    }
+    if (value.startsWith('ar')) {
+      return 'ar';
+    }
+    if (value === 'tn' || value.includes('tunis')) {
+      return 'tn';
+    }
+    return 'fr';
+  }
+
+  private readResultErrorCode(readResult: ChatReadResult | null | undefined): string {
+    if (!readResult) {
+      return '';
+    }
+    const record = this.asRecord(readResult.error);
+    return String(
+      record?.['code']
+        ?? record?.['error_code']
+        ?? record?.['kind']
+        ?? '',
+    ).trim().toLowerCase();
+  }
+
+  private actionResultRequiresLogin(value: unknown): boolean {
+    const code = this.actionResultErrorCode(value);
+    const status = this.actionResultStatusCode(value);
+    return code === 'auth_required'
+      || code === 'missing_jwt'
+      || code === 'invalid_jwt'
+      || code === 'expired_jwt'
+      || status === 401;
+  }
+
+  private actionResultAccessDenied(value: unknown): boolean {
+    const code = this.actionResultErrorCode(value);
+    const status = this.actionResultStatusCode(value);
+    return code === 'access_denied'
+      || code === 'permission_denied'
+      || code === 'forbidden'
+      || status === 403;
+  }
+
+  private actionResultErrorCode(value: unknown): string {
+    const root = this.asRecord(value);
+    const data = this.asRecord(root?.['data']);
+    const nestedError = this.asRecord(root?.['error']) ?? this.asRecord(data?.['error']);
+    return String(
+      root?.['error_code']
+        ?? root?.['code']
+        ?? root?.['kind']
+        ?? data?.['error_code']
+        ?? data?.['code']
+        ?? data?.['kind']
+        ?? nestedError?.['code']
+        ?? nestedError?.['error_code']
+        ?? '',
+    ).trim().toLowerCase();
+  }
+
+  private actionResultStatusCode(value: unknown): number | null {
+    const root = this.asRecord(value);
+    const data = this.asRecord(root?.['data']);
+    const raw = root?.['status_code']
+      ?? root?.['statusCode']
+      ?? root?.['backendStatus']
+      ?? data?.['status_code']
+      ?? data?.['statusCode']
+      ?? data?.['backendStatus'];
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
   }
 
   private createMessageId(): string {

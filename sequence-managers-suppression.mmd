@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    actor Acteur as Responsable RH
+    participant Angular as Interface Angular
+    participant Gateway as API Gateway
+    participant AuthService as Auth Service
+    participant OrganisationService as Organisation Service
+    participant DB as Base de données PostgreSQL
+
+    Acteur->>Angular: Sélectionner le manager à supprimer
+    Angular-->>Acteur: Afficher la fenêtre de confirmation
+    Acteur->>Angular: Confirmer la suppression
+    Angular->>Gateway: Envoyer la demande de suppression
+
+    rect rgb(245,245,245)
+        Note over Acteur,Gateway: S’authentifier()
+    end
+
+    Gateway->>AuthService: Vérifier le jeton JWT et les permissions RBAC
+
+    alt Accès autorisé
+        AuthService-->>Gateway: Confirmer l'autorisation
+        Gateway->>OrganisationService: Transmettre l'opération de suppression
+        OrganisationService->>DB: Vérifier l'existence du manager
+
+        alt Manager trouvé
+            DB-->>OrganisationService: Retourner le manager
+            OrganisationService->>DB: Vérifier les affectations aux équipes et collaborateurs
+
+            alt Manager supprimable
+                DB-->>OrganisationService: Confirmer l'absence d'affectations bloquantes
+                OrganisationService->>DB: Supprimer ou désactiver le manager
+                DB-->>OrganisationService: Confirmer la suppression
+                OrganisationService-->>Gateway: Retourner la confirmation
+                Gateway-->>Angular: Transmettre la confirmation
+                Angular-->>Acteur: Afficher le message de succès
+            else Manager affecté à des équipes ou collaborateurs
+                DB-->>OrganisationService: Retourner les affectations existantes
+                OrganisationService-->>Gateway: Refuser la suppression
+                Gateway-->>Angular: Transmettre le message d'erreur
+                Angular-->>Acteur: Afficher l'erreur
+            end
+        else Manager introuvable
+            DB-->>OrganisationService: Aucun manager trouvé
+            OrganisationService-->>Gateway: Retourner une erreur d'inexistence
+            Gateway-->>Angular: Transmettre le message d'erreur
+            Angular-->>Acteur: Afficher l'erreur
+        end
+    else Accès refusé
+        AuthService-->>Gateway: Refuser l'autorisation
+        Gateway-->>Angular: Transmettre le message d'accès refusé
+        Angular-->>Acteur: Afficher l'erreur
+    end

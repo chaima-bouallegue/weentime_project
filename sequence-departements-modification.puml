@@ -1,0 +1,44 @@
+@startuml
+title Diagramme de séquence — Modification d'un département
+autonumber
+
+actor "Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Choisir une action sur un département
+Angular --> Acteur : Afficher le formulaire ou la confirmation
+Acteur -> Angular : Saisir ou confirmer les données
+
+loop Pour chaque opération CRUD
+  Angular -> Gateway : Envoyer la demande
+
+  ref over Acteur, AuthService
+  S'authentifier()
+  end ref
+
+  Gateway -> OrganisationService : Transmettre l'opération
+
+  ref over Gateway, OrganisationService
+  Contrôler les accès (RBAC)
+  end ref
+
+  OrganisationService -> DB : Vérifier les contraintes du département
+
+  alt Données valides
+    OrganisationService -> DB : Enregistrer les changements
+    DB --> OrganisationService : Confirmer l'enregistrement
+    OrganisationService --> Gateway : Retourner la confirmation
+    Gateway --> Angular : Transmettre la confirmation
+    Angular --> Acteur : Afficher le résultat
+  else Données invalides
+    OrganisationService --> Gateway : Retourner l'erreur métier
+    Gateway --> Angular : Transmettre l'erreur
+    Angular --> Acteur : Afficher le message d'erreur
+  end
+end
+
+@enduml

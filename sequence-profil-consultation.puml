@@ -1,0 +1,26 @@
+@startuml
+title Diagramme de séquence — Consultation du profil utilisateur
+autonumber
+
+actor "Utilisateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Accéder à son profil
+Angular -> Gateway : Demander les informations du profil
+
+ref over Acteur, Gateway
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre la demande
+OrganisationService -> OrganisationService : Identifier l'utilisateur connecté
+OrganisationService -> DB : Récupérer les données du profil
+DB --> OrganisationService : Retourner les données
+OrganisationService --> Gateway : Retourner le profil
+Gateway --> Angular : Transmettre le profil
+Angular --> Acteur : Afficher informations, sécurité et activité
+
+@enduml

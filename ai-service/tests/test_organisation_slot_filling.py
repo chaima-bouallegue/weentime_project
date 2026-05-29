@@ -46,7 +46,7 @@ def make_state() -> SimpleNamespace:
         copilot_ready=False,
         copilot_backend_client=FakeBackendClient(),
         settings=SimpleNamespace(
-            backend_timeout_seconds=1, backend_base_url="http://localhost:8222/api/v1"
+            backend_timeout_seconds=1, backend_base_url="http://localhost:8322/api/v1"
         ),
     )
 

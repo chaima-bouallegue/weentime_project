@@ -1,0 +1,50 @@
+@startuml
+title Diagramme de séquence système — Gérer les rôles
+autonumber
+
+actor "Administrateur" as Admin
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth/RBAC Service" as RBAC
+control "User Service" as UserService
+database "Base de données\nPostgreSQL" as DB
+
+Admin -> Angular : Accéder à la page des rôles
+Angular -> Gateway : Demander la liste des rôles
+Gateway -> RBAC : Vérifier le jeton JWT
+RBAC -> RBAC : Vérifier le rôle ADMIN
+
+alt Accès autorisé
+    Gateway -> UserService : Transmettre la demande
+    UserService -> DB : Récupérer les rôles
+    DB --> UserService : Liste des rôles
+    UserService --> Gateway : Retourner les rôles
+    Gateway --> Angular : Transmettre la liste
+    Angular --> Admin : Afficher les rôles
+
+    Admin -> Angular : Ajouter, modifier ou supprimer un rôle
+    Angular -> Gateway : Envoyer l'opération
+    Gateway -> RBAC : Vérifier JWT et rôle ADMIN
+    RBAC --> Gateway : Autorisation confirmée
+    Gateway -> UserService : Transmettre l'opération
+    UserService -> UserService : Valider les données
+
+    alt Opération réussie
+        UserService -> DB : Mettre à jour les rôles
+        DB --> UserService : Confirmation
+        UserService --> Gateway : Retourner le résultat
+        Gateway --> Angular : Confirmer l'opération
+        Angular --> Admin : Afficher la confirmation
+    else Erreur de validation
+        UserService --> Gateway : Retourner une erreur
+        Gateway --> Angular : Transmettre l'erreur
+        Angular --> Admin : Afficher le message d'erreur
+    end
+else Accès refusé
+    RBAC --> Gateway : Refuser l'accès
+    Gateway --> Angular : Retourner une erreur d'autorisation
+    Angular --> Admin : Afficher accès refusé
+end
+
+caption Gestion des rôles avec contrôle JWT et RBAC.
+@enduml

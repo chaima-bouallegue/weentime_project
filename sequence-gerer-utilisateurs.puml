@@ -1,0 +1,60 @@
+@startuml
+title Diagramme de séquence système — Gérer les utilisateurs
+autonumber
+
+actor "Administrateur / Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth/RBAC Service" as RBAC
+control "User Service" as UserService
+database "Base de données\nPostgreSQL" as DB
+
+Acteur -> Angular : Accéder à la gestion utilisateurs
+Angular -> Gateway : Demander la liste des utilisateurs
+Gateway -> RBAC : Vérifier le jeton JWT
+RBAC -> RBAC : Vérifier les permissions RBAC
+
+alt Accès autorisé
+    Gateway -> UserService : Transmettre la demande
+    UserService -> DB : Récupérer les utilisateurs
+    DB --> UserService : Liste des utilisateurs
+    UserService --> Gateway : Retourner la liste
+    Gateway --> Angular : Transmettre les utilisateurs
+    Angular --> Acteur : Afficher la liste
+
+    opt Recherche ou filtrage
+        Acteur -> Angular : Rechercher ou filtrer
+        Angular -> Gateway : Envoyer les critères
+        Gateway -> UserService : Transmettre les critères
+        UserService -> DB : Rechercher les utilisateurs
+        DB --> UserService : Résultats filtrés
+        UserService --> Angular : Retourner les résultats
+        Angular --> Acteur : Afficher les résultats
+    end
+
+    Acteur -> Angular : Ajouter, modifier ou désactiver un utilisateur
+    Angular -> Gateway : Envoyer l'opération utilisateur
+    Gateway -> RBAC : Vérifier JWT et permissions
+    RBAC --> Gateway : Autorisation confirmée
+    Gateway -> UserService : Transmettre l'opération
+    UserService -> UserService : Valider les données
+
+    alt Modification réussie
+        UserService -> DB : Sauvegarder les changements
+        DB --> UserService : Confirmation
+        UserService --> Gateway : Retourner le résultat
+        Gateway --> Angular : Confirmer l'opération
+        Angular --> Acteur : Afficher la confirmation
+    else Erreur
+        UserService --> Gateway : Retourner une erreur
+        Gateway --> Angular : Transmettre l'erreur
+        Angular --> Acteur : Afficher le message d'erreur
+    end
+else Accès refusé
+    RBAC --> Gateway : Refuser l'accès
+    Gateway --> Angular : Retourner une erreur d'autorisation
+    Angular --> Acteur : Afficher accès refusé
+end
+
+caption Gestion des utilisateurs avec JWT, RBAC, recherche et opérations CRUD.
+@enduml

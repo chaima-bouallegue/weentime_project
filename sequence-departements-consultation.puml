@@ -1,0 +1,38 @@
+@startuml
+title Diagramme de séquence — Consultation des départements
+autonumber
+
+actor "Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Accéder au module Départements
+Angular -> Gateway : Demander la liste des départements
+
+ref over Acteur, AuthService
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre la demande
+
+ref over Gateway, OrganisationService
+Contrôler les accès (RBAC)
+end ref
+
+OrganisationService -> DB : Rechercher les départements
+DB --> OrganisationService : Retourner les départements
+
+alt Départements disponibles
+  OrganisationService --> Gateway : Retourner la liste
+  Gateway --> Angular : Transmettre les données
+  Angular --> Acteur : Afficher les départements
+else Aucun département
+  OrganisationService --> Gateway : Retourner une liste vide
+  Gateway --> Angular : Transmettre la liste vide
+  Angular --> Acteur : Afficher l'état vide
+end
+
+@enduml

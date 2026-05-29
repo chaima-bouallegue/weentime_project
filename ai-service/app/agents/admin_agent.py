@@ -184,7 +184,7 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             return "admin.list_users", 0.88
         if any(term in text for term in ("entreprises", "companies", "company list", "lister entreprises", "liste entreprises")):
             return "admin.list_enterprises", 0.88
-        if any(term in text for term in ("system health", "sante systeme", "santé système", "etat systeme", "etat backend", "backend status")):
+        if any(term in text for term in ("system health", "sante systeme", "santé système", "etat systeme", "état systeme", "etat backend", "backend status", "platform status", "platform statut", "etat plateforme", "état plateforme")):
             return "admin.system_health", 0.93
         if any(term in text for term in ("health", "sante")):
             return "admin.system_health", 0.86

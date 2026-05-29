@@ -22,7 +22,7 @@ class RHCopilot(BaseRoleCopilot):
             "rh briefing", "hr briefing", "résumé rh", "résumé du jour rh",
         )):
             return "rh.daily_briefing", 0.94
-        if any(term in text for term in ("statistiques rh", "stats rh", "hr stats", "hr analytics", "analytics rh")):
+        if any(term in text for term in ("statistiques rh", "stats rh", "rh stats", "hr stats", "hr analytics", "analytics rh")):
             return "rh.analytics_summary", 0.92
         if any(term in text for term in ("validations finales", "pending final", "demandes rh", "backlog rh", "rh backlog", "hr backlog")):
             return "rh.pending_final_validations", 0.88

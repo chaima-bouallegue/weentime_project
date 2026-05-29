@@ -1,0 +1,21 @@
+@startuml
+title Diagramme de séquence — Vérification du code entreprise
+autonumber
+
+actor "Utilisateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Ouvrir la page d'inscription
+Acteur -> Angular : Saisir le code entreprise
+Angular -> Gateway : Envoyer le code entreprise
+Gateway -> OrganisationService : Transmettre le code
+OrganisationService -> DB : Rechercher l'entreprise
+DB --> OrganisationService : Retourner le résultat
+OrganisationService --> Gateway : Retourner la validation
+Gateway --> Angular : Transmettre la validation
+Angular --> Acteur : Afficher le formulaire complet
+
+@enduml

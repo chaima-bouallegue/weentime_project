@@ -1,7 +1,7 @@
 import { computed, effect, Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, Observable, Subscription, catchError, forkJoin, map, of, tap } from 'rxjs';
+import { EMPTY, Observable, Subscription, catchError, finalize, forkJoin, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { WebSocketService } from './websocket.service';
 import { AuthService } from './auth.service';
@@ -86,10 +86,12 @@ export class NotificationService {
   private readonly orgUrl = this.apiConfig.NOTIFICATIONS.GET_ALL;
   private readonly _notifications = signal<Notification[]>([]);
   private readonly _loading = signal(false);
+  private readonly _error = signal<string | null>(null);
   private subscriptions = new Subscription();
   private connectedUserId: number | null = null;
 
   readonly loading = computed(() => this._loading());
+  readonly error = computed(() => this._error());
   readonly notifications = computed(() =>
     [...this._notifications()].sort((a, b) => b.date.getTime() - a.date.getTime())
   );
@@ -130,21 +132,34 @@ export class NotificationService {
       return of([]);
     }
     this._loading.set(true);
+    this._error.set(null);
 
     // Fetch from both services concurrently to merge all notifications
     const rh$ = this.http.get<unknown>(`${this.rhUrl}/mes-notifications`).pipe(
-      catchError(() => of([]))
+      map(payload => ({ items: this.extractCollection(payload), failed: false, source: 'rh' as const })),
+      tap(result => this.logDev('RH notification API response', { count: result.items.length })),
+      catchError(error => {
+        this.logDev('RH notification API error', error);
+        return of({ items: [], failed: true, source: 'rh' as const });
+      })
     );
     const org$ = this.http.get<unknown>(this.orgUrl).pipe(
-      catchError(() => of([]))
+      map(payload => ({ items: this.extractCollection(payload), failed: false, source: 'organisation' as const })),
+      tap(result => this.logDev('Organisation notification API response', { count: result.items.length })),
+      catchError(error => {
+        this.logDev('Organisation notification API error', error);
+        return of({ items: [], failed: true, source: 'organisation' as const });
+      })
     );
 
     return forkJoin([rh$, org$]).pipe(
       map(([rhData, orgData]) => {
-        const rhList = this.extractCollection(rhData);
-        const orgList = this.extractCollection(orgData);
+        if (rhData.failed && orgData.failed) {
+          throw new Error('NOTIFICATION_API_UNAVAILABLE');
+        }
+
         // Merge collections and remove duplicates based on ID
-        const merged = [...rhList, ...orgList];
+        const merged = [...rhData.items, ...orgData.items];
         return merged.map(item => this.normalize(item));
       }),
       tap(serverItems => {
@@ -155,24 +170,32 @@ export class NotificationService {
           // Final merged list, sorted by date is handled by the computed 'notifications' signal
           return [...serverItems, ...localOnly];
         });
+        this._error.set(null);
       }),
-      catchError(() => {
-        this._loading.set(false);
+      catchError(error => {
+        this.logDev('Notification load failed', error);
+        this._error.set('Impossible de charger les notifications.');
         return of(this._notifications());
       }),
-      tap(() => this._loading.set(false)),
+      finalize(() => this._loading.set(false)),
       map(() => this._notifications())
     );
   }
 
   getUnreadCount(): Observable<number> {
-    const rhCount$ = this.http.get<number | { unreadCount?: number }>(`${this.rhUrl}/non-lues/count`).pipe(
-      map(res => typeof res === 'number' ? res : Number(res?.unreadCount ?? 0)),
-      catchError(() => of(0))
+    const rhCount$ = this.http.get<unknown>(`${this.rhUrl}/non-lues/count`).pipe(
+      map(res => this.extractUnreadCount(res)),
+      catchError(error => {
+        this.logDev('RH unread-count API error', error);
+        return of(0);
+      })
     );
-    const orgCount$ = this.http.get<{ unreadCount?: number }>(`${this.orgUrl}/unread-count`).pipe(
-      map(res => Number(res?.unreadCount ?? 0)),
-      catchError(() => of(0))
+    const orgCount$ = this.http.get<unknown>(`${this.orgUrl}/unread-count`).pipe(
+      map(res => this.extractUnreadCount(res)),
+      catchError(error => {
+        this.logDev('Organisation unread-count API error', error);
+        return of(0);
+      })
     );
 
     return forkJoin([rhCount$, orgCount$]).pipe(
@@ -252,10 +275,20 @@ export class NotificationService {
 
   markAllAsRead(): void {
     this._notifications.update(items => items.map(item => ({ ...item, lu: true })));
-    this.http.patch<void>(`${this.rhUrl}/tout-lire`, {}).pipe(
-      catchError(() => this.http.patch<void>(`${this.orgUrl}/read-all`, {})),
-      catchError(() => of(void 0))
-    ).subscribe();
+    forkJoin([
+      this.http.patch<void>(`${this.rhUrl}/tout-lire`, {}).pipe(
+        catchError(error => {
+          this.logDev('RH mark-all-read API error', error);
+          return of(void 0);
+        })
+      ),
+      this.http.patch<void>(`${this.orgUrl}/read-all`, {}).pipe(
+        catchError(error => {
+          this.logDev('Organisation mark-all-read API error', error);
+          return of(void 0);
+        })
+      )
+    ]).subscribe(() => this.getNotifications().subscribe());
   }
 
   toggleRead(id: string): void {
@@ -342,13 +375,14 @@ export class NotificationService {
     const item = (source ?? {}) as Record<string, unknown>;
     const type = String(item['type'] ?? item['entityType'] ?? 'SYSTEM');
     const dateValue = item['date'] ?? item['dateCreation'] ?? item['createdAt'] ?? new Date();
+    const date = new Date(String(dateValue));
     return {
       id: (item['id'] as number | string | undefined) ?? `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       type,
       titre: String(item['titre'] ?? item['title'] ?? this.titleFor(type)),
       message: String(item['message'] ?? ''),
-      date: new Date(String(dateValue)),
-      lu: Boolean(item['lu'] ?? item['isRead'] ?? false),
+      date: Number.isNaN(date.getTime()) ? new Date() : date,
+      lu: Boolean(item['lu'] ?? item['isRead'] ?? item['read'] ?? false),
       tag: (item['tag'] as string | undefined) ?? this.tagFor(type),
       route: (item['route'] as string | undefined) ?? (item['actionUrl'] as string | undefined),
       entityId: item['entityId'] as number | string | undefined,
@@ -364,11 +398,77 @@ export class NotificationService {
     }
 
     if (payload && typeof payload === 'object') {
-      const data = (payload as Record<string, unknown>)['data'];
-      return Array.isArray(data) ? data : [];
+      const record = payload as Record<string, unknown>;
+      const data = record['data'];
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      if (data && typeof data === 'object') {
+        const dataRecord = data as Record<string, unknown>;
+        if (Array.isArray(dataRecord['items'])) {
+          return dataRecord['items'] as unknown[];
+        }
+        if (Array.isArray(dataRecord['content'])) {
+          return dataRecord['content'] as unknown[];
+        }
+      }
+
+      if (Array.isArray(record['items'])) {
+        return record['items'] as unknown[];
+      }
+
+      if (Array.isArray(record['content'])) {
+        return record['content'] as unknown[];
+      }
     }
 
     return [];
+  }
+
+  private extractUnreadCount(payload: unknown): number {
+    if (typeof payload === 'number') {
+      return payload;
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return 0;
+    }
+
+    const record = payload as Record<string, unknown>;
+    const direct = record['unreadCount'] ?? record['count'];
+    if (typeof direct === 'number') {
+      return direct;
+    }
+
+    if (typeof direct === 'string') {
+      return Number(direct) || 0;
+    }
+
+    const data = record['data'];
+    if (typeof data === 'number') {
+      return data;
+    }
+
+    if (data && typeof data === 'object') {
+      const dataRecord = data as Record<string, unknown>;
+      const nested = dataRecord['unreadCount'] ?? dataRecord['count'];
+      if (typeof nested === 'number') {
+        return nested;
+      }
+      if (typeof nested === 'string') {
+        return Number(nested) || 0;
+      }
+    }
+
+    return 0;
+  }
+
+  private logDev(message: string, payload?: unknown): void {
+    if (!environment.production) {
+      console.debug(`[Notifications] ${message}`, payload ?? '');
+    }
   }
 
   private isLocalNotificationId(id: number | string): boolean {

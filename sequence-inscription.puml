@@ -1,0 +1,55 @@
+@startuml
+title Diagramme de séquence système — S’inscrire
+autonumber
+
+actor "Utilisateur" as Utilisateur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données\nPostgreSQL" as DB
+
+Utilisateur -> Angular : Ouvrir le formulaire d'inscription
+Utilisateur -> Angular : Saisir le code entreprise
+Angular -> Gateway : Demander la validation du code
+Gateway -> OrganisationService : Transmettre le code entreprise
+OrganisationService -> DB : Rechercher l'entreprise
+DB --> OrganisationService : Résultat de recherche
+
+alt Code entreprise valide
+    OrganisationService --> Gateway : Code accepté
+    Gateway --> Angular : Retourner les informations entreprise
+    Angular --> Utilisateur : Afficher le formulaire complet
+    Utilisateur -> Angular : Saisir les informations personnelles
+
+    opt Photo de profil ajoutée
+        Utilisateur -> Angular : Ajouter une photo
+        Angular -> Angular : Préparer la photo de profil
+    end
+
+    Angular -> Gateway : Envoyer la demande d'inscription
+    Gateway -> AuthService : Transmettre l'inscription
+    AuthService -> OrganisationService : Créer le compte utilisateur
+    OrganisationService -> DB : Valider email, entreprise et données
+
+    alt Données valides
+        OrganisationService -> DB : Sauvegarder le compte utilisateur
+        DB --> OrganisationService : Compte sauvegardé
+        OrganisationService --> AuthService : Inscription créée
+        AuthService --> Gateway : Retourner la confirmation
+        Gateway --> Angular : Confirmer l'inscription
+        Angular --> Utilisateur : Afficher le message de confirmation
+    else Données invalides
+        OrganisationService --> AuthService : Refuser la création
+        AuthService --> Gateway : Retourner une erreur
+        Gateway --> Angular : Transmettre l'erreur
+        Angular --> Utilisateur : Afficher le message d'erreur
+    end
+else Code entreprise invalide
+    OrganisationService --> Gateway : Code refusé
+    Gateway --> Angular : Retourner une erreur
+    Angular --> Utilisateur : Afficher le message d'erreur
+end
+
+caption Inscription utilisateur avec validation du code entreprise.
+@enduml

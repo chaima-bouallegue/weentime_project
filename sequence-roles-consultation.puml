@@ -1,0 +1,30 @@
+@startuml
+title Diagramme de séquence — Consultation des rôles
+autonumber
+
+actor "Administrateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Accéder au module Rôles
+Angular -> Gateway : Demander la liste des rôles
+
+ref over Acteur, Gateway
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre la demande
+
+ref over Gateway, OrganisationService
+Contrôler les accès (ADMIN)
+end ref
+
+OrganisationService -> DB : Récupérer les rôles
+DB --> OrganisationService : Retourner les rôles
+OrganisationService --> Gateway : Retourner la liste
+Gateway --> Angular : Transmettre les rôles
+Angular --> Acteur : Afficher les rôles
+
+@enduml

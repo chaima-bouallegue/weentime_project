@@ -126,6 +126,31 @@
   --wt-text-strong: var(--text-primary);
   --wt-text-muted:  #6b7280;
   --wt-text-faint:  #9ca3af;
+
+  /* Shared AI chat tokens. The widget is a dark glass surface in every app
+     theme, so these values prioritize contrast on dark backgrounds. */
+  --chat-text-primary: #f8fbff;
+  --chat-text-secondary: #d8e7f7;
+  --chat-text-muted: #b7c7da;
+  --chat-text-disabled: #94a3b8;
+  --chat-loading-text: #e0f2fe;
+  --chat-link: #93c5fd;
+  --chat-link-hover: #bfdbfe;
+  --chat-bubble-agent: rgba(255, 255, 255, 0.09);
+  --chat-bubble-user: linear-gradient(135deg, #1d4ed8 0%, #0284c7 100%);
+  --chat-bubble-user-text: #ffffff;
+  --chat-bubble-user-muted: rgba(255, 255, 255, 0.78);
+  --chat-bubble-error: rgba(185, 28, 28, 0.2);
+  --chat-bubble-error-text: #fee2e2;
+  --chat-button-primary: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+  --chat-button-subtle: rgba(255, 255, 255, 0.1);
+  --chat-button-subtle-hover: rgba(255, 255, 255, 0.16);
+  --chat-button-loading: rgba(84, 209, 255, 0.2);
+  --chat-button-danger: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%);
+  --chat-focus-ring: rgba(125, 211, 252, 0.45);
+  --chat-code-bg: rgba(2, 6, 23, 0.5);
+  --chat-code-border: rgba(148, 163, 184, 0.22);
+  --chat-code-text: #e0f2fe;
 }
 
 /* WT brand colors stay readable on dark surfaces. */

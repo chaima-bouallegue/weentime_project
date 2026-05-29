@@ -4,7 +4,7 @@ from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
 from app.nlp.entity_extraction import extract_basic_entities
 from app.nlp.intent_patterns import CHECK_IN, CHECK_OUT, GET_STATUS, match_intent
-from app.nlp.language_detector import detect_language
+from app.nlp.language_detector import resolve_response_language
 from app.nlp.normalization import normalize_text
 from app.observability.tracing import log_event, start_span
 
@@ -26,12 +26,14 @@ class RouterAgent:
         self.legacy_agent = legacy_agent
 
     async def handle(self, message: str, context: CurrentUserContext):
-        language = detect_language(message)
+        language = resolve_response_language(message, context.metadata)
         normalized = normalize_text(message, language)
         context.language = language
         context.metadata["original_text"] = message
         context.metadata["normalized_text"] = normalized
         context.metadata["language"] = language
+        context.metadata["requested_language"] = language
+        context.metadata["response_language"] = language
 
         multilingual_match = match_intent(normalized) or match_intent(message)
         if multilingual_match is not None:

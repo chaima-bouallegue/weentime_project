@@ -11,13 +11,19 @@ from app.observability.tracing import log_event, start_span
 
 from .audit import ToolAuditLogger
 from .registry import ToolRegistry
-from .result import ToolResult
+from .result import ToolResult, build_read_result, build_write_result
 
 
 class ToolExecutor:
-    def __init__(self, registry: ToolRegistry, audit_logger: ToolAuditLogger | None = None) -> None:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        audit_logger: ToolAuditLogger | None = None,
+        backend_client: Any | None = None,
+    ) -> None:
         self.registry = registry
         self.audit_logger = audit_logger or ToolAuditLogger()
+        self.backend_client = backend_client
 
     async def execute(
         self,
@@ -74,6 +80,11 @@ class ToolExecutor:
             if registered.definition.type == "write" and registered.definition.idempotency_required and not idempotency_key:
                 idempotency_key = str(uuid.uuid4())
 
+            preflight = await self._preflight_if_needed(tool_name, registered.definition.type, context)
+            if preflight:
+                self._log_tool_execution(tool_name, preflight, request_id=resolved_request_id, context=context, started=started)
+                return preflight
+
             self.audit_logger.log(
                 request_id=resolved_request_id,
                 context=context,
@@ -89,6 +100,8 @@ class ToolExecutor:
                 log_event("tool.error", metadata={"tool_name": tool_name, "error_code": result.error_code, "request_id": resolved_request_id})
                 self._log_tool_execution(tool_name, result, request_id=resolved_request_id, context=context, started=started)
                 return result
+
+            result = self._structured_failure_for_tool(tool_name, registered.definition.type, result)
 
             self.audit_logger.log(
                 request_id=resolved_request_id,
@@ -139,4 +152,147 @@ class ToolExecutor:
                 "request_id": request_id,
                 "latency_ms": latency_ms,
             },
+        )
+
+    async def _preflight_if_needed(
+        self,
+        tool_name: str,
+        tool_type: str,
+        context: CurrentUserContext,
+    ) -> ToolResult | None:
+        if (
+            self.backend_client is None
+            or not hasattr(self.backend_client, "preflight")
+            or not self._requires_backend_preflight(tool_name)
+        ):
+            return None
+
+        cache_key = "_backend_gateway_preflight"
+        cached = context.metadata.get(cache_key)
+        if isinstance(cached, ToolResult):
+            result = cached
+        else:
+            result = await self.backend_client.preflight(context, tool_name=tool_name)
+            context.metadata[cache_key] = result
+
+        if result.success:
+            return None
+        return self._gateway_failure_for_tool(tool_name, tool_type, result)
+
+    @staticmethod
+    def _requires_backend_preflight(tool_name: str) -> bool:
+        prefix = tool_name.split(".", 1)[0].lower()
+        if tool_name in {
+            "admin.provider_status",
+            "admin.redis_status",
+            "admin.braintrust_status",
+            "admin.rag_status",
+            "policy.search",
+            "policy.get_source",
+        }:
+            return False
+        if prefix in {
+            "attendance",
+            "leave",
+            "document",
+            "telework",
+            "authorization",
+            "rh",
+            "communication",
+            "organisation",
+            "reunion",
+            "schedule",
+            "admin",
+            "employee",
+            "manager",
+        }:
+            return True
+        return tool_name in {"get_pointage_status", "get_week_hours", "get_team_presence", "check_in", "check_out"}
+
+    @staticmethod
+    def _gateway_failure_for_tool(tool_name: str, tool_type: str, result: ToolResult) -> ToolResult:
+        message = result.user_message or result.error_message or "Backend service unavailable."
+        module = result.module or "backend"
+        error = {"code": "backend_unavailable", "message": message, "module": module}
+        if tool_type == "read":
+            data = {
+                "read_result": build_read_result(
+                    tool_name=tool_name,
+                    summary=message,
+                    items=[],
+                    count=0,
+                    data={"module": module},
+                    error=error,
+                    backend_status=result.status_code,
+                    empty=True,
+                )
+            }
+        else:
+            data = {
+                "write_result": build_write_result(
+                    tool_name=tool_name,
+                    summary=message,
+                    data={"module": module},
+                    error=error,
+                    backend_status=result.status_code,
+                )
+            }
+        return ToolResult.fail(
+            "backend_unavailable",
+            message,
+            status_code=result.status_code or 503,
+            data=data,
+            warnings=result.warnings,
+            module=module,
+            user_message=message,
+        )
+
+    @staticmethod
+    def _structured_failure_for_tool(tool_name: str, tool_type: str, result: ToolResult) -> ToolResult:
+        if result.success:
+            return result
+
+        code = str(result.error_code or "").lower()
+        if code not in {"backend_unavailable", "backend_unreachable", "auth_required", "access_denied"}:
+            return result
+
+        existing = result.data if isinstance(result.data, dict) else {}
+        if isinstance(existing.get("read_result"), dict) or isinstance(existing.get("write_result"), dict):
+            return result
+
+        message = result.user_message or result.error_message or "Tool request failed."
+        module = result.module or (existing.get("module") if isinstance(existing.get("module"), str) else None) or "backend"
+        error = {"code": code, "message": message, "module": module}
+        if tool_type == "read":
+            data = {
+                "read_result": build_read_result(
+                    tool_name=tool_name,
+                    summary=message,
+                    items=[],
+                    count=0,
+                    data={"module": module},
+                    error=error,
+                    backend_status=result.status_code,
+                    empty=True,
+                )
+            }
+        else:
+            data = {
+                "write_result": build_write_result(
+                    tool_name=tool_name,
+                    summary=message,
+                    data={"module": module},
+                    error=error,
+                    backend_status=result.status_code,
+                )
+            }
+
+        return ToolResult.fail(
+            code,
+            message,
+            status_code=result.status_code,
+            data=data,
+            warnings=result.warnings,
+            module=module,
+            user_message=message,
         )

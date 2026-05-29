@@ -1,0 +1,21 @@
+@startuml
+title Diagramme de séquence — Authentification standard
+autonumber
+
+actor "Utilisateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Saisir l'email et le mot de passe
+Angular -> Gateway : Envoyer la demande d'authentification
+Gateway -> AuthService : Transmettre la requête
+AuthService -> DB : Vérifier les identifiants
+DB --> AuthService : Retourner les informations utilisateur
+AuthService -> AuthService : Générer le jeton JWT
+AuthService --> Gateway : Retourner le jeton JWT
+Gateway --> Angular : Transmettre le jeton JWT
+Angular --> Acteur : Rediriger vers l'espace autorisé
+
+@enduml

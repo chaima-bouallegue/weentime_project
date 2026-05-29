@@ -1,8 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, switchMap, map, of } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { Observable, catchError, finalize, switchMap, map, of, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { ApiConfigService } from './api-config.service';
+import { SKIP_ERROR_TOAST } from '../http/request-context.tokens';
+import { environment } from '../../../environments/environment';
 
 /**
  * Storage choice: localStorage
@@ -92,6 +94,8 @@ export interface CompanyCodeValidationResponse {
   collaborateurs?: number;
 }
 
+type JwtClaims = Record<string, unknown>;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -117,12 +121,17 @@ export class AuthService {
       motDePasse: credentials.password
     };
 
+    this.startPerf('login_api');
     return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload).pipe(
+      tap({
+        next: () => this.endPerf('login_api'),
+        error: () => this.endPerf('login_api')
+      }),
       map(response => this.unwrap(response)),
       switchMap(res => {
         const requiresTwoFactor = !!(res.mfaRequired || res.requiresTwoFactor || res.requires2FA);
         if (!requiresTwoFactor && res.token) {
-          return this.fetchProfileAndHandleSuccess(res, rememberMe);
+          return this.handleAuthenticatedResponse(res, rememberMe);
         }
         if (requiresTwoFactor) {
           this.storeMfaChallenge(res, rememberMe);
@@ -133,12 +142,17 @@ export class AuthService {
   }
 
   verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod): Observable<any> {
+    this.startPerf('mfa_verify_api');
     return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, mfaToken: temporaryToken }).pipe(
+      tap({
+        next: () => this.endPerf('mfa_verify_api'),
+        error: () => this.endPerf('mfa_verify_api')
+      }),
       map(response => this.unwrap(response)),
       switchMap(res => {
         if (res.token) {
           this.clearMfaChallenge();
-          return this.fetchProfileAndHandleSuccess(res, rememberMe ?? true);
+          return this.handleAuthenticatedResponse(res, rememberMe ?? true);
         }
         return of(res);
       })
@@ -226,6 +240,30 @@ export class AuthService {
     this.reset();
   }
 
+  refreshCurrentUserInBackground(rememberMe = true, label = 'post_login_background_load'): void {
+    if (!this.getToken()) {
+      return;
+    }
+
+    this.startPerf(label);
+    this.http.get<User>(this.apiConfig.USER.GET_PROFILE, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true)
+    }).pipe(
+      catchError(error => {
+        this.logDev('Background profile refresh failed', {
+          status: error?.status,
+          message: error?.message
+        });
+        return of(null);
+      }),
+      finalize(() => this.endPerf(label))
+    ).subscribe(profile => {
+      if (profile) {
+        this.mergeProfileIntoCurrentUser(profile, rememberMe);
+      }
+    });
+  }
+
   hasRole(role: 'ADMIN' | 'RH' | 'MANAGER' | 'EMPLOYEE' | string): boolean {
     const target = this.toBusinessRole(role);
     if (!target) {
@@ -236,39 +274,74 @@ export class AuthService {
       || user?.roles?.some(item => this.toBusinessRole(item) === target) === true;
   }
 
+  private handleAuthenticatedResponse<T extends { token?: string; user?: User; roles?: string[] }>(res: T, rememberMe: boolean): Observable<any> {
+    const user = this.handleAuthSuccess(res, rememberMe);
+    const enriched = {
+      ...res,
+      user,
+      roles: user.roles
+    };
+
+    if (user.roles.length > 0) {
+      return of(enriched);
+    }
+
+    return this.fetchProfileAndHandleSuccess(res, rememberMe);
+  }
+
   private fetchProfileAndHandleSuccess(res: any, rememberMe: boolean): Observable<any> {
     this.storeValue('token', res.token, rememberMe);
     return this.http.get<User>(this.apiConfig.USER.GET_PROFILE).pipe(
       map(profile => {
         res.user = profile;
-        this.handleAuthSuccess(res, rememberMe);
-        return res;
+        const user = this.handleAuthSuccess(res, rememberMe);
+        return { ...res, user, roles: user.roles };
       }),
       catchError(() => {
-        this.handleAuthSuccess(res, rememberMe);
-        return of(res);
+        const user = this.handleAuthSuccess(res, rememberMe);
+        return of({ ...res, user, roles: user.roles });
       })
     );
   }
 
-  private handleAuthSuccess(res: any, rememberMe: boolean): void {
-    this.storeValue('token', res.token, rememberMe);
+  private handleAuthSuccess(res: any, rememberMe: boolean): User {
+    if (res.token) {
+      this.startPerf('token_store');
+      this.storeValue('token', res.token, rememberMe);
+      this.endPerf('token_store');
+    }
+
+    this.startPerf('role_resolve');
+    const claims = this.decodeJwtPayload(res.token);
     const profile = this.sanitizeProfile(res.user);
-    const roles = this.normalizeRoles([profile.role, profile.roles, res.roles]);
+    const roles = this.normalizeRoles([
+      profile.role,
+      profile.roles,
+      res.roles,
+      claims['role'],
+      claims['roles'],
+      claims['authorities']
+    ]);
     const primaryRole = this.resolvePrimaryRole(roles);
-    const entrepriseId = profile.entrepriseId || profile.entreprise?.id || res.entrepriseId;
+    const entrepriseId = profile.entrepriseId
+      || profile.entreprise?.id
+      || res.entrepriseId
+      || this.toOptionalNumber(claims['entrepriseId']);
     const user: User = {
       ...profile,
-      id: profile.id || res.id || res.userId,
-      email: profile.email || res.email,
+      id: profile.id || res.id || res.userId || this.toOptionalNumber(claims['userId'] ?? claims['id']) || 0,
+      email: profile.email || res.email || this.toOptionalString(claims['sub']) || '',
       roles,
       role: primaryRole,
       entrepriseId,
       entreprise: profile.entreprise || (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
     };
+    this.endPerf('role_resolve');
+
     this.storeValue('user', JSON.stringify(user), rememberMe);
     this.currentUser.set(user);
     this.isAuthenticated.set(true);
+    return user;
   }
 
   private loadUserFromStorage(): void {
@@ -314,6 +387,34 @@ export class AuthService {
     persistentStorage?.setItem(key, value);
   }
 
+  private mergeProfileIntoCurrentUser(profile: User, rememberMe: boolean): void {
+    const current = this.currentUser();
+    const normalized = this.sanitizeProfile(profile);
+    const roles = this.normalizeRoles([
+      normalized.role,
+      normalized.roles,
+      current?.role,
+      current?.roles
+    ]);
+    const resolvedRoles = roles.length > 0 ? roles : current?.roles ?? [];
+    const primaryRole = this.resolvePrimaryRole(resolvedRoles) ?? current?.role;
+    const entrepriseId = normalized.entrepriseId ?? normalized.entreprise?.id ?? current?.entrepriseId;
+    const user: User = {
+      ...(current ?? {}),
+      ...normalized,
+      id: normalized.id ?? current?.id ?? 0,
+      email: normalized.email || current?.email || '',
+      roles: resolvedRoles,
+      role: primaryRole,
+      entrepriseId,
+      entreprise: normalized.entreprise ?? current?.entreprise ?? (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
+    };
+
+    this.storeValue('user', JSON.stringify(user), rememberMe);
+    this.currentUser.set(user);
+    this.isAuthenticated.set(true);
+  }
+
   private safeGetStorage(key: string): string | null {
     return this.resolveStorage(true)?.getItem(key)
       ?? this.resolveStorage(false)?.getItem(key)
@@ -338,6 +439,25 @@ export class AuthService {
       return (response as ApiResponse<T>).data as T;
     }
     return response as T;
+  }
+
+  private decodeJwtPayload(token?: string): JwtClaims {
+    if (!token) {
+      return {};
+    }
+
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return {};
+    }
+
+    try {
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      return JSON.parse(globalThis.atob(padded)) as JwtClaims;
+    } catch {
+      return {};
+    }
   }
 
   private normalizeRoles(input: unknown): string[] {
@@ -433,5 +553,23 @@ export class AuthService {
     const normalized = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
     const withoutHash = normalized.replace(/^#+/, '');
     return withoutHash.startsWith('N-') ? `WEEN-${withoutHash.substring(2)}` : withoutHash;
+  }
+
+  private startPerf(label: string): void {
+    if (!environment.production) {
+      console.time(`[auth] ${label}`);
+    }
+  }
+
+  private endPerf(label: string): void {
+    if (!environment.production) {
+      console.timeEnd(`[auth] ${label}`);
+    }
+  }
+
+  private logDev(message: string, details?: unknown): void {
+    if (!environment.production) {
+      console.debug(`[auth] ${message}`, details ?? '');
+    }
   }
 }

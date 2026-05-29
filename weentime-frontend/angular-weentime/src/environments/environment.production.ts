@@ -2,9 +2,10 @@ export const environment = {
   production: true,
   apiUrl: 'http://localhost:8322/api/v1',
   gatewayUrl: 'http://localhost:8322',
-  // Direct AI URL is a dev-only fallback; runtime calls use aiServiceUrl through the gateway.
-  aiUrl: 'http://localhost:8000',
-  aiServiceUrl: 'http://localhost:8322/api/v1/ai',
+  // AI chat runs as its own FastAPI service. Do not send /v2/chat through the
+  // Spring gateway unless a dedicated gateway route is explicitly configured.
+  aiServiceUrl: 'http://127.0.0.1:8000',
+  aiUrl: 'http://127.0.0.1:8000',
   // ML service (attendance anomaly detection).
   mlServiceUrl: 'http://127.0.0.1:8001',
   // Production keeps the chatbot fully authenticated. Demo/public mode must

@@ -600,6 +600,7 @@ class WorkflowOrchestrator:
         record_last_error: bool = False,
         warnings: list[str] | None = None,
     ) -> WorkflowResult:
+        response = localize_agent_response(response, context)
         update_state_from_response(state, response, context)
         response = await enhance_safe_response_wording(
             response,

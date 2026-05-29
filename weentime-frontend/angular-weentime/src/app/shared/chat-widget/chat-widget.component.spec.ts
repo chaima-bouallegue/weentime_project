@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-angular';
 import { Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -72,6 +72,10 @@ describe('ChatWidgetComponent', () => {
     toast = {
       error: vi.fn(),
     };
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: vi.fn(),
+    });
 
     TestBed.resetTestingModule();
     await resolveComponentResources(url => readFile(new URL(url, import.meta.url), 'utf-8'));
@@ -160,6 +164,31 @@ describe('ChatWidgetComponent', () => {
     expect(component.messageDirection(frenchMessage)).toBe('ltr');
   });
 
+  it('renders safe readable markdown for chat responses', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+
+    const html = component.renderMessageHtml({
+      id: 'md',
+      sender: 'assistant',
+      text: [
+        '**Summary**',
+        '- Leave balance is `12 days`',
+        '- Open https://weentime.local/docs',
+        '```ts',
+        'const visible = true;',
+        '```',
+      ].join('\n'),
+      timestamp: new Date(),
+    } as any);
+
+    expect(html).toContain('<strong>Summary</strong>');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<code>12 days</code>');
+    expect(html).toContain('<a href="https://weentime.local/docs"');
+    expect(html).toContain('<pre><code>const visible = true;</code></pre>');
+  });
+
   it('shows an inline auth-expired state without raising the generic audio toast', () => {
     const fixture = TestBed.createComponent(ChatWidgetComponent);
     const component = fixture.componentInstance;
@@ -175,7 +204,7 @@ describe('ChatWidgetComponent', () => {
     expect(component.voiceState()).toBe('authExpired');
     expect(toast.error).not.toHaveBeenCalled();
     expect(component.messages().at(-1)).toMatchObject({
-      text: 'Votre session a expire. Veuillez vous reconnecter.',
+      text: 'Session expirée, reconnectez-vous.',
       actionLabel: 'Se reconnecter',
       actionTarget: '/login',
       actionKind: 'route',
@@ -232,6 +261,246 @@ describe('ChatWidgetComponent', () => {
       sender: 'system',
       text: 'Le service de pointage est indisponible actuellement.',
       isError: true,
+    });
+  });
+
+  it('renders failed read results as a retryable error card without fake zero metrics', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    (component as any).lastSubmittedText = 'Check my pointage';
+    (component as any).pushAssistantReply({
+      success: false,
+      type: 'answer',
+      text: 'The backend service is temporarily unavailable.',
+      detectedLanguage: 'en',
+      actionResult: {
+        read_result: {
+          kind: 'read_result',
+          toolName: 'get_pointage_status',
+          summary: 'The backend service is temporarily unavailable.',
+          items: [],
+          count: 0,
+          empty: true,
+          error: {
+            code: 'backend_unavailable',
+            module: 'presence',
+            message: 'The backend service is temporarily unavailable.',
+          },
+          backendStatus: 503,
+        },
+      },
+    }, 'text');
+    fixture.detectChanges();
+
+    const message = component.messages().at(-1);
+    const text = fixture.nativeElement.textContent;
+
+    expect(message).toMatchObject({
+      sender: 'assistant',
+      isError: true,
+      retryable: true,
+      retryPayload: 'Check my pointage',
+    });
+    expect(text).toContain('Backend unavailable');
+    expect(text).toContain('presence');
+    expect(text).toContain('Retry');
+    expect(text).not.toContain('0 element(s)');
+  });
+
+  it('renders auth-required read results with reconnect action and no retry', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    (component as any).lastSubmittedText = 'Check my pointage';
+    (component as any).pushAssistantReply({
+      success: false,
+      type: 'error',
+      text: 'Votre session a expiré. Veuillez vous reconnecter.',
+      detectedLanguage: 'fr',
+      actionResult: {
+        data: {
+          read_result: {
+            kind: 'read_result',
+            toolName: 'get_pointage_status',
+            summary: 'Votre session a expiré. Veuillez vous reconnecter.',
+            items: [],
+            count: 0,
+            empty: true,
+            error: {
+              code: 'auth_required',
+              module: 'presence',
+              message: 'Votre session a expiré. Veuillez vous reconnecter.',
+            },
+            backendStatus: 401,
+          },
+        },
+      },
+    }, 'text');
+    fixture.detectChanges();
+
+    const message = component.messages().at(-1);
+    const text = fixture.nativeElement.textContent;
+
+    expect(message).toMatchObject({
+      sender: 'assistant',
+      isError: true,
+      retryable: false,
+      actionLabel: 'Reconnecter',
+      actionTarget: '/login',
+      actionKind: 'route',
+    });
+    expect(text).toContain('Session expirée');
+    expect(text).toContain('Reconnecter');
+    expect(text).not.toContain('Retry');
+    expect(text).not.toContain('0 element(s)');
+  });
+
+  it('send button submits the message through ChatService', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(of({
+      success: true,
+      status: 'success',
+      type: 'answer',
+      text: 'ok',
+      message: 'ok',
+      response: 'ok',
+    }));
+    fixture.detectChanges();
+
+    component.input.set('Show my daily summary');
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.chat-panel__send') as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+
+    expect(chatService.sendMessage).toHaveBeenCalledWith('Show my daily summary');
+    expect(component.loading()).toBe(false);
+  });
+
+  it('pressing Enter submits the message through ChatService', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(of({
+      success: true,
+      status: 'success',
+      type: 'answer',
+      text: 'ok',
+      message: 'ok',
+      response: 'ok',
+    }));
+
+    component.input.set('Check my pointage');
+    const preventDefault = vi.fn();
+    const event = { key: 'Enter', shiftKey: false, preventDefault } as unknown as KeyboardEvent;
+
+    component.onInputKeydown(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(chatService.sendMessage).toHaveBeenCalledWith('Check my pointage');
+  });
+
+  it('quick action submits through ChatService even when history is loading', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(of({
+      success: true,
+      status: 'success',
+      type: 'answer',
+      text: 'ok',
+      message: 'ok',
+      response: 'ok',
+    }));
+    fixture.detectChanges();
+
+    component.loadingHistory.set(true);
+    fixture.detectChanges();
+
+    const quickAction = fixture.nativeElement.querySelector('.chat-panel__quick-action') as HTMLButtonElement;
+    quickAction.click();
+    fixture.detectChanges();
+
+    expect(chatService.sendMessage).toHaveBeenCalledWith('Show my daily summary');
+    expect(component.loading()).toBe(false);
+  });
+
+  it('retry button resubmits the failed text payload through ChatService', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(of({
+      success: true,
+      status: 'success',
+      type: 'answer',
+      text: 'ok',
+      message: 'ok',
+      response: 'ok',
+    }));
+    component.messages.set([{
+      id: 'failed',
+      sender: 'system',
+      text: 'Service IA indisponible.',
+      timestamp: new Date(),
+      isError: true,
+      retryable: true,
+      retryKind: 'text',
+      retryPayload: 'Request a document',
+    } as any]);
+    fixture.detectChanges();
+
+    const retry = fixture.nativeElement.querySelector('.message-bubble__retry') as HTMLButtonElement;
+    retry.click();
+    fixture.detectChanges();
+
+    expect(chatService.sendMessage).toHaveBeenCalledWith('Request a document');
+    expect(component.loading()).toBe(false);
+  });
+
+  it('maps auth errors to a reconnect action instead of a backend unavailable card', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(throwError(() => new Error('Session expirée, reconnectez-vous.')));
+    fixture.detectChanges();
+
+    component.input.set('Show my daily summary');
+    component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages().at(-1)).toMatchObject({
+      sender: 'system',
+      text: 'Session expirée, reconnectez-vous.',
+      isError: true,
+      actionLabel: 'Se reconnecter',
+      actionTarget: '/login',
+      actionKind: 'route',
+    });
+  });
+
+  it('maps network errors to a retryable AI service unavailable state', () => {
+    const fixture = TestBed.createComponent(ChatWidgetComponent);
+    const component = fixture.componentInstance;
+    const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
+    chatService.sendMessage.mockReturnValue(throwError(() => new Error('Service IA indisponible.')));
+    fixture.detectChanges();
+
+    component.input.set('Show my daily summary');
+    component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages().at(-1)).toMatchObject({
+      sender: 'system',
+      text: 'Service IA indisponible.',
+      isError: true,
+      retryable: true,
+      retryPayload: 'Show my daily summary',
     });
   });
 });

@@ -61,7 +61,7 @@ class Settings:
             os.getenv("GENERATED_DOCS_DIR", str(self.base_dir / "generated_docs"))
         )
 
-        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8222/api/v1").rstrip("/")
+        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
         self.java_rh_service_url = os.getenv("JAVA_RH_SERVICE_URL", "http://rh-service:8192").rstrip("/")
 
         # ML service (anomaly detection) -- separate port, no /api/v1 prefix.
@@ -69,7 +69,7 @@ class Settings:
         self.ml_service_timeout_seconds = float(os.getenv("ML_SERVICE_TIMEOUT_SECONDS", "15"))
 
         self.backend_auth_token = os.getenv("BACKEND_AUTH_TOKEN")
-        self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "20"))
+        self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "12"))
         self.backend_retry_attempts = max(1, int(os.getenv("BACKEND_RETRY_ATTEMPTS", "2")))
         self.backend_retry_backoff_seconds = float(
             os.getenv("BACKEND_RETRY_BACKOFF_SECONDS", "0.8")

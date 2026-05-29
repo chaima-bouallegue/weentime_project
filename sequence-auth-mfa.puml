@@ -1,0 +1,29 @@
+@startuml
+title Diagramme de séquence — Authentification avec MFA
+autonumber
+
+actor "Utilisateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Saisir l'email et le mot de passe
+Angular -> Gateway : Envoyer la demande d'authentification
+Gateway -> AuthService : Transmettre la requête
+AuthService -> DB : Vérifier les identifiants
+DB --> AuthService : Retourner utilisateur avec MFA activée
+AuthService --> Gateway : Demander la vérification MFA
+Gateway --> Angular : Transmettre la demande MFA
+Angular --> Acteur : Afficher le formulaire MFA
+Acteur -> Angular : Saisir le code MFA
+Angular -> Gateway : Envoyer le code MFA
+Gateway -> AuthService : Transmettre le code MFA
+AuthService -> DB : Valider le code MFA
+DB --> AuthService : Confirmer la validation MFA
+AuthService -> AuthService : Générer le jeton JWT
+AuthService --> Gateway : Retourner le jeton JWT
+Gateway --> Angular : Transmettre le jeton JWT
+Angular --> Acteur : Rediriger vers l'espace autorisé
+
+@enduml

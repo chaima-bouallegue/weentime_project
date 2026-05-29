@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from app.context.current_user import CurrentUserContext
 from app.models.agent_models import AgentResponse
 from app.models.response_models import ALLOWED_FALLBACK_REASONS, FallbackMetadata, SafeResponseType
+from app.nlp.language_detector import resolve_response_language
 from app.observability.tracing import log_event
 
 if TYPE_CHECKING:
@@ -147,12 +148,13 @@ def localized_fallback_text(reason: str, context: CurrentUserContext | None = No
 
 
 def _locale_from_context(context: CurrentUserContext | None) -> str:
-    language = ""
-    if context is not None:
-        language = str(context.language or context.metadata.get("language") or "").lower()
-        original = str(context.metadata.get("original_text") or "").lower()
-        if language == "tn" or any(term in original for term in ("nheb", "n7eb", "ghodwa", "npointi", "nokhrej", "konji")):
-            return "tn"
+    language = resolve_response_language(
+        str(context.metadata.get("original_text") or "") if context is not None else "",
+        context.metadata if context is not None else None,
+        fallback=context.language if context is not None else "fr",
+    )
+    if language == "tn":
+        return "tn"
     if language in {"en", "ar"}:
         return language
     return "fr"

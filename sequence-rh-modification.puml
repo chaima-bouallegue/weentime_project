@@ -1,0 +1,35 @@
+@startuml
+title Diagramme de séquence — Modification d'un responsable RH
+autonumber
+
+actor "Administrateur" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Choisir une action sur un responsable RH
+Angular --> Acteur : Afficher le formulaire ou la confirmation
+Acteur -> Angular : Saisir ou confirmer les données
+Angular -> Gateway : Envoyer la demande
+
+ref over Acteur, Gateway
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre l'opération
+
+ref over Gateway, OrganisationService
+Contrôler les accès (ADMIN)
+end ref
+
+OrganisationService -> DB : Vérifier l'entreprise associée
+DB --> OrganisationService : Retourner l'entreprise
+OrganisationService -> OrganisationService : Valider les données
+OrganisationService -> DB : Sauvegarder les changements
+DB --> OrganisationService : Confirmer la sauvegarde
+OrganisationService --> Gateway : Retourner la confirmation
+Gateway --> Angular : Transmettre la confirmation
+Angular --> Acteur : Afficher la confirmation
+
+@enduml

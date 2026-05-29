@@ -1,0 +1,44 @@
+@startuml
+title Diagramme de séquence — Consultation des collaborateurs
+autonumber
+
+actor "Responsable RH" as Acteur
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth Service" as AuthService
+control "Organisation Service" as OrganisationService
+database "Base de données PostgreSQL" as DB
+
+Acteur -> Angular : Accéder au module Collaborateurs
+Angular -> Gateway : Demander la liste des collaborateurs
+
+ref over Acteur, AuthService
+S'authentifier()
+end ref
+
+Gateway -> OrganisationService : Transmettre la demande
+
+ref over Gateway, OrganisationService
+Contrôler les accès (RBAC)
+end ref
+
+opt Recherche ou filtrage
+  Acteur -> Angular : Saisir critères de recherche
+  Angular -> Gateway : Transmettre les critères
+  Gateway -> OrganisationService : Ajouter les critères à la requête
+end
+
+OrganisationService -> DB : Rechercher les collaborateurs
+DB --> OrganisationService : Retourner les collaborateurs
+
+alt Collaborateurs trouvés
+  OrganisationService --> Gateway : Retourner la liste
+  Gateway --> Angular : Transmettre les données
+  Angular --> Acteur : Afficher les collaborateurs
+else Aucun résultat
+  OrganisationService --> Gateway : Retourner une liste vide
+  Gateway --> Angular : Transmettre la liste vide
+  Angular --> Acteur : Afficher l'état vide
+end
+
+@enduml

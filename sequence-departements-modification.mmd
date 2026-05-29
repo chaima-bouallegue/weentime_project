@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor Acteur as Responsable RH
+    participant Angular as Interface Angular
+    participant Gateway as API Gateway
+    participant AuthService as Auth Service
+    participant OrganisationService as Organisation Service
+    participant DB as Base de données PostgreSQL
+
+    Acteur->>Angular: Choisir une action sur un département
+    Angular-->>Acteur: Afficher le formulaire ou la confirmation
+    Acteur->>Angular: Saisir ou confirmer les données
+    loop Pour chaque opération CRUD
+        Angular->>Gateway: Envoyer la demande
+        rect rgb(245,245,245)
+            Note over Acteur,AuthService: S'authentifier()
+        end
+        Gateway->>OrganisationService: Transmettre l'opération
+        rect rgb(245,245,245)
+            Note over Gateway,OrganisationService: Contrôler les accès (RBAC)
+        end
+        OrganisationService->>DB: Vérifier les contraintes du département
+        alt Données valides
+            OrganisationService->>DB: Enregistrer les changements
+            DB-->>OrganisationService: Confirmer l'enregistrement
+            OrganisationService-->>Gateway: Retourner la confirmation
+            Gateway-->>Angular: Transmettre la confirmation
+            Angular-->>Acteur: Afficher le résultat
+        else Données invalides
+            OrganisationService-->>Gateway: Retourner l'erreur métier
+            Gateway-->>Angular: Transmettre l'erreur
+            Angular-->>Acteur: Afficher le message d'erreur
+        end
+    end

@@ -234,7 +234,9 @@ def _build_enhancement_prompt(
     return (
         "Improve only the user-facing wording of this already-authoritative WeenTime answer.\n"
         "Rules:\n"
-        "- Keep the same language/locale when possible.\n"
+        f"- Always answer in the same language/dialect as the user's latest message. Use response_language={context.language or 'fr'}.\n"
+        "- Do not translate to French by default and do not mix languages unless the user mixed languages.\n"
+        "- For Tunisian dialect, use Latin script when the user used Latin script and Arabic script when the user used Arabic script.\n"
         "- Do not add facts, numbers, statuses, names, dates, approvals, balances, or system health.\n"
         "- Do not claim an action was executed.\n"
         "- Do not create tool calls, JSON, markdown tables, or code blocks.\n"

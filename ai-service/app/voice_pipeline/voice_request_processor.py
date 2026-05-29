@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import UploadFile
 
 from app.context.current_user import CurrentUserContext
-from app.nlp.language_detector import detect_language
+from app.nlp.language_detector import detect_language, resolve_response_language
 from app.observability.metrics import record_voice_event
 from app.observability.tracing import log_error, log_event, start_span
 from voice.stt import VoiceProcessingResult
@@ -158,17 +158,17 @@ class VoiceRequestProcessor:
 
     @staticmethod
     def _resolve_language(transcript: str, stt_language: str | None, language_hint: str | None) -> str:
-        hinted = _canonical_voice_language(language_hint)
-        if hinted:
-            return hinted
-
         transcript_language = detect_language(transcript)
-        if transcript_language in {"tn", "ar", "en"}:
+        if transcript_language in {"tn", "ar"}:
             return transcript_language
 
         stt_detected = _canonical_voice_language(stt_language)
         if stt_detected:
-            return stt_detected
+            return resolve_response_language(transcript, {"language": stt_detected}, stt_language=stt_detected)
+
+        hinted = _canonical_voice_language(language_hint)
+        if hinted:
+            return resolve_response_language(transcript, {"language": hinted}, stt_language=hinted)
         return transcript_language
 
 

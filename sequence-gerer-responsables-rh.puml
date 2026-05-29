@@ -1,0 +1,62 @@
+@startuml
+title Diagramme de séquence système — Gérer les responsables RH
+autonumber
+
+actor "Administrateur" as Admin
+boundary "Interface Angular" as Angular
+control "API Gateway" as Gateway
+control "Auth/RBAC Service" as RBAC
+control "User Service" as UserService
+control "Organisation Service" as OrganisationService
+database "Base de données\nPostgreSQL" as DB
+
+Admin -> Angular : Accéder au module responsables RH
+Angular -> Gateway : Demander la liste des responsables RH
+Gateway -> RBAC : Vérifier le jeton JWT
+RBAC -> RBAC : Vérifier le rôle ADMIN
+
+alt Accès autorisé
+    Gateway -> UserService : Demander les responsables RH
+    UserService -> DB : Récupérer les responsables RH
+    DB --> UserService : Liste des responsables RH
+    Gateway -> OrganisationService : Demander les entreprises
+    OrganisationService -> DB : Récupérer les entreprises
+    DB --> OrganisationService : Liste des entreprises
+    UserService --> Gateway : Retourner les responsables RH
+    OrganisationService --> Gateway : Retourner les entreprises
+    Gateway --> Angular : Transmettre les données
+    Angular --> Admin : Afficher la liste
+
+    Admin -> Angular : Créer, modifier ou supprimer un responsable RH
+    Angular -> Gateway : Envoyer l'opération RH
+    Gateway -> RBAC : Vérifier JWT et rôle ADMIN
+    RBAC --> Gateway : Autorisation confirmée
+    Gateway -> UserService : Transmettre l'opération
+    UserService -> UserService : Valider les données
+
+    opt Assigner entreprise
+        UserService -> OrganisationService : Vérifier l'entreprise
+        OrganisationService -> DB : Rechercher l'entreprise
+        DB --> OrganisationService : Résultat de recherche
+        OrganisationService --> UserService : Entreprise validée
+    end
+
+    alt Données valides
+        UserService -> DB : Mettre à jour le responsable RH
+        DB --> UserService : Confirmation
+        UserService --> Gateway : Retourner le résultat
+        Gateway --> Angular : Confirmer l'opération
+        Angular --> Admin : Afficher la confirmation
+    else Données invalides
+        UserService --> Gateway : Email déjà utilisé, entreprise introuvable ou accès refusé
+        Gateway --> Angular : Transmettre l'erreur
+        Angular --> Admin : Afficher le message d'erreur
+    end
+else Accès refusé
+    RBAC --> Gateway : Refuser l'accès
+    Gateway --> Angular : Retourner une erreur d'autorisation
+    Angular --> Admin : Afficher accès refusé
+end
+
+caption Gestion des responsables RH avec affectation optionnelle à une entreprise.
+@enduml

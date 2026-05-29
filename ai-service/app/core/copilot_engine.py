@@ -24,7 +24,7 @@ from app.core.conversation_state import ConversationStateStore
 from app.core.slot_filling import capture_pending_flow, continue_pending_flow
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse
-from app.nlp.language_detector import detect_language
+from app.nlp.language_detector import resolve_response_language
 from app.i18n.response_localizer import localize_agent_response
 from app.observability.request_context import ensure_request_id
 from app.observability.tracing import log_error, log_event, start_span
@@ -177,7 +177,13 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         redis_enabled=bool(getattr(settings, "redis_enabled", False)),
         redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
     )
-    executor = getattr(state, "copilot_tool_executor", None) or ToolExecutor(registry, ToolAuditLogger())
+    executor = getattr(state, "copilot_tool_executor", None) or ToolExecutor(
+        registry,
+        ToolAuditLogger(),
+        backend_client=backend_client,
+    )
+    if getattr(executor, "backend_client", None) is None:
+        executor.backend_client = backend_client
     if not getattr(state, "copilot_insight_tools_registered", False):
         register_insight_tools(registry, executor, insight_engine)
         state.copilot_insight_tools_registered = True
@@ -293,8 +299,7 @@ async def process_copilot_message(
     state = metadata.get("app_state") or _APP_STATE
     services = ensure_copilot_services(state)
     request_id = ensure_request_id(str(metadata.get("request_id") or "") or None)
-    provided_language = str(metadata.get("language") or "").lower()
-    language = provided_language if provided_language in {"fr", "en", "ar", "tn"} else detect_language(message)
+    language = resolve_response_language(message, metadata)
 
     with start_span(
         "copilot.request",
@@ -312,7 +317,13 @@ async def process_copilot_message(
                 access_token=access_token,
                 role=role,
                 channel=channel,
-                metadata={**metadata, "request_id": request_id},
+                metadata={
+                    **metadata,
+                    "request_id": request_id,
+                    "language": language,
+                    "requested_language": language,
+                    "response_language": language,
+                },
                 context=context,
             )
         except ContextError as exc:

@@ -96,7 +96,7 @@ class ApiClient:
                 if response.status_code < 500:
                     break
             except httpx.HTTPError as exc:
-                last_error = str(exc)
+                last_error = "backend_unavailable"
                 logger.warning(
                     "Backend request failed method=%s endpoint=%s attempt=%s error=%s",
                     method.upper(),
@@ -112,8 +112,8 @@ class ApiClient:
             success=False,
             tool=resolved_path,
             status="error",
-            text=last_error or "backend_request_failed",
-            error=last_error or "backend_request_failed",
+            text=self._clean_error_text(last_error, last_status),
+            error=self._clean_error_code(last_error, last_status),
             status_code=last_status,
             data=self._unwrap_payload(last_payload),
             details={
@@ -289,6 +289,28 @@ class ApiClient:
         if isinstance(payload, str) and payload.strip():
             return payload.strip()
         return None
+
+    @staticmethod
+    def _clean_error_code(error: str | None, status_code: int | None) -> str:
+        text = str(error or "").lower()
+        if status_code is None or status_code >= 500 or "connection" in text or "timeout" in text or "attempt" in text or "unavailable" in text:
+            return "backend_unavailable"
+        if status_code in (401, 403):
+            return "permission_denied"
+        if status_code == 404:
+            return "data_unavailable"
+        return error or "backend_request_failed"
+
+    @classmethod
+    def _clean_error_text(cls, error: str | None, status_code: int | None) -> str:
+        code = cls._clean_error_code(error, status_code)
+        if code == "backend_unavailable":
+            return "Le service backend est momentanement indisponible. Reessayez dans quelques instants."
+        if code == "permission_denied":
+            return "Vous n'avez pas les droits necessaires pour cette action."
+        if code == "data_unavailable":
+            return "Les donnees demandees ne sont pas disponibles."
+        return error or "backend_request_failed"
 
     def _extract_filename(self, content_disposition: str) -> str | None:
         if not content_disposition:
