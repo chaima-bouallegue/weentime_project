@@ -52,7 +52,7 @@
 
 .modal-footer {
   padding: 24px 32px;
-  background: #f8fafc;
+  background: #FFFFFF;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -63,7 +63,7 @@
 
 .btn-ghost {
   padding: 12px; border: none; background: transparent; font-weight: 700; color: #64748b; cursor: pointer;
-  border-radius: 12px; &:hover { background: #f1f5f9; }
+  border-radius: 12px; &:hover { background: #FFFFFF; }
 }
 
 .btn-danger {

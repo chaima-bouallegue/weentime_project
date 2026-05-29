@@ -80,7 +80,7 @@ import { MessageBubbleComponent } from '../message-bubble/message-bubble.compone
       justify-content: center;
       border-radius: 8px;
       border: none;
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #64748b;
       cursor: pointer;
       transition: all 0.2s;

@@ -1,57 +1,73 @@
 <div class="h-full">
   @if (loading) {
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      @for (i of [1,2,3,4]; track i) {
-        <div class="h-48 rounded-3xl bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
-      }
-    </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @for (i of [1,2,3,4]; track i) {
+    <div class="h-52 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse"></div>
+    }
+  </div>
   } @else {
-    @if (roles.length > 0) {
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @for (role of roles; track role.id) {
-          <div class="group bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 transition-all hover:shadow-xl hover:-translate-y-1 relative overflow-hidden flex flex-col min-h-[220px]">
-            
-            <!-- Subtle Background glow -->
-            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none transition-opacity group-hover:opacity-40" [style.background-color]="getRoleColor(role.nom)"></div>
-            
-            <!-- Header -->
-            <div class="flex items-start justify-between mb-4 relative z-10 shrink-0">
-               <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md bg-white dark:bg-slate-800 border-2" [style.border-color]="getRoleColor(role.nom)">
-                  <lucide-angular [img]="getRoleIcon(role.nom)" size="24" [style.color]="getRoleColor(role.nom)"></lucide-angular>
-               </div>
-               
-               <div class="flex gap-2">
-                 <button class="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-500 transition-colors" (click)="edit.emit(role)" title="Editer">
-                    <lucide-angular name="edit-3" size="14"></lucide-angular>
-                 </button>
-                 <button class="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors" (click)="delete.emit(role.id)" title="Supprimer">
-                    <lucide-angular name="trash-2" size="14"></lucide-angular>
-                 </button>
-               </div>
-            </div>
+  @if (roles.length > 0) {
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @for (role of roles; track role.id) {
+    <div
+      class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden flex flex-col min-h-[220px]">
 
-            <!-- Content -->
-            <div class="relative z-10 flex-1 flex flex-col text-center">
-               <h3 class="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest mb-1">{{ getRoleLabel(role.nom) }}</h3>
-               <span class="text-[10px] font-bold text-slate-400 font-mono mb-4">{{ role.nom }}</span>
-               
-               <p class="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed mt-auto">
-                 {{ role.description || "Aucune description fournie pour ce rôle système." }}
-               </p>
-            </div>
-          </div>
-        }
-      </div>
-    } @else {
-      <div class="bento-card flex flex-col items-center justify-center p-12 text-center mt-4 bg-slate-50/50 dark:bg-slate-900/50">
-        <div class="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
-           <lucide-angular [img]="iconShield" size="40"></lucide-angular>
+      <div
+        class="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none transition-opacity group-hover:opacity-20"
+        [style.background-color]="getRoleColor(role.nom)"></div>
+
+      <div class="flex items-start justify-between mb-4 relative z-10 shrink-0">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center shadow-xs bg-white dark:bg-slate-800 border"
+          [style.border-color]="getRoleColor(role.nom) + '30'" [style.background-color]="getRoleColor(role.nom) + '08'">
+          <lucide-angular [img]="getRoleIcon(role.nom)" size="20"
+            [style.color]="getRoleColor(role.nom)"></lucide-angular>
         </div>
-        <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Aucun Rôle Défini</h3>
-        <p class="text-slate-500 font-medium max-w-sm">
-           La base de rôles est vide. Créez un profil pour assigner des permissions.
+
+        <div
+          class="flex gap-1 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-lg border border-slate-100 dark:border-slate-800 opacity-90 group-hover:opacity-100 transition-opacity">
+          <button
+            class="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+            (click)="edit.emit(role)" title="Éditer">
+            <lucide-angular [img]="iconEdit || 'edit-3'" size="13"></lucide-angular>
+          </button>
+          <button
+            class="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+            (click)="delete.emit(role.id)" title="Supprimer">
+            <lucide-angular [img]="iconDelete || 'trash-2'" size="13"></lucide-angular>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative z-10 flex-1 flex flex-col items-center text-center">
+        <h3
+          class="text-base font-bold text-slate-900 dark:text-white mb-1.5 transition-colors group-hover:text-indigo-600">
+          {{ getRoleLabel(role.nom) }}
+        </h3>
+
+        <code
+          class="inline-block text-[10px] font-mono font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-md mb-4 shadow-3xs">
+                 {{ role.nom }}
+               </code>
+
+        <p class="text-xs font-medium text-slate-400 dark:text-slate-400 leading-relaxed max-w-[90%] mt-auto">
+          {{ role.description || "Aucune description fournie pour ce rôle système." }}
         </p>
       </div>
+    </div>
     }
+  </div>
+  } @else {
+  <div
+    class="border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center p-12 text-center rounded-2xl bg-slate-50/30 dark:bg-slate-900/30">
+    <div
+      class="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 rounded-xl flex items-center justify-center mb-4 shadow-3xs border border-indigo-100/50 dark:border-indigo-900/30">
+      <lucide-angular [img]="iconShield" size="24"></lucide-angular>
+    </div>
+    <h3 class="text-sm font-bold text-slate-900 dark:text-slate-200 mb-1">Aucun rôle défini</h3>
+    <p class="text-xs text-slate-400 font-medium max-w-xs leading-relaxed">
+      La base de rôles est actuellement vide. Créez un nouveau profil pour commencer à configurer les privilèges.
+    </p>
+  </div>
+  }
   }
 </div>

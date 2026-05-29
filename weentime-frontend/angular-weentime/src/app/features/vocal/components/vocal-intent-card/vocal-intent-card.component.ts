@@ -96,7 +96,7 @@ import { LucideAngularModule } from 'lucide-angular';
       display: flex;
       align-items: center;
       gap: 16px;
-      background: #f8fafc;
+      background: #FFFFFF;
       padding: 16px;
       border-radius: 16px;
     }

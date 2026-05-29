@@ -1,101 +1,85 @@
-.rh-bento-container {
-  display: flex;
-  flex-direction: column;
-  padding: 2rem;
-  max-width: 1600px;
-  margin: 0 auto;
+/* Premium Custom Overrides for Vercel/Linear look */
 
-  /* ---------- Animations ---------- */
-  .fade-in {
-    animation: fadeIn 0.4s ease-out forwards;
-  }
+:host {
+  display: block;
+  width: 100%;
+}
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+/* Custom Scrollbars for modern web views */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
 
-  /* ---------- Bento Cards Base ---------- */
-  .bento-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 32px;
-    box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-    :host-context(.dark) & {
-      background: rgba(15, 23, 42, 0.6);
-      border-color: rgba(255, 255, 255, 0.05);
-      box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-  }
+::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 9999px;
+}
 
-  /* ---------- Hero Section ---------- */
-  .dashboard-hero {
-    .hero-card {
-      @extend .bento-card;
-      background: white;
-      padding: 0;
+::-webkit-scrollbar-thumb:hover {
+  background: #CBD5E1;
+}
 
-      :host-context(.dark) & {
-        background: #0f172a;
-      }
-    }
+/* Row active side accent */
+.border-l-3 {
+  border-left-width: 3px !important;
+}
 
-    .card-mesh {
-      position: absolute;
-      inset: 0;
-      opacity: 0.1;
-      background: radial-gradient(circle at 100% 0%, var(--mesh-color) 0%, transparent 50%),
-                  radial-gradient(circle at 0% 100%, var(--mesh-color) 0%, transparent 50%);
-      pointer-events: none;
-    }
+/* Smooth backdrop transitions */
+.backdrop-blur-\[2px\] {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
 
-    .hero-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 1.75rem;
-      border-radius: 20px;
-      font-weight: 800;
-      font-size: 0.875rem;
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.backdrop-blur-\[3px\] {
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
 
-      &:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
+/* ─── Force border-radius on all buttons ─── */
+button {
+  border-radius: 0.5rem !important;
+  /* rounded-lg = 8px */
+}
 
-      &.primary-blue {
-        background: #3b82f6;
-        color: white;
-        box-shadow: 0 8px 24px -6px rgba(59, 130, 246, 0.4);
+/* Pills de filtre (Toutes / Actives / Suspendues / Fermées) */
+button.rounded-full,
+.rounded-full button {
+  border-radius: 9999px !important;
+}
 
-        &:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 32px -8px rgba(59, 130, 246, 0.6);
-        }
-      }
+/* Pagination page buttons */
+.flex.items-center.gap-1 button {
+  border-radius: 0.5rem !important;
+}
 
-      &.secondary {
-        background: rgba(241, 245, 249, 0.8);
-        color: #475569;
-        
-        &:hover:not(:disabled) {
-          background: #e2e8f0;
-          color: #0f172a;
-        }
+/* Badge pills dans les filtres */
+nav button,
+.px-3.py-1.text-xs {
+  border-radius: 9999px !important;
+}
 
-        :host-context(.dark) & {
-          background: rgba(30, 41, 59, 0.8);
-          color: #94a3b8;
-          &:hover:not(:disabled) { background: #334155; color: white; }
-        }
-      }
-    }
-  }
+/* Bouton primaire "Nouvelle Entreprise" */
+.hero-btn {
+  border-radius: 0.5rem !important;
+}
+
+/* Boutons d'action dans le drawer et les modals */
+.drawer-container button,
+.modal-container button {
+  border-radius: 0.5rem !important;
+}
+
+/* Icônes boutons carrés (refresh, eye, edit...) */
+button.p-1\.5,
+button.p-2 {
+  border-radius: 0.5rem !important;
+}
+
+input[type="text"] {
+  border-radius: 9999px !important;
 }

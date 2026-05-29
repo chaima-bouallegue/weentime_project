@@ -71,7 +71,7 @@ import { PresenceService } from '../../services/presence.service';
       align-items: center;
       margin-bottom: 2rem;
       padding-bottom: 1rem;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
     }
 
     .card-header h2 {
@@ -98,7 +98,7 @@ import { PresenceService } from '../../services/presence.service';
       padding: 1.5rem;
       background: linear-gradient(135deg, #f3f4f6 0%, #fafbfc 100%);
       border-radius: 12px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border);
       text-align: center;
     }
 

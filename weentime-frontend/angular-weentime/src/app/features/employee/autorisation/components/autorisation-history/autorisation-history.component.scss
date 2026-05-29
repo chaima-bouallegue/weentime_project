@@ -16,7 +16,7 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: #e2e8f0;
+    border-color: var(--border);
     background: #fcfcfd;
     transform: translateX(4px);
   }
@@ -106,7 +106,7 @@
   }
 
   &.secondary {
-    background: #f8fafc;
+    background: #FFFFFF;
     color: #64748b;
     &:hover { background: #e2e8f0; color: #0f172a; }
   }
@@ -127,9 +127,9 @@
 .motif-box {
   margin-left: 3.5rem;
   padding: 0.75rem 1rem;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-radius: 16px;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border);
 }
 
 .dark .motif-box {
@@ -143,7 +143,7 @@
     width: 100px;
     height: 100px;
     border-radius: 30px;
-    background: #f1f5f9;
+    background: #FFFFFF;
     color: #cbd5e1;
     display: flex;
     align-items: center;

@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { BehaviorSubject, Observable, of, tap, catchError, shareReplay, take } from 'rxjs';
+import { BehaviorSubject, Observable, of, tap, catchError, shareReplay, take, timeout } from 'rxjs';
 import { ReunionService } from './reunion.service';
 import { Reunion } from '../models/reunion.model';
 
@@ -64,6 +64,7 @@ export class ReunionStore {
     this.isLoading.set(true);
 
     this._inflight$ = this.reunionService.getMesReunions().pipe(
+      timeout(10_000), // Don't let the resolver hang forever
       tap(data => {
         this._reunions.next(data);
         this._lastListFetch = Date.now();
@@ -71,9 +72,12 @@ export class ReunionStore {
         this.isLoading.set(false);
       }),
       catchError(err => {
+        console.error('[ReunionStore] loadReunions failed — returning cached/empty list', err);
         this._inflight$ = null;
         this.isLoading.set(false);
-        throw err;
+        // Return current cache (or empty) so the resolver COMPLETES
+        // instead of blocking navigation.
+        return of(this._reunions.value);
       }),
       shareReplay(1) // Share the result with all subscribers; completes after emit
     );

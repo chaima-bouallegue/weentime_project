@@ -148,7 +148,7 @@ interface TeamMemberView extends ManagerTeamMember {
     .manager-page { display: grid; gap: 20px; }
     .hero-card, .filters-card, .member-card, .stat-card, .empty-card, .warning-banner {
       border-radius: 24px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       background: #fff;
     }
     :host-context(.dark) .hero-card,
@@ -192,7 +192,7 @@ interface TeamMemberView extends ManagerTeamMember {
     .field { display: grid; gap: 8px; }
     .field span { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .field input, .field select {
-      border-radius: 14px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 12px 14px; color: #0f172a;
+      border-radius: 14px; border: 1px solid #cbd5e1; background: #FFFFFF; padding: 12px 14px; color: #0f172a;
     }
     :host-context(.dark) .field input, :host-context(.dark) .field select {
       background: #0f172a; border-color: #334155; color: #f8fafc;
@@ -218,7 +218,7 @@ interface TeamMemberView extends ManagerTeamMember {
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .action-link { background: rgba(67,56,202,.08); color: #4338ca; }
     .empty-card { padding: 48px 24px; text-align: center; display: grid; gap: 12px; place-items: center; }
-    .skeleton-card { height: 260px; border-radius: 24px; background: linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9); background-size: 200% 100%; animation: pulse 1.3s infinite; }
+    .skeleton-card { height: 260px; border-radius: 24px; background: linear-gradient(90deg, #F8F9FA, #FFFFFF, #F8F9FA); background-size: 200% 100%; animation: pulse 1.3s infinite; }
     @keyframes pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
     @media (max-width: 768px) { .stats-grid, .filters-card, .meta-grid { grid-template-columns: 1fr; } .hero-card { flex-direction: column; align-items: flex-start; } }

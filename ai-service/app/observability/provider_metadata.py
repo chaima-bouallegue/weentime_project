@@ -43,8 +43,8 @@ def annotate_provider_metadata(
         # metadata keys land somewhere observable.
         action = {}
 
-    provider_name = provider_router.mode or "disabled"
-    configured_model = provider_router.default_model
+    provider_name = getattr(provider_router, "mode", "disabled") or "disabled"
+    configured_model = getattr(provider_router, "default_model", None)
     llm_used = action.get("kind") == "provider_response" or action.get("enhancementApplied") is True
 
     if llm_used:

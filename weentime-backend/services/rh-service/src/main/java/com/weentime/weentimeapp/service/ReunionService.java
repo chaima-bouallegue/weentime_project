@@ -55,7 +55,8 @@ public class ReunionService {
                 .uuid(UUID.randomUUID().toString())
                 .build();
 
-        List<Long> pIds = request.getParticipantIds() != null ? new ArrayList<>(request.getParticipantIds()) : new ArrayList<>();
+        List<Long> pIds = request.getParticipantIds() != null ? new ArrayList<>(request.getParticipantIds())
+                : new ArrayList<>();
         if (!pIds.contains(organisateurId)) {
             pIds.add(organisateurId);
         }
@@ -87,7 +88,7 @@ public class ReunionService {
     private void handleRecurrence(Reunion parent, List<Long> participantIds) {
         LocalDate nextDate = parent.getDateReunion();
         int maxOccurrences = 52;
-        
+
         for (int i = 1; i < maxOccurrences; i++) {
             if (parent.getRecurrence() == ReunionRecurrence.QUOTIDIEN) {
                 nextDate = nextDate.plusDays(1);
@@ -118,7 +119,8 @@ public class ReunionService {
                 for (Long uid : participantIds) {
                     ParticipantReunion p = ParticipantReunion.builder()
                             .id(ParticipantReunion.ParticipantReunionId.builder().utilisateurId(uid).build())
-                            .reponse(uid.equals(parent.getOrganisateurId()) ? RSVPResponse.CONFIRME : RSVPResponse.EN_ATTENTE)
+                            .reponse(uid.equals(parent.getOrganisateurId()) ? RSVPResponse.CONFIRME
+                                    : RSVPResponse.EN_ATTENTE)
                             .build();
                     occurrence.addParticipant(p);
                 }
@@ -148,9 +150,10 @@ public class ReunionService {
     public void repondre(String uuid, ReunionResponseRequest request, Long userId) {
         Reunion r = reunionRepository.findByUuid(uuid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Réunion non trouvée"));
-        
+
         ParticipantReunion p = participantRepository.findById_ReunionIdAndId_UtilisateurId(r.getId(), userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous ne faites pas partie de cette réunion"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Vous ne faites pas partie de cette réunion"));
 
         p.setReponse(request.getReponse());
         if (request.getRappelMinutes() != null) {
@@ -161,8 +164,7 @@ public class ReunionService {
         notificationService.sendToUser(r.getOrganisateurId(), NotificationPayload.of(
                 "REUNION_RSVP", "Réponse réunion",
                 "Un participant a répondu : " + request.getReponse().name(),
-                "info", "blue", r.getId(), "REUNION", "/app/reunions/" + r.getUuid()
-        ), r.getEntrepriseId());
+                "info", "blue", r.getId(), "REUNION", "/app/reunions/" + r.getUuid()), r.getEntrepriseId());
     }
 
     public void cloturer(String uuid, ClotureReunionRequest request, Long userId) {
@@ -196,11 +198,12 @@ public class ReunionService {
         notifyParticipants(r, "REUNION_ANNULEE", "Réunion annulée : " + r.getTitre());
     }
 
-    public ConflictResponseDTO checkConflicts(LocalDate date, LocalTime start, LocalTime end, List<Long> userIds, Long entrepriseId) {
+    public ConflictResponseDTO checkConflicts(LocalDate date, LocalTime start, LocalTime end, List<Long> userIds,
+            Long entrepriseId) {
         List<ConflictResponseDTO.ConflictDetail> conflicts = new ArrayList<>();
 
         for (Long uid : userIds) {
-            if (congeRepository.existsOverlappingConge(uid, date, date)) {
+            if (congeRepository.existsOverlappingApprovedConge(uid, date, date)) {
                 UserResponse user = organisationClient.getUtilisateurById(uid);
                 conflicts.add(ConflictResponseDTO.ConflictDetail.builder()
                         .userId(uid)
@@ -208,20 +211,63 @@ public class ReunionService {
                         .raison("En congé ce jour")
                         .build());
             }
-            
+
             List<Reunion> overlaps = reunionRepository.findConflicts(List.of(uid), date, start, end);
             if (!overlaps.isEmpty()) {
                 UserResponse user = organisationClient.getUtilisateurById(uid);
                 conflicts.add(ConflictResponseDTO.ConflictDetail.builder()
                         .userId(uid)
                         .nom(user != null ? user.getNom() + " " + user.getPrenom() : "Utilisateur " + uid)
-                        .raison("Déjà en réunion (" + overlaps.get(0).getHeureDebut() + "-" + overlaps.get(0).getHeureFin() + ")")
+                        .raison("Déjà en réunion (" + overlaps.get(0).getHeureDebut() + "-"
+                                + overlaps.get(0).getHeureFin() + ")")
                         .build());
             }
         }
 
         return ConflictResponseDTO.builder().conflicts(conflicts).build();
     }
+
+    public ReunionDTO updateReunion(String uuid, ReunionUpdateRequest request, Long userId) {
+        Reunion r = reunionRepository.findByUuid(uuid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        if (!r.getOrganisateurId().equals(userId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+
+        if (request.getTitre() != null)
+            r.setTitre(request.getTitre());
+        if (request.getDescription() != null)
+            r.setDescription(request.getDescription());
+        if (request.getAgenda() != null)
+            r.setAgenda(request.getAgenda());
+        if (request.getDateReunion() != null)
+            r.setDateReunion(request.getDateReunion());
+        if (request.getHeureDebut() != null)
+            r.setHeureDebut(request.getHeureDebut());
+        if (request.getHeureFin() != null)
+            r.setHeureFin(request.getHeureFin());
+        if (request.getLieu() != null)
+            r.setLieu(request.getLieu());
+        if (request.getLienVisio() != null)
+            r.setLienVisio(request.getLienVisio());
+
+        return mapToDto(reunionRepository.save(r));
+    }
+    public void removeParticipant(String uuid, Long participantId, Long userId) {
+    Reunion r = reunionRepository.findByUuid(uuid)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+    if (!r.getOrganisateurId().equals(userId))
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+            "Seul l'organisateur peut retirer un participant");
+
+    if (r.getOrganisateurId().equals(participantId))
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+            "L'organisateur ne peut pas être retiré");
+
+    r.getParticipants().removeIf(p -> p.getId().getUtilisateurId().equals(participantId));
+    reunionRepository.save(r);
+}
 
     public Long getMeetingMinutesToday(Long userId, LocalDate date) {
         return reunionRepository.findByParticipantIdOrderByDateDesc(userId).stream()
@@ -235,29 +281,27 @@ public class ReunionService {
             if (p.getId().getUtilisateurId().equals(r.getOrganisateurId()) && "REUNION_INVITATION".equals(type)) {
                 continue; // Ne pas s'auto-inviter par notification
             }
-            
+
             NotificationPayload payload;
-            
+
             if ("REUNION_INVITATION".equals(type)) {
                 List<NotificationPayload.NotificationAction> actions = new ArrayList<>();
                 actions.add(new NotificationPayload.NotificationAction(
-                        "Confirmer", "/api/v1/rh/reunions/" + r.getUuid() + "/repondre", 
+                        "Confirmer", "/api/v1/rh/reunions/" + r.getUuid() + "/repondre",
                         "PATCH", "primary", Map.of("reponse", "CONFIRME")));
                 actions.add(new NotificationPayload.NotificationAction(
-                        "Décliner", "/api/v1/rh/reunions/" + r.getUuid() + "/repondre", 
+                        "Décliner", "/api/v1/rh/reunions/" + r.getUuid() + "/repondre",
                         "PATCH", "warn", Map.of("reponse", "DECLINE")));
-                
+
                 payload = NotificationPayload.withActions(
                         type, r.getTitre(), msg, "calendar", "purple",
-                        r.getId(), "REUNION", "/app/reunions/" + r.getUuid(), actions
-                );
+                        r.getId(), "REUNION", "/app/reunions/" + r.getUuid(), actions);
             } else {
                 payload = NotificationPayload.of(
                         type, r.getTitre(), msg, "calendar", "purple",
-                        r.getId(), "REUNION", "/app/reunions/" + r.getUuid()
-                );
+                        r.getId(), "REUNION", "/app/reunions/" + r.getUuid());
             }
-            
+
             notificationService.sendToUser(p.getId().getUtilisateurId(), payload, r.getEntrepriseId());
         }
     }
@@ -291,7 +335,7 @@ public class ReunionService {
                 .present(p.isPresent())
                 .rappelMinutes(p.getRappelMinutes())
                 .build();
-        
+
         try {
             UserResponse user = organisationClient.getUtilisateurById(p.getId().getUtilisateurId());
             if (user != null) {
@@ -302,7 +346,7 @@ public class ReunionService {
         } catch (Exception e) {
             log.warn("Impossible de récupérer les infos du participant {}", p.getId().getUtilisateurId());
         }
-        
+
         return dto;
     }
 }

@@ -81,7 +81,7 @@
 
   &[data-status='PUBLISHED'] { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
   &[data-status='DRAFT'] { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-  &[data-status='CLOSED'] { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+  &[data-status='CLOSED'] { background: #FFFFFF; color: #64748b; border: 1px solid #cbd5e1; }
 }
 
 .header-actions {
@@ -113,9 +113,9 @@
   align-items: center;
   gap: 8px;
   padding: 10px 24px;
-  background: #f1f5f9;
+  background: #FFFFFF;
   color: #475569;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 14px;
   font-weight: 700;
   font-size: 14px;
@@ -150,7 +150,7 @@
 
 .section-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -217,8 +217,8 @@
 
 .candidate-card-ai {
   padding: 20px 24px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 18px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -467,7 +467,7 @@
   &[data-status='INTERVIEW_SCHEDULED'],
   &[data-status='INTERVIEWED'] { background: #f0f9ff; color: #0284c7; }
   &[data-status='OFFER_SENT'] { background: #faf5ff; color: #9333ea; }
-  &[data-status='WITHDRAWN'] { background: #f1f5f9; color: #64748b; }
+  &[data-status='WITHDRAWN'] { background: #FFFFFF; color: #64748b; }
 }
 
 .confidence-tag {
@@ -475,8 +475,8 @@
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 10px;
   font-weight: 700;
@@ -505,9 +505,9 @@
   }
 
   &.cv {
-    background: #f1f5f9;
+    background: #FFFFFF;
     color: #475569;
-    border-color: #e2e8f0;
+    border-color: var(--border);
     &:hover { background: #e2e8f0; color: #1e293b; }
   }
 
@@ -580,7 +580,7 @@
     width: 36px;
     height: 36px;
     padding: 8px;
-    background: #f1f5f9;
+    background: #FFFFFF;
     color: #64748b;
     border-radius: 10px;
     flex-shrink: 0;

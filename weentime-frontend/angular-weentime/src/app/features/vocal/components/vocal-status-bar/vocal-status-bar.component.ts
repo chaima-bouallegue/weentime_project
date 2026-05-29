@@ -75,7 +75,7 @@ import { LucideAngularModule } from 'lucide-angular';
       align-items: center;
       justify-content: space-between;
       padding: 10px 14px;
-      background: #f8fafc;
+      background: #FFFFFF;
       border-radius: 12px;
       border: 1px solid #f1f5f9;
     }

@@ -583,49 +583,33 @@ export class VoiceAssistantService {
   private resolveErrorMessage(error: unknown, fallbackMessage: string): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 0) {
-        return VoiceAssistantService.BACKEND_UNAVAILABLE_MESSAGE;
+        return "Je n'ai pas pu me connecter au service. Veuillez r\u00e9essayer.";
       }
       if (error.status === 401) {
         return VoiceAssistantService.SESSION_EXPIRED_MESSAGE;
       }
       if (error.status === 403) {
-        return "Vous n'avez pas la permission d'utiliser l'assistant vocal.";
+        return "Vous n'avez pas les droits n\u00e9cessaires pour cette action.";
       }
       if (error.status === 429) {
-        return 'Trop de requetes vocales en cours. Reessayez dans quelques instants.';
+        return 'Veuillez patienter quelques instants avant de r\u00e9essayer.';
       }
 
       const body = error.error as Record<string, unknown> | string | null | undefined;
-      if (typeof body === 'string' && body.trim()) {
-        return this.normalizeAudioErrorMessage(body.trim()) ?? body.trim();
-      }
       if (body && typeof body === 'object') {
-        const status = typeof body['status'] === 'string' ? body['status'].trim() : '';
-        const loweredStatus = status.toLowerCase();
-        if (loweredStatus === 'unclear_audio' || loweredStatus === 'retry') {
+        const status = typeof body['status'] === 'string' ? body['status'].trim().toLowerCase() : '';
+        if (status === 'unclear_audio' || status === 'retry') {
           return VoiceAssistantService.SOFT_RETRY_MESSAGE;
         }
-        if (loweredStatus === 'no_speech' || loweredStatus === 'no_input') {
+        if (status === 'no_speech' || status === 'no_input') {
           return VoiceAssistantService.SOFT_NO_INPUT_MESSAGE;
         }
-        if (loweredStatus === 'invalid_audio') {
+        if (status === 'invalid_audio') {
           return VoiceAssistantService.INVALID_AUDIO_MESSAGE;
         }
-        if (loweredStatus === 'server_error' || loweredStatus === 'error') {
-          return VoiceAssistantService.SERVER_ERROR_MESSAGE;
-        }
-
-        const message = typeof body['message'] === 'string' ? body['message'].trim() : '';
-        const response = typeof body['response'] === 'string' ? body['response'].trim() : '';
-        const audioError = typeof body['error'] === 'string'
-          ? this.normalizeAudioErrorMessage(body['error'])
-          : null;
-        return message || response || audioError || fallbackMessage;
       }
     }
-    if (error instanceof Error && error.message.trim()) {
-      return error.message.trim();
-    }
+    // Never leak raw error messages to the user
     return fallbackMessage;
   }
 
@@ -658,23 +642,26 @@ export class VoiceAssistantService {
     if (lowered === 'invalid_audio') {
       return VoiceAssistantService.INVALID_AUDIO_MESSAGE;
     }
+    // Never return raw technical strings (server_error, whisper_failed,
+    // connection refused, ollama, etc.) — use a generic message instead.
     if (
       lowered === 'audio_transcription_failed'
       || lowered === 'audio_processing_failed'
       || lowered === 'conversion_failed'
       || lowered === 'whisper_failed'
       || lowered === 'server_error'
-    ) {
-      return VoiceAssistantService.SERVER_ERROR_MESSAGE;
-    }
-    if (
-      lowered.includes('assistant temporairement indisponible')
       || lowered.includes('ollama')
       || lowered.includes('connection refused')
+      || lowered.includes('assistant temporairement indisponible')
     ) {
-      return VoiceAssistantService.ASSISTANT_UNAVAILABLE_MESSAGE;
+      return VoiceAssistantService.AUDIO_ERROR_MESSAGE;
     }
-    return safe;
+    // If the string looks like a user-facing French sentence keep it,
+    // otherwise fall back to a generic message.
+    if (safe.length > 4 && /^[A-ZÀ-ÖÙ-Ü]/.test(safe)) {
+      return safe;
+    }
+    return VoiceAssistantService.AUDIO_ERROR_MESSAGE;
   }
 
   private isSoftVoiceResponse(

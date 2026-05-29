@@ -46,7 +46,7 @@ import { ThemeService } from '../../../../core/services/theme.service';
     :host { 
       display: block;
       width: 100%;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       background: #ffffff;
       height: 52px;
       z-index: 40;

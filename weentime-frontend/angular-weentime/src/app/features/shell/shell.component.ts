@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, Router } from '@angular/router';
 import { ShellSidebarComponent } from './components/shell-sidebar/shell-sidebar.component';
 import { ShellHeaderComponent } from './components/shell-header/shell-header.component';
-import { ShellFooterComponent } from './components/shell-footer/shell-footer.component';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { LoadingService } from '../../core/services/loading.service';
@@ -11,29 +10,39 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, ShellSidebarComponent, ShellHeaderComponent, ShellFooterComponent, ChatWidgetComponent],
+  imports: [RouterOutlet, ShellSidebarComponent, ShellHeaderComponent, ChatWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shell-layout">
-      <app-shell-sidebar />
+    <div class="shell-layout" [class.full-screen-mode]="isCreateMeetingPage()">
+      @if (!isCreateMeetingPage()) {
+        <app-shell-sidebar />
+      }
       <div class="shell-main">
         <div class="global-loader" [class.visible]="loadingService.isLoading()"></div>
-        <app-shell-header />
-        <main class="shell-content">
+        @if (!isCreateMeetingPage()) {
+          <app-shell-header />
+        }
+        <main class="shell-content" [class.no-padding]="isCreateMeetingPage()">
           <router-outlet />
         </main>
-        <app-shell-footer />
       </div>
     </div>
     <app-chat-widget />
   `,
   styles: [`
-    :host { display: block; height: 100vh; }
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
 
     .shell-layout {
       display: flex;
-      height: 100%;
+      flex: 1;
       overflow: hidden;
+      margin: 0;
+      padding: 0;
       font-family: 'Plus Jakarta Sans', sans-serif;
       background:
         radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 24%),
@@ -53,9 +62,11 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
       flex: 1;
       display: flex;
       flex-direction: column;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
       min-width: 0;
       position: relative;
-      overflow: hidden;
     }
 
     .global-loader {
@@ -81,7 +92,7 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 28px 32px 96px;
+      padding: 16px 24px 60px;
       /* FIX: pas de position:relative ici — évite de créer un stacking context
          qui confinerait tous les z-index enfants et bloquerait les clics sur les boutons */
     }
@@ -95,6 +106,12 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
       z-index: 1;
     }
 
+    .shell-content.no-padding {
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
     @media (max-width: 768px) {
       .shell-content {
         padding: 16px;
@@ -106,6 +123,11 @@ export class ShellComponent {
   private readonly authService = inject(AuthService);
   private readonly notificationService = inject(NotificationService);
   readonly loadingService = inject(LoadingService);
+  private readonly router = inject(Router);
+
+  isCreateMeetingPage(): boolean {
+    return this.router.url.includes('/app/reunions/create');
+  }
 
   constructor() {
     effect(() => {

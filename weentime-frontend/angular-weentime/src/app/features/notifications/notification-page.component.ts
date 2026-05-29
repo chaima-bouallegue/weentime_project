@@ -137,7 +137,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
 
     .btn-ghost {
       display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 12px;
-      background: white; border: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 14px;
+      background: white; border: 1px solid var(--border); color: #475569; font-weight: 700; font-size: 14px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-ghost:hover:not(:disabled) { border-color: #534AB7; color: #534AB7; background: #EEEDFE; }
@@ -145,7 +145,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
 
     .btn-danger-ghost {
       display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 12px;
-      background: white; border: 1px solid #e2e8f0; color: #ef4444; font-weight: 700; font-size: 14px;
+      background: white; border: 1px solid var(--border); color: #ef4444; font-weight: 700; font-size: 14px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-danger-ghost:hover { border-color: #ef4444; background: #fef2f2; }
@@ -160,13 +160,13 @@ import { NotificationService, Notification, NotificationType } from '../../core/
 
     /* Sidebar Filter Card */
     .filter-card {
-      background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 24px;
+      background: white; border: 1px solid var(--border); border-radius: 24px; padding: 24px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.03); position: sticky; top: 100px;
     }
     :host-context(.dark) .filter-card { background: #1a1f2e; border-color: #2d3548; }
 
     .filter-section { margin-bottom: 24px; }
-    .filter-divider { height: 1px; background: #f1f5f9; margin: 24px -24px; }
+    .filter-divider { height: 1px; background: #FFFFFF; margin: 24px -24px; }
     :host-context(.dark) .filter-divider { background: #2d3548; }
 
     .filter-title { font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; }
@@ -174,7 +174,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
     .filter-options { display: flex; flex-direction: column; gap: 8px; }
     .filter-btn {
       display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
-      border-radius: 12px; border: 1px solid #f1f5f9; background: #f8fafc; color: #64748b;
+      border-radius: 12px; border: 1px solid #f1f5f9; background: #FFFFFF; color: #64748b;
       font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; text-align: left;
     }
     .filter-btn:hover { border-color: #cbd5e1; color: #1e293b; }
@@ -190,7 +190,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
       border: none; background: transparent; color: #475569; font-weight: 600; font-size: 14px;
       cursor: pointer; transition: all 0.2s;
     }
-    .cat-btn:hover { background: #f1f5f9; color: #1e293b; }
+    .cat-btn:hover { background: #FFFFFF; color: #1e293b; }
     .cat-btn.active { background: #EEEDFE; color: #534AB7; }
     
     :host-context(.dark) .cat-btn { color: #94a3b8; }
@@ -201,7 +201,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
       width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
       transition: all 0.2s;
     }
-    .cat-icon-box.all { background: #f1f5f9; color: #64748b; }
+    .cat-icon-box.all { background: #FFFFFF; color: #64748b; }
     .cat-icon-box.conge_approuve, .cat-icon-box.autorisation_approuvee { background: #ecfdf5; color: #10b981; }
     .cat-icon-box.conge_refuse { background: #fef2f2; color: #ef4444; }
     .cat-icon-box.validation_requise { background: #fffbeb; color: #f59e0b; }
@@ -217,7 +217,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
     .notif-cards-list { display: flex; flex-direction: column; gap: 16px; }
 
     .notif-card {
-      display: flex; gap: 24px; padding: 24px; background: white; border: 1px solid #e2e8f0; border-radius: 20px;
+      display: flex; gap: 24px; padding: 24px; background: white; border: 1px solid var(--border); border-radius: 20px;
       cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative;
     }
     .notif-card:hover { transform: translateX(8px); border-color: #534AB7; box-shadow: 0 10px 30px rgba(83, 74, 183, 0.08); }
@@ -253,7 +253,7 @@ import { NotificationService, Notification, NotificationType } from '../../core/
     .notif-card:hover .arrow-icon { transform: translateX(4px); color: #534AB7; }
 
     /* Empty State */
-    .empty-state { padding: 100px 40px; text-align: center; background: white; border-radius: 32px; border: 1px solid #e2e8f0; }
+    .empty-state { padding: 100px 40px; text-align: center; background: white; border-radius: 32px; border: 1px solid var(--border); }
     :host-context(.dark) .empty-state { background: #1a1f2e; border-color: #2d3548; }
     .empty-illustration { width: 120px; height: 120px; background: #EEEDFE; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 32px; color: #534AB7; }
     .empty-state h2 { font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 12px; }

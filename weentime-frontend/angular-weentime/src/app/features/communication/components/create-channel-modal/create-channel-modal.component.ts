@@ -105,7 +105,7 @@ import { FormsModule } from '@angular/forms';
       transition: all 0.2s;
     }
 
-    .close-btn:hover { background: #f1f5f9; color: #1e1b4b; }
+    .close-btn:hover { background: #FFFFFF; color: #1e1b4b; }
     .close-btn svg { width: 20px; height: 20px; }
 
     .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
@@ -116,7 +116,7 @@ import { FormsModule } from '@angular/forms';
     input[type="text"], textarea {
       padding: 12px 16px;
       border-radius: 12px;
-      border: 1.5px solid #e2e8f0;
+      border: 1.5px solid var(--border);
       font-size: 15px;
       font-family: inherit;
       transition: all 0.2s;
@@ -137,7 +137,7 @@ import { FormsModule } from '@angular/forms';
       align-items: center;
       justify-content: space-between;
       padding: 16px;
-      background: #f8fafc;
+      background: #FFFFFF;
       border-radius: 16px;
     }
 
@@ -173,10 +173,10 @@ import { FormsModule } from '@angular/forms';
     .btn-secondary {
       background: white;
       color: #64748b;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
     }
 
-    .btn-secondary:hover { background: #f8fafc; color: #1e1b4b; }
+    .btn-secondary:hover { background: #FFFFFF; color: #1e1b4b; }
 
     /* Switch styling */
     .switch {

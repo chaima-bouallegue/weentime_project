@@ -44,7 +44,7 @@ import { PresenceService } from '../../services/presence.service';
   `,
   styles: [`
     .main-status-card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
-    .status-display { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid #e5e7eb; }
+    .status-display { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
     .status-indicator { display: flex; align-items: center; gap: 0.75rem; font-weight: 600; font-size: 1.125rem; }
     .status-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; animation: pulse 2s infinite; }
     .status-indicator.present .status-dot { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
@@ -58,7 +58,7 @@ import { PresenceService } from '../../services/presence.service';
     .current-time { font-size: 2.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #1f2937; }
     .time-label { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
     .presence-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-    .detail-item { display: flex; flex-direction: column; padding: 1rem; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .detail-item { display: flex; flex-direction: column; padding: 1rem; background: #f9fafb; border-radius: 8px; border: 1px solid var(--border); }
     .detail-item.highlight { background: #eff6ff; border-color: #bfdbfe; }
     .detail-label { font-size: 0.875rem; color: #6b7280; font-weight: 500; }
     .detail-value { font-size: 1.25rem; font-weight: 600; color: #1f2937; margin-top: 0.5rem; font-family: 'Monaco', 'Courier New', monospace; }

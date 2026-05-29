@@ -186,7 +186,7 @@ $colors: (
   &.unavailable,
   &.disabled {
     opacity: 0.6;
-    border-color: #e5e7eb;
+    border-color: var(--border);
     background: #f9fafb;
     cursor: not-allowed;
 
@@ -415,7 +415,7 @@ $colors: (
 
 .message-section {
   padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border);
   text-align: center;
 
   .availability-message {

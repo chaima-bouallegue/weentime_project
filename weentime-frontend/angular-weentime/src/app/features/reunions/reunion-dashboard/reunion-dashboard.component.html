@@ -1,8 +1,8 @@
-<div class="dashboard-bento-container">
+<div class="dashboard-bento-container page-content">
   <!-- ═══════════════════ HERO SECTION: NEXT MEETING ═══════════════════ -->
   @if (prochaineReunion(); as next) {
   <header class="dashboard-hero">
-    <div class="hero-card premium-glass" [routerLink]="['/app/reunions', next.uuid]">
+    <div class="hero-card premium-glass reunion-card" [routerLink]="['/app/reunions', next.uuid]">
       <div class="card-mesh"></div>
       <div class="hero-content">
         <div class="hero-main">
@@ -43,7 +43,7 @@
     </div>
   </header>
   } @else {
-  <header class="dashboard-hero dashboard-hero--empty">
+  <header class="dashboard-hero dashboard-hero--empty agenda-banner day-agenda-card">
     <div class="hero-card premium-glass">
       <div class="hero-main">
         <div class="hero-context-badge">Agenda du jour</div>
@@ -78,7 +78,7 @@
   <!-- ═══════════════════ BENTO GRID OF MEETINGS ═══════════════════ -->
   <div class="meeting-list">
     @for (r of filteredReunions(); track r.uuid) {
-    <article class="meeting-list-card premium-glass" [routerLink]="['/app/reunions', r.uuid]">
+    <article class="meeting-list-card premium-glass meeting-card reunion-card" [routerLink]="['/app/reunions', r.uuid]">
       <!-- Left Accent Bar -->
       <div class="status-accent" [style.background-color]="getStatusColor(r.statut)"></div>
 
@@ -160,7 +160,7 @@
 
   <!-- ═══════════════════ EMPTY STATE ═══════════════════ -->
   @if (!isLoading() && filteredReunions().length === 0) {
-  <div class="empty-state-glass">
+  <div class="empty-state-glass card reunion-card">
     <div class="empty-icon-wrap">
       <lucide-icon [img]="iconCalendar" size="40"></lucide-icon>
     </div>

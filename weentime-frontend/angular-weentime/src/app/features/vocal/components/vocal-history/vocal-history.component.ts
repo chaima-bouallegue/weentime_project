@@ -108,7 +108,7 @@ import { LucideAngularModule } from 'lucide-angular';
       font-style: italic;
     }
     .bot-response {
-      background: #f8fafc;
+      background: #FFFFFF;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 13px;

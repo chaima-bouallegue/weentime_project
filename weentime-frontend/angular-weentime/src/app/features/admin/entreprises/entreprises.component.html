@@ -1,102 +1,635 @@
-<div class="rh-bento-container fade-in">
-  <!-- Bento Hero Header -->
-  <header class="dashboard-hero mb-8">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#3b82f6'"></div>
-      
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-blue-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-blue-200 dark:shadow-none">
-              Administration
-            </span>
-          </div>
-          
-          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Gestion des Entreprises
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Configurez et supervisez la flotte complète des organisations clientes. {{ entreprises().length }} sociétés référencées.
-          </p>
+<div class="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased flex relative">
+  <!-- ZONE CENTRALE PRINCIPALE -->
+  <div class="flex-1 flex flex-col min-w-0 p-6 gap-6 overflow-auto">
+
+    <!-- TOOLBAR STICKY -->
+    <header
+      class="z-30 flex flex-col bg-white border border-[#E2E8F0] rounded-xl shadow-sm select-none shrink-0 p-4 gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+        <!-- Gauche : Titre + Badge Dynamique -->
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl font-bold text-[#0F172A]">Entreprises</h1>
+          <span class="text-xs font-semibold px-2 py-0.5 bg-[#EEF2FF] text-[#6366F1] rounded-full">
+            {{ totalCount() }} entreprises
+          </span>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-4">
-           <button class="hero-btn secondary" (click)="loadEntreprises()" [disabled]="loading()">
-              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="loading()"></lucide-angular>
-              <span>Actualiser</span>
-           </button>
-           <button class="hero-btn primary-blue" (click)="openCreateForm()">
-              <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
-              <span>Nouvelle Entreprise</span>
-           </button>
+        <!-- Centre : Barre de recherche style Pilule (rounded-full) harmonisée -->
+        <div class="flex-1 max-w-md sm:mx-4">
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94A3B8]">
+              <lucide-angular [img]="iconSearch" size="16"></lucide-angular>
+            </div>
+            <input #searchInput type="text" [ngModel]="searchQuery()" (input)="onSearchInput($event)"
+              placeholder="Filtrer les entreprises... (Appuyez sur /)"
+              class="block w-full pl-10 pr-14 py-2 text-sm bg-white border border-[#E2E8F0] rounded-full placeholder-[#94A3B8] focus:outline-none focus:border-[#6366F1] font-medium text-slate-900 transition-all shadow-sm" />
+
+            <!-- Bouton Clear dynamique -->
+            <button *ngIf="searchQuery().length > 0" (click)="clearSearch()"
+              class="absolute inset-y-0 right-8 flex items-center justify-center px-1 text-[#94A3B8] hover:text-[#475569] transition-colors">
+              <lucide-angular [img]="iconX" size="14"></lucide-angular>
+            </button>
+
+            <!-- Indicateur de raccourci clavier -->
+            <kbd
+              class="absolute inset-y-2 right-3 px-1.5 bg-white border border-[#E2E8F0] rounded text-[10px] text-[#94A3B8] flex items-center justify-center font-mono shadow-2xs"
+              [class.opacity-0]="searchQuery().length > 0">
+              /
+            </kbd>
+          </div>
+        </div>
+
+        <!-- Droite : Actions principales -->
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <!-- Bouton Actualiser unique (gère le responsive proprement de manière native) -->
+          <button type="button" (click)="refreshData()"
+            class="inline-flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm"
+            title="Actualiser les données">
+            <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
+            <span class="hidden sm:inline">Actualiser</span>
+          </button>
+
+          <!-- Bouton de création en rounded-xl -->
+          <button type="button" (click)="openCreateModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-[#6366F1] text-white rounded-xl hover:bg-[#4F46E5] active:bg-[#4338CA] transition-colors text-sm font-semibold shadow-sm">
+            <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
+            <span>Nouvelle Entreprise</span>
+          </button>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Main Content Grid -->
-  <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-    <!-- Left Column: List -->
-    <section class="lg:col-span-4 flex flex-col gap-6">
-      <app-entreprise-list
-        class="block h-full"
-        [entreprises]="filteredEntreprises()"
-        [loading]="loading()"
-        [selectedId]="selectedId()"
-        (search)="searchQuery.set($event)"
-        (filter)="statusFilter.set($event)"
-        (select)="onSelect($event)"
-        (edit)="openEditForm($event)"
-        (delete)="openDeleteConfirm($event)"
-      ></app-entreprise-list>
-    </section>
+      <hr class="border-slate-100 my-0">
 
-    <!-- Right Column: Detail -->
-    <section class="lg:col-span-8 flex flex-col gap-6">
-      @if (selectedId()) {
-        <app-entreprise-detail
-          [entreprise]="selectedEntreprise()"
-          (close)="selectedId.set(null)"
-          (edit)="openEditForm($event)"
-          (delete)="openDeleteConfirm($event)"
-          (controlAccess)="openAccessControl($event)"
-        ></app-entreprise-detail>
-      } @else {
-        <div class="bento-card flex-1 min-h-[500px] flex flex-col items-center justify-center p-10 text-center border-dashed border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-          <div class="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
-             <lucide-angular [img]="iconMouse" size="40"></lucide-angular>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Sélection requise</h3>
-          <p class="text-sm font-medium text-slate-500 max-w-sm">
-            Cliquez sur une entreprise dans la liste latérale pour consulter l'intégralité de sa fiche d'identité et de ses coordonnées.
-          </p>
+      <!-- Bas du Header : Filtres de Statuts et Boutons Pills (rounded-xl) -->
+      <div class="flex items-center justify-between text-xs font-medium text-[#64748B]">
+        <div class="flex items-center gap-2 overflow-x-auto">
+          <!-- Onglet Toutes -->
+          <button (click)="selectStatus('ALL')"
+            [class]="filterStatus() === 'ALL' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl transition-colors">
+            Toutes
+          </button>
+
+          <!-- Onglet Actives -->
+          <button (click)="selectStatus('ACTIVE')"
+            [class]="filterStatus() === 'ACTIVE' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+            Actives ({{ activeCount() }})
+          </button>
+
+          <!-- Onglet Suspendues -->
+          <button (click)="selectStatus('SUSPENDED')"
+            [class]="filterStatus() === 'SUSPENDED' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>
+            Suspendues ({{ suspendedCount() }})
+          </button>
+
+          <!-- Onglet Fermées -->
+          <button (click)="selectStatus('CLOSED')"
+            [class]="filterStatus() === 'CLOSED' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#94A3B8]"></span>
+            Fermées ({{ closedCount() }})
+          </button>
         </div>
-      }
-    </section>
-  </main>
 
-  <!-- Modals -->
-  @if (isFormOpen()) {
-    <app-entreprise-form
-      [entreprise]="entrepriseToEdit()"
-      (close)="isFormOpen.set(false)"
-      (saved)="onFormSaved()"
-    ></app-entreprise-form>
+        <!-- Méta-informations de filtrage -->
+        <div class="text-[#94A3B8] hidden md:block text-[11px]">
+          Filtre appliqué : <span class="font-medium text-[#64748B]">{{ filteredEnterprises().length }} sur {{
+            totalCount() }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- BANNER ACTIONS EN MASSE -->
+    @if (selectedIds().size > 0) {
+    <div @bannerFade
+      class="p-3 bg-[#EFF6FF] border border-[#C7D2FE] rounded-xl flex items-center justify-between gap-4 shadow-sm">
+      <div class="flex items-center gap-2.5 text-sm font-medium text-[#1E40AF]">
+        <span
+          class="flex h-5 w-5 items-center justify-center rounded-full bg-[#3B82F6] text-white text-[10px] font-bold">
+          {{ selectedIds().size }}
+        </span>
+        <span>entreprises sélectionnées</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button (click)="exportSelectedCSV()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] rounded-lg text-xs font-semibold text-[#334155] transition-colors">
+          <lucide-angular [img]="iconDownload" size="14"></lucide-angular>
+          Exporter CSV
+        </button>
+        <button (click)="suspendSelected()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B] rounded-lg text-xs font-bold text-[#B45309] transition-colors">
+          <lucide-angular [img]="iconPause" size="14"></lucide-angular>
+          Suspendre
+        </button>
+        <button (click)="deleteSelected()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] active:bg-[#B91C1C] text-white rounded-lg text-xs font-semibold shadow-sm hover:shadow transition-colors">
+          <lucide-angular [img]="iconTrash" size="14"></lucide-angular>
+          Supprimer
+        </button>
+        <button (click)="selectedIds().clear()" class="p-1 text-[#94A3B8] hover:text-[#475569] rounded-lg">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- ZONE DE TABLEAU -->
+    <main class="min-h-0">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
+        <!-- SKELETON LOADER -->
+        @if (isLoading()) {
+        <div class="divide-y divide-[#E2E8F0]">
+          @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="p-4 flex items-center justify-between animate-pulse">
+            <div class="flex items-center gap-4 w-1/3">
+              <div class="w-9 h-9 rounded-full bg-slate-200"></div>
+              <div class="h-4 bg-slate-200 rounded w-24"></div>
+            </div>
+            <div class="h-4 bg-slate-200 rounded w-16"></div>
+            <div class="h-4 bg-slate-200 rounded w-12"></div>
+            <div class="h-6 bg-slate-200 rounded w-16"></div>
+            <div class="w-16 h-8 bg-slate-200 rounded"></div>
+          </div>
+          }
+        </div>
+        }
+
+        <!-- VRAI TABLEAU -->
+        @if (!isLoading()) {
+        <table class="w-full text-left border-collapse select-none">
+          <thead>
+            <tr
+              class="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wider h-10">
+              <th class="w-12 px-4 text-center">
+                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleSelectAll()"
+                  class="rounded border-[#CBD5E1] text-[#6366F1] focus:ring-[#6366F1] cursor-pointer w-4 h-4 transition duration-150" />
+              </th>
+              <th class="px-6 font-semibold py-3" style="text-align: left !important;">Entreprise</th>
+              <th class="px-6 font-semibold py-3" style="text-align: left !important;">Secteur</th>
+              <th class="px-6 font-semibold py-3" style="text-align: right !important;">Employés</th>
+              <th class="px-6 font-semibold py-3" style="text-align: left !important;">Statut</th>
+              <th class="px-6 font-semibold py-3" style="text-align: left !important;">Dernière Activité</th>
+              <th class="w-20 px-6 py-3 text-right"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#E2E8F0]">
+            @for (ent of paginatedEnterprises(); track ent.id) {
+            <tr (click)="selectEnterprise(ent)" [class.bg-\[#EFF6FF\]]="selectedEnterprise()?.id === ent.id"
+              [class.border-l-3]="selectedEnterprise()?.id === ent.id"
+              [class.border-l-\[#6366F1\]]="selectedEnterprise()?.id === ent.id"
+              class="group hover:bg-[#F8FAFC] cursor-pointer transition-colors duration-150 h-[52px]">
+
+              <td class="px-4 text-center" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="selectedIds().has(ent.id)" (change)="toggleSelect(ent.id, $event)"
+                  class="rounded border-[#CBD5E1] text-[#6366F1] focus:ring-[#6366F1] cursor-pointer w-4 h-4 transition duration-150" />
+              </td>
+              <td class="px-6 py-3" style="text-align: left !important;">
+                <div class="flex items-center gap-3">
+                  <div [style.background-color]="ent.avatarColor"
+                    class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm select-none">
+                    {{ ent.initials }}
+                  </div>
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-sm font-semibold text-[#0F172A] truncate">{{ ent.name }}</span>
+                    <div class="flex items-center gap-1.5 group/id">
+                      <span class="text-[10px] text-[#475569] font-mono truncate max-w-[120px]">{{ ent.id }}</span>
+                      <button (click)="copyToClipboard(ent.id, $event)"
+                        class="opacity-0 group-hover/id:opacity-100 p-0.5 hover:bg-slate-100 rounded text-[#64748B] hover:text-[#0F172A] transition-all flex items-center justify-center"
+                        title="Copier l'identifiant">
+                        <lucide-angular [img]="iconCopy" size="10"></lucide-angular>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-6 py-3" style="text-align: left !important;">
+                <span class="text-sm text-[#64748B] font-medium">{{ ent.sector }}</span>
+              </td>
+
+              <td class="px-6 py-3" style="text-align: right !important;">
+                <span class="text-sm font-semibold text-[#475569]">{{ ent.employeesCount }}</span>
+              </td>
+
+              <td class="px-6 py-3" style="text-align: left !important;">
+                <span [ngClass]="{
+                    'bg-[#D1FAE5] text-[#064E3B] dark:bg-emerald-950/40 dark:text-emerald-400': ent.status === 'ACTIVE',
+                    'bg-[#FEF3C7] text-[#78350F] dark:bg-amber-950/40 dark:text-amber-400': ent.status === 'SUSPENDED',
+                    'bg-[#F1F5F9] text-[#1E293B] dark:bg-slate-800/50 dark:text-slate-400': ent.status === 'CLOSED'
+                  }"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none">
+                  <span [ngClass]="{
+                      'bg-[#10B981]': ent.status === 'ACTIVE',
+                      'bg-[#F59E0B]': ent.status === 'SUSPENDED',
+                      'bg-[#94A3B8]': ent.status === 'CLOSED'
+                    }" class="w-1.5 h-1.5 rounded-full"></span>
+                  {{ ent.status === 'ACTIVE' ? 'ACTIVE' : ent.status === 'SUSPENDED' ? 'SUSPENDUE' : 'FERMÉE' }}
+                </span>
+              </td>
+
+              <td class="px-6 py-3 text-left">
+                <span class="text-xs text-[#94A3B8] font-medium">{{ ent.lastActivity | relativeTime }}</span>
+              </td>
+
+              <td class="px-6 py-3 text-right" (click)="$event.stopPropagation()">
+                <div
+                  class="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <button (click)="selectEnterprise(ent); $event.stopPropagation()" title="Voir les détails"
+                    class="p-1.5 hover:bg-[#EFF6FF] text-[#64748B] hover:text-[#6366F1] rounded-md transition-colors">
+                    <lucide-angular [img]="iconEye" size="14"></lucide-angular>
+                  </button>
+                  <button (click)="openEditModal(ent, $event); $event.stopPropagation()" title="Modifier"
+                    class="p-1.5 hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] rounded-md transition-colors">
+                    <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
+                  </button>
+                  <button (click)="toggleStatus(ent, $event); $event.stopPropagation()"
+                    [title]="ent.status === 'ACTIVE' ? 'Suspendre' : 'Réactiver'"
+                    class="p-1.5 hover:bg-amber-50 text-[#64748B] hover:text-amber-700 rounded-md transition-colors">
+                    <lucide-angular [img]="ent.status === 'ACTIVE' ? iconPause : iconPlay" size="14"></lucide-angular>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            }
+            @empty {
+            <tr>
+              <td colspan="7" class="py-16 text-center">
+                <div class="flex flex-col items-center justify-center p-6">
+                  <div
+                    class="w-12 h-12 bg-slate-50 border border-dashed border-[#CBD5E1] text-[#94A3B8] rounded-xl flex items-center justify-center mb-3">
+                    <lucide-angular [img]="iconAlert" size="24"></lucide-angular>
+                  </div>
+                  <p class="text-sm font-semibold text-slate-800">Aucune entreprise trouvée</p>
+                  <p class="text-xs text-[#94A3B8] max-w-[240px] mt-1 mb-4">Essayez de modifier votre recherche ou vos
+                    filtres pour obtenir des résultats.</p>
+                  <button (click)="searchQuery.set(''); filterStatus.set('ALL')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] hover:bg-slate-50 bg-white rounded-lg text-xs font-semibold text-[#475569] shadow-sm transition-colors cursor-pointer">
+                    Réinitialiser la recherche
+                  </button>
+                </div>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+        }
+      </div>
+    </main>
+
+    <!-- PAGINATION -->
+    <footer
+      class="h-14 pl-6 pr-24 md:pr-28 border-t border-[#E2E8F0] bg-white flex items-center justify-between select-none">
+      <div class="text-xs text-[#94A3B8] font-medium">
+        Affichage de <span class="text-[#475569] font-bold">{{ (currentPage() - 1) * pageSize() + 1 }}</span> à
+        <span class="text-[#475569] font-bold">{{ Math.min(currentPage() * pageSize(), filteredEnterprises().length)
+          }}</span> sur
+        <span class="text-[#475569] font-bold">{{ filteredEnterprises().length }}</span> entreprises
+      </div>
+
+      <div class="flex items-center gap-1">
+        <button (click)="prevPage()" [disabled]="currentPage() === 1"
+          class="inline-flex items-center justify-center p-1.5 border border-[#E2E8F0] rounded-lg bg-white text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <lucide-angular [img]="iconArrowLeft" size="14"></lucide-angular>
+        </button>
+
+        @for (page of [].constructor(totalPages()); track $index) {
+        <button (click)="setPage($index + 1)"
+          [class]="currentPage() === $index + 1 ? 'bg-[#6366F1] text-white border-[#6366F1] font-semibold' : 'bg-white border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'"
+          class="w-8 h-8 flex items-center justify-center border rounded-lg text-xs transition-colors">
+          {{ $index + 1 }}
+        </button>
+        }
+
+        <button (click)="nextPage()" [disabled]="currentPage() === totalPages()"
+          class="inline-flex items-center justify-center p-1.5 border border-[#E2E8F0] rounded-lg bg-white text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <lucide-angular [img]="iconArrowRight" size="14"></lucide-angular>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-[#94A3B8] font-medium">Lignes par page :</span>
+        <select [value]="pageSize()" (change)="onPageSizeChange($event)"
+          class="bg-white border border-[#E2E8F0] text-xs font-semibold text-[#475569] rounded-lg py-1 pl-2 pr-8 focus:outline-none focus:border-[#6366F1] cursor-pointer">
+          <option [value]="5">5</option>
+          <option [value]="10">10</option>
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+        </select>
+      </div>
+    </footer>
+  </div>
+
+  <!-- DRAWER DROIT -->
+  @if (selectedEnterprise(); as enterprise) {
+  <div class="fixed inset-0 z-50 flex justify-end select-none">
+    <div class="absolute inset-0 bg-slate-900/10 backdrop-blur-[2px]" (click)="closeDrawer()"></div>
+
+    <div @drawerSlide
+      class="drawer-container fixed bottom-0 left-0 right-0 md:left-auto md:top-0 z-10 w-full md:max-w-[420px] bg-white h-[80vh] md:h-screen shadow-2xl flex flex-col rounded-t-3xl md:rounded-t-none border-t md:border-t-0 md:border-l border-[#E2E8F0]">
+
+      <!-- HEADER DRAWER -->
+      <div class="relative p-6 border-b border-[#E2E8F0] flex flex-col gap-4 bg-[#F8FAFC]">
+        <!-- Close button isolated at the top right -->
+        <button (click)="closeDrawer()"
+          class="absolute top-4 right-4 p-1.5 hover:bg-slate-200 text-[#94A3B8] hover:text-[#475569] rounded-lg transition-colors"
+          title="Fermer le panneau">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+
+        <div class="flex items-center gap-4 mt-2">
+          <div [style.background-color]="enterprise.avatarColor"
+            class="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            {{ enterprise.initials }}
+          </div>
+          <div class="ml-auto flex items-center gap-2 pr-6">
+            <button (click)="openEditModal(enterprise)"
+              class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-[#E2E8F0] rounded-lg text-xs font-semibold text-[#475569] transition-colors">
+              <lucide-angular [img]="iconEdit" size="12"></lucide-angular>
+              <span>Modifier</span>
+            </button>
+            <button (click)="toggleStatus(enterprise)"
+              class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B] rounded-lg text-xs font-bold text-[#B45309] transition-colors">
+              <lucide-angular [img]="enterprise.status === 'ACTIVE' ? iconPause : iconPlay" size="12"></lucide-angular>
+              <span>{{ enterprise.status === 'ACTIVE' ? 'Suspendre' : 'Activer' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-[#0F172A] tracking-tight truncate">{{ enterprise.name }}</h2>
+            <span [ngClass]="{
+                'bg-[#D1FAE5] text-[#064E3B] dark:bg-emerald-950/40 dark:text-emerald-400': enterprise.status === 'ACTIVE',
+                'bg-[#FEF3C7] text-[#78350F] dark:bg-amber-950/40 dark:text-amber-400': enterprise.status === 'SUSPENDED',
+                'bg-[#F1F5F9] text-[#1E293B] dark:bg-slate-800/50 dark:text-slate-400': enterprise.status === 'CLOSED'
+              }" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold">
+              {{ enterprise.status }}
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="text-xs text-[#475569] font-mono select-all">{{ enterprise.id }}</span>
+            <button (click)="copyToClipboard(enterprise.id, $event)"
+              class="p-0.5 hover:bg-slate-200 rounded text-[#64748B] hover:text-[#0F172A] transition-all flex items-center justify-center"
+              title="Copier l'identifiant">
+              <lucide-angular [img]="iconCopy" size="10"></lucide-angular>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <nav class="flex border-b border-[#E2E8F0] px-4 overflow-x-auto bg-white">
+        <button (click)="activeTab.set('overview')" [class.border-b-2]="activeTab() === 'overview'"
+          [class.border-[#6366F1]]="activeTab() === 'overview'" [class.text-[#0F172A]]="activeTab() === 'overview'"
+          [class.font-bold]="activeTab() === 'overview'" [class.text-[#94A3B8]]="activeTab() !== 'overview'"
+          [class.font-medium]="activeTab() !== 'overview'"
+          class="px-3 py-2 text-xs border-b-2 border-transparent hover:text-[#0F172A] transition-colors whitespace-nowrap">
+          Vue générale
+        </button>
+        <button (click)="activeTab.set('users')" [class.border-b-2]="activeTab() === 'users'"
+          [class.border-[#6366F1]]="activeTab() === 'users'" [class.text-[#0F172A]]="activeTab() === 'users'"
+          [class.font-bold]="activeTab() === 'users'" [class.text-[#94A3B8]]="activeTab() !== 'users'"
+          [class.font-medium]="activeTab() !== 'users'"
+          class="px-3 py-2 text-xs border-b-2 border-transparent hover:text-[#0F172A] transition-colors whitespace-nowrap">
+          Utilisateurs
+        </button>
+        <button (click)="activeTab.set('activity')" [class.border-b-2]="activeTab() === 'activity'"
+          [class.border-[#6366F1]]="activeTab() === 'activity'" [class.text-[#0F172A]]="activeTab() === 'activity'"
+          [class.font-bold]="activeTab() === 'activity'" [class.text-[#94A3B8]]="activeTab() !== 'activity'"
+          [class.font-medium]="activeTab() !== 'activity'"
+          class="px-3 py-2 text-xs border-b-2 border-transparent hover:text-[#0F172A] transition-colors whitespace-nowrap">
+          Activité
+        </button>
+        <button (click)="activeTab.set('settings')" [class.border-b-2]="activeTab() === 'settings'"
+          [class.border-[#6366F1]]="activeTab() === 'settings'" [class.text-[#0F172A]]="activeTab() === 'settings'"
+          [class.font-bold]="activeTab() === 'settings'" [class.text-[#94A3B8]]="activeTab() !== 'settings'"
+          [class.font-medium]="activeTab() !== 'settings'"
+          class="px-3 py-2 text-xs border-b-2 border-transparent hover:text-[#0F172A] transition-colors whitespace-nowrap">
+          Paramètres
+        </button>
+      </nav>
+
+      <!-- TAB CONTENT -->
+      <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+
+        @if (activeTab() === 'overview') {
+        <div class="flex flex-col gap-6">
+          <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-3">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Identité légale</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col justify-end">
+                <span class="block text-[11px] text-[#94A3B8] mb-0.5">Numéro SIRET</span>
+                <span class="text-xs font-semibold font-mono text-[#334155] leading-5">{{ enterprise.siret }}</span>
+              </div>
+              <div class="flex flex-col justify-end">
+                <span class="block text-[11px] text-[#94A3B8] mb-0.5">Secteur</span>
+                <span class="text-xs font-semibold text-[#334155] leading-5">{{ enterprise.sector }}</span>
+              </div>
+              <div class="col-span-2">
+                <span class="block text-[11px] text-[#94A3B8]">Date d'enregistrement</span>
+                <span class="text-sm font-semibold text-[#334155] flex items-center gap-1.5 mt-0.5">
+                  <lucide-angular [img]="iconCalendar" size="14" class="text-[#94A3B8]"></lucide-angular>
+                  {{ enterprise.createdAt | date:'longDate':'':'fr' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider mb-3">Statistiques d'utilisation</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Utilisateurs Actifs</span>
+                <span class="text-lg font-bold text-[#0F172A] mt-1 block">
+                  {{ enterprise.activeUsers }}
+                  <span class="text-xs font-semibold text-[#94A3B8]">/ {{ enterprise.employeesCount }}</span>
+                </span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Managers RH</span>
+                <span class="text-lg font-bold text-[#0F172A] mt-1 block">{{ enterprise.hrManagers }}</span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Modules Activés</span>
+                <span class="text-lg font-bold text-[#6366F1] mt-1 block">
+                  {{ enterprise.modulesEnabled }}
+                  <span class="text-xs font-semibold text-[#94A3B8]">/ 9</span>
+                </span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Dernière Connexion</span>
+                <span class="text-xs font-bold text-[#475569] mt-2 block truncate">{{ enterprise.lastLogin |
+                  relativeTime }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        }
+
+        @if (activeTab() === 'users') {
+        <div class="flex flex-col gap-4">
+          <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-4">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Gestion de l'effectif</h3>
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between text-sm py-1.5 border-b border-[#E2E8F0]">
+                <span class="text-[#64748B]">Collaborateurs sous contrat</span>
+                <span class="font-bold text-[#0F172A]">{{ enterprise.employeesCount }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm py-1.5 border-b border-[#E2E8F0]">
+                <span class="text-[#64748B]">Licences consommées</span>
+                <span class="font-bold text-[#6366F1]">{{ enterprise.activeUsers }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm py-1.5">
+                <span class="text-[#64748B]">Taux d'engagement</span>
+                <span class="font-bold text-[#10B981]">{{ Math.round((enterprise.activeUsers /
+                  enterprise.employeesCount) * 100) }} %</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        }
+
+        @if (activeTab() === 'activity') {
+        <div class="flex flex-col gap-4">
+          <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider mb-2">Historique d'administration</h3>
+          <div class="relative pl-6 border-l border-[#E2E8F0] flex flex-col gap-6 ml-2">
+            @for (event of recentActivity; track event.id) {
+            <div class="relative">
+              <span
+                class="absolute -left-[30px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white border-2 border-[#6366F1]">
+                <span class="h-1.5 w-1.5 rounded-full bg-[#6366F1]"></span>
+              </span>
+              <div class="flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-slate-800">{{ event.description }}</p>
+                <p class="text-[10px] text-[#94A3B8]">{{ event.date | relativeTime }}</p>
+              </div>
+            </div>
+            }
+          </div>
+        </div>
+        }
+
+        @if (activeTab() === 'settings') {
+        <div class="flex flex-col gap-6">
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-3">
+            <h3 class="text-xs font-bold text-red-800 uppercase tracking-wider">Zone de Danger</h3>
+            <p class="text-xs text-red-600">Ces actions affectent immédiatement l'accès des collaborateurs de
+              l'entreprise à WeenTime.</p>
+            <div class="flex flex-col gap-2 mt-2">
+              <button (click)="toggleStatus(enterprise)"
+                class="w-full inline-flex items-center justify-center px-4 py-2 border border-amber-300 hover:bg-amber-100 rounded-lg text-xs font-bold text-amber-800 transition-colors">
+                {{ enterprise.status === 'ACTIVE' ? 'Suspendre définitivement' : 'Réactiver l\'entreprise' }}
+              </button>
+              <button (click)="deleteEnterprise(enterprise)"
+                class="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-bold text-white shadow-sm transition-colors">
+                Supprimer de la plateforme
+              </button>
+            </div>
+          </div>
+        </div>
+        }
+
+      </div>
+    </div>
+  </div>
   }
 
-  @if (isDeleteConfirmOpen()) {
-    <app-entreprise-delete-confirm
-      [entreprise]="entrepriseToDelete()"
-      (close)="isDeleteConfirmOpen.set(false)"
-      (deleted)="onDeleted()"
-    ></app-entreprise-delete-confirm>
+  <!-- MODAL CRÉATION / ÉDITION -->
+  @if (isCreateModalOpen()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[3px]" (click)="closeCreateModal()"></div>
+
+    <div
+      class="modal-container relative z-10 w-full max-w-md bg-white border border-[#E2E8F0] shadow-2xl rounded-xl overflow-hidden flex flex-col max-h-[90vh]">
+
+      <div class="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
+        <h3 class="text-base font-bold text-[#0F172A]">
+          {{ isEditMode() ? 'Modifier l\'entreprise' : 'Nouvelle entreprise' }}
+        </h3>
+        <button (click)="closeCreateModal()"
+          class="p-1.5 hover:bg-slate-100 text-[#94A3B8] hover:text-[#475569] rounded-lg transition-colors">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1.5">Nom de l'entreprise
+            *</label>
+          <input type="text" [(ngModel)]="formModel.name" placeholder="Ex: Vercel France"
+            class="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8]" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1.5">Secteur d'activité
+            *</label>
+          <input type="text" [(ngModel)]="formModel.sector" placeholder="Ex: Technology, BTP, Consulting"
+            class="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8]" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1.5">Numéro SIRET *</label>
+          <input type="text" [(ngModel)]="formModel.siret" placeholder="14 chiffres"
+            class="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm font-mono focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8]" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1.5">Nombre de
+            collaborateurs</label>
+          <input type="number" [(ngModel)]="formModel.employeesCount"
+            class="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#6366F1]" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1.5">Statut initial</label>
+          <select [(ngModel)]="formModel.status"
+            class="w-full bg-white px-3 py-2 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:border-[#6366F1] cursor-pointer">
+            <option value="ACTIVE">Actif</option>
+            <option value="SUSPENDED">Suspendu</option>
+            <option value="CLOSED">Fermé</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-end gap-3">
+        <button (click)="closeCreateModal()"
+          class="px-4 py-2 border border-[#E2E8F0] bg-white hover:bg-slate-50 text-xs font-semibold text-[#475569] rounded-lg transition-colors">
+          Annuler
+        </button>
+        <button (click)="saveEnterprise()"
+          class="px-4 py-2 bg-[#6366F1] hover:bg-[#4F46E5] text-xs font-semibold text-white rounded-lg shadow-sm transition-colors">
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
   }
 
-  @if (isAccessControlOpen()) {
-    <app-enterprise-access-control-modal
-      [entreprise]="entrepriseForAccessControl()"
-      (close)="closeAccessControl()"
-      (saved)="onAccessControlSaved()"
-    ></app-enterprise-access-control-modal>
-  }
+  <!-- TOASTS -->
+  <div
+    class="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none select-none toast-container">
+    @for (toast of toasts(); track toast.id) {
+    <div @toastFade [ngClass]="{
+        'bg-emerald-600 text-white': toast.type === 'success',
+        'bg-blue-600 text-white': toast.type === 'info',
+        'bg-amber-600 text-white': toast.type === 'warning',
+        'bg-red-600 text-white': toast.type === 'error'
+      }"
+      class="px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-4 pointer-events-auto border border-white/10">
+      <div class="flex items-center gap-2.5">
+        @if (toast.type === 'success') {
+        <lucide-angular [img]="iconCheck" size="16"></lucide-angular>
+        }
+        @if (toast.type !== 'success') {
+        <lucide-angular [img]="iconAlert" size="16"></lucide-angular>
+        }
+        <span class="text-xs font-medium">{{ toast.message }}</span>
+      </div>
+      <button (click)="removeToast(toast.id)" class="text-white/75 hover:text-white pointer-events-auto cursor-pointer">
+        <lucide-angular [img]="iconX" size="14"></lucide-angular>
+      </button>
+    </div>
+    }
+  </div>
 </div>

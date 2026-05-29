@@ -29,7 +29,7 @@ export class ReunionDetailComponent {
 
   @ViewChild('compteRenduSection') compteRenduSection!: ElementRef;
 
-  // Icons
+
   readonly iconCalendar = Calendar; readonly iconClock = Clock;
   readonly iconMapPin = MapPin; readonly iconVideo = Video;
   readonly iconCheck = Check; readonly iconX = X;
@@ -41,6 +41,7 @@ export class ReunionDetailComponent {
   readonly iconDownload = Download; readonly iconTarget = Target;
   readonly iconRepeat = Repeat; readonly iconBack = ArrowLeft;
   readonly iconAlert = AlertTriangle; readonly iconSave = Save;
+  readonly iconAgenda = FileText;
 
   readonly RSVP = RSVPResponse;
   readonly Statut = ReunionStatut;
@@ -50,19 +51,119 @@ export class ReunionDetailComponent {
   readonly showCloturerForm = signal(false);
   readonly isFinalized = signal(false);
 
-  // Modal states
+
   readonly showAnnulerModal = signal(false);
   readonly showCloturerConfirm = signal(false);
 
-  // Inline editing states
+
   readonly editingDescription = signal(false);
   readonly editingAgenda = signal(false);
   readonly editDescriptionValue = signal('');
   readonly editAgendaValue = signal('');
   readonly isSaving = signal(false);
   readonly isGeneratingAI = signal(false);
+  
+  // --- New SaaS Actions & States ---
+  readonly isEditing = signal(false);
+  readonly showDropdown = signal(false);
+  readonly checkedAgendaItems = signal<Record<number, boolean>>({});
 
-  // Cloturer Form (Structured)
+  toggleAgendaItem(index: number) {
+    this.checkedAgendaItems.update(state => ({
+      ...state,
+      [index]: !state[index]
+    }));
+  }
+
+  get agendaLines(): string[] {
+    const r = this.reunion();
+    if (!r || !r.agenda) return [];
+    return r.agenda.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+  }
+
+  toggleGlobalEdit() {
+    const r = this.reunion();
+    if (!r) return;
+    this.editDescriptionValue.set(r.description || '');
+    this.editAgendaValue.set(r.agenda || '');
+    this.editDateValue.set(r.dateReunion);
+    this.editHeureDebutValue.set(r.heureDebut);
+    this.editHeureFinValue.set(r.heureFin);
+    this.isEditing.set(!this.isEditing());
+    this.showDropdown.set(false);
+  }
+
+  saveGlobalEdits() {
+    const r = this.reunion();
+    if (!r) return;
+    this.isSaving.set(true);
+    this.reunionService.update(r.uuid, {
+      description: this.editDescriptionValue(),
+      agenda: this.editAgendaValue(),
+      dateReunion: this.editDateValue(),
+      heureDebut: this.editHeureDebutValue(),
+      heureFin: this.editHeureFinValue()
+    }).subscribe({
+      next: () => {
+        this.reunion.update(prev => prev ? {
+          ...prev,
+          description: this.editDescriptionValue(),
+          agenda: this.editAgendaValue(),
+          dateReunion: this.editDateValue(),
+          heureDebut: this.editHeureDebutValue(),
+          heureFin: this.editHeureFinValue()
+        } : prev);
+        this.isEditing.set(false);
+        this.isSaving.set(false);
+        this.toast.success('Réunion mise à jour avec succès');
+        this.refresh();
+      },
+      error: () => {
+        this.isSaving.set(false);
+        this.toast.error('Erreur lors de la sauvegarde');
+      }
+    });
+  }
+
+  dupliquerReunion() {
+    const r = this.reunion();
+    if (!r) return;
+    this.isSaving.set(true);
+    this.showDropdown.set(false);
+    this.toast.info('Duplication de la réunion...');
+
+    const req = {
+      titre: `[Copie] ${r.titre}`,
+      description: r.description || '',
+      dateReunion: r.dateReunion,
+      heureDebut: r.heureDebut,
+      heureFin: r.heureFin,
+      type: r.type,
+      lieu: r.lieu || '',
+      lienVisio: r.lienVisio || '',
+      recurrence: r.recurrence,
+      agenda: r.agenda || '',
+      participantIds: r.participants.map(p => p.utilisateurId)
+    };
+
+    this.reunionService.create(req).subscribe({
+      next: (newReunion) => {
+        this.isSaving.set(false);
+        this.store.invalidateCache();
+        this.toast.success('Réunion dupliquée avec succès !');
+        this.router.navigate(['/app/reunions', newReunion.uuid]);
+      },
+      error: (err) => {
+        this.isSaving.set(false);
+        console.error(err);
+        this.toast.error('Erreur lors de la duplication de la réunion.');
+      }
+    });
+  }
+
+
   readonly selectedPresents = signal<number[]>([]);
   reportPoints = signal('');
   reportDecisions = signal('');
@@ -114,7 +215,7 @@ export class ReunionDetailComponent {
     });
   }
 
-  // --- Navigation ---
+
   goBack() {
     this.router.navigate(['/app/reunions']);
   }
@@ -182,7 +283,7 @@ export class ReunionDetailComponent {
     }
   }
 
-  // --- Inline Editing: Description ---
+
   startEditDescription() {
     const r = this.reunion();
     this.editDescriptionValue.set(r?.description || '');
@@ -251,6 +352,14 @@ export class ReunionDetailComponent {
   }
 
   finaliser() {
+    if (!this.reportPoints()?.trim() &&
+      !this.reportDecisions()?.trim() &&
+      !this.reportActions()?.trim()) {
+      this.toast.warning(
+        'Veuillez renseigner au moins un champ du compte-rendu avant de clôturer'
+      );
+      return;
+    }
     this.showCloturerConfirm.set(true);
   }
 
@@ -311,14 +420,14 @@ export class ReunionDetailComponent {
           .header .meta span { margin-right: 1.5rem; }
           .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; color: #166534; margin-left: 0.5rem; }
           .section { margin-bottom: 2rem; }
-          .section h2 { font-size: 1rem; font-weight: 700; color: #6366f1; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; }
+          .section h2 { font-size: 1rem; font-weight: 700; color: #6366f1; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
           .section p, .section pre { font-size: 0.9rem; color: #334155; white-space: pre-wrap; }
           .participants { margin-top: 2rem; }
-          .participants h2 { font-size: 1rem; font-weight: 700; color: #6366f1; margin-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
+          .participants h2 { font-size: 1rem; font-weight: 700; color: #6366f1; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
           .participants ul { list-style: none; columns: 2; }
           .participants li { font-size: 0.875rem; padding: 0.25rem 0; }
           .participants li::before { content: '✓ '; color: #10b981; font-weight: 700; }
-          .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: #94a3b8; text-align: center; }
+          .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: #94a3b8; text-align: center; }
           @media print { body { padding: 1.5rem; } }
         </style>
       </head>
@@ -343,9 +452,9 @@ export class ReunionDetailComponent {
           <h2>Participants présents (${this.checkedCount()} / ${r.participants.length})</h2>
           <ul>
             ${r.participants
-              .filter(p => this.selectedPresents().includes(p.utilisateurId))
-              .map(p => `<li>${this.formatName((p.prenom || '') + ' ' + (p.nom || ''))}</li>`)
-              .join('')}
+        .filter(p => this.selectedPresents().includes(p.utilisateurId))
+        .map(p => `<li>${this.formatName((p.prenom || '') + ' ' + (p.nom || ''))}</li>`)
+        .join('')}
           </ul>
         </div>
 
@@ -396,8 +505,46 @@ export class ReunionDetailComponent {
     });
   }
 
+
+  readonly editingDateTime = signal(false);
+  readonly editDateValue = signal('');
+  readonly editHeureDebutValue = signal('');
+  readonly editHeureFinValue = signal('');
+
   editMeeting() {
-    this.toast.info('Utilisez les icônes ✏ pour modifier la description ou l\'ordre du jour');
+    const r = this.reunion();
+    if (!r) return;
+    this.editDateValue.set(r.dateReunion);
+    this.editHeureDebutValue.set(r.heureDebut);
+    this.editHeureFinValue.set(r.heureFin);
+    this.editingDateTime.set(true);
+  }
+
+  saveDateTime() {
+    const r = this.reunion();
+    if (!r) return;
+    this.isSaving.set(true);
+    this.reunionService.update(r.uuid, {
+      dateReunion: this.editDateValue(),
+      heureDebut: this.editHeureDebutValue(),
+      heureFin: this.editHeureFinValue()
+    }).subscribe({
+      next: () => {
+        this.reunion.update(prev => prev ? {
+          ...prev,
+          dateReunion: this.editDateValue(),
+          heureDebut: this.editHeureDebutValue(),
+          heureFin: this.editHeureFinValue()
+        } : prev);
+        this.editingDateTime.set(false);
+        this.isSaving.set(false);
+        this.toast.success('Date et heure mises à jour');
+      },
+      error: () => {
+        this.isSaving.set(false);
+        this.toast.error('Erreur lors de la sauvegarde');
+      }
+    });
   }
 
   sendReminder(participant: any) {
@@ -405,7 +552,15 @@ export class ReunionDetailComponent {
   }
 
   removeParticipant(participant: any) {
-    this.toast.info(`Retrait de ${participant.prenom} (action non implémentée)`);
+    const r = this.reunion();
+    if (!r) return;
+    this.reunionService.removeParticipant(r.uuid, participant.utilisateurId).subscribe({
+      next: () => {
+        this.toast.success(`${participant.prenom} retiré de la réunion`);
+        this.refresh();
+      },
+      error: () => this.toast.error('Erreur lors du retrait du participant')
+    });
   }
 
   private refresh() {

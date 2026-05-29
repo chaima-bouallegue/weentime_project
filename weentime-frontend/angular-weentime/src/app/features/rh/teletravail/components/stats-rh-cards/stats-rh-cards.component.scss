@@ -1,7 +1,7 @@
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .stat-card {
   background: #fff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 20px; display: flex; align-items: center; gap: 14px; position: relative; transition: all .2s; overflow: hidden;
-  &:hover { border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,.04); transform: translateY(-2px); }
+  &:hover { border-color: var(--border); box-shadow: 0 4px 12px rgba(0,0,0,.04); transform: translateY(-2px); }
 }
 .stat-icon {
   width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -18,10 +18,10 @@
 .stat-badge { position: absolute; top: 14px; right: 14px; width: 22px; height: 22px; border-radius: 50%; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: pulse-badge 2s infinite; }
 @keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 .progress-mini {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #f1f5f9;
+  position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: #FFFFFF;
   .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 0 2px 0 0; transition: width .8s ease; }
 }
-.skeleton .skel-content { height: 44px; width: 100%; background: #f1f5f9; border-radius: 12px; position: relative; overflow: hidden;
+.skeleton .skel-content { height: 44px; width: 100%; background: #FFFFFF; border-radius: 12px; position: relative; overflow: hidden;
   &::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent); animation: shimmer 1.5s infinite; }
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }

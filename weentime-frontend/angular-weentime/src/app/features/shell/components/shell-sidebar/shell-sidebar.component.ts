@@ -47,6 +47,11 @@ interface NavItem {
   route: string;
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrateur',
   RH: 'Ressources Humaines',
@@ -118,9 +123,12 @@ export class ShellSidebarComponent {
     const role = this.userRole();
     const items: NavItem[] = [
       { id: 'dashboard', label: 'Tableau de bord', icon: 'layout-dashboard', route: `${base}/dashboard` },
-      { id: 'messages', label: 'Messages', icon: 'message-square', route: '/app/messages' },
-      { id: 'reunions', label: 'Réunions', icon: 'calendar-check', route: '/app/reunions' }
+      { id: 'messages', label: 'Messages', icon: 'message-square', route: '/app/messages' }
     ];
+
+    if (role !== 'ADMIN') {
+      items.push({ id: 'reunions', label: 'Réunions', icon: 'calendar-check', route: '/app/reunions' });
+    }
 
     if (role === 'EMPLOYEE') {
       items.push(
@@ -165,7 +173,6 @@ export class ShellSidebarComponent {
 
     if (role === 'ADMIN') {
       items.push(
-        { id: 'admin-pointage', label: 'Pointage', icon: 'clock', route: `${base}/presence` },
         { id: 'admin-users', label: 'Utilisateurs', icon: 'users', route: `${base}/users` },
         { id: 'admin-roles', label: 'Roles', icon: 'shield', route: `${base}/roles` },
         { id: 'admin-entreprises', label: 'Entreprises', icon: 'building', route: `${base}/entreprises` },
@@ -176,6 +183,44 @@ export class ShellSidebarComponent {
 
     items.push({ id: 'profile', label: 'Profil', icon: 'user', route: `${base}/profil` });
     return this.uniqueNavItems(items);
+  });
+
+  readonly groupedNavItems = computed<NavGroup[]>(() => {
+    const items = this.navItems();
+    const principalItems: NavItem[] = [];
+    const gestionItems: NavItem[] = [];
+    const adminItems: NavItem[] = [];
+
+    const principalIds = ['dashboard', 'messages', 'reunions'];
+    const gestionIds = [
+      'rh-analytics', 'rh-planning', 'rh-recrutement', 'rh-structure', 
+      'manager-equipe', 'rh-employes', 'employee-conges', 'rh-conges', 
+      'employee-teletravail', 'manager-teletravail', 'rh-teletravail', 
+      'employee-documents', 'manager-documents', 'rh-documents', 
+      'manager-approbations'
+    ];
+
+    for (const item of items) {
+      if (principalIds.includes(item.id)) {
+        principalItems.push(item);
+      } else if (gestionIds.includes(item.id)) {
+        gestionItems.push(item);
+      } else {
+        adminItems.push(item);
+      }
+    }
+
+    const groups: NavGroup[] = [];
+    if (principalItems.length > 0) {
+      groups.push({ label: 'PRINCIPAL', items: principalItems });
+    }
+    if (gestionItems.length > 0) {
+      groups.push({ label: 'GESTION', items: gestionItems });
+    }
+    if (adminItems.length > 0) {
+      groups.push({ label: 'ADMIN', items: adminItems });
+    }
+    return groups;
   });
 
   readonly fullName = computed(() => {

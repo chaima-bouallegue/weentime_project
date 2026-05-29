@@ -1,262 +1,466 @@
 <div class="immersive-create-container">
-  <div class="glass-sidebar">
-    <div class="sidebar-header">
-      <div class="icon-circle">
-        <lucide-icon [img]="iconCalendar" size="24"></lucide-icon>
+
+  <!-- ═══════════════ BARRE LATÉRALE GAUCHE ═══════════════ -->
+  <aside class="glass-sidebar">
+
+    <!-- Logo / Brand -->
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <lucide-icon [img]="iconCalendar" size="20"></lucide-icon>
       </div>
-      <h2>Nouvelle Réunion</h2>
-    </div>
-
-    <div class="stepper-vertical">
-      <div class="step-item" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
-        <div class="step-dot">
-          @if (currentStep() <= 1) {
-            <span>1</span>
-          } @else {
-            <lucide-icon [img]="iconCheck" size="14"></lucide-icon>
-          }
-        </div>
-        <div class="step-info">
-          <span class="label">Informations</span>
-          <span class="desc">Titre & Détails</span>
-        </div>
-      </div>
-      
-      <div class="step-line-v"></div>
-
-      <div class="step-item" [class.active]="currentStep() === 2" [class.done]="currentStep() > 2">
-        <div class="step-dot">
-          @if (currentStep() <= 2) {
-            <span>2</span>
-          } @else {
-            <lucide-icon [img]="iconCheck" size="14"></lucide-icon>
-          }
-        </div>
-        <div class="step-info">
-          <span class="label">Participants</span>
-          <span class="desc">Inviter l'équipe</span>
-        </div>
-      </div>
-
-      <div class="step-line-v"></div>
-
-      <div class="step-item" [class.active]="currentStep() === 3">
-        <div class="step-dot">3</div>
-        <div class="step-info">
-          <span class="label">Configuration</span>
-          <span class="desc">Type & Lieu</span>
-        </div>
+      <div>
+        <p class="brand-label">WeenTime</p>
+        <h2>Planification</h2>
       </div>
     </div>
 
+    <!-- Stepper Vertical Premium -->
+    <nav class="stepper-vertical">
+
+      <!-- Step 1 -->
+      <div class="step-item" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1" (click)="currentStep.set(1)">
+        <div class="step-track">
+          <div class="step-node">
+            @if (currentStep() > 1) {
+              <lucide-icon [img]="iconCheck" size="13"></lucide-icon>
+            } @else {
+              <span>1</span>
+            }
+          </div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <span class="step-title">Informations</span>
+          <span class="step-sub">Titre, horaire &amp; agenda</span>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-item" [class.active]="currentStep() === 2" [class.done]="currentStep() > 2" (click)="basicForm.valid && currentStep.set(2)">
+        <div class="step-track">
+          <div class="step-node">
+            @if (currentStep() > 2) {
+              <lucide-icon [img]="iconCheck" size="13"></lucide-icon>
+            } @else {
+              <span>2</span>
+            }
+          </div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-body">
+          <span class="step-title">
+            Participants
+            @if (selectedUsers().length > 0) {
+              <span class="step-badge">{{ selectedUsers().length }}</span>
+            }
+          </span>
+          <span class="step-sub">Inviter l'équipe</span>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-item" [class.active]="currentStep() === 3" (click)="basicForm.valid && selectedUsers().length > 0 && currentStep.set(3)">
+        <div class="step-track">
+          <div class="step-node"><span>3</span></div>
+          <!-- No line after last step -->
+        </div>
+        <div class="step-body">
+          <span class="step-title">Configuration</span>
+          <span class="step-sub">Type, lieu &amp; conflits</span>
+        </div>
+      </div>
+
+    </nav>
+
+    <!-- Spacer -->
+    <div class="sidebar-spacer"></div>
+
+    <!-- Progress Bar -->
+    <div class="sidebar-progress-block">
+      <div class="progress-header">
+        <span class="progress-label">Progression</span>
+        <span class="progress-pct">{{ (currentStep() - 1) * 50 }}%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" [style.width.%]="(currentStep() - 1) * 50"></div>
+      </div>
+    </div>
+
+    <!-- IA Suggestion Card -->
+    <div class="ia-card card reunion-card">
+      <div class="ia-card-header">
+        <div class="ia-badge">
+          <lucide-icon [img]="iconSparkles" size="12"></lucide-icon>
+          <span>Suggestion IA</span>
+        </div>
+      </div>
+      <div class="ia-rows">
+        <div class="ia-row">
+          <span class="ia-prop">Type</span>
+          <span class="ia-val">Daily Scrum</span>
+        </div>
+        <div class="ia-row">
+          <span class="ia-prop">Durée</span>
+          <span class="ia-val">15 min</span>
+        </div>
+        <div class="ia-row">
+          <span class="ia-prop">Équipe</span>
+          <span class="ia-val">Projet</span>
+        </div>
+      </div>
+      <button type="button" class="btn-ia-fill" (click)="applyTemplate(templates[0])">
+        <lucide-icon [img]="iconSparkles" size="13"></lucide-icon>
+        Remplir automatiquement
+      </button>
+    </div>
+
+    <!-- Footer : Abandonner -->
     <div class="sidebar-footer">
-      <button class="btn-cancel" routerLink="..">
-        <lucide-icon [img]="iconX" size="18"></lucide-icon>
+      <button type="button" class="btn-abandon" (click)="abandonner()">
+        <lucide-icon [img]="iconX" size="15"></lucide-icon>
         Abandonner
       </button>
     </div>
-  </div>
 
-  <div class="main-form-area">
-    <div class="form-glass-card">
-      
-      <!-- Step 1: Basic Info -->
+  </aside>
+
+  <!-- ═══════════════ ZONE PRINCIPALE ═══════════════ -->
+  <div class="main-area">
+
+    <!-- Content Header -->
+    <div class="content-header">
+      <div>
+        <h1>
+          @if (currentStep() === 1) { Informations générales }
+          @if (currentStep() === 2) { Ajouter des participants }
+          @if (currentStep() === 3) { Logistique &amp; Configuration }
+        </h1>
+        <p>
+          @if (currentStep() === 1) { Titre, horaire et ordre du jour de votre réunion. }
+          @if (currentStep() === 2) { Recherchez et invitez les membres de votre équipe. }
+          @if (currentStep() === 3) { Définissez le mode et vérifiez les disponibilités. }
+        </p>
+      </div>
+
+      <!-- Modèles rapides dans le topbar -->
       @if (currentStep() === 1) {
-        <div class="step-view">
-          <div class="view-header">
-            <h1>Parlez-nous de cette réunion</h1>
-            <p>Définissez l'objectif et le créneau horaire.</p>
+        <div class="topbar-templates animate-fade-in">
+          <span class="tpl-label">Modèles rapides :</span>
+          <div class="tpl-chips">
+            @for (tpl of templates; track tpl.type) {
+              <button type="button" class="topbar-tpl-chip" (click)="applyTemplate(tpl)" [title]="tpl.description">
+                {{ tpl.type }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="step-pill-indicator">
+        Étape {{ currentStep() }} / 3
+      </div>
+    </div>
+
+    <!-- Scrollable Form Area -->
+    <div class="form-scroll-area">
+
+      <!-- ───── ÉTAPE 1 ───── -->
+      @if (currentStep() === 1) {
+        <div class="step-grid animate-fade-in">
+
+          <!-- Left: Infos -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconInfo" size="17"></lucide-icon>
+              <h3>Détails de la réunion</h3>
+            </div>
+            <form [formGroup]="basicForm" class="fields-stack">
+              <div class="form-group" [class.has-error]="basicForm.get('titre')?.invalid && basicForm.get('titre')?.touched">
+                <label>Titre <span class="req">*</span></label>
+                <input type="text" formControlName="titre" placeholder="Ex : Revue de sprint Q2 ou Daily Scrum">
+                @if (basicForm.get('titre')?.invalid && basicForm.get('titre')?.touched) {
+                  <span class="error-text">Le titre est obligatoire.</span>
+                }
+              </div>
+              <div class="form-group">
+                <label>Objectif</label>
+                <textarea formControlName="description" rows="2" placeholder="Synchroniser l'équipe sur l'avancement et les blocages..."></textarea>
+              </div>
+              <div class="form-group">
+                <div class="label-row">
+                  <label>Ordre du jour</label>
+                  <button type="button" class="badge-ia" (click)="generateAI($event)"
+                    [disabled]="isGeneratingAI() || !basicForm.get('titre')?.value"
+                    [class.generating]="isGeneratingAI()">
+                    <lucide-icon [img]="iconSparkles" size="12"></lucide-icon>
+                    {{ isGeneratingAI() ? 'Génération...' : 'Générer avec IA' }}
+                  </button>
+                </div>
+                <textarea formControlName="agenda" rows="4" placeholder="1. Tour de table&#10;2. Avancement des objectifs&#10;3. Points de blocage"></textarea>
+                <span class="field-hint">Gemini AI peut structurer automatiquement votre ordre du jour.</span>
+              </div>
+            </form>
           </div>
 
-          <form [formGroup]="basicForm" class="bento-form-grid">
-            <div class="form-group col-span-2">
-              <label>Titre de la réunion</label>
-              <input type="text" formControlName="titre" placeholder="Ex: Sprint Planning Q2">
+          <!-- Right: Planning -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconClock" size="17"></lucide-icon>
+              <h3>Planification</h3>
             </div>
-            
-            <div class="form-group col-span-2">
-              <label>Objectif & Description</label>
-              <textarea formControlName="description" rows="3" placeholder="Quel est le but de cet échange ?"></textarea>
-            </div>
-
-            <div class="form-group">
-              <label>Date de l'événement</label>
-              <div class="input-glass">
-                <lucide-icon [img]="iconCalendar" size="18"></lucide-icon>
+            <form [formGroup]="basicForm" class="fields-stack">
+              <div class="form-group" [class.has-error]="basicForm.get('dateReunion')?.invalid && basicForm.get('dateReunion')?.touched">
+                <label>Date <span class="req">*</span></label>
                 <input type="date" formControlName="dateReunion">
               </div>
-            </div>
-
-            <div class="form-group">
-              <label>Récurrence</label>
-              <select formControlName="recurrence">
-                <option value="AUCUNE">Une seule fois</option>
-                <option value="QUOTIDIEN">Quotidienne</option>
-                <option value="HEBDOMADAIRE">Hebdomadaire</option>
-                <option value="MENSUEL">Mensuelle</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Heure de début</label>
-              <div class="input-glass">
-                <lucide-icon [img]="iconClock" size="18"></lucide-icon>
-                <input type="time" formControlName="heureDebut">
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Heure de fin</label>
-              <div class="input-glass">
-                <lucide-icon [img]="iconClock" size="18"></lucide-icon>
-                <input type="time" formControlName="heureFin">
-              </div>
-            </div>
-
-            <div class="form-group col-span-2">
-              <label>Ordre du jour (Agenda)</label>
-              <textarea formControlName="agenda" rows="4" placeholder="1. Point A&#10;2. Point B..."></textarea>
-            </div>
-          </form>
-        </div>
-      }
-
-      <!-- Step 2: Participants -->
-      @if (currentStep() === 2) {
-        <div class="step-view">
-          <div class="view-header">
-            <h1>Qui doit être présent ?</h1>
-            <p>Recherchez et sélectionnez vos collaborateurs.</p>
-          </div>
-
-          <div class="participants-container-glass">
-            <div class="search-bar-glass">
-              <lucide-icon [img]="iconSearch" size="20"></lucide-icon>
-              <input type="text" placeholder="Rechercher par nom, poste ou équipe...">
-              <span class="selection-pill">{{ selectedUsers().length }} sélectionnés</span>
-            </div>
-
-            <div class="users-bento-grid">
-              @for (user of allUsers(); track user.id) {
-                <div class="user-glass-card" 
-                     [class.selected]="selectedUsers().includes(user)"
-                     (click)="toggleUser(user)">
-                  <div class="user-avatar">
-                    @if (user.photo) {
-                      <img [src]="user.photo">
-                    } @else {
-                      <div class="initials">{{ user.nom?.[0] }}</div>
-                    }
-                    @if (selectedUsers().includes(user)) {
-                      <div class="check-overlay">
-                        <lucide-icon [img]="iconCheck" size="16"></lucide-icon>
-                      </div>
-                    }
-                  </div>
-                  <div class="user-meta">
-                    <span class="name">{{ user.prenom }} {{ user.nom }}</span>
-                    <span class="role">{{ user.poste || 'Collaborateur' }}</span>
-                  </div>
+              <div class="form-group">
+                <label>Créneau horaire <span class="req">*</span></label>
+                <div class="time-range">
+                  <input type="time" formControlName="heureDebut">
+                  <span class="time-sep">→</span>
+                  <input type="time" formControlName="heureFin">
                 </div>
-              }
-            </div>
+                @if (getDuration() && !isDurationInvalid()) {
+                  <div class="duration-chip">
+                    <lucide-icon [img]="iconClock" size="12"></lucide-icon>
+                    <span>{{ getDuration() }}</span>
+                  </div>
+                }
+                @if (isDurationInvalid()) {
+                  <span class="error-text">L'heure de fin doit être postérieure au début.</span>
+                }
+              </div>
+              <div class="form-group">
+                <label>Récurrence</label>
+                <div class="select-wrap">
+                  <select formControlName="recurrence">
+                    <option value="AUCUNE">Une seule fois</option>
+                    <option value="QUOTIDIEN">Tous les jours (semaine)</option>
+                    <option value="HEBDOMADAIRE">Chaque semaine</option>
+                    <option value="MENSUEL">Chaque mois</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Fuseau horaire</label>
+                <div class="select-wrap">
+                  <select>
+                    <option selected>(GMT+01:00) Paris, Bruxelles</option>
+                    <option>(GMT+00:00) UTC</option>
+                    <option>(GMT-05:00) Eastern Time</option>
+                  </select>
+                </div>
+              </div>
+            </form>
           </div>
+
         </div>
       }
 
-      <!-- Step 3: Logistics -->
-      @if (currentStep() === 3) {
-        <div class="step-view">
-          <div class="view-header">
-            <h1>Derniers réglages</h1>
-            <p>Vérifiez la disponibilité et choisissez le lieu.</p>
-          </div>
+      <!-- ───── ÉTAPE 2 ───── -->
+      @if (currentStep() === 2) {
+        <div class="step-grid animate-fade-in">
 
-          <div class="logistics-split">
-            <!-- Conflict Check -->
-            <div class="status-panel-glass" [class.success]="conflicts().length === 0">
-              <div class="panel-header">
-                <lucide-icon [img]="conflicts().length > 0 ? iconAlert : iconCheck" size="24"></lucide-icon>
-                <h3>{{ conflicts().length > 0 ? 'Conflits d\'agenda' : 'Tout est prêt' }}</h3>
-              </div>
-              @if (conflicts().length > 0) {
-                <div class="conflicts-list">
-                  @for (c of conflicts(); track c.userId) {
-                    <div class="conflict-row">
-                      <span class="c-name">{{ c.nom }}</span>
-                      <span class="c-reason">{{ c.raison }}</span>
+          <!-- Left: Search -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconUsers" size="17"></lucide-icon>
+              <h3>Ajouter des participants</h3>
+            </div>
+            <div class="search-box">
+              <lucide-icon [img]="iconSearch" size="15" class="search-icon"></lucide-icon>
+              <input type="text" placeholder="Rechercher un participant..." [value]="participantSearch()" (input)="participantSearch.set($any($event.target).value)">
+            </div>
+            @if (selectedUsers().length > 0) {
+              <div class="chips-zone">
+                <span class="chips-label">Invités :</span>
+                <div class="chips-row">
+                  @for (u of selectedUsers(); track u.id) {
+                    <div class="chip" (click)="toggleUser(u)">
+                      <div class="chip-avatar">
+                        @if (u.photo) { <img [src]="u.photo"> } @else { <span>{{ u.nom?.[0] }}</span> }
+                      </div>
+                      <span>{{ u.prenom }} {{ u.nom }}</span>
+                      <lucide-icon [img]="iconX" size="11"></lucide-icon>
                     </div>
                   }
                 </div>
-              }
-              <p class="panel-desc">
-                {{ conflicts().length > 0 ? 'Certains participants ont déjà une réunion.' : 'Tous les participants sont disponibles.' }}
-              </p>
-            </div>
-
-            <form [formGroup]="typeForm" class="logistics-form">
-              <div class="type-cards-grid">
-                <label class="type-glass-card" [class.active]="typeForm.get('type')?.value === 'PRESENTIEL'">
-                  <input type="radio" formControlName="type" value="PRESENTIEL">
-                  <lucide-icon [img]="iconMapPin" size="32"></lucide-icon>
-                  <span>Présentiel</span>
-                </label>
-                <label class="type-glass-card" [class.active]="typeForm.get('type')?.value === 'EN_LIGNE'">
-                  <input type="radio" formControlName="type" value="EN_LIGNE">
-                  <lucide-icon [img]="iconVideo" size="32"></lucide-icon>
-                  <span>Visioconférence</span>
-                </label>
               </div>
-
-              @if (typeForm.get('type')?.value === 'PRESENTIEL') {
-                <div class="form-group anim-fade">
-                  <label>Salle ou Lieu</label>
-                  <div class="input-glass">
-                    <lucide-icon [img]="iconMapPin" size="18"></lucide-icon>
-                    <input type="text" formControlName="lieu" placeholder="Ex: Salle de réunion Alpha">
+            }
+            <div class="collab-grid">
+              @for (user of filteredUsers; track user.id) {
+                <div class="collab-card" [class.selected]="isSelected(user)" (click)="toggleUser(user)">
+                  <div class="collab-av">
+                    @if (user.photo) { <img [src]="user.photo" [alt]="user.nom"> }
+                    @else { <div class="av-initials">{{ user.prenom?.[0] }}{{ user.nom?.[0] }}</div> }
+                    @if (isSelected(user)) {
+                      <div class="check-badge"><lucide-icon [img]="iconCheck" size="11"></lucide-icon></div>
+                    }
+                  </div>
+                  <div class="collab-info">
+                    <span class="collab-name">{{ user.prenom }} {{ user.nom }}</span>
+                    <span class="collab-role">{{ user.poste || 'Collaborateur' }}</span>
                   </div>
                 </div>
               }
+              @if (filteredUsers.length === 0) {
+                <div class="empty-state">
+                  <lucide-icon [img]="iconSearch" size="28"></lucide-icon>
+                  <p>Aucun résultat pour «&nbsp;{{ participantSearch() }}&nbsp;»</p>
+                </div>
+              }
+            </div>
+          </div>
 
+          <!-- Right: Suggested -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconSparkles" size="17"></lucide-icon>
+              <h3>Suggérés</h3>
+            </div>
+            <div class="suggested-list">
+              @for (su of suggestedUsers; track su.id) {
+                <div class="suggested-row">
+                  <div class="sug-av">
+                    @if (su.photo) { <img [src]="su.photo"> }
+                    @else { <div class="sug-initials">{{ su.prenom?.[0] }}{{ su.nom?.[0] }}</div> }
+                  </div>
+                  <div class="sug-info">
+                    <span class="sug-name">{{ su.prenom }} {{ su.nom }}</span>
+                    <span class="sug-dept">Équipe {{ su.service || 'Design' }}</span>
+                  </div>
+                  <button type="button" class="btn-add-sug" (click)="toggleUser(su)">+ Ajouter</button>
+                </div>
+              }
+              @if (suggestedUsers.length === 0) {
+                <div class="sug-empty"><p>Tous les collaborateurs ont été invités.</p></div>
+              }
+            </div>
+          </div>
+
+        </div>
+      }
+
+      <!-- ───── ÉTAPE 3 ───── -->
+      @if (currentStep() === 3) {
+        <div class="step-grid animate-fade-in">
+
+          <!-- Left: Logistics -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconMapPin" size="17"></lucide-icon>
+              <h3>Mode de participation</h3>
+            </div>
+            <form [formGroup]="typeForm" class="logistics-form">
+              <div class="mode-cards">
+                <label class="mode-card" [class.active]="typeForm.get('type')?.value === 'PRESENTIEL'">
+                  <input type="radio" formControlName="type" value="PRESENTIEL" class="sr-only">
+                  <div class="mode-icon"><lucide-icon [img]="iconMapPin" size="22"></lucide-icon></div>
+                  <div class="mode-text">
+                    <span class="mode-title">Présentiel</span>
+                    <span class="mode-desc">Réunion physique en salle</span>
+                  </div>
+                </label>
+                <label class="mode-card" [class.active]="typeForm.get('type')?.value === 'EN_LIGNE'">
+                  <input type="radio" formControlName="type" value="EN_LIGNE" class="sr-only">
+                  <div class="mode-icon"><lucide-icon [img]="iconVideo" size="22"></lucide-icon></div>
+                  <div class="mode-text">
+                    <span class="mode-title">Visioconférence</span>
+                    <span class="mode-desc">Lien virtuel (Meet, Teams…)</span>
+                  </div>
+                </label>
+              </div>
+              @if (typeForm.get('type')?.value === 'PRESENTIEL') {
+                <div class="form-group animate-slide-down">
+                  <label>Salle ou lieu</label>
+                  <div class="input-icon-wrap">
+                    <lucide-icon [img]="iconMapPin" size="15" class="input-icon"></lucide-icon>
+                    <input type="text" formControlName="lieu" placeholder="Ex: Salle A, Étage 2">
+                  </div>
+                </div>
+              }
               @if (typeForm.get('type')?.value === 'EN_LIGNE') {
-                <div class="form-group anim-fade">
-                  <label>Lien de réunion</label>
-                  <div class="input-glass">
-                    <lucide-icon [img]="iconVideo" size="18"></lucide-icon>
-                    <input type="text" formControlName="lienVisio" placeholder="https://meet.google.com/...">
+                <div class="form-group animate-slide-down">
+                  <label>Lien de visioconférence</label>
+                  <div class="input-icon-wrap">
+                    <lucide-icon [img]="iconVideo" size="15" class="input-icon"></lucide-icon>
+                    <input type="text" formControlName="lienVisio" placeholder="https://meet.google.com/abc-defg-hij">
                   </div>
                 </div>
               }
             </form>
           </div>
+
+          <!-- Right: Conflicts -->
+          <div class="bento-card card reunion-card">
+            <div class="card-title">
+              <lucide-icon [img]="iconAlert" size="17"></lucide-icon>
+              <h3>Disponibilités</h3>
+            </div>
+            <div class="conflicts-box" [class.ok]="conflicts().length === 0">
+              <div class="conflicts-top">
+                <div class="conflict-icon-badge">
+                  <lucide-icon [img]="conflicts().length > 0 ? iconAlert : iconCheck" size="16"></lucide-icon>
+                </div>
+                <div class="conflicts-meta">
+                  <h4>{{ conflicts().length > 0 ? 'Conflits horaires détectés' : 'Tout est disponible' }}</h4>
+                  <p>{{ conflicts().length > 0 ? conflicts().length + ' participant(s) ont un conflit.' : 'Aucun conflit pour ce créneau.' }}</p>
+                </div>
+              </div>
+              @if (conflicts().length > 0) {
+                <div class="conflicts-list">
+                  @for (c of conflicts(); track c.userId) {
+                    <div class="conflict-row">
+                      <div class="conflict-av"><span>{{ c.nom[0] }}</span></div>
+                      <div class="conflict-info">
+                        <span class="c-name">{{ c.nom }}</span>
+                        <span class="c-reason">{{ c.raison || 'Occupé(e)' }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
         </div>
       }
 
-      <div class="form-footer">
-        @if (currentStep() > 1) {
-          <button class="action-btn back" (click)="prevStep()">
-            <lucide-icon [img]="iconLeft"></lucide-icon>
-            Précédent
-          </button>
-        }
-        <div class="spacer"></div>
-        @if (currentStep() < 3) {
-          <button class="action-btn next" (click)="nextStep()" [disabled]="isCheckingConflicts()">
-            <span>{{ isCheckingConflicts() ? 'Vérification...' : 'Continuer' }}</span>
-            @if (!isCheckingConflicts()) {
-              <lucide-icon [img]="iconRight"></lucide-icon>
-            }
-          </button>
-        }
-        @if (currentStep() === 3) {
-          <button class="action-btn finish" (click)="onSubmit()" [disabled]="isLoading()">
-            @if (!isLoading()) {
-              <lucide-icon [img]="iconCheck"></lucide-icon>
-            }
-            <span>{{ isLoading() ? 'Création...' : 'Planifier maintenant' }}</span>
-          </button>
-        }
-      </div>
     </div>
+
+    <!-- ═══════════════ BOTTOM ACTION BAR ═══════════════ -->
+    <div class="action-bar">
+      <button type="button" class="btn-draft" (click)="abandonner()">
+        Enregistrer comme brouillon
+      </button>
+      <div class="flex-grow"></div>
+      @if (currentStep() > 1) {
+        <button type="button" class="btn-prev" (click)="prevStep()">
+          <lucide-icon [img]="iconLeft" size="15"></lucide-icon>
+          Précédent
+        </button>
+      }
+      @if (currentStep() < 3) {
+        <button type="button" class="btn-next" (click)="nextStep()" [disabled]="isCheckingConflicts()">
+          {{ isCheckingConflicts() ? 'Vérification...' : 'Continuer' }}
+          @if (!isCheckingConflicts()) {
+            <lucide-icon [img]="iconRight" size="15"></lucide-icon>
+          }
+        </button>
+      }
+      @if (currentStep() === 3) {
+        <button type="button" class="btn-finish" (click)="onSubmit()" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <div class="spinner"></div>
+            Planification...
+          } @else {
+            <lucide-icon [img]="iconCheck" size="15"></lucide-icon>
+            Planifier maintenant
+          }
+        </button>
+      }
+    </div>
+
   </div>
+
 </div>

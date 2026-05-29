@@ -107,7 +107,7 @@
   align-items: center;
   justify-content: center;
   border: none;
-  background: #f1f5f9;
+  background: #FFFFFF;
   color: #64748b;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -154,7 +154,7 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 
     &.empty {
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #94a3b8;
       box-shadow: none;
     }
@@ -188,8 +188,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 20px;
   color: #475569;
   font-size: 12px;

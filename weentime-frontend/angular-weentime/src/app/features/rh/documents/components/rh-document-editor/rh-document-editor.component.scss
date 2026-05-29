@@ -1,6 +1,6 @@
 .layout-toggle {
   display: flex;
-  background: #f1f5f9;
+  background: #FFFFFF;
   border-radius: 10px;
   padding: 3px;
   gap: 2px;
@@ -36,7 +36,7 @@
   &.split-active {
     .editor-pane.half {
       width: 50%;
-      border-right: 1px solid #e2e8f0;
+      border-right: 1px solid var(--border);
     }
   }
 }
@@ -54,7 +54,7 @@
   gap: 4px;
   padding: 8px 12px;
   background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 
   .toolbar-btn {
@@ -265,19 +265,19 @@
 
     td, th {
       padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       font-size: 0.875rem;
     }
 
     th {
-      background: #f8fafc;
+      background: #FFFFFF;
       font-weight: 600;
       color: #475569;
     }
 
     hr {
       border: none;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       margin: 1.5rem 0;
     }
 

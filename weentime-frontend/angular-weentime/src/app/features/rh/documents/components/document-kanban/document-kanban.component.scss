@@ -47,7 +47,7 @@
   --col-surface: #eef2ff;
   --col-surface-deep: #f5f7ff;
   background: var(--col-surface);
-  border: 1px solid color-mix(in srgb, var(--col-accent) 18%, #e2e8f0);
+  border: 1px solid color-mix(in srgb, var(--col-accent) 18%, var(--border));
   border-radius: 16px;
   padding: 14px;
   min-height: 420px;
@@ -95,7 +95,7 @@
 .column-header {
   margin-bottom: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--col-accent) 12%, #e2e8f0);
+  border-bottom: 1px solid color-mix(in srgb, var(--col-accent) 12%, var(--border));
 }
 
 .column-header-accent {
@@ -145,7 +145,7 @@
 .kanban-card {
   position: relative;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 10px;
@@ -161,7 +161,7 @@
   }
 
   &:hover {
-    border-color: color-mix(in srgb, var(--col-accent) 35%, #e2e8f0);
+    border-color: color-mix(in srgb, var(--col-accent) 35%, var(--border));
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   }
@@ -367,13 +367,13 @@
     &.secondary {
       background: #fff;
       color: #334155;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       flex: 1;
       min-width: 0;
 
       &:hover {
         border-color: #cbd5e1;
-        background: #f8fafc;
+        background: #FFFFFF;
       }
     }
 

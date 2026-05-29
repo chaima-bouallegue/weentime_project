@@ -1,162 +1,350 @@
-<section class="admin-page">
-  <header class="hero-card">
-    <div>
-      <h1>RH Managers</h1>
-      <p>Creation, mise a jour, suppression et assignation entreprise.</p>
+<div class="flex-1 flex flex-col min-w-0 p-6 gap-6 overflow-auto">
+
+  <!-- 1. HEADER REVISITÉ & ULTRA-ARRONDI -->
+  <header
+    class="z-30 flex flex-col bg-white border border-slate-200 rounded-xl shadow-sm select-none shrink-0 p-4 gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+      <!-- Titre et Badge -->
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-slate-900">Gestionnaires RH</h1>
+        <span class="text-xs font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
+          {{ filteredOwners().length }} {{ filteredOwners().length > 1 ? 'gestionnaires' : 'gestionnaire' }}
+        </span>
+      </div>
+
+      <!-- Barre de recherche style Pilule (rounded-full) -->
+      <div class="flex-1 max-w-md sm:mx-4">
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <lucide-angular [img]="iconSearch" size="16"></lucide-angular>
+          </div>
+          <input type="text" placeholder="Filtrer par nom, email, entreprise..." [value]="searchQuery()"
+            (input)="searchQuery.set($any($event.target).value)"
+            class="block w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-full placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-medium text-slate-900 transition-all shadow-sm" />
+        </div>
+      </div>
+
+      <!-- Boutons d'action modernes (rounded-xl) -->
+      <div class="flex items-center gap-2 self-end sm:self-auto">
+        <button type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm"
+          (click)="refresh()" [disabled]="isLoading()">
+          <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
+          <span>Actualiser</span>
+        </button>
+        <button type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] transition-colors text-sm font-semibold shadow-sm"
+          (click)="openCreateModal()">
+          <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
+          <span>Créer RH</span>
+        </button>
+      </div>
     </div>
-    <div class="hero-actions">
-      <button type="button" class="btn ghost" (click)="refresh()" [disabled]="isLoading()">
-        <lucide-angular [img]="iconRefresh" size="16"></lucide-angular>
-        Actualiser
-      </button>
-      <button type="button" class="btn primary" (click)="openCreateModal()">
-        <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
-        Creer RH
-      </button>
+
+    <hr class="border-slate-100 my-0">
+
+    <!-- Onglets de filtrage rapides et arrondis (rounded-xl) -->
+    <div class="flex items-center text-xs font-medium text-slate-500">
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 bg-indigo-50 text-indigo-600 font-semibold rounded-xl transition-colors">
+          Toutes
+        </button>
+        <button class="px-3 py-1.5 hover:bg-slate-50 rounded-xl flex items-center gap-1.5 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          Actifs ({{ getActiveCount() }})
+        </button>
+        <button class="px-3 py-1.5 hover:bg-slate-50 rounded-xl flex items-center gap-1.5 transition-colors">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          Désactivés ({{ filteredOwners().length - getActiveCount() }})
+        </button>
+      </div>
     </div>
   </header>
 
-  <div class="toolbar">
-    <input
-      type="text"
-      placeholder="Rechercher par nom, email, entreprise ou role"
-      [value]="searchQuery()"
-      (input)="searchQuery.set($any($event.target).value)"
-    />
-  </div>
-
-  <div class="table-wrap">
+  <!-- 2. CONTENEUR PRINCIPAL (TABLEAU ET PAGINATION) -->
+  <main class="min-h-0 flex-1">
     @if (isLoading()) {
-      <div class="loading">Chargement des gestionnaires RH...</div>
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+      @for (i of [1,2,3]; track i) {
+      <div class="h-10 rounded-lg bg-slate-50 animate-pulse"></div>
+      }
+    </div>
     } @else if (filteredOwners().length === 0) {
-      <div class="empty">Aucun gestionnaire RH trouve.</div>
+    <div
+      class="flex flex-col items-center justify-center p-12 text-center bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div
+        class="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+        <lucide-angular [img]="iconUserCog" size="26"></lucide-angular>
+      </div>
+      <h3 class="text-base font-bold text-slate-900 mb-1">Aucun gérant RH</h3>
+      <p class="text-xs text-slate-500 max-w-xs">Aucun élément ne correspond à vos critères de recherche actuels.</p>
+    </div>
     } @else {
-      <table>
-        <thead>
-          <tr>
-            <th>Nom</th>
-            <th>Email</th>
-            <th>Entreprise</th>
-            <th>Role</th>
-            <th>Statut</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (owner of filteredOwners(); track owner.id) {
+    <!-- Fix de l'affichage : Changement de overflow-hidden à overflow-visible -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-visible">
+      <div class="overflow-x-auto overflow-y-visible rounded-t-xl">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
             <tr>
-              <td>{{ getDisplayName(owner) }}</td>
-              <td>{{ owner.email }}</td>
-              <td>{{ owner.entrepriseNom || entrepriseNameById(owner.entrepriseId) }}</td>
-              <td>{{ owner.role || 'RH' }}</td>
-              <td>{{ owner.statut }}</td>
-              <td class="actions">
-                <button type="button" class="icon-btn" title="Modifier" (click)="openUpdateModal(owner)">
-                  <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
-                </button>
-                <button type="button" class="icon-btn" title="Assigner entreprise" (click)="openAssignModal(owner)">
-                  <lucide-angular [img]="iconAssign" size="14"></lucide-angular>
-                </button>
-                <button type="button" class="icon-btn danger" title="Supprimer" (click)="deleteRhOwner(owner)">
-                  <lucide-angular [img]="iconDelete" size="14"></lucide-angular>
-                </button>
+              <th class="p-4 w-12"><input type="checkbox"
+                  class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"></th>
+              <th class="p-4">Nom</th>
+              <th class="p-4">Email</th>
+              <th class="p-4">Entreprise</th>
+              <th class="p-4">Rôle</th>
+              <th class="p-4">Statut</th>
+              <th class="p-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-sm text-slate-700 font-medium">
+            @for (owner of filteredOwners(); track owner.id) {
+            <tr class="hover:bg-slate-50/60 transition-colors group">
+              <td class="p-4"><input type="checkbox"
+                  class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"></td>
+
+              <!-- Identité & Avatar -->
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-sm"
+                    [style.background-color]="getAvatarColor(getDisplayName(owner))">
+                    {{ getInitials(owner) }}
+                  </div>
+                  <div class="font-semibold text-slate-900 truncate">
+                    {{ getDisplayName(owner) }}
+                  </div>
+                </div>
+              </td>
+
+              <!-- Email -->
+              <td class="p-4 text-slate-500 font-normal">{{ owner.email }}</td>
+
+              <!-- Badge Entreprise -->
+              <td class="p-4">
+                <span
+                  class="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-md bg-slate-50 border border-slate-100"
+                  [style.color]="getEntrepriseBadgeColor(owner.entrepriseNom || entrepriseNameById(owner.entrepriseId))">
+                  <lucide-angular [img]="iconBuilding" size="12"></lucide-angular>
+                  {{ owner.entrepriseNom || entrepriseNameById(owner.entrepriseId) }}
+                </span>
+              </td>
+
+              <!-- Rôle -->
+              <td class="p-4 text-slate-500 font-normal">
+                <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded font-medium">
+                  {{ owner.role || 'RH' }}
+                </span>
+              </td>
+
+              <!-- Statut -->
+              <td class="p-4">
+                <span class="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full font-semibold"
+                  [class.bg-emerald-50]="owner.statut === 'ACTIF'" [class.text-emerald-700]="owner.statut === 'ACTIF'"
+                  [class.bg-rose-50]="owner.statut !== 'ACTIF'" [class.text-rose-700]="owner.statut !== 'ACTIF'">
+                  <span class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-500]="owner.statut === 'ACTIF'"
+                    [class.bg-rose-500]="owner.statut !== 'ACTIF'"></span>
+                  {{ owner.statut === 'ACTIF' ? 'Actif' : 'Désactivé' }}
+                </span>
+              </td>
+
+              <!-- Actions & Dropdown fixé (Ouverture vers le haut avec bottom-12) -->
+              <td class="p-4 text-right relative overflow-visible">
+                <div class="flex items-center justify-end gap-2">
+                  <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <button type="button"
+                      class="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Modifier" (click)="openUpdateModal(owner)">
+                      <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
+                    </button>
+                    <button type="button"
+                      class="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                      title="Assigner" (click)="openAssignModal(owner)">
+                      <lucide-angular [img]="iconAssign" size="14"></lucide-angular>
+                    </button>
+                    <button type="button"
+                      class="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Supprimer" (click)="deleteRhOwner(owner)">
+                      <lucide-angular [img]="iconDelete" size="14"></lucide-angular>
+                    </button>
+                  </div>
+
+                  <span class="w-px h-4 bg-slate-200 block"></span>
+
+                  <button type="button"
+                    class="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    [class.bg-slate-100]="showMenuId() === owner.id" (click)="toggleMenu($event, owner.id)">
+                    <lucide-angular [img]="iconMore" size="14"></lucide-angular>
+                  </button>
+                </div>
+
+                @if (showMenuId() === owner.id) {
+                <div
+                  class="absolute right-4 bottom-12 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 text-left animate-fade-in"
+                  (click)="$event.stopPropagation()">
+                  <button
+                    class="w-full text-left px-4 py-2.5 text-xs font-semibold flex items-center gap-2 hover:bg-slate-50 transition-colors"
+                    [class.text-rose-600]="owner.statut === 'ACTIF'" [class.text-emerald-600]="owner.statut !== 'ACTIF'"
+                    (click)="onToggleStatus($event, owner.id)">
+                    <lucide-angular [img]="owner.statut === 'ACTIF' ? iconShieldOff : iconShieldCheck"
+                      size="14"></lucide-angular>
+                    {{ owner.statut === 'ACTIF' ? 'Désactiver' : 'Réactiver' }}
+                  </button>
+                </div>
+                }
               </td>
             </tr>
-          }
-        </tbody>
-      </table>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. BARRE DE PAGINATION INTÉGRÉE EXPRÈS -->
+      <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6 rounded-b-xl">
+        <div class="flex-1 flex justify-between sm:hidden">
+          <button
+            class="relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-xl text-slate-700 bg-white hover:bg-slate-50">Précédent</button>
+          <button
+            class="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-xl text-slate-700 bg-white hover:bg-slate-50">Suivant</button>
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-xs text-slate-500 font-medium">
+              Affichage de <span class="font-semibold text-slate-700">1</span> à <span
+                class="font-semibold text-slate-700">{{ filteredOwners().length }}</span> sur <span
+                class="font-semibold text-slate-700">{{ filteredOwners().length }}</span> résultats
+            </p>
+          </div>
+          <div>
+            <nav class="relative z-0 inline-flex rounded-xl shadow-sm gap-1" aria-label="Pagination">
+              <button
+                class="relative inline-flex items-center px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50">
+                Précédent
+              </button>
+              <button
+                class="bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-3 py-1.5 rounded-xl border text-xs font-semibold">
+                1
+              </button>
+              <button
+                class="relative inline-flex items-center px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50">
+                Suivant
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+    </div>
     }
-  </div>
+  </main>
 
+  <!-- ==========================================
+       MODALS CORRIGÉS AVEC ASSURANCE DU TRACK EXPRESSION
+       ========================================== -->
   @if (modalMode() === 'create' || modalMode() === 'update') {
-    <div class="modal-backdrop" (click)="closeModal()"></div>
-    <section class="modal" (click)="$event.stopPropagation()">
-      <h2>{{ modalMode() === 'create' ? 'Creer un RH' : 'Mettre a jour le RH' }}</h2>
+  <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+    (click)="closeModal()">
+    <section class="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md p-6 animate-fade-in"
+      (click)="$event.stopPropagation()">
+      <h2 class="text-lg font-bold text-slate-900 mb-4">{{ modalMode() === 'create' ? 'Créer un gestionnaire RH' :
+        'Mettre à jour le RH' }}</h2>
 
-      <form [formGroup]="rhForm" (ngSubmit)="submitRhForm()">
-        <label>
-          Nom
-          <input type="text" formControlName="name" placeholder="Ex: Marie Dupont" />
+      <form [formGroup]="rhForm" (ngSubmit)="submitRhForm()" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Nom complet</label>
+          <input type="text" formControlName="name" placeholder="Ex: Marie Dupont"
+            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-medium" />
           @if (rhForm.controls.name.touched && rhForm.controls.name.invalid) {
-            <small>Le nom est obligatoire.</small>
+          <small class="text-xs text-rose-500 font-medium">Le nom est obligatoire.</small>
           }
-        </label>
+        </div>
 
-        <label>
-          Email
-          <div class="field-row">
-            <input type="email" formControlName="email" (blur)="onEmailBlur()" placeholder="rh@entreprise.com" />
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Adresse Email</label>
+          <div class="relative flex items-center">
+            <input type="email" formControlName="email" (blur)="onEmailBlur()" placeholder="rh@entreprise.com"
+              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-medium" />
             @if (emailChecking()) {
-              <span class="meta">Verification...</span>
+            <span class="absolute right-3 text-xs text-slate-400 animate-pulse">Vérification...</span>
             }
           </div>
           @if (rhForm.controls.email.touched && rhForm.controls.email.invalid) {
-            <small>Format email invalide.</small>
+          <small class="text-xs text-rose-500 font-medium">Format email invalide.</small>
           }
           @if (!emailUnique()) {
-            <small>Cet email est deja utilise.</small>
+          <small class="text-xs text-rose-500 font-medium">Cet email est déjà utilisé.</small>
           }
-        </label>
+        </div>
 
-        <label>
-          {{ modalMode() === 'create' ? 'Mot de passe' : 'Mot de passe (optionnel)' }}
-          <input type="password" formControlName="password" placeholder="Minimum 8 caracteres" />
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Mot de passe</label>
+          <input type="password" formControlName="password" placeholder="Minimum 8 caractères"
+            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 font-medium" />
           @if (rhForm.controls.password.touched && rhForm.controls.password.invalid) {
-            <small>Le mot de passe doit contenir au moins 8 caracteres.</small>
+          <small class="text-xs text-rose-500 font-medium">Le mot de passe doit contenir au moins 8 caractères.</small>
           }
-        </label>
+        </div>
 
-        <label>
-          Entreprise
-          <select formControlName="entrepriseId">
-            <option [ngValue]="null">Selectionner</option>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Entreprise rattachée</label>
+          <select formControlName="entrepriseId"
+            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-500 font-medium">
+            <option [ngValue]="null">Sélectionner une entreprise</option>
+            <!-- Correction de trackRef en track pour éliminer l'erreur NG5002 -->
             @for (entreprise of entreprises(); track entreprise.id) {
-              <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
+            <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
             }
           </select>
-          @if (rhForm.controls.entrepriseId.touched && rhForm.controls.entrepriseId.invalid) {
-            <small>L'entreprise est obligatoire.</small>
-          }
-        </label>
+        </div>
 
-        <footer class="modal-actions">
-          <button type="button" class="btn ghost" (click)="closeModal()" [disabled]="isSubmitting()">Annuler</button>
-          <button type="submit" class="btn primary" [disabled]="isSubmitting() || !emailUnique()">
-            {{ modalMode() === 'create' ? 'Creer' : 'Mettre a jour' }}
+        <footer class="flex items-center justify-end gap-2 mt-2">
+          <button type="button"
+            class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold text-sm"
+            (click)="closeModal()">Annuler</button>
+          <button type="submit"
+            class="px-4 py-2 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] font-semibold text-sm"
+            [disabled]="isSubmitting() || !emailUnique()">
+            {{ modalMode() === 'create' ? 'Créer' : 'Mettre à jour' }}
           </button>
         </footer>
       </form>
     </section>
+  </div>
   }
 
+  <!-- Modal Assignation -->
   @if (modalMode() === 'assign') {
-    <div class="modal-backdrop" (click)="closeModal()"></div>
-    <section class="modal" (click)="$event.stopPropagation()">
-      <h2>Assigner entreprise</h2>
-      <p class="subtitle">{{ selectedRhName() }}</p>
+  <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+    (click)="closeModal()">
+    <section class="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md p-6 animate-fade-in"
+      (click)="$event.stopPropagation()">
+      <h2 class="text-lg font-bold text-slate-900">Assigner une entreprise</h2>
+      <p class="text-xs font-medium text-slate-400 mb-4">{{ selectedRhName() }}</p>
 
-      <form [formGroup]="assignForm" (ngSubmit)="submitAssignForm()">
-        <label>
-          Entreprise
-          <select formControlName="entrepriseId">
-            <option [ngValue]="null">Selectionner</option>
+      <form [formGroup]="assignForm" (ngSubmit)="submitAssignForm()" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Entreprise cible</label>
+          <select formControlName="entrepriseId"
+            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-500 font-medium">
+            <option [ngValue]="null">Sélectionner une entreprise</option>
             @for (entreprise of entreprises(); track entreprise.id) {
-              <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
+            <option [ngValue]="entreprise.id">{{ entreprise.nom }}</option>
             }
           </select>
-          @if (assignForm.controls.entrepriseId.touched && assignForm.controls.entrepriseId.invalid) {
-            <small>L'entreprise est obligatoire.</small>
-          }
-        </label>
+        </div>
 
-        <footer class="modal-actions">
-          <button type="button" class="btn ghost" (click)="closeModal()" [disabled]="isSubmitting()">Annuler</button>
-          <button type="submit" class="btn primary" [disabled]="isSubmitting()">
+        <footer class="flex items-center justify-end gap-2 mt-2">
+          <button type="button"
+            class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold text-sm"
+            (click)="closeModal()">Annuler</button>
+          <button type="submit"
+            class="px-4 py-2 bg-[#4F46E5] text-white rounded-xl hover:bg-[#4338CA] font-semibold text-sm inline-flex items-center gap-1.5">
             <lucide-angular [img]="iconLink" size="14"></lucide-angular>
-            Assigner
+            <span>Assigner</span>
           </button>
         </footer>
       </form>
     </section>
+  </div>
   }
-</section>
+</div>

@@ -49,14 +49,14 @@ import { PresenceService } from '../../services/presence.service';
   `,
   styles: [`
     .history-card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
     .card-header h2 { margin: 0; font-size: 1.5rem; font-weight: 600; }
     .subtitle { font-size: 0.875rem; color: #6b7280; }
     .empty-state { padding: 2rem; text-align: center; color: #6b7280; }
     .table-container { overflow-x: auto; }
     .history-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-    .history-table th { background: #f9fafb; padding: 1rem; text-align: left; font-weight: 600; color: #1f2937; border-bottom: 2px solid #e5e7eb; }
-    .history-table td { padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151; }
+    .history-table th { background: #f9fafb; padding: 1rem; text-align: left; font-weight: 600; color: #1f2937; border-bottom: 2px solid var(--border); }
+    .history-table td { padding: 1rem; border-bottom: 1px solid var(--border); color: #374151; }
     .history-table tbody tr:hover { background: #f9fafb; }
     .history-table tbody tr.even { background: #fafbfc; }
     .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -64,7 +64,7 @@ import { PresenceService } from '../../services/presence.service';
     .status-closed { background: #dcfce7; color: #166534; }
     @media (max-width: 768px) {
       .history-table thead { display: none; }
-      .history-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; }
+      .history-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; }
       .history-table tbody td { display: block; padding: 0.5rem 1rem 0.5rem 150px; text-align: right; border: none; position: relative; }
       .history-table tbody td::before { content: attr(data-label); position: absolute; left: 1rem; font-weight: 600; color: #6b7280; }
       .history-table tbody td:first-child { background: #f9fafb; border-radius: 8px 8px 0 0; }

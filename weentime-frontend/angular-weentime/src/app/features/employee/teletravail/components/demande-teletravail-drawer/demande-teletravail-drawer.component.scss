@@ -54,9 +54,9 @@
   }
 
   &:hover:not(.disabled) {
-    border-color: #e2e8f0;
+    border-color: var(--border);
     transform: translateY(-2px);
-    background: #f8fafc;
+    background: #FFFFFF;
   }
 
   &.active {
@@ -92,11 +92,11 @@
   transition: all 0.2s ease;
 
   &:hover:not(.disabled):not(.selected):not(.in-range) {
-    background: #f1f5f9;
+    background: #FFFFFF;
   }
 
   &.other-month { opacity: 0.2; pointer-events: none; }
-  &.weekend { background: #f8fafc; opacity: 0.5; }
+  &.weekend { background: #FFFFFF; opacity: 0.5; }
   &.disabled { opacity: 0.3; cursor: not-allowed; text-decoration: line-through; }
 
   &.selected {

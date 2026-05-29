@@ -209,7 +209,7 @@ import { CommunicationConnectionState } from '../../services/communication-webso
       font-size: 10px;
       font-weight: 800;
       color: #64748b;
-      background: #f1f5f9;
+      background: #FFFFFF;
       border-color: #f1f5f9;
     }
 

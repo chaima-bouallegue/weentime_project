@@ -87,7 +87,7 @@
     gap: 8px;
     padding: 6px 10px;
     border-radius: 10px;
-    background: #f8fafc;
+    background: #FFFFFF;
     border: 1px solid rgba(226, 232, 240, 0.7);
   }
 }
@@ -130,7 +130,7 @@
 .bar-skel {
   height: 12px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
+  background: linear-gradient(90deg, #F8F9FA, #FFFFFF, #F8F9FA);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -138,7 +138,7 @@
 .legend-skel {
   height: 60px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
+  background: linear-gradient(90deg, #F8F9FA, #FFFFFF, #F8F9FA);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }

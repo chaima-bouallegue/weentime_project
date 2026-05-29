@@ -353,7 +353,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       width: 80px;
       height: 80px;
       border-radius: 12px;
-      background: #f1f5f9;
+      background: #FFFFFF;
       border: 1px solid rgba(148, 163, 184, 0.2);
       display: flex;
       align-items: center;

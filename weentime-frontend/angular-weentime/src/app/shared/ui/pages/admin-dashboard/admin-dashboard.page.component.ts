@@ -497,7 +497,7 @@ interface ChartEntry {
     .list-row {
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, .2);
-      background: #f8fafc;
+      background: #FFFFFF;
       padding: 8px 10px;
       display: flex;
       align-items: center;
@@ -530,7 +530,7 @@ interface ChartEntry {
     .activity-row {
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, .2);
-      background: #f8fafc;
+      background: #FFFFFF;
       padding: 8px 10px;
       display: grid;
       gap: 4px;
@@ -587,7 +587,7 @@ interface ChartEntry {
     .trend-card {
       border-radius: 12px;
       border: 1px solid rgba(148, 163, 184, .2);
-      background: #f8fafc;
+      background: #FFFFFF;
       padding: 10px;
       display: grid;
       gap: 8px;

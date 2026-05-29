@@ -71,7 +71,7 @@ import { UiIconComponent } from '../../atoms/icon/icon.component';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #6366f1;
       border: 1px solid #f1f5f9;
       transition: all 0.3s ease;
@@ -120,10 +120,10 @@ import { UiIconComponent } from '../../atoms/icon/icon.component';
 
     .stat-card__skeleton span {
       display: block;
-      background: #f1f5f9;
+      background: #FFFFFF;
       border-radius: 4px;
       animation: shimmer 2s infinite linear;
-      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background: linear-gradient(90deg, #F8F9FA 25%, #FFFFFF 50%, #F8F9FA 75%);
       background-size: 200% 100%;
     }
 

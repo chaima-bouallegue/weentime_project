@@ -14,6 +14,18 @@ import { filter, map } from 'rxjs';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 
+export function getRouteTitle(router: Router): string {
+  let route = router.routerState.root;
+  let title = 'Tableau de bord';
+  while (route.firstChild) {
+    route = route.firstChild;
+    if (route.snapshot.data['title']) {
+      title = route.snapshot.data['title'] as string;
+    }
+  }
+  return title;
+}
+
 @Component({
   selector: 'app-shell-header',
   standalone: true,
@@ -23,16 +35,23 @@ import { TemplatePortal } from '@angular/cdk/portal';
     <header class="shell-header">
       <div class="header-left">
         <div class="breadcrumb">
-          <span class="bc-root">Weentime</span>
-          <lucide-icon name="chevron-right" size="14" class="bc-separator"></lucide-icon>
-          <span class="bc-current" [class.bc-active]="true">{{ pageTitle() }}</span>
+          @if (pageTitle() === 'Tableau de bord') {
+            <span class="bc-root">WeenTime</span>
+            <lucide-icon name="chevron-right" size="14" class="bc-separator"></lucide-icon>
+            <span class="bc-current" [class.bc-active]="true">Tableau de bord</span>
+          } @else {
+            <a [routerLink]="['/app', userRole(), 'dashboard']" class="bc-root hover:text-[#6366f1] transition-colors">Tableau de bord</a>
+            <lucide-icon name="chevron-right" size="14" class="bc-separator"></lucide-icon>
+            <span class="bc-current" [class.bc-active]="true">{{ pageTitle() }}</span>
+          }
         </div>
       </div>
 
       <div class="header-center hidden md:flex">
         <div class="search-bar">
           <lucide-icon name="search" size="16" class="search-icon"></lucide-icon>
-          <input type="text" placeholder="Rechercher…" class="search-input" />
+          <input type="text" placeholder="Recherche globale... (Ctrl+K)" class="search-input" />
+          <kbd class="global-search-kbd">Ctrl K</kbd>
         </div>
       </div>
 
@@ -124,16 +143,17 @@ import { TemplatePortal } from '@angular/cdk/portal';
     </header>
   `,
   styles: [`
-    :host { display: block; height: 72px; overflow: visible; }
+    :host { display: block; height: 56px; overflow: visible; }
 
     .shell-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 32px;
+      padding: 0 24px;
       background: #ffffff;
-      border-bottom: 1px solid #e2e8f0;
-      height: 72px;
+      border-bottom: 1px solid #E5E7EB;
+      box-shadow: 0 1px 0 #E5E7EB;
+      height: 56px;
       position: relative;
       z-index: 1200;
     }
@@ -209,7 +229,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
     .search-input {
       width: 100%;
       height: 38px;
-      padding: 0 16px 0 38px;
+      padding: 0 60px 0 38px;
       border-radius: 12px;
       border: 1px solid rgba(226, 232, 240, 0.8);
       background: rgba(243, 244, 246, 0.4);
@@ -237,6 +257,33 @@ import { TemplatePortal } from '@angular/cdk/portal';
     :host-context(.dark) .search-input:focus {
       border-color: #818cf8;
       background: #0f1117;
+    }
+
+    .global-search-kbd {
+      position: absolute;
+      right: 12px;
+      padding: 2px 6px;
+      background: #ffffff;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      border-radius: 4px;
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: monospace;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :host-context(.dark) .global-search-kbd {
+      background: #1e293b;
+      border-color: rgba(45, 53, 72, 0.8);
+      color: #64748b;
+    }
+
+    a.bc-root {
+      text-decoration: none;
+      transition: color var(--transition-fast, 0.2s);
     }
 
     .header-right {
@@ -626,7 +673,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
       right: 0;
       width: 210px;
       padding: 6px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 16px;
       background: #ffffff;
       box-shadow: 0 10px 40px rgba(0,0,0,0.12);
@@ -671,7 +718,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 
     @media (max-width: 768px) {
       .shell-header {
-        padding: 12px 16px 12px 56px;
+        padding: 0 16px 0 56px;
       }
 
       .admin-search {
@@ -737,21 +784,9 @@ export class ShellHeaderComponent {
   readonly pageTitle = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-      map(() => {
-        let route = this.router.routerState.root;
-        let title = 'Tableau de bord';
-
-        while (route.firstChild) {
-          route = route.firstChild;
-          if (route.snapshot.data['title']) {
-            title = route.snapshot.data['title'] as string;
-          }
-        }
-
-        return title;
-      })
+      map(() => getRouteTitle(this.router))
     ),
-    { initialValue: 'Tableau de bord' }
+    { initialValue: getRouteTitle(inject(Router)) }
   );
 
   userRole = computed(() => {

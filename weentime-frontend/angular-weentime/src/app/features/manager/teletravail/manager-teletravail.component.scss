@@ -22,15 +22,15 @@
 @keyframes fade-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .filter-chips {
   display: flex; gap: 8px; margin-bottom: 16px;
-  .chip { padding: 8px 16px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s;
-    &:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .chip { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s;
+    &:hover { border-color: #cbd5e1; background: #FFFFFF; }
     &.active { background: #6366f1; border-color: #6366f1; color: #fff; }
   }
 }
 .historique-list { display: flex; flex-direction: column; gap: 8px; }
 .historique-item {
   display: flex; align-items: center; gap: 12px; padding: 16px 20px; background: #fff; border: 1px solid #f1f5f9; border-radius: 14px; transition: all .2s;
-  &:hover { border-color: #e2e8f0; }
+  &:hover { border-color: var(--border); }
 }
 .hi-avatar { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 800; flex-shrink: 0; }
 .hi-body { flex: 1; min-width: 0; }
@@ -42,7 +42,7 @@
   &.badge-info { background: #e0f2fe; color: #0284c7; }
   &.badge-success { background: #dcfce7; color: #16a34a; }
   &.badge-danger { background: #fee2e2; color: #ef4444; }
-  &.badge-gray { background: #f1f5f9; color: #64748b; }
+  &.badge-gray { background: #FFFFFF; color: #64748b; }
 }
 .empty-state-sm { padding: 32px; text-align: center; color: #94a3b8; font-size: 14px; }
 :host-context(.dark) {
