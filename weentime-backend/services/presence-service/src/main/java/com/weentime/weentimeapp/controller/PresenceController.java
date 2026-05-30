@@ -63,14 +63,14 @@ public class PresenceController {
 
     @PostMapping({"/check-out", "/me/check-out"})
     @PreAuthorize(PERSONAL_POINTAGE_ROLES)
-    public ResponseEntity<ApiResponse<TodayPresenceResponse>> checkOut(@RequestBody(required = false) CheckOutRequest request) {
+    public ResponseEntity<ApiResponse<TodayPresenceResponse>> checkOut(@Valid @RequestBody(required = false) CheckOutRequest request) {
         Long userId = securityUtils.getCurrentUserId();
         log.info("Received check-out request for user {}", userId);
         AttendanceSummaryDTO summary = presenceService.checkOut(userId, request);
         return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
     }
 
-    @GetMapping({"/today", "/me/today"})
+    @GetMapping({"/today", "/me/today", "/status/today"})
     @PreAuthorize(PERSONAL_POINTAGE_ROLES)
     public ResponseEntity<ApiResponse<TodayPresenceResponse>> getTodayAttendance() {
         Long userId = securityUtils.getCurrentUserId();

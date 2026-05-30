@@ -21,6 +21,30 @@
     (refresh)="onRefresh()">
   </app-attendance-card>
 
+  <section class="pointage-context">
+    <div class="context-item">
+      <span>Horaire du jour</span>
+      <strong>{{ scheduleLabel() }}</strong>
+    </div>
+    <div class="context-item">
+      <span>Heures supplementaires</span>
+      <strong>{{ overtimePreviewLabel() }}</strong>
+    </div>
+    <div class="context-item">
+      <span>Localisation</span>
+      <strong *ngIf="latestLocationLabel(); else gpsStatusText">📍 {{ latestLocationLabel() }}</strong>
+      <ng-template #gpsStatusText>
+        <strong>{{ locationStatusLabel() }}</strong>
+      </ng-template>
+      <small *ngIf="latestCoordinatesLabel()">{{ latestCoordinatesLabel() }}</small>
+      <small *ngIf="gpsError()">{{ gpsError() }}</small>
+    </div>
+    <div class="context-item context-wide" *ngIf="blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert">
+      <span>Statut</span>
+      <strong>{{ blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert }}</strong>
+    </div>
+  </section>
+
   <div *ngIf="statusMessage()" class="inline-feedback info-feedback">
     <lucide-angular [img]="iconAlert" size="16"></lucide-angular>
     <span>{{ statusMessage() }}</span>
@@ -33,6 +57,28 @@
 
   <ng-container *ngIf="isEmployeeOrManager(); else adminRhSections">
     <section class="content-grid">
+      <article class="surface-card map-card">
+        <div class="card-head">
+          <h2>Carte de pointage</h2>
+          <span class="map-provider">OpenStreetMap</span>
+        </div>
+
+        <ng-container *ngIf="hasGpsLocation(); else noGpsLocation">
+          <div #pointageMap class="pointage-map" aria-label="Carte des positions de pointage"></div>
+          <div class="map-legend">
+            <span><i class="legend-dot legend-dot-in"></i> Entrée</span>
+            <span><i class="legend-dot legend-dot-out"></i> Sortie</span>
+          </div>
+        </ng-container>
+
+        <ng-template #noGpsLocation>
+          <div class="map-empty">
+            <lucide-angular [img]="iconAlert" size="22"></lucide-angular>
+            <p>Aucune position GPS disponible.</p>
+          </div>
+        </ng-template>
+      </article>
+
       <article class="surface-card">
         <div class="card-head">
           <h2>Apercu hebdomadaire</h2>
@@ -88,6 +134,10 @@
                 <span *ngIf="log.isAutoClosed" class="tag tag-warn">Fermeture auto</span>
                 <span *ngIf="log.overtimeMinutes && log.overtimeMinutes > 0" class="tag tag-info">+{{ log.overtimeMinutes }} min supp.</span>
                 <span *ngIf="!log.estEnRetard && !log.isAutoClosed && !(log.overtimeMinutes && log.overtimeMinutes > 0)" class="tag tag-ok">Ponctuel</span>
+              </div>
+              <div *ngIf="timelineLocationLabel(log) || timelineCoordinateLabel(log)" class="timeline-location">
+                <p *ngIf="timelineLocationLabel(log)">📍 {{ timelineLocationLabel(log) }}</p>
+                <small *ngIf="timelineCoordinateLabel(log)">{{ timelineCoordinateLabel(log) }}</small>
               </div>
             </div>
             <div *ngIf="!last" class="timeline-line"></div>

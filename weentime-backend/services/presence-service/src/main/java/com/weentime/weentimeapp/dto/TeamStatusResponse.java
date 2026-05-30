@@ -33,7 +33,14 @@ public class TeamStatusResponse {
         private PresenceStatus status;
         private String heureEntree;
         private String heureSortie;
+        private String checkInLocation;
+        private PointageLocationDTO checkInLocationDetails;
+        private String checkOutLocation;
+        private PointageLocationDTO checkOutLocationDetails;
         private Long durationSeconds;
+        private Integer overtimeMinutes;
+        private String latestAlert;
+        private Boolean autoClosed;
         private Boolean lateArrival;
         private Long equipeId;
         private String equipe;

@@ -45,6 +45,12 @@ public class AttendanceSession {
     @Column(name = "utilisateur_id", nullable = false)
     private Long utilisateurId;
 
+    @Column(name = "entreprise_id")
+    private Long entrepriseId;
+
+    @Column(name = "schedule_id")
+    private Long scheduleId;
+
     @Column(name = "attendance_date", nullable = false)
     private LocalDate date;
 
@@ -65,8 +71,58 @@ public class AttendanceSession {
     @Column(nullable = false, length = 16)
     private PresenceSource source;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "check_in_source", length = 16)
+    private PresenceSource checkInSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "check_out_source", length = 16)
+    private PresenceSource checkOutSource;
+
     @Column(length = 128)
     private String localisation;
+
+    @Column(name = "check_in_latitude")
+    private Double checkInLatitude;
+
+    @Column(name = "check_in_longitude")
+    private Double checkInLongitude;
+
+    @Column(name = "check_in_accuracy")
+    private Double checkInAccuracy;
+
+    @Column(name = "check_in_address", length = 255)
+    private String checkInAddress;
+
+    @Column(name = "check_in_city", length = 128)
+    private String checkInCity;
+
+    @Column(name = "check_in_region", length = 128)
+    private String checkInRegion;
+
+    @Column(name = "check_in_country", length = 128)
+    private String checkInCountry;
+
+    @Column(name = "check_out_latitude")
+    private Double checkOutLatitude;
+
+    @Column(name = "check_out_longitude")
+    private Double checkOutLongitude;
+
+    @Column(name = "check_out_accuracy")
+    private Double checkOutAccuracy;
+
+    @Column(name = "check_out_address", length = 255)
+    private String checkOutAddress;
+
+    @Column(name = "check_out_city", length = 128)
+    private String checkOutCity;
+
+    @Column(name = "check_out_region", length = 128)
+    private String checkOutRegion;
+
+    @Column(name = "check_out_country", length = 128)
+    private String checkOutCountry;
 
     @Column(name = "late_arrival", nullable = false)
     private Boolean lateArrival;
@@ -74,6 +130,27 @@ public class AttendanceSession {
     @Enumerated(EnumType.STRING)
     @Column(name = "daily_status", nullable = false, length = 16)
     private AttendanceDayStatus dailyStatus;
+
+    @Column(name = "worked_minutes")
+    private Integer workedMinutes;
+
+    @Column(name = "expected_minutes")
+    private Integer expectedMinutes;
+
+    @Column(name = "overtime_minutes")
+    private Integer overtimeMinutes;
+
+    @Column(name = "early_leave_minutes")
+    private Integer earlyLeaveMinutes;
+
+    @Column(name = "auto_closed", nullable = false)
+    private Boolean autoClosed;
+
+    @Column(name = "auto_closed_reason", length = 128)
+    private String autoClosedReason;
+
+    @Column(name = "latest_alert", length = 64)
+    private String latestAlert;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -96,6 +173,12 @@ public class AttendanceSession {
         }
         if (this.dailyStatus == null) {
             this.dailyStatus = AttendanceDayStatus.IDLE;
+        }
+        if (this.source != null && this.checkInSource == null) {
+            this.checkInSource = this.source;
+        }
+        if (this.autoClosed == null) {
+            this.autoClosed = Boolean.FALSE;
         }
     }
 

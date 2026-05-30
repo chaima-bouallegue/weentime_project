@@ -25,5 +25,7 @@ public interface PresenceService {
     PresenceStatsDTO getGlobalStats();
     PresenceStatsDTO getMyStats(Long utilisateurId);
     void detectAbsences();
+    void autoCloseOpenSessions();
+    void detectMissingCheckIns();
     java.util.Map<java.time.LocalDate, TeamStatusResponse> getStatusRange(Long entrepriseId, Long teamId, java.time.LocalDate start, java.time.LocalDate end);
 }

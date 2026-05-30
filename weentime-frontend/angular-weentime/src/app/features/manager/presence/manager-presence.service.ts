@@ -64,8 +64,10 @@ export class ManagerPresenceService {
       status: this.mapStatus(member.status, Boolean(member.lateArrival)),
       arrivalTime: this.formatTime(member.heureEntree),
       departureTime: this.formatTime(member.heureSortie),
+      checkInLocation: this.extractText(member.checkInLocation),
+      checkOutLocation: this.extractText(member.checkOutLocation),
       totalMinutes: durationMinutes,
-      overtimeMinutes: Math.max(durationMinutes - 8 * 60, 0),
+      overtimeMinutes: Number(member.overtimeMinutes ?? Math.max(durationMinutes - 8 * 60, 0)),
       lastActivity: this.resolveLastActivity(member.heureSortie ?? member.heureEntree)
     };
   }
@@ -98,6 +100,26 @@ export class ManagerPresenceService {
       return '--:--';
     }
     return this.formatTime(value) ?? '--:--';
+  }
+
+  private extractText(value: unknown): string | null {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (value && typeof value === 'object') {
+      const location = value as { city?: string | null; country?: string | null; region?: string | null; address?: string | null };
+      const city = this.clean(location.city);
+      const country = this.clean(location.country);
+      if (city && country) {
+        return city.toLowerCase() === country.toLowerCase() ? city : `${city}, ${country}`;
+      }
+      return city ?? this.clean(location.country) ?? this.clean(location.region) ?? this.clean(location.address);
+    }
+    return null;
+  }
+
+  private clean(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
   }
 
   private formatTime(value: string | null | undefined): string | null {

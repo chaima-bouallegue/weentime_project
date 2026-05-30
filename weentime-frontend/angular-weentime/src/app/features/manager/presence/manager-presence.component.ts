@@ -159,7 +159,9 @@ export class ManagerPresenceComponent implements OnInit {
       Poste: member.jobTitle,
       Statut: this.formatStatus(member.status),
       Arrivée: member.arrivalTime || '--:--',
+      'Lieu entree': member.checkInLocation || '',
       Sortie: member.departureTime || '--:--',
+      'Lieu sortie': member.checkOutLocation || '',
       Total: this.formatDuration(member.totalMinutes),
       'Heures Supp': member.overtimeMinutes > 0 ? `${member.overtimeMinutes} min` : '0 min',
       'Dernière Activité': member.lastActivity || 'Inconnu'

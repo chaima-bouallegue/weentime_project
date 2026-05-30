@@ -69,6 +69,17 @@ presence:
       - FRIDAY
   half-day-threshold-hours: 4.0
   timezone: "Africa/Tunis"
+  auto-close-grace-minutes: 60
+  overtime-threshold-minutes: 15
+  gps-required: false
+  public-holiday-exceptional-work-allowed: false
+  location:
+    resolver-enabled: true
+    nominatim-url: "https://nominatim.openstreetmap.org/reverse"
+    timeout-millis: 3000
+    cache-coordinate-scale: 5
+    accept-language: "fr"
+    user-agent: "WeenTime/1.0"
   absence-detection:
     cron: "0 55 23 * * *"
 
@@ -76,6 +87,8 @@ integration:
   user-service:
     url: http://localhost:8190
   leave-service:
+    url: http://localhost:8192
+  holiday-service:
     url: http://localhost:8192
   telework-service:
     url: http://localhost:8192

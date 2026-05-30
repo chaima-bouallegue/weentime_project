@@ -8,6 +8,8 @@ export interface TeamMemberStatus {
   status: PresenceStatus;
   arrivalTime: string | null;
   departureTime: string | null;
+  checkInLocation: string | null;
+  checkOutLocation: string | null;
   totalMinutes: number;
   overtimeMinutes: number;
   lastActivity: string;

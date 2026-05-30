@@ -1,5 +1,6 @@
 package com.weentime.weentimeapp.entity;
 
+import com.weentime.weentimeapp.enums.OvertimeStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,6 +30,12 @@ public class Overtime {
     @Column(name = "utilisateur_id", nullable = false)
     private Long utilisateurId;
 
+    @Column(name = "entreprise_id")
+    private Long entrepriseId;
+
+    @Column(name = "attendance_id")
+    private Long attendanceId;
+
     @Column(name = "date_presence", nullable = false)
     private LocalDate date;
 
@@ -37,6 +44,28 @@ public class Overtime {
 
     @Column(nullable = false)
     private Boolean approuvee;
+
+    @Column(name = "scheduled_end")
+    private LocalDateTime scheduledEnd;
+
+    @Column(name = "actual_check_out")
+    private LocalDateTime actualCheckOut;
+
+    @Column(name = "overtime_minutes")
+    private Integer overtimeMinutes;
+
+    @Column(length = 255)
+    private String reason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private OvertimeStatus status;
+
+    @Column(name = "manager_id")
+    private Long managerId;
+
+    @Column(name = "rh_decision_by")
+    private Long rhDecisionBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,6 +82,11 @@ public class Overtime {
         this.updatedAt = LocalDateTime.now();
         if (this.approuvee == null) {
             this.approuvee = Boolean.FALSE;
+        }
+        if (this.status == null) {
+            this.status = Boolean.TRUE.equals(this.approuvee)
+                    ? OvertimeStatus.APPROVED
+                    : OvertimeStatus.PENDING_APPROVAL;
         }
     }
 

@@ -52,6 +52,12 @@ export class AttendanceCardComponent {
         return 'Session démarrée';
       case 'CLOSED':
         return 'Journée clôturée';
+      case 'ON_LEAVE':
+        return 'Conge approuve';
+      case 'HOLIDAY':
+        return 'Jour ferie';
+      case 'AUTO_CLOSED':
+        return 'Sortie auto-cloturee';
       case 'ERROR':
         return 'Erreur de synchronisation';
       default:
@@ -65,6 +71,11 @@ export class AttendanceCardComponent {
         return 'Pointer ma sortie';
       case 'CLOSED':
         return 'Journée clôturée';
+      case 'ON_LEAVE':
+      case 'HOLIDAY':
+        return 'Pointage bloque';
+      case 'AUTO_CLOSED':
+        return 'Session auto-cloturee';
       case 'ERROR':
         return 'Réessayer la synchronisation';
       default:
@@ -82,7 +93,7 @@ export class AttendanceCardComponent {
     if (this.isLoading) {
       return true;
     }
-    return this.state === 'CLOSED';
+    return this.state === 'CLOSED' || this.state === 'ON_LEAVE' || this.state === 'HOLIDAY' || this.state === 'AUTO_CLOSED';
   }
 
   onPrimaryAction(): void {

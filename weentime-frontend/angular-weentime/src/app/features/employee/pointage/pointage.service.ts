@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
-import { Observable, Subscription, catchError, forkJoin, interval, map, of, startWith, switchMap, tap, throwError } from 'rxjs';
+import { Observable, Subscription, catchError, forkJoin, from, interval, map, of, startWith, switchMap, tap, throwError } from 'rxjs';
 
 import { ApiConfigService } from '../../../core/services/api-config.service';
 import { SKIP_ERROR_TOAST } from '../../../core/http/request-context.tokens';
@@ -8,7 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { DashboardService } from '../../dashboard/dashboard.service';
 import { normalizeAttendanceSnapshot } from '../../../core/utils/attendance-state.mapper';
 import { diffMinutes, parseApiDate } from '../../../core/utils/date-time.util';
-import { AttendanceUiState, DayStatus, PointageEntry, PointageStats } from './pointage.models';
+import { AttendanceUiState, DayStatus, GpsCaptureStatus, PointageEntry, PointageLocation, PointageStats, TodayPointageSummary } from './pointage.models';
 
 @Injectable({ providedIn: 'root' })
 export class PointageService {
@@ -32,6 +32,15 @@ export class PointageService {
 
   private readonly _lastError = signal<string | null>(null);
   readonly lastError = computed(() => this._lastError());
+
+  private readonly _todaySummary = signal<TodayPointageSummary | null>(null);
+  readonly todaySummary = computed(() => this._todaySummary());
+
+  private readonly _gpsStatus = signal<GpsCaptureStatus>('idle');
+  readonly gpsStatus = computed(() => this._gpsStatus());
+
+  private readonly _gpsError = signal<string | null>(null);
+  readonly gpsError = computed(() => this._gpsError());
 
   readonly sessionDuration = signal<string>('00:00:00');
   readonly sessionDurationMs = signal<number>(0);
@@ -131,7 +140,13 @@ export class PointageService {
       return throwError(() => new Error('Utilisateur non connecté.'));
     }
 
-    return this.http.post<any>(this.apiConfig.PRESENCE.CHECK_IN, { source: 'WEB' }).pipe(
+    return from(this.captureGpsPayload()).pipe(
+      switchMap(locationPayload => this.http.post<any>(this.apiConfig.PRESENCE.CHECK_IN, {
+        source: 'WEB',
+        localisation: 'web',
+        ...locationPayload
+      }))
+    ).pipe(
       map(response => this.unwrap(response)),
       tap(summary => {
         this.applyTodayState(summary);
@@ -157,7 +172,13 @@ export class PointageService {
       return throwError(() => new Error('Utilisateur non connecté.'));
     }
 
-    return this.http.post<any>(this.apiConfig.PRESENCE.CHECK_OUT, {}).pipe(
+    return from(this.captureGpsPayload()).pipe(
+      switchMap(locationPayload => this.http.post<any>(this.apiConfig.PRESENCE.CHECK_OUT, {
+        source: 'WEB',
+        localisation: 'web',
+        ...locationPayload
+      }))
+    ).pipe(
       map(response => this.unwrap(response)),
       tap(summary => {
         this.applyTodayState(summary);
@@ -190,9 +211,50 @@ export class PointageService {
     }
 
     const details = String(error?.error?.details ?? error?.error?.message ?? error?.error?.error ?? '').toLowerCase();
+    const code = String(error?.error?.error ?? error?.error?.code ?? '').toUpperCase();
 
-    if (error?.status === 403 || details.includes('leave') || details.includes('congé') || details.includes('conge')) {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    if (error?.status === 0) {
+      return 'Service de pointage indisponible. Reessayez plus tard.';
+    }
+
+    if (error?.status === 401) {
+      return 'Session expiree. Reconnectez-vous.';
+    }
+
+    if (code.includes('ATTENDANCE_ALREADY_CHECKED_IN')) {
+      return 'Vous avez deja pointe votre entree aujourd hui.';
+    }
+
+    if (code.includes('ATTENDANCE_ALREADY_CHECKED_OUT')) {
+      return 'Vous avez deja pointe votre sortie aujourd hui.';
+    }
+
+    if (code.includes('ATTENDANCE_SESSION_NOT_OPEN')) {
+      return 'Vous devez pointer votre entree avant de pointer votre sortie.';
+    }
+
+    if (details.includes('leave') || details.includes('congé') || details.includes('conge')) {
       return 'Vous avez un congé approuvé aujourd’hui.';
+    }
+
+    if (error?.status === 403) {
+      return 'Acces refuse pour le pointage.';
+    }
+
+    if (code.includes('ATTENDANCE_ON_HOLIDAY') || details.includes('jour ferie') || details.includes('holiday')) {
+      return 'Vous ne pouvez pas pointer aujourd hui car c est un jour ferie.';
+    }
+
+    if (code.includes('GPS_REQUIRED')) {
+      return 'La localisation GPS est requise pour le pointage.';
+    }
+
+    if (code.includes('GPS_INVALID')) {
+      return 'Coordonnees GPS invalides.';
     }
 
     if (error?.status === 400) {
@@ -206,6 +268,39 @@ export class PointageService {
     return 'Une erreur est survenue lors du pointage.';
   }
 
+  private captureGpsPayload(): Promise<Record<string, number>> {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      this._gpsStatus.set('unavailable');
+      this._gpsError.set('Geolocalisation indisponible sur ce navigateur.');
+      return Promise.resolve({});
+    }
+
+    this._gpsStatus.set('requesting');
+    this._gpsError.set(null);
+
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          this._gpsStatus.set('captured');
+          this._gpsError.set(null);
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
+        },
+        error => {
+          this._gpsStatus.set(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
+          this._gpsError.set(error.code === error.PERMISSION_DENIED
+            ? 'Localisation refusee par le navigateur.'
+            : 'Impossible de recuperer la position GPS.');
+          resolve({});
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 }
+      );
+    });
+  }
+
   private getTodaySummary(): Observable<any> {
     return this.http.get<any>(this.apiConfig.PRESENCE.GET_MY_TODAY).pipe(
       map(response => this.unwrap(response))
@@ -217,21 +312,25 @@ export class PointageService {
       this._attendanceState.set('NOT_STARTED');
       this._isCheckedIn.set(false);
       this._lastError.set(null);
+      this._todaySummary.set(null);
       this.stopGlobalTicker();
       return;
     }
 
     const snapshot = normalizeAttendanceSnapshot(summary);
+    const backendStatus = String(summary?.status ?? summary?.state ?? '').toUpperCase();
+    const mappedState = this.mapBackendState(snapshot.state, backendStatus);
     const activeSessionStart = snapshot.activeSession?.checkInTime ?? snapshot.checkInTime ?? null;
 
     this._checkInTime.set(snapshot.checkInTime);
     this._checkOutTime.set(snapshot.checkOutTime);
     this._lastError.set(null);
+    this._todaySummary.set(summary as TodayPointageSummary);
 
-    this._attendanceState.set(snapshot.state);
-    this._isCheckedIn.set(snapshot.state === 'ACTIVE');
+    this._attendanceState.set(mappedState);
+    this._isCheckedIn.set(mappedState === 'ACTIVE');
 
-    if (snapshot.state === 'ACTIVE' && activeSessionStart) {
+    if (mappedState === 'ACTIVE' && activeSessionStart) {
       this.initializeTicker(activeSessionStart);
       return;
     }
@@ -244,8 +343,22 @@ export class PointageService {
     this._attendanceState.set('NOT_STARTED');
     this._checkInTime.set(null);
     this._checkOutTime.set(null);
+    this._todaySummary.set(null);
     this._lastError.set(null);
     this.stopGlobalTicker();
+  }
+
+  private mapBackendState(snapshotState: AttendanceUiState, backendStatus: string): AttendanceUiState {
+    if (backendStatus === 'ON_LEAVE') {
+      return 'ON_LEAVE';
+    }
+    if (backendStatus === 'HOLIDAY') {
+      return 'HOLIDAY';
+    }
+    if (backendStatus === 'AUTO_CLOSED' || backendStatus === 'MISSING_CHECKOUT') {
+      return 'AUTO_CLOSED';
+    }
+    return snapshotState;
   }
 
   private stopGlobalTicker(): void {
@@ -305,6 +418,21 @@ export class PointageService {
     const checkInTime = this.extractDateValue(session, ['checkInTime', 'checkIn', 'heureEntree', 'heureArrivee', 'entryTime']);
     const checkOutTime = this.extractDateValue(session, ['checkOutTime', 'checkOut', 'heureSortie', 'heureDepart', 'exitTime']);
     const timestamp = (type === 'ENTREE' ? checkInTime : checkOutTime) ?? new Date().toISOString();
+    let latitude = this.extractCoordinate(session, type === 'ENTREE'
+      ? ['checkInLatitude', 'latitude']
+      : ['checkOutLatitude', 'latitude']);
+    let longitude = this.extractCoordinate(session, type === 'ENTREE'
+      ? ['checkInLongitude', 'longitude']
+      : ['checkOutLongitude', 'longitude']);
+    let accuracy = this.extractCoordinate(session, type === 'ENTREE'
+      ? ['checkInAccuracy', 'accuracy']
+      : ['checkOutAccuracy', 'accuracy']);
+    const locationDetails = this.extractPointageLocation(session, type, latitude, longitude, accuracy);
+    latitude = this.toFiniteNumber(locationDetails?.latitude) ?? latitude;
+    longitude = this.toFiniteNumber(locationDetails?.longitude) ?? longitude;
+    accuracy = this.toFiniteNumber(locationDetails?.accuracy) ?? accuracy;
+    const location = this.formatLocationDisplay(locationDetails)
+      ?? this.resolveSessionLocation(session, type, latitude, longitude);
     const rawDuration = Number(
       session?.duration
       ?? session?.workedSeconds
@@ -327,6 +455,15 @@ export class PointageService {
       minutesRetard: Number(session?.lateMinutes ?? session?.minutesRetard ?? 0),
       isAutoClosed: session?.autoClosed === true || session?.isAutoClosed === true,
       overtimeMinutes: Number(session?.overtimeMinutes ?? session?.overtime ?? 0) || undefined,
+      latitude,
+      longitude,
+      accuracy,
+      address: locationDetails?.address ?? location ?? undefined,
+      location: location ?? undefined,
+      locationDetails,
+      checkInLocation: this.extractLocationLabel(session, 'ENTREE') ?? undefined,
+      checkOutLocation: this.extractLocationLabel(session, 'SORTIE') ?? undefined,
+      latestAlert: typeof session?.latestAlert === 'string' ? session.latestAlert : undefined,
     };
   }
 
@@ -459,6 +596,167 @@ export class PointageService {
     }
 
     return null;
+  }
+
+  private resolveSessionLocation(session: any, type: 'ENTREE' | 'SORTIE', latitude?: number, longitude?: number): string | null {
+    const location = this.extractLocationLabel(session, type);
+    return location ?? this.formatCoordinates(latitude, longitude);
+  }
+
+  private extractPointageLocation(
+    session: any,
+    type: 'ENTREE' | 'SORTIE',
+    latitude?: number,
+    longitude?: number,
+    accuracy?: number
+  ): PointageLocation | null {
+    if (!session || typeof session !== 'object') {
+      return this.buildLocationDetails(latitude, longitude, accuracy, null, null, null, null);
+    }
+
+    const rawLocation = type === 'ENTREE' ? session.checkInLocation : session.checkOutLocation;
+    const rawObject = rawLocation && typeof rawLocation === 'object' ? rawLocation as Record<string, unknown> : null;
+    const address = this.extractText(rawObject, ['address'])
+      ?? (type === 'ENTREE'
+        ? this.extractText(session, ['checkInAddress', 'address'])
+        : this.extractText(session, ['checkOutAddress', 'address']));
+
+    return this.buildLocationDetails(
+      this.toFiniteNumber(rawObject?.['latitude']) ?? latitude,
+      this.toFiniteNumber(rawObject?.['longitude']) ?? longitude,
+      this.toFiniteNumber(rawObject?.['accuracy']) ?? accuracy,
+      address,
+      this.extractText(rawObject, ['city']),
+      this.extractText(rawObject, ['region']),
+      this.extractText(rawObject, ['country'])
+    );
+  }
+
+  private buildLocationDetails(
+    latitude?: number | null,
+    longitude?: number | null,
+    accuracy?: number | null,
+    address?: string | null,
+    city?: string | null,
+    region?: string | null,
+    country?: string | null
+  ): PointageLocation | null {
+    const safeLatitude = this.toFiniteNumber(latitude);
+    const safeLongitude = this.toFiniteNumber(longitude);
+    const safeAccuracy = this.toFiniteNumber(accuracy);
+    const hasCoordinates = safeLatitude !== undefined && safeLongitude !== undefined;
+    const hasReadableLocation = [address, city, region, country].some(value => typeof value === 'string' && value.trim().length > 0);
+
+    if (!hasCoordinates && !hasReadableLocation) {
+      return null;
+    }
+
+    return {
+      latitude: safeLatitude ?? null,
+      longitude: safeLongitude ?? null,
+      accuracy: safeAccuracy ?? null,
+      address: address ?? null,
+      city: city ?? null,
+      region: region ?? null,
+      country: country ?? null,
+    };
+  }
+
+  private extractLocationLabel(source: any, type: 'ENTREE' | 'SORTIE'): string | null {
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+
+    const label = type === 'ENTREE'
+      ? this.extractText(source, ['checkInLocationLabel', 'checkInAddress', 'address', 'location'])
+      : this.extractText(source, ['checkOutLocationLabel', 'checkOutAddress', 'address', 'location']);
+    if (label) {
+      return label;
+    }
+
+    const rawLocation = type === 'ENTREE' ? source.checkInLocation : source.checkOutLocation;
+    if (rawLocation && typeof rawLocation === 'object') {
+      return this.formatLocationDisplay(rawLocation as PointageLocation);
+    }
+
+    return null;
+  }
+
+  private formatLocationDisplay(location?: PointageLocation | null): string | null {
+    if (!location) {
+      return null;
+    }
+
+    const city = this.normalizeLocationPart(location.city);
+    const country = this.normalizeLocationPart(location.country);
+    if (city && country) {
+      return city.toLowerCase() === country.toLowerCase() ? city : `${city}, ${country}`;
+    }
+    if (city) {
+      return city;
+    }
+    if (country) {
+      return country;
+    }
+
+    const region = this.normalizeLocationPart(location.region);
+    if (region) {
+      return region;
+    }
+
+    return this.normalizeLocationPart(location.address);
+  }
+
+  private normalizeLocationPart(value: unknown): string | null {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private extractText(source: any, keys: string[]): string | null {
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+      if (value && typeof value === 'object') {
+        const label = this.formatLocationDisplay(value as PointageLocation);
+        if (label) {
+          return label;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractCoordinate(source: any, keys: string[]): number | undefined {
+    if (!source || typeof source !== 'object') {
+      return undefined;
+    }
+
+    for (const key of keys) {
+      const value = Number(source[key]);
+      if (Number.isFinite(value)) {
+        return value;
+      }
+    }
+
+    return undefined;
+  }
+
+  private toFiniteNumber(value: unknown): number | undefined {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private formatCoordinates(latitude?: number, longitude?: number): string | null {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+    return `${latitude!.toFixed(4)}, ${longitude!.toFixed(4)}`;
   }
 
   private mapAttendanceStatus(rawStatus: unknown): DayStatus['statut'] {

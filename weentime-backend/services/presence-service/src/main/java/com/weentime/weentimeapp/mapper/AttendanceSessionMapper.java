@@ -5,6 +5,7 @@ import com.weentime.weentimeapp.dto.WorkScheduleDto;
 import com.weentime.weentimeapp.entity.AttendanceSession;
 import com.weentime.weentimeapp.entity.WorkSchedule;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import java.time.DayOfWeek;
 import java.util.List;
@@ -14,6 +15,10 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring")
 public interface AttendanceSessionMapper {
 
+    @Mapping(target = "checkInLocation", ignore = true)
+    @Mapping(target = "checkInLocationDetails", ignore = true)
+    @Mapping(target = "checkOutLocation", ignore = true)
+    @Mapping(target = "checkOutLocationDetails", ignore = true)
     AttendanceSessionDTO toDto(AttendanceSession entity);
 
     List<AttendanceSessionDTO> toDtoList(List<AttendanceSession> entities);

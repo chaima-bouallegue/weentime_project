@@ -1,6 +1,7 @@
 export enum AttendanceSessionStatus {
   OPEN = 'OPEN',
   CLOSED = 'CLOSED',
+  AUTO_CLOSED = 'AUTO_CLOSED',
 }
 
 export enum AttendanceDayStatus {
@@ -11,6 +12,12 @@ export enum AttendanceDayStatus {
   REMOTE = 'REMOTE',
   ON_LEAVE = 'ON_LEAVE',
   PRESENT = 'PRESENT',
+  HOLIDAY = 'HOLIDAY',
+  PARTIAL = 'PARTIAL',
+  EARLY_LEAVE = 'EARLY_LEAVE',
+  AUTO_CLOSED = 'AUTO_CLOSED',
+  MISSING_CHECKOUT = 'MISSING_CHECKOUT',
+  OUT_OF_ZONE = 'OUT_OF_ZONE',
 }
 
 export enum PresenceSource {
@@ -19,15 +26,36 @@ export enum PresenceSource {
   BADGE = 'BADGE',
   MANUAL = 'MANUAL',
   API = 'API',
+  AI = 'AI',
+  AI_CHATBOT = 'AI_CHATBOT',
 }
 
 export interface CheckInRequest {
   source?: PresenceSource | string;
   localisation?: string | null;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  address?: string | null;
 }
 
 export interface CheckOutRequest {
+  source?: PresenceSource | string;
   localisation?: string | null;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  address?: string | null;
+}
+
+export interface AttendanceLocation {
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
 }
 
 export interface AttendanceSession {
@@ -43,6 +71,23 @@ export interface AttendanceSession {
   status: AttendanceSessionStatus | string;
   source?: PresenceSource | string | null;
   localisation?: string | null;
+  checkInLatitude?: number | null;
+  checkInLongitude?: number | null;
+  checkInAccuracy?: number | null;
+  checkInAddress?: string | null;
+  checkInLocation?: string | AttendanceLocation | null;
+  checkInLocationLabel?: string | null;
+  checkOutLatitude?: number | null;
+  checkOutLongitude?: number | null;
+  checkOutAccuracy?: number | null;
+  checkOutAddress?: string | null;
+  checkOutLocation?: string | AttendanceLocation | null;
+  checkOutLocationLabel?: string | null;
+  autoClosed?: boolean;
+  autoClosedReason?: string | null;
+  overtimeMinutes?: number;
+  earlyLeaveMinutes?: number;
+  expectedMinutes?: number;
   lateArrival?: boolean;
   dailyStatus?: AttendanceDayStatus | string;
   createdAt?: string;
@@ -68,6 +113,10 @@ export interface Presence {
   workedMinutes?: number;
   heureEntree?: string | null;
   heureSortie?: string | null;
+  checkInLocation?: string | AttendanceLocation | null;
+  checkInLocationLabel?: string | null;
+  checkOutLocation?: string | AttendanceLocation | null;
+  checkOutLocationLabel?: string | null;
   source?: PresenceSource | string | null;
   activeSession?: AttendanceSession | null;
   sessions?: AttendanceSession[];
@@ -86,8 +135,15 @@ export interface PresenceMemberStatus {
   lateArrival?: boolean;
   heureEntree?: string | null;
   heureSortie?: string | null;
+  checkInLocation?: string | AttendanceLocation | null;
+  checkInLocationLabel?: string | null;
+  checkOutLocation?: string | AttendanceLocation | null;
+  checkOutLocationLabel?: string | null;
   durationSeconds?: number;
   workedMinutes?: number;
+  overtimeMinutes?: number;
+  latestAlert?: string | null;
+  autoClosed?: boolean;
   source?: PresenceSource | string | null;
   [key: string]: unknown;
 }

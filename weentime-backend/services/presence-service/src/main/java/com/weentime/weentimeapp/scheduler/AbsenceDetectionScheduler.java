@@ -20,4 +20,18 @@ public class AbsenceDetectionScheduler {
         presenceService.detectAbsences();
         log.info("Finished scheduled absence detection.");
     }
+
+    @Scheduled(fixedDelayString = "${presence.auto-close-fixed-delay-ms:900000}")
+    public void runAutomaticCheckout() {
+        log.debug("Starting scheduled automatic checkout sweep...");
+        presenceService.autoCloseOpenSessions();
+        log.debug("Finished scheduled automatic checkout sweep.");
+    }
+
+    @Scheduled(fixedDelayString = "${presence.missing-checkin-fixed-delay-ms:900000}")
+    public void runMissingCheckInDetection() {
+        log.debug("Starting scheduled missing check-in detection...");
+        presenceService.detectMissingCheckIns();
+        log.debug("Finished scheduled missing check-in detection.");
+    }
 }

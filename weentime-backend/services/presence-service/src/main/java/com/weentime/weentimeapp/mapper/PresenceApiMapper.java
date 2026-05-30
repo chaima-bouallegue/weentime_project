@@ -5,6 +5,7 @@ import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
 import com.weentime.weentimeapp.dto.PresenceHistoryResponse;
 import com.weentime.weentimeapp.dto.PresenceSessionResponse;
 import com.weentime.weentimeapp.dto.PresenceStatsDTO;
+import com.weentime.weentimeapp.dto.PointageLocationDTO;
 import com.weentime.weentimeapp.dto.TodayPresenceResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -52,14 +54,32 @@ public class PresenceApiMapper {
                 .weekWorkedSeconds(resolveWeekWorkedSeconds(stats))
                 .punctualityRate(resolvePunctualityRate(stats))
                 .utilisateurId(summary.getUtilisateurId())
+                .entrepriseId(summary.getEntrepriseId())
                 .date(formatDate(summary.getDate()))
                 .timezone(timezone)
                 .status(summary.getStatus())
                 .lateArrival(summary.getLateArrival())
                 .hasOpenSession(summary.getHasOpenSession())
+                .checkedIn(summary.getCheckedIn())
+                .checkedOut(summary.getCheckedOut())
+                .canCheckIn(summary.getCanCheckIn())
+                .canCheckOut(summary.getCanCheckOut())
+                .reasonIfBlocked(summary.getReasonIfBlocked())
                 .totalDuration(workedSeconds)
+                .currentSessionDuration(summary.getCurrentSessionDuration())
+                .scheduledStart(summary.getScheduledStart())
+                .scheduledEnd(summary.getScheduledEnd())
+                .expectedMinutes(summary.getExpectedMinutes())
+                .workedMinutes(summary.getWorkedMinutes())
+                .overtimePreview(summary.getOvertimePreview())
+                .leaveOrHolidayInfo(summary.getLeaveOrHolidayInfo())
+                .latestAlert(summary.getLatestAlert())
                 .heureEntree(checkIn)
                 .heureSortie(checkOut)
+                .checkInLocation(summary.getCheckInLocationDetails())
+                .checkInLocationLabel(summary.getCheckInLocation())
+                .checkOutLocation(summary.getCheckOutLocationDetails())
+                .checkOutLocationLabel(summary.getCheckOutLocation())
                 .source(summary.getSource())
                 .activeSession(activeSession)
                 .sessions(sessions)
@@ -91,16 +111,94 @@ public class PresenceApiMapper {
         return PresenceSessionResponse.builder()
                 .id(session.getId())
                 .utilisateurId(session.getUtilisateurId())
+                .entrepriseId(session.getEntrepriseId())
+                .scheduleId(session.getScheduleId())
                 .date(formatDate(session.getDate()))
                 .checkInTime(formatDateTime(session.getCheckInTime(), zoneId))
                 .checkOutTime(formatDateTime(session.getCheckOutTime(), zoneId))
                 .duration(session.getDuration() == null ? 0L : session.getDuration())
                 .status(session.getStatus())
                 .source(session.getSource())
+                .checkInSource(session.getCheckInSource())
+                .checkOutSource(session.getCheckOutSource())
                 .localisation(session.getLocalisation())
+                .checkInLatitude(session.getCheckInLatitude())
+                .checkInLongitude(session.getCheckInLongitude())
+                .checkInAccuracy(session.getCheckInAccuracy())
+                .checkInAddress(session.getCheckInAddress())
+                .checkInCity(session.getCheckInCity())
+                .checkInRegion(session.getCheckInRegion())
+                .checkInCountry(session.getCheckInCountry())
+                .checkInLocation(resolveLocationDetails(
+                        session.getCheckInLocationDetails(),
+                        session.getCheckInLatitude(),
+                        session.getCheckInLongitude(),
+                        session.getCheckInAccuracy(),
+                        session.getCheckInAddress(),
+                        session.getCheckInCity(),
+                        session.getCheckInRegion(),
+                        session.getCheckInCountry()
+                ))
+                .checkInLocationLabel(session.getCheckInLocation())
+                .checkOutLatitude(session.getCheckOutLatitude())
+                .checkOutLongitude(session.getCheckOutLongitude())
+                .checkOutAccuracy(session.getCheckOutAccuracy())
+                .checkOutAddress(session.getCheckOutAddress())
+                .checkOutCity(session.getCheckOutCity())
+                .checkOutRegion(session.getCheckOutRegion())
+                .checkOutCountry(session.getCheckOutCountry())
+                .checkOutLocation(resolveLocationDetails(
+                        session.getCheckOutLocationDetails(),
+                        session.getCheckOutLatitude(),
+                        session.getCheckOutLongitude(),
+                        session.getCheckOutAccuracy(),
+                        session.getCheckOutAddress(),
+                        session.getCheckOutCity(),
+                        session.getCheckOutRegion(),
+                        session.getCheckOutCountry()
+                ))
+                .checkOutLocationLabel(session.getCheckOutLocation())
                 .lateArrival(session.getLateArrival())
                 .dailyStatus(session.getDailyStatus())
+                .workedMinutes(session.getWorkedMinutes())
+                .expectedMinutes(session.getExpectedMinutes())
+                .overtimeMinutes(session.getOvertimeMinutes())
+                .earlyLeaveMinutes(session.getEarlyLeaveMinutes())
+                .autoClosed(session.getAutoClosed())
+                .autoClosedReason(session.getAutoClosedReason())
+                .latestAlert(session.getLatestAlert())
                 .createdAt(formatDateTime(session.getCreatedAt(), zoneId))
+                .build();
+    }
+
+    private PointageLocationDTO resolveLocationDetails(
+            PointageLocationDTO existing,
+            Double latitude,
+            Double longitude,
+            Double accuracy,
+            String address,
+            String city,
+            String region,
+            String country
+    ) {
+        if (existing != null) {
+            return existing;
+        }
+        boolean hasCoordinates = latitude != null && longitude != null;
+        boolean hasReadableDetails = Stream.of(address, city, region, country)
+                .filter(value -> value != null)
+                .anyMatch(value -> !value.isBlank());
+        if (!hasCoordinates && !hasReadableDetails) {
+            return null;
+        }
+        return PointageLocationDTO.builder()
+                .latitude(latitude)
+                .longitude(longitude)
+                .accuracy(accuracy)
+                .address(address)
+                .city(city)
+                .region(region)
+                .country(country)
                 .build();
     }
 

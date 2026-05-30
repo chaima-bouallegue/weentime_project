@@ -30,6 +30,11 @@ class TeamPresenceInput(BaseModel):
     team_id: int | None = None
 
 
+class OvertimeDecisionInput(BaseModel):
+    id: int = Field(gt=0)
+    reason: str | None = Field(default=None, max_length=255)
+
+
 class AttendanceTools:
     def __init__(self, backend_client: BackendClient) -> None:
         self.backend_client = backend_client
@@ -83,6 +88,18 @@ class AttendanceTools:
     def register(self, registry: ToolRegistry) -> None:
         registry.register(
             ToolDefinition(
+                name="attendance.status",
+                description="Retourne le statut de pointage du jour.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ALL_BUSINESS_ROLES,
+                required_permissions={"attendance:read:self"},
+            ),
+            self.get_pointage_status_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="attendance.self.status",
                 description="Retourne le pointage du jour de l'utilisateur authentifie.",
                 input_model=EmptyToolInput,
@@ -104,6 +121,20 @@ class AttendanceTools:
                 required_permissions={"attendance:read:self"},
             ),
             self.get_pointage_status,
+        )
+        registry.register(
+            ToolDefinition(
+                name="attendance.check_in",
+                description="Pointe l'entree de l'utilisateur authentifie.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="write",
+                allowed_roles=ALL_BUSINESS_ROLES,
+                required_permissions={"attendance:write:self"},
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.check_in_alias,
         )
         registry.register(
             ToolDefinition(
@@ -135,6 +166,20 @@ class AttendanceTools:
         )
         registry.register(
             ToolDefinition(
+                name="attendance.check_out",
+                description="Pointe la sortie de l'utilisateur authentifie.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="write",
+                allowed_roles=ALL_BUSINESS_ROLES,
+                required_permissions={"attendance:write:self"},
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.check_out_alias,
+        )
+        registry.register(
+            ToolDefinition(
                 name="attendance.self.check_out",
                 description="Pointe la sortie de l'utilisateur authentifie.",
                 input_model=EmptyToolInput,
@@ -160,6 +205,18 @@ class AttendanceTools:
                 idempotency_required=True,
             ),
             self.check_out,
+        )
+        registry.register(
+            ToolDefinition(
+                name="attendance.today_summary",
+                description="Retourne le resume de pointage du jour avec horaires et anomalies.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles=ALL_BUSINESS_ROLES,
+                required_permissions={"attendance:read:self"},
+            ),
+            self.get_pointage_status_alias,
         )
         registry.register(
             ToolDefinition(
@@ -195,6 +252,17 @@ class AttendanceTools:
                 allowed_roles=ALL_BUSINESS_ROLES,
             ),
             self.get_team_presence,
+        )
+        registry.register(
+            ToolDefinition(
+                name="attendance.anomalies",
+                description="Retourne les anomalies de presence visibles pour le role courant.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles={"MANAGER", "RH", "ADMIN"},
+            ),
+            self.attendance_anomalies,
         )
         registry.register(
             ToolDefinition(
@@ -239,6 +307,43 @@ class AttendanceTools:
                 allowed_roles={"RH", "ADMIN"},
             ),
             self.rh_attendance_late,
+        )
+        registry.register(
+            ToolDefinition(
+                name="overtime.pending",
+                description="Retourne les heures supplementaires en attente.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles={"MANAGER", "RH", "ADMIN"},
+            ),
+            self.overtime_pending,
+        )
+        registry.register(
+            ToolDefinition(
+                name="overtime.approve",
+                description="Approuve une demande d'heures supplementaires.",
+                input_model=OvertimeDecisionInput,
+                output_model=None,
+                type="write",
+                allowed_roles={"MANAGER", "RH", "ADMIN"},
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.overtime_approve,
+        )
+        registry.register(
+            ToolDefinition(
+                name="overtime.reject",
+                description="Rejette une demande d'heures supplementaires.",
+                input_model=OvertimeDecisionInput,
+                output_model=None,
+                type="write",
+                allowed_roles={"MANAGER", "RH", "ADMIN"},
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.overtime_reject,
         )
 
     async def get_pointage_status(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
@@ -316,6 +421,38 @@ class AttendanceTools:
 
     async def rh_attendance_late(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
         return await self._rh_presence_view("rh.attendance.late", context, mode="late")
+
+    async def attendance_anomalies(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        return await self._rh_presence_view("attendance.anomalies", context, mode="missing")
+
+    async def overtime_pending(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        return await self._backend_get(
+            "/overtime/pending",
+            context=context,
+            tool_name="overtime.pending",
+            success_status_codes=ATTENDANCE_READ_SUCCESS_CODES,
+        )
+
+    async def overtime_approve(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        data = payload.model_dump()
+        return await self._backend_post(
+            f"/overtime/{data['id']}/approve",
+            context=context,
+            json={},
+            tool_name="overtime.approve",
+            success_status_codes=ATTENDANCE_WRITE_SUCCESS_CODES,
+        )
+
+    async def overtime_reject(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        data = payload.model_dump()
+        body = {"reason": data.get("reason")} if data.get("reason") else {}
+        return await self._backend_post(
+            f"/overtime/{data['id']}/reject",
+            context=context,
+            json=body,
+            tool_name="overtime.reject",
+            success_status_codes=ATTENDANCE_WRITE_SUCCESS_CODES,
+        )
 
     async def _rh_presence_view(self, tool_name: str, context: CurrentUserContext, *, mode: str) -> ToolResult:
         path = "/presence/company/today" if (context.role or "").upper().replace("ROLE_", "") == "RH" else "/presence/global/analytics"

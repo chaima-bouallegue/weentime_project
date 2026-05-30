@@ -1,5 +1,6 @@
 package com.weentime.weentimeapp.service;
 
+import com.weentime.weentimeapp.client.HolidayServiceClient;
 import com.weentime.weentimeapp.client.LeaveServiceClient;
 import com.weentime.weentimeapp.client.TeletravailServiceClient;
 import com.weentime.weentimeapp.client.UserServiceClient;
@@ -12,6 +13,7 @@ import com.weentime.weentimeapp.entity.AttendanceSession;
 import com.weentime.weentimeapp.entity.WorkSchedule;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
 import com.weentime.weentimeapp.enums.PresenceSource;
+import com.weentime.weentimeapp.exception.PresenceBusinessException;
 import com.weentime.weentimeapp.mapper.AttendanceSessionMapper;
 import com.weentime.weentimeapp.repository.AttendanceSessionRepository;
 import com.weentime.weentimeapp.repository.OvertimeRepository;
@@ -66,9 +68,13 @@ class PresenceServiceTest {
     @Mock
     private LeaveServiceClient leaveServiceClient;
     @Mock
+    private HolidayServiceClient holidayServiceClient;
+    @Mock
     private TeletravailServiceClient teletravailServiceClient;
     @Mock
     private HoraireManagementService horaireManagementService;
+    @Mock
+    private LocationResolverService locationResolverService;
 
     private PresenceServiceImpl presenceService;
     private com.weentime.weentimeapp.dto.CheckInRequest checkInRequest;
@@ -98,11 +104,13 @@ class PresenceServiceTest {
                 overtimeRepository,
                 attendanceSessionMapper,
                 leaveServiceClient,
+                holidayServiceClient,
                 teletravailServiceClient,
                 userServiceClient,
                 notificationService,
                 properties,
-                horaireManagementService
+                horaireManagementService,
+                locationResolverService
         );
 
         checkInRequest = com.weentime.weentimeapp.dto.CheckInRequest.builder()
@@ -127,21 +135,49 @@ class PresenceServiceTest {
         when(workScheduleRepository.findByUtilisateurId(anyLong())).thenReturn(Optional.of(workSchedule));
         when(horaireManagementService.resolveEffectiveWorkSchedule(anyLong(), any(LocalDate.class))).thenReturn(workSchedule);
         when(leaveServiceClient.hasApprovedLeave(anyLong(), any(LocalDate.class))).thenReturn(false);
+        when(holidayServiceClient.isPublicHoliday(anyLong(), any(LocalDate.class))).thenReturn(false);
         when(teletravailServiceClient.hasApprovedTelework(anyLong(), any(LocalDate.class))).thenReturn(false);
+        when(userServiceClient.getUserById(anyLong())).thenAnswer(invocation -> com.weentime.weentimeapp.dto.UserSummaryDTO.builder()
+                .id(invocation.getArgument(0))
+                .entrepriseId(1L)
+                .fullName("Test User")
+                .active(true)
+                .build());
         when(attendanceSessionMapper.toDto(any(AttendanceSession.class))).thenAnswer(invocation -> {
             AttendanceSession session = invocation.getArgument(0);
             return AttendanceSessionDTO.builder()
                     .id(session.getId())
                     .utilisateurId(session.getUtilisateurId())
+                    .entrepriseId(session.getEntrepriseId())
+                    .scheduleId(session.getScheduleId())
                     .date(session.getDate())
                     .checkInTime(session.getCheckInTime())
                     .checkOutTime(session.getCheckOutTime())
                     .duration(session.getDuration())
                     .status(session.getStatus())
                     .source(session.getSource())
+                    .checkInSource(session.getCheckInSource())
+                    .checkOutSource(session.getCheckOutSource())
                     .localisation(session.getLocalisation())
+                    .checkInLatitude(session.getCheckInLatitude())
+                    .checkInLongitude(session.getCheckInLongitude())
+                    .checkInAccuracy(session.getCheckInAccuracy())
+                    .checkInAddress(session.getCheckInAddress())
+                    .checkInLocation(locationResolverService.displayLocation(session.getCheckInAddress(), session.getCheckInLatitude(), session.getCheckInLongitude()))
+                    .checkOutLatitude(session.getCheckOutLatitude())
+                    .checkOutLongitude(session.getCheckOutLongitude())
+                    .checkOutAccuracy(session.getCheckOutAccuracy())
+                    .checkOutAddress(session.getCheckOutAddress())
+                    .checkOutLocation(locationResolverService.displayLocation(session.getCheckOutAddress(), session.getCheckOutLatitude(), session.getCheckOutLongitude()))
                     .lateArrival(session.getLateArrival())
                     .dailyStatus(session.getDailyStatus())
+                    .workedMinutes(session.getWorkedMinutes())
+                    .expectedMinutes(session.getExpectedMinutes())
+                    .overtimeMinutes(session.getOvertimeMinutes())
+                    .earlyLeaveMinutes(session.getEarlyLeaveMinutes())
+                    .autoClosed(session.getAutoClosed())
+                    .autoClosedReason(session.getAutoClosedReason())
+                    .latestAlert(session.getLatestAlert())
                     .createdAt(session.getCreatedAt())
                     .build();
         });
@@ -150,6 +186,13 @@ class PresenceServiceTest {
                 .thenAnswer(invocation -> storedSessions.stream()
                         .filter(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
                                 && session.getStatus() == invocation.getArgument(1))
+                        .max(Comparator.comparing(AttendanceSession::getCheckInTime)));
+
+        when(attendanceSessionRepository.findFirstByUtilisateurIdAndDateAndStatusOrderByCheckInTimeDesc(anyLong(), any(LocalDate.class), any()))
+                .thenAnswer(invocation -> storedSessions.stream()
+                        .filter(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
+                                && session.getDate().equals(invocation.getArgument(1))
+                                && session.getStatus() == invocation.getArgument(2))
                         .max(Comparator.comparing(AttendanceSession::getCheckInTime)));
 
         when(attendanceSessionRepository.findByUtilisateurIdAndStatusOrderByCheckInTimeDesc(anyLong(), any()))
@@ -165,6 +208,17 @@ class PresenceServiceTest {
                                 && session.getDate().equals(invocation.getArgument(1)))
                         .sorted(Comparator.comparing(AttendanceSession::getCheckInTime))
                         .toList());
+
+        when(attendanceSessionRepository.existsByUtilisateurIdAndDate(anyLong(), any(LocalDate.class)))
+                .thenAnswer(invocation -> storedSessions.stream()
+                        .anyMatch(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
+                                && session.getDate().equals(invocation.getArgument(1))));
+
+        when(attendanceSessionRepository.existsByUtilisateurIdAndDateAndCheckOutTimeIsNotNull(anyLong(), any(LocalDate.class)))
+                .thenAnswer(invocation -> storedSessions.stream()
+                        .anyMatch(session -> session.getUtilisateurId().equals(invocation.getArgument(0))
+                                && session.getDate().equals(invocation.getArgument(1))
+                                && session.getCheckOutTime() != null));
 
         when(attendanceSessionRepository.saveAndFlush(any(AttendanceSession.class))).thenAnswer(invocation -> {
             AttendanceSession session = invocation.getArgument(0);
@@ -211,7 +265,7 @@ class PresenceServiceTest {
     }
 
     @Test
-    void checkIn_returnsExistingOpenSessionWithoutCreatingNewOne() {
+    void checkIn_rejectsDuplicateOpenSession() {
         storedSessions.add(AttendanceSession.builder()
                 .id(1L)
                 .utilisateurId(1L)
@@ -222,29 +276,22 @@ class PresenceServiceTest {
                 .lateArrival(false)
                 .build());
 
-        AttendanceSummaryDTO summary = presenceService.checkIn(1L, checkInRequest);
-
-        assertNotNull(summary);
-        assertTrue(Boolean.TRUE.equals(summary.getHasOpenSession()));
-        assertNotNull(summary.getActiveSession());
-        assertEquals(1L, summary.getActiveSession().getId());
-        assertEquals(AttendanceSessionStatus.OPEN, summary.getActiveSession().getStatus());
-        assertEquals(1, summary.getSessions().size());
+        assertThrows(PresenceBusinessException.class, () -> presenceService.checkIn(1L, checkInRequest));
         verify(attendanceSessionRepository, never()).saveAndFlush(any(AttendanceSession.class));
     }
 
     @Test
     void checkOut_rejectsWhenNoSessionIsOpen() {
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
+        PresenceBusinessException exception = assertThrows(
+                PresenceBusinessException.class,
                 () -> presenceService.checkOut(1L, checkOutRequest)
         );
 
-        assertEquals("No open attendance session found for checkout.", exception.getMessage());
+        assertEquals("ATTENDANCE_SESSION_NOT_OPEN", exception.getCode());
     }
 
     @Test
-    void checkIn_allowsNewSessionAfterCheckoutOnSameDay() {
+    void checkIn_rejectsNewSessionAfterCheckoutOnSameDay() {
         AttendanceSummaryDTO firstCheckIn = presenceService.checkIn(1L, checkInRequest);
         assertTrue(Boolean.TRUE.equals(firstCheckIn.getHasOpenSession()));
 
@@ -253,11 +300,6 @@ class PresenceServiceTest {
         assertTrue(Boolean.FALSE.equals(afterCheckout.getHasOpenSession()));
         assertEquals(AttendanceSessionStatus.CLOSED, afterCheckout.getSessions().get(0).getStatus());
 
-        AttendanceSummaryDTO secondCheckIn = presenceService.checkIn(1L, checkInRequest);
-
-        assertEquals(2, secondCheckIn.getSessions().size());
-        assertTrue(Boolean.TRUE.equals(secondCheckIn.getHasOpenSession()));
-        assertNotNull(secondCheckIn.getActiveSession());
-        assertEquals(AttendanceSessionStatus.OPEN, secondCheckIn.getActiveSession().getStatus());
+        assertThrows(PresenceBusinessException.class, () -> presenceService.checkIn(1L, checkInRequest));
     }
 }

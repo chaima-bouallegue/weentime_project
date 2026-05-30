@@ -75,6 +75,8 @@ export interface ManagerPresenceMember {
   status: 'ACTIVE' | 'LATE' | 'OFF' | 'ABSENT';
   arrivalTime: string | null;
   departureTime: string | null;
+  checkInLocation: string | null;
+  checkOutLocation: string | null;
   totalMinutes: number;
   overtimeMinutes: number;
   lastActivity: string;

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import com.weentime.weentimeapp.enums.OvertimeStatus;
 import java.util.Optional;
 
 @Repository
@@ -21,6 +22,10 @@ public interface OvertimeRepository extends JpaRepository<Overtime, Long> {
     void deleteByUtilisateurIdAndDate(Long utilisateurId, LocalDate date);
 
     Page<Overtime> findByUtilisateurIdOrderByDateDesc(Long utilisateurId, Pageable pageable);
+
+    Page<Overtime> findByStatusOrderByDateDesc(OvertimeStatus status, Pageable pageable);
+
+    Page<Overtime> findByEntrepriseIdAndStatusOrderByDateDesc(Long entrepriseId, OvertimeStatus status, Pageable pageable);
 
     @Query("select coalesce(sum(o.heuresSupplementaires), 0) from Overtime o where o.date between :dateFrom and :dateTo")
     BigDecimal sumHeuresSupplementairesBetween(@Param("dateFrom") LocalDate dateFrom, @Param("dateTo") LocalDate dateTo);

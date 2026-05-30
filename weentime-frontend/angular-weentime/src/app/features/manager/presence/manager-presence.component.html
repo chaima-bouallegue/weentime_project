@@ -240,6 +240,16 @@
                       <span class="text-slate-400 w-12 font-medium">Sortie:</span>
                       <span class="tabular-nums text-slate-400">{{ member.departureTime || '--:--' }}</span>
                     </div>
+                    <div *ngIf="member.checkInLocation"
+                      class="flex items-start gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      <span class="text-slate-400 w-12 font-medium shrink-0">Lieu:</span>
+                      <span class="break-words">📍 {{ member.checkInLocation }}</span>
+                    </div>
+                    <div *ngIf="member.checkOutLocation"
+                      class="flex items-start gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      <span class="text-slate-400 w-12 font-medium shrink-0">Sortie:</span>
+                      <span class="break-words">📍 {{ member.checkOutLocation }}</span>
+                    </div>
                   </div>
                 </td>
 
@@ -342,6 +352,18 @@
                   <p class="text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{{
                     formatDuration(member.totalMinutes) }}</p>
                 </div>
+              </div>
+
+              <div *ngIf="member.checkInLocation || member.checkOutLocation"
+                class="mb-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-3 space-y-1.5">
+                <p *ngIf="member.checkInLocation"
+                  class="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-snug break-words">
+                  📍 Entrée: {{ member.checkInLocation }}
+                </p>
+                <p *ngIf="member.checkOutLocation"
+                  class="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-snug break-words">
+                  📍 Sortie: {{ member.checkOutLocation }}
+                </p>
               </div>
 
               <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">

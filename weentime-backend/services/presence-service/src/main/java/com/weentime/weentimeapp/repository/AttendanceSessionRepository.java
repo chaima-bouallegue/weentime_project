@@ -24,6 +24,8 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
 
     List<AttendanceSession> findByUtilisateurIdAndDateOrderByCheckInTimeAsc(Long utilisateurId, LocalDate date);
 
+    Optional<AttendanceSession> findFirstByUtilisateurIdAndDateAndStatusOrderByCheckInTimeDesc(Long utilisateurId, LocalDate date, AttendanceSessionStatus status);
+
     Page<AttendanceSession> findByUtilisateurIdOrderByCheckInTimeDesc(Long utilisateurId, Pageable pageable);
 
     Page<AttendanceSession> findByUtilisateurIdIn(Collection<Long> utilisateurIds, Pageable pageable);
@@ -54,6 +56,12 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
     );
 
     boolean existsByUtilisateurIdAndDate(Long utilisateurId, LocalDate date);
+
+    boolean existsByUtilisateurIdAndDateAndCheckOutTimeIsNotNull(Long utilisateurId, LocalDate date);
+
+    List<AttendanceSession> findByDateAndStatus(LocalDate date, AttendanceSessionStatus status);
+
+    List<AttendanceSession> findByDateLessThanEqualAndStatus(LocalDate date, AttendanceSessionStatus status);
 
     @Query("""
         select coalesce(sum(s.duration), 0)
