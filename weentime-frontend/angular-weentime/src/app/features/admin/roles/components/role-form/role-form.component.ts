@@ -1,9 +1,12 @@
-import { Component, Input, Output, EventEmitter, inject, ChangeDetectionStrategy, signal } from '@angular/core';
+import {
+  Component, Input, Output, EventEmitter, inject,
+  ChangeDetectionStrategy, signal
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, X, Save, Edit3, Plus, Shield } from 'lucide-angular';
+import { LucideAngularModule, X, Save, Edit3, Plus, Shield, Info } from 'lucide-angular';
 import { RoleService } from '../../role.service';
-import { Role, RoleNom, RoleRequest } from '../../role.model';
+import { Role, RoleRequest } from '../../role.model';
 import { ToastService } from '../../../../../core/services/toast.service';
 import { finalize } from 'rxjs';
 
@@ -12,17 +15,19 @@ import { finalize } from 'rxjs';
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './role-form.component.html',
-  styleUrls: ['./role-form.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RoleFormComponent {
+
   @Input() set role(val: Role | null) {
     this._role.set(val);
     if (val) {
       this.nom = val.nom;
       this.description = val.description;
+      this.nomInput = val.nom.startsWith('ROLE_') ? val.nom.substring(5) : val.nom;
     } else {
-      this.nom = RoleNom.ROLE_EMPLOYEE;
+      this.nom = '';
+      this.nomInput = '';
       this.description = '';
     }
   }
@@ -35,55 +40,59 @@ export class RoleFormComponent {
   private toastService = inject(ToastService);
 
   private _role = signal<Role | null>(null);
-  
-  nom: RoleNom = RoleNom.ROLE_EMPLOYEE;
+
+  nom = '';
+  nomInput = '';   // Partie saisie par l'utilisateur (sans préfixe ROLE_)
   description = '';
   saving = signal(false);
 
-  // Enum array iteration helper
-  roleNoms = Object.values(RoleNom);
+  /** Suggestions rapides — cliquables en mode création */
+  readonly suggestions = [
+    'EMPLOYEE', 'MANAGER', 'RH', 'ADMIN',
+    'PHARMACIE', 'CLINIQUE', 'MEDECIN', 'CAISSIER', 'LIVREUR'
+  ];
 
   readonly iconX = X;
   readonly iconSave = Save;
   readonly iconEdit = Edit3;
   readonly iconPlus = Plus;
   readonly iconShield = Shield;
+  readonly iconInfo = Info;
+
+  /** Normalise la saisie : majuscules, espaces → underscore, caractères invalides supprimés */
+  onNomInputChange(val: string): void {
+    this.nomInput = val.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+    this.nom = this.nomInput ? `ROLE_${this.nomInput}` : '';
+  }
+
+  selectSuggestion(s: string): void {
+    this.nomInput = s;
+    this.nom = `ROLE_${s}`;
+  }
 
   onSubmit(): void {
-    if (!this.nom) {
+    if (!this.nom || this.nom === 'ROLE_') {
       this.toastService.error('Le nom du rôle est requis.');
       return;
     }
+    if (!/^ROLE_[A-Z0-9_]+$/.test(this.nom)) {
+      this.toastService.error('Format invalide. Ex: ROLE_PHARMACIE');
+      return;
+    }
 
-    const request: RoleRequest = {
-      nom: this.nom,
-      description: this.description
-    };
-
+    const request: RoleRequest = { nom: this.nom, description: this.description };
     this.saving.set(true);
 
-    if (this._role()) {
-      // Edit
-      this.roleService.updateRole(this._role()!.id, request)
-        .pipe(finalize(() => this.saving.set(false)))
-        .subscribe({
-          next: () => {
-            this.toastService.success('Rôle mis à jour.');
-            this.saved.emit();
-          },
-          error: (err) => this.toastService.error(err.error?.message || 'Erreur lors de la mise à jour.')
-        });
-    } else {
-      // Create
-      this.roleService.createRole(request)
-        .pipe(finalize(() => this.saving.set(false)))
-        .subscribe({
-          next: () => {
-            this.toastService.success('Rôle créé avec succès.');
-            this.saved.emit();
-          },
-          error: (err) => this.toastService.error(err.error?.message || 'Erreur lors de la création.')
-        });
-    }
+    const action$ = this._role()
+      ? this.roleService.updateRole(this._role()!.id, request)
+      : this.roleService.createRole(request);
+
+    action$.pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: () => {
+        this.toastService.success(this._role() ? 'Rôle mis à jour.' : 'Rôle créé avec succès.');
+        this.saved.emit();
+      },
+      error: (err) => this.toastService.error(err.error?.message || 'Erreur.')
+    });
   }
 }
