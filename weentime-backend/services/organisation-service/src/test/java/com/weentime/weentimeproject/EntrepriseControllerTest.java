@@ -3,6 +3,7 @@ package com.weentime.weentimeproject;
 import com.weentime.weentimeproject.controller.EntrepriseController;
 import com.weentime.weentimeproject.dto.EntrepriseValidationDTO;
 import com.weentime.weentimeproject.service.EntrepriseService;
+import com.weentime.weentimeproject.service.EntrepriseAccessControlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,11 +23,14 @@ class EntrepriseControllerTest {
     @Mock
     private EntrepriseService entrepriseService;
 
+    @Mock
+    private EntrepriseAccessControlService accessControlService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new EntrepriseController(entrepriseService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new EntrepriseController(entrepriseService, accessControlService)).build();
     }
 
     @Test

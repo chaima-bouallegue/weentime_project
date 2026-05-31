@@ -50,6 +50,12 @@ export class ReunionService {
     return this.http.patch<void>(`${this.apiUrl}/${uuid}/annuler`, {});
   }
 
+  removeParticipant(uuid: string, participantId: number): Observable<void> {
+    return this.http.delete<void>(
+        `${this.apiUrl}/${uuid}/participants/${participantId}`
+    );
+}
+
   checkConflicts(date: string, heureDebut: string, heureFin: string, userIds: number[]): Observable<ConflictResponse> {
     const params = new HttpParams()
       .set('date', date)

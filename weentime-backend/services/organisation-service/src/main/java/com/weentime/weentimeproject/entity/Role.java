@@ -1,6 +1,5 @@
 package com.weentime.weentimeproject.entity;
 
-import com.weentime.weentimeproject.enums.RoleNom;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,9 +16,8 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false, unique = true)
-    private RoleNom nom;
+    private String nom;
 
     private String description;
 

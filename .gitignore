@@ -82,4 +82,11 @@ dist/
 uploads/
 .idea/
 .vscode/
-.env
+.envexception_traces.txt
+gateway_out_utf8.txt
+organisation_service_*.txt
+organisation_service_last_out.txt
+powershell
+read_log.py
+ai-service/storage/
+weentime-frontend/angular-weentime/scratch/

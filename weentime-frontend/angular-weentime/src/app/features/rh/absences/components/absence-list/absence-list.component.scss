@@ -3,7 +3,7 @@
 // Stats
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 .stat-card {
-  background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
   padding: 18px 20px; display: flex; align-items: center; gap: 14px;
   transition: all 0.2s;
 }
@@ -31,7 +31,7 @@
 // Filters
 .filters-bar { display: flex; gap: 8px; flex-wrap: wrap; }
 .filter-chip {
-  padding: 7px 16px; border-radius: 20px; border: 1px solid #e2e8f0;
+  padding: 7px 16px; border-radius: 20px; border: 1px solid var(--border);
   background: #fff; font-size: 12px; font-weight: 700; color: #64748b;
   cursor: pointer; transition: all 0.15s;
 }
@@ -41,7 +41,7 @@
 :host-context(.dark) .filter-chip.active { background: #6366f1; color: #fff; }
 
 // Table
-.table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; }
+.table-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
 :host-context(.dark) .table-card { background: #141821; border-color: #1e293b; }
 .table-wrapper { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
@@ -90,12 +90,12 @@
 :host-context(.dark) .badge-justif-recu { background: rgba(22,163,74,0.12); color: #4ade80; }
 .badge-justif-en_attente { background: #fffbeb; color: #b45309; }
 :host-context(.dark) .badge-justif-en_attente { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.badge-justif-aucun { background: #f1f5f9; color: #64748b; }
+.badge-justif-aucun { background: #FFFFFF; color: #64748b; }
 :host-context(.dark) .badge-justif-aucun { background: #1e293b; color: #94a3b8; }
 
 .badge-impact { background: #f5f3ff; color: #6d28d9; }
 :host-context(.dark) .badge-impact { background: rgba(109,40,217,0.12); color: #a78bfa; }
-.badge-no-impact { background: #f1f5f9; color: #94a3b8; }
+.badge-no-impact { background: #FFFFFF; color: #94a3b8; }
 :host-context(.dark) .badge-no-impact { background: #1e293b; color: #64748b; }
 
 .badge-statut-valide { background: #f0fdf4; color: #15803d; }

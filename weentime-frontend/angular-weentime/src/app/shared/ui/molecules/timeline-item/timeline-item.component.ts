@@ -32,7 +32,7 @@ import { UiBadgeComponent } from '../../atoms/badge/badge.component';
       top: 0;
       bottom: -16px;
       width: 1px;
-      background: #f1f5f9;
+      background: #FFFFFF;
     }
 
     .timeline-item:last-child::before {

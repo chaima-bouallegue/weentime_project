@@ -52,10 +52,10 @@
 
 .view-toggle {
   display: flex;
-  background: #f1f5f9;
+  background: #FFFFFF;
   padding: 5px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
 
   button {
     width: 44px;
@@ -100,7 +100,7 @@
     height: 44px;
     padding: 0 16px 0 44px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     border-radius: 12px;
     font-size: 14px;
     font-weight: 500;
@@ -122,7 +122,7 @@
 .rh-tabs {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
   padding: 0 4px;
 }
@@ -150,7 +150,7 @@
 
   &:hover:not(.active) {
     color: #334155;
-    background: #f8fafc;
+    background: #FFFFFF;
   }
 }
 

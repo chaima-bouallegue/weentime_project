@@ -96,4 +96,24 @@ public class ReunionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return service.getMeetingMinutesToday(userId, date);
     }
+    // AJOUTER ce endpoint — update partiel (description, agenda, date, heure...)
+@PatchMapping("/{uuid}")
+@PreAuthorize("hasAnyRole('MANAGER', 'RH')")
+public ResponseEntity<ReunionDTO> update(
+        @PathVariable String uuid,
+        @RequestBody ReunionUpdateRequest request) {
+    Long userId = SecurityUtils.getCurrentUserId();
+    return ResponseEntity.ok(service.updateReunion(uuid, request, userId));
+}
+
+// AJOUTER ce endpoint — retirer un participant
+@DeleteMapping("/{uuid}/participants/{participantId}")
+@PreAuthorize("hasAnyRole('MANAGER', 'RH')")
+public ResponseEntity<Void> removeParticipant(
+        @PathVariable String uuid,
+        @PathVariable Long participantId) {
+    Long userId = SecurityUtils.getCurrentUserId();
+    service.removeParticipant(uuid, participantId, userId);
+    return ResponseEntity.ok().build();
+}
 }

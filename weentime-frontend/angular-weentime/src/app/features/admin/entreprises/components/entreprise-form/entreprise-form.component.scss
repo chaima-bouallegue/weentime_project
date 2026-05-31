@@ -36,7 +36,7 @@
 
 .close-btn {
   background: none; border: none; padding: 8px; color: #94a3b8; cursor: pointer; border-radius: 8px;
-  &:hover { background: #f1f5f9; color: #0f172a; }
+  &:hover { background: #FFFFFF; color: #0f172a; }
 }
 
 .drawer-form { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -55,8 +55,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 12px;
   transition: all 0.2s;
 
@@ -75,7 +75,7 @@
   }
 
   &.align-top .field-icon { top: 12px; }
-  &.disabled { background: #f1f5f9; opacity: 0.7; pointer-events: none; }
+  &.disabled { background: #FFFFFF; opacity: 0.7; pointer-events: none; }
 
   &:focus-within {
     background: white; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
@@ -101,7 +101,7 @@
 
 .drawer-footer {
   padding: 24px 32px;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-top: 1px solid #f1f5f9;
   display: flex;
   gap: 12px;
@@ -112,7 +112,7 @@
 
 .btn-ghost {
   padding: 12px; border-radius: 12px; border: none; background: transparent; 
-  font-weight: 700; color: #64748b; cursor: pointer; &:hover { background: #f1f5f9; }
+  font-weight: 700; color: #64748b; cursor: pointer; &:hover { background: #FFFFFF; }
 }
 
 .btn-primary {

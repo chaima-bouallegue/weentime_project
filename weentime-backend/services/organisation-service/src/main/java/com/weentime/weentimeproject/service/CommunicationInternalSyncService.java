@@ -28,87 +28,98 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommunicationInternalSyncService {
 
-    private final EntrepriseRepository entrepriseRepository;
-    private final UtilisateurRepository utilisateurRepository;
-    private final EquipeRepository equipeRepository;
+        private final EntrepriseRepository entrepriseRepository;
+        private final UtilisateurRepository utilisateurRepository;
+        private final EquipeRepository equipeRepository;
 
-    @Transactional(readOnly = true)
-    public CommunicationSyncEnterpriseResponse getEnterpriseSnapshot(Long entrepriseId) {
-        Entreprise entreprise = entrepriseRepository.findById(entrepriseId)
-                .orElseThrow(() -> new EntityNotFoundException("Entreprise introuvable: " + entrepriseId));
+        @Transactional(readOnly = true)
+        public CommunicationSyncEnterpriseResponse getEnterpriseSnapshot(Long entrepriseId) {
+                Entreprise entreprise = entrepriseRepository.findById(entrepriseId)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Entreprise introuvable: " + entrepriseId));
 
-        List<Utilisateur> activeUsers = utilisateurRepository.findByEntrepriseIdOrderByPrenomAscNomAsc(entrepriseId).stream()
-                .filter(Objects::nonNull)
-                .filter(user -> user.getStatut() == StatutUtilisateurEnum.ACTIF)
-                .toList();
+                List<Utilisateur> activeUsers = utilisateurRepository
+                                .findByEntrepriseIdOrderByPrenomAscNomAsc(entrepriseId).stream()
+                                .filter(Objects::nonNull)
+                                .filter(user -> user.getStatut() == StatutUtilisateurEnum.ACTIF)
+                                .toList();
 
-        Map<Long, UserSummaryResponse> activeUserSummaries = activeUsers.stream()
-                .collect(Collectors.toMap(Utilisateur::getId, this::toSummary, (left, right) -> left, LinkedHashMap::new));
+                Map<Long, UserSummaryResponse> activeUserSummaries = activeUsers.stream()
+                                .collect(Collectors.toMap(
+                                                Utilisateur::getId,
+                                                this::toSummary,
+                                                (left, right) -> left,
+                                                LinkedHashMap::new));
 
-        List<CommunicationSyncTeamResponse> teams = equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(entrepriseId).stream()
-                .filter(Objects::nonNull)
-                .map(team -> toTeamSnapshot(team, activeUsers, activeUserSummaries))
-                .sorted(Comparator.comparing(CommunicationSyncTeamResponse::nom, Comparator.nullsLast(String::compareToIgnoreCase)))
-                .toList();
+                List<CommunicationSyncTeamResponse> teams = equipeRepository
+                                .findByDepartement_Entreprise_IdOrderByNomAsc(entrepriseId).stream()
+                                .filter(Objects::nonNull)
+                                .map(team -> toTeamSnapshot(team, activeUsers, activeUserSummaries))
+                                .sorted(Comparator.comparing(
+                                                CommunicationSyncTeamResponse::nom,
+                                                Comparator.nullsLast(String::compareToIgnoreCase)))
+                                .toList();
 
-        return new CommunicationSyncEnterpriseResponse(
-                entreprise.getId(),
-                entreprise.getNom(),
-                new ArrayList<>(activeUserSummaries.values()),
-                teams
-        );
-    }
+                return new CommunicationSyncEnterpriseResponse(
+                                entreprise.getId(),
+                                entreprise.getNom(),
+                                new ArrayList<>(activeUserSummaries.values()),
+                                teams);
+        }
 
-    private CommunicationSyncTeamResponse toTeamSnapshot(
-            Equipe team,
-            List<Utilisateur> activeUsers,
-            Map<Long, UserSummaryResponse> activeUserSummaries
-    ) {
-        List<UserSummaryResponse> members = activeUsers.stream()
-                .filter(user -> user.getEquipe() != null)
-                .filter(user -> Objects.equals(user.getEquipe().getId(), team.getId()))
-                .map(user -> activeUserSummaries.get(user.getId()))
-                .filter(Objects::nonNull)
-                .toList();
+        private CommunicationSyncTeamResponse toTeamSnapshot(
+                        Equipe team,
+                        List<Utilisateur> activeUsers,
+                        Map<Long, UserSummaryResponse> activeUserSummaries) {
 
-        return new CommunicationSyncTeamResponse(
-                team.getId(),
-                team.getNom(),
-                team.getDescription(),
-                team.getEstActive(),
-                team.getDepartement() != null && team.getDepartement().getEntreprise() != null
-                        ? team.getDepartement().getEntreprise().getId()
-                        : null,
-                team.getResponsable() != null ? team.getResponsable().getId() : null,
-                members
-        );
-    }
+                List<UserSummaryResponse> members = activeUsers.stream()
+                                .filter(user -> user.getEquipe() != null)
+                                .filter(user -> Objects.equals(user.getEquipe().getId(), team.getId()))
+                                .map(user -> activeUserSummaries.get(user.getId()))
+                                .filter(Objects::nonNull)
+                                .toList();
 
-    private UserSummaryResponse toSummary(Utilisateur user) {
-        String fullName = ((user.getPrenom() == null ? "" : user.getPrenom().trim()) + " "
-                + (user.getNom() == null ? "" : user.getNom().trim())).trim();
-        return UserSummaryResponse.builder()
-                .id(user.getId())
-                .nom(user.getNom())
-                .prenom(user.getPrenom())
-                .fullName(fullName.isBlank() ? user.getEmail() : fullName)
-                .email(user.getEmail())
-                .poste(user.getPoste())
-                .avatarUrl(user.getAvatarUrl())
-                .photo(user.getPhoto())
-                .managerId(user.getManager() != null ? user.getManager().getId() : null)
-                .departementId(user.getDepartement() != null ? user.getDepartement().getId() : null)
-                .departement(user.getDepartement() != null ? user.getDepartement().getNom() : null)
-                .equipeId(user.getEquipe() != null ? user.getEquipe().getId() : null)
-                .equipe(user.getEquipe() != null ? user.getEquipe().getNom() : null)
-                .entrepriseId(user.getEntrepriseId())
-                .entreprise(user.getEntreprise() != null ? user.getEntreprise().getNom() : null)
-                .roles(user.getRoles() == null ? List.of() : user.getRoles().stream()
-                        .map(Role::getNom)
-                        .filter(Objects::nonNull)
-                        .map(Enum::name)
-                        .toList())
-                .active(user.getStatut() == StatutUtilisateurEnum.ACTIF)
-                .build();
-    }
+                return new CommunicationSyncTeamResponse(
+                                team.getId(),
+                                team.getNom(),
+                                team.getDescription(),
+                                team.getEstActive(),
+                                team.getDepartement() != null && team.getDepartement().getEntreprise() != null
+                                                ? team.getDepartement().getEntreprise().getId()
+                                                : null,
+                                team.getResponsable() != null ? team.getResponsable().getId() : null,
+                                members);
+        }
+
+        private UserSummaryResponse toSummary(Utilisateur user) {
+                String fullName = ((user.getPrenom() == null ? "" : user.getPrenom().trim())
+                                + " "
+                                + (user.getNom() == null ? "" : user.getNom().trim())).trim();
+
+                return UserSummaryResponse.builder()
+                                .id(user.getId())
+                                .nom(user.getNom())
+                                .prenom(user.getPrenom())
+                                .fullName(fullName.isBlank() ? user.getEmail() : fullName)
+                                .email(user.getEmail())
+                                .poste(user.getPoste())
+                                .avatarUrl(user.getAvatarUrl())
+                                .photo(user.getPhoto())
+                                .managerId(user.getManager() != null ? user.getManager().getId() : null)
+                                .departementId(user.getDepartement() != null ? user.getDepartement().getId() : null)
+                                .departement(user.getDepartement() != null ? user.getDepartement().getNom() : null)
+                                .equipeId(user.getEquipe() != null ? user.getEquipe().getId() : null)
+                                .equipe(user.getEquipe() != null ? user.getEquipe().getNom() : null)
+                                .entrepriseId(user.getEntrepriseId())
+                                .entreprise(user.getEntreprise() != null ? user.getEntreprise().getNom() : null)
+                                .roles(user.getRoles() == null ? List.of()
+                                                : user.getRoles().stream()
+                                                                .map(Role::getNom) // getNom() retourne déjà un String
+                                                                .filter(Objects::nonNull)
+                                                                // .map(Enum::name) supprimé — getNom() n'est plus un
+                                                                // enum
+                                                                .toList())
+                                .active(user.getStatut() == StatutUtilisateurEnum.ACTIF)
+                                .build();
+        }
 }

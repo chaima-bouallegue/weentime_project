@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     training_data_dir: str = "storage/training_data"
 
     # WeenTime Spring backend (via gateway)
-    backend_url: str = "http://localhost:8322"
+    backend_url: str = "http://localhost:8222"
     backend_api_prefix: str = "/api/v1"
     backend_jwt_secret: str = (
         "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"

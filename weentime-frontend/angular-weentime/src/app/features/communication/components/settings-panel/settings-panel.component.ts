@@ -123,7 +123,7 @@ import { ChannelModel } from '../../models/communication.models';
       width: 32px;
       height: 32px;
       border: none;
-      background: #f8fafc;
+      background: #FFFFFF;
       color: #64748b;
       border-radius: 8px;
       cursor: pointer;

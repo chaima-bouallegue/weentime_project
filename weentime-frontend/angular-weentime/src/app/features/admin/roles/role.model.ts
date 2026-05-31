@@ -1,3 +1,4 @@
+// Garder l'enum seulement pour référence des rôles système
 export enum RoleNom {
   ROLE_EMPLOYEE = 'ROLE_EMPLOYEE',
   ROLE_MANAGER = 'ROLE_MANAGER',
@@ -5,13 +6,15 @@ export enum RoleNom {
   ROLE_ADMIN = 'ROLE_ADMIN'
 }
 
+export const ROLE_SYSTEME = Object.values(RoleNom); // rôles non-supprimables
+
 export interface Role {
   id: number;
-  nom: RoleNom;
+  nom: string;        // ← string, plus RoleNom
   description: string;
 }
 
 export interface RoleRequest {
-  nom: RoleNom;
+  nom: string;        // ← string libre
   description: string;
 }

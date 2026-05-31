@@ -232,7 +232,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       position: relative;
       padding: 12px 16px;
       border-radius: 18px;
-      background: #f1f5f9; /* Neutral grey for others */
+      background: #FFFFFF; /* Neutral grey for others */
       color: #1e1b4b;
       box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       width: fit-content;
@@ -318,7 +318,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       overflow:hidden; 
       border:1px solid rgba(0,0,0,0.05); 
       max-width:320px; 
-      background: #f8fafc;
+      background: #FFFFFF;
       transition: transform 0.2s ease;
     }
     .att-img-preview:hover { transform: scale(1.02); }
@@ -357,7 +357,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       align-items: center; 
       justify-content: space-between; 
       padding: 10px 16px; 
-      background: #f8fafc; 
+      background: #FFFFFF; 
       border: 1.5px solid #edf2f7; 
       border-radius: 12px; 
       cursor: pointer; 
@@ -442,7 +442,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       transition: all 0.15s ease;
       text-align: left;
     }
-    .wa-ctx-menu button:hover { background: #f8fafc; color: #534AB7; }
+    .wa-ctx-menu button:hover { background: #FFFFFF; color: #534AB7; }
     .wa-ctx-menu button.ctx-danger { color: #ef4444; }
     .wa-ctx-menu button.ctx-danger:hover { background: #fef2f2; }
     .wa-ctx-menu button svg { 
@@ -496,10 +496,10 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
     .comm-message.mine .edit-cancel { 
       background: white; 
       color: #64748b; 
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
     }
     .comm-message.mine .edit-cancel:hover { 
-      background: #f8fafc; 
+      background: #FFFFFF; 
       color: #1e1b4b; 
     }
 
@@ -579,7 +579,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
       width: 32px;
       height: 32px;
       border: none;
-      background: #f8fafc;
+      background: #FFFFFF;
       color: #64748b;
       cursor: pointer;
       display: flex;
@@ -590,7 +590,7 @@ const EMOJI_CATEGORIES: { label: string; icon: string; emojis: string[] }[] = [
     }
 
     .quick-plus:hover {
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #534AB7;
     }
 

@@ -1,57 +1,45 @@
-<div class="rh-bento-container fade-in">
-  <!-- Bento Hero Header -->
-  <header class="dashboard-hero mb-8">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#8b5cf6'"></div>
-      
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-purple-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-purple-200 dark:shadow-none">
-              Sécurité Globale
-            </span>
-          </div>
-          
-          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Gestion des Rôles
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Consultez et configurez les descriptions des rôles d'habilitation du système. {{ roles().length }} niveaux d'accès identifiés.
-          </p>
-        </div>
+<div class="flex-1 flex flex-col min-w-0 p-6 gap-6 overflow-auto">
 
-        <div class="flex flex-col sm:flex-row gap-4">
-           <button class="hero-btn secondary" (click)="loadRoles()" [disabled]="isLoading()">
-              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="isLoading()"></lucide-angular>
-              <span>Actualiser</span>
-           </button>
-           <button class="hero-btn primary-indigo" (click)="openCreateForm()">
-              <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
-              <span>Nouveau Rôle</span>
-           </button>
-        </div>
-      </div>
+  <header
+    class="relative bg-gradient-to-r from-indigo-50/80 via-purple-50/30 to-transparent border border-slate-200 rounded-2xl p-6 shadow-sm select-none shrink-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+    <div class="space-y-2">
+      <span
+        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100/80 text-indigo-700">
+        Sécurité globale
+      </span>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Gestion des Rôles</h1>
+      <p class="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+        Consultez et configurez les descriptions des rôles d'habilitation du système.
+        <span class="text-indigo-600 dark:text-indigo-400 font-semibold">{{ roles().length }} niveaux d'accès
+          identifiés.</span>
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end">
+      <button type="button" (click)="loadRoles()" [disabled]="isLoading()"
+        class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm disabled:opacity-50"
+        title="Actualiser les données">
+        <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
+        <span>Actualiser</span>
+      </button>
+
+      <button type="button" (click)="openCreateForm()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl transition-colors text-sm font-semibold shadow-sm">
+        <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
+        <span>Nouveau Rôle</span>
+      </button>
     </div>
   </header>
 
-  <!-- Main Content Grid -->
-  <main class="w-full">
-    <section class="bento-card p-6 min-h-[500px]">
-      <app-role-list
-        [roles]="roles()"
-        [loading]="isLoading()"
-        (edit)="openEditForm($event)"
-        (delete)="onDelete($event)"
-      ></app-role-list>
-    </section>
+  <main class="min-h-0 flex-1">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 rounded-2xl p-6 shadow-sm min-h-[500px]">
+      <app-role-list [roles]="roles()" [loading]="isLoading()" (edit)="openEditForm($event)"
+        (delete)="onDelete($event)"></app-role-list>
+    </div>
   </main>
 
-  <!-- Drawer -->
   @if (isFormOpen()) {
-    <app-role-form
-      [role]="roleToEdit()"
-      (close)="isFormOpen.set(false)"
-      (saved)="onFormSaved()"
-    ></app-role-form>
+  <app-role-form [role]="roleToEdit()" (close)="isFormOpen.set(false)" (saved)="onFormSaved()"></app-role-form>
   }
+
 </div>

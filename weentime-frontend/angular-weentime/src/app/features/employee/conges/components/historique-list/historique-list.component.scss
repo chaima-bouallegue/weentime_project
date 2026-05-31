@@ -27,13 +27,13 @@
   font-size: 13px;
   font-weight: 700;
   background: white;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #64748b;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: #f8fafc;
+    background: #FFFFFF;
     border-color: #cbd5e1;
   }
 
@@ -90,7 +90,7 @@
     transform: translateX(4px);
     background: #ffffff;
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-    border-color: #e2e8f0;
+    border-color: var(--border);
   }
 }
 
@@ -161,7 +161,7 @@
 .manager-comment {
   margin-top: 10px;
   padding: 8px 12px;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-radius: 10px;
   border-left: 3px solid #6366f1;
   display: flex;
@@ -208,7 +208,7 @@
   &.en_attente_manager, &.en_attente_rh { background: #fef3c7; color: #92400e; }
   &.approuve { background: #dcfce7; color: #166534; }
   &.refuse { background: #fee2e2; color: #991b1b; }
-  &.annule { background: #f1f5f9; color: #475569; }
+  &.annule { background: #FFFFFF; color: #475569; }
 }
 
 .dark .status-badge {
@@ -245,11 +245,11 @@
 .historique-item.skeleton {
   pointer-events: none;
   
-  .skeleton-icon { width: 48px; height: 48px; background: #f1f5f9; border-radius: 14px; }
+  .skeleton-icon { width: 48px; height: 48px; background: #FFFFFF; border-radius: 14px; }
   .skeleton-content { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-  .skeleton-title { height: 16px; width: 40%; background: #f1f5f9; border-radius: 4px; }
-  .skeleton-subtitle { height: 12px; width: 25%; background: #f1f5f9; border-radius: 4px; }
-  .skeleton-badge { height: 28px; width: 80px; background: #f1f5f9; border-radius: 99px; }
+  .skeleton-title { height: 16px; width: 40%; background: #FFFFFF; border-radius: 4px; }
+  .skeleton-subtitle { height: 12px; width: 25%; background: #FFFFFF; border-radius: 4px; }
+  .skeleton-badge { height: 28px; width: 80px; background: #FFFFFF; border-radius: 99px; }
 }
 
 .dark .historique-item.skeleton * {
@@ -273,7 +273,7 @@
   padding: 60px 20px;
   text-align: center;
   background: rgba(248, 250, 252, 0.5);
-  border: 2px dashed #e2e8f0;
+  border: 2px dashed var(--border);
   border-radius: 24px;
 }
 

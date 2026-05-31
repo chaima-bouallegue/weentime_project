@@ -112,7 +112,7 @@ import {
 export const shellRoutes: Routes = [
   {
     path: 'notifications',
-    title: 'WeenTime â€” Notifications',
+    title: 'WeenTime — Notifications',
     data: { title: 'Notifications' },
     loadComponent: () => import('../notifications/notification-page.component').then(m => m.NotificationPageComponent)
   },
@@ -129,7 +129,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'reunions',
-    title: 'WeenTime â€” Réunions',
+    title: 'WeenTime — Réunions',
     data: { title: 'Réunions' },
     loadChildren: () => import('../reunions/reunion.routes').then(m => m.REUNION_ROUTES)
   },
@@ -164,26 +164,26 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'employee/absences',
-    title: 'WeenTime â€” Mes absences',
+    title: 'WeenTime — Mes absences',
     data: { title: 'Mes absences' },
     loadComponent: () => import('../employee/absences/employee-absences.component').then(m => m.EmployeeAbsencesComponent)
   },
   {
     path: 'employee/pointage',
-    title: 'WeenTime â€” Pointage',
+    title: 'WeenTime — Pointage',
     data: { title: 'Pointage' },
     resolve: { presence: presenceResolver },
     loadComponent: () => import('../employee/pointage/employee-pointage.component').then(m => m.EmployeePointageComponent)
   },
   {
     path: 'employee/autorisations',
-    title: 'WeenTime â€” Mes autorisations',
+    title: 'WeenTime — Mes autorisations',
     data: { title: 'Mes autorisations' },
     loadComponent: () => import('../employee/autorisation/employee-autorisation.component').then(m => m.EmployeeAutorisationComponent)
   },
   {
     path: 'employee/autorisations/nouvelle',
-    title: 'WeenTime â€” Nouvelle demande',
+    title: 'WeenTime — Nouvelle demande',
     data: { title: 'Nouvelle demande' },
     loadComponent: () => import('../employee/autorisation/employee-autorisation.component').then(m => m.EmployeeAutorisationComponent)
   },
@@ -553,7 +553,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires',
-    title: 'WeenTime â€” Horaires de travail',
+    title: 'WeenTime ” Horaires de travail',
     data: { title: 'Horaires de travail' },
     resolve: { horaires: rhHorairesResolver },
     loadComponent: () => import('../rh/horaires/rh-horaires.component').then(m => m.RhHorairesComponent),
@@ -566,7 +566,8 @@ export const shellRoutes: Routes = [
           Clock, Plus, Edit2, Trash2, Check, X,
           Search, Settings, Calendar, AlertCircle,
           UserCheck: LucideUserCheck, History, LayoutGrid, Loader2,
-          Star, Timer, ArrowRight: LucideArrowRight, XCircle, AlertTriangle
+          Star, Timer, ArrowRight: LucideArrowRight, XCircle, AlertTriangle,
+          User, Users, Building2
         })
       }
     ]
@@ -582,7 +583,7 @@ export const shellRoutes: Routes = [
         provide: LUCIDE_ICONS,
         multi: true,
         useValue: new LucideIconProvider({
-          Calendar, Map, List, Filter, Download, Search, X, TrendingUp, UserMinus, Home, AlertTriangle, AlertCircle, 
+          Calendar, Map, List, Filter, Download, Search, X, TrendingUp, UserMinus, Home, AlertTriangle, AlertCircle,
           ChevronLeft, ChevronRight, CalendarDays, Landmark, Bell, ArrowLeft, CheckCircle, HelpCircle, Send, Check,
           LayoutGrid, Flame, Activity, UserX, ShieldAlert, Award
         })
@@ -606,7 +607,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires/nouveau',
-    title: 'WeenTime â€” Nouvel horaire',
+    title: 'WeenTime — Nouvel horaire',
     data: { title: 'Nouvel horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent),
     providers: [
@@ -622,7 +623,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires/:id/modifier',
-    title: 'WeenTime â€” Modifier horaire',
+    title: 'WeenTime — Modifier horaire',
     data: { title: 'Modifier horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-form/rh-horaire-form.component').then(m => m.RhHoraireFormComponent),
     providers: [
@@ -638,7 +639,7 @@ export const shellRoutes: Routes = [
   },
   {
     path: 'rh/horaires/affecter',
-    title: 'WeenTime â€” Affectation horaire',
+    title: 'WeenTime — Affectation horaire',
     data: { title: 'Affectation horaire' },
     loadComponent: () => import('../rh/horaires/rh-horaire-assign/rh-horaire-assign.component').then(m => m.RhHoraireAssignComponent),
     providers: [

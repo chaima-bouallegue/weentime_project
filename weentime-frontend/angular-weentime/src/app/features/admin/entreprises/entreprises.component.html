@@ -1,102 +1,930 @@
-<div class="rh-bento-container fade-in">
-  <!-- Bento Hero Header -->
-  <header class="dashboard-hero mb-8">
-    <div class="hero-card overflow-hidden">
-      <div class="card-mesh" [style.--mesh-color]="'#3b82f6'"></div>
-      
-      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 p-10">
-        <div class="flex-1 text-center md:text-left">
-          <div class="flex items-center justify-center md:justify-start gap-3 mb-3">
-            <span class="px-4 py-1.5 bg-blue-500 text-white rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg shadow-blue-200 dark:shadow-none">
-              Administration
-            </span>
-          </div>
-          
-          <h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-            Gestion des Entreprises
-          </h1>
-          <p class="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-            Configurez et supervisez la flotte complète des organisations clientes. {{ entreprises().length }} sociétés référencées.
-          </p>
+<div class="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased flex relative">
+  <div class="flex-1 flex flex-col min-w-0 p-6 gap-6 overflow-auto">
+
+    <!-- ══ TOOLBAR ══════════════════════════════════════════ -->
+    <header
+      class="z-30 flex flex-col bg-white border border-[#E2E8F0] rounded-xl shadow-sm select-none shrink-0 p-4 gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl font-bold text-[#0F172A]">Entreprises</h1>
+          <span class="text-xs font-semibold px-2 py-0.5 bg-[#EEF2FF] text-[#6366F1] rounded-full">
+            {{ totalCount() }} entreprises
+          </span>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-4">
-           <button class="hero-btn secondary" (click)="loadEntreprises()" [disabled]="loading()">
-              <lucide-angular [img]="iconRefresh" size="20" [class.animate-spin]="loading()"></lucide-angular>
-              <span>Actualiser</span>
-           </button>
-           <button class="hero-btn primary-blue" (click)="openCreateForm()">
-              <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
-              <span>Nouvelle Entreprise</span>
-           </button>
+        <div class="flex-1 max-w-md sm:mx-4">
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94A3B8]">
+              <lucide-angular [img]="iconSearch" size="16"></lucide-angular>
+            </div>
+            <input #searchInput type="text" [ngModel]="searchQuery()" (input)="onSearchInput($event)"
+              placeholder="Filtrer les entreprises... (Appuyez sur /)"
+              class="block w-full pl-10 pr-14 py-2 text-sm bg-white border border-[#E2E8F0] rounded-full placeholder-[#94A3B8] focus:outline-none focus:border-[#6366F1] font-medium text-slate-900 transition-all shadow-sm" />
+            <button *ngIf="searchQuery().length > 0" (click)="clearSearch()"
+              class="absolute inset-y-0 right-8 flex items-center justify-center px-1 text-[#94A3B8] hover:text-[#475569] transition-colors">
+              <lucide-angular [img]="iconX" size="14"></lucide-angular>
+            </button>
+            <kbd
+              class="absolute inset-y-2 right-3 px-1.5 bg-white border border-[#E2E8F0] rounded text-[10px] text-[#94A3B8] flex items-center justify-center font-mono shadow-2xs"
+              [class.opacity-0]="searchQuery().length > 0">/</kbd>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button type="button" (click)="refreshData()"
+            class="inline-flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm">
+            <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
+            <span class="hidden sm:inline">Actualiser</span>
+          </button>
+          <button type="button" (click)="openCreateModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-[#6366F1] text-white rounded-xl hover:bg-[#4F46E5] active:bg-[#4338CA] transition-colors text-sm font-semibold shadow-sm">
+            <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
+            <span>Nouvelle Entreprise</span>
+          </button>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Main Content Grid -->
-  <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-    <!-- Left Column: List -->
-    <section class="lg:col-span-4 flex flex-col gap-6">
-      <app-entreprise-list
-        class="block h-full"
-        [entreprises]="filteredEntreprises()"
-        [loading]="loading()"
-        [selectedId]="selectedId()"
-        (search)="searchQuery.set($event)"
-        (filter)="statusFilter.set($event)"
-        (select)="onSelect($event)"
-        (edit)="openEditForm($event)"
-        (delete)="openDeleteConfirm($event)"
-      ></app-entreprise-list>
-    </section>
+      <hr class="border-slate-100 my-0">
 
-    <!-- Right Column: Detail -->
-    <section class="lg:col-span-8 flex flex-col gap-6">
-      @if (selectedId()) {
-        <app-entreprise-detail
-          [entreprise]="selectedEntreprise()"
-          (close)="selectedId.set(null)"
-          (edit)="openEditForm($event)"
-          (delete)="openDeleteConfirm($event)"
-          (controlAccess)="openAccessControl($event)"
-        ></app-entreprise-detail>
-      } @else {
-        <div class="bento-card flex-1 min-h-[500px] flex flex-col items-center justify-center p-10 text-center border-dashed border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-          <div class="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
-             <lucide-angular [img]="iconMouse" size="40"></lucide-angular>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-slate-200 mb-2">Sélection requise</h3>
-          <p class="text-sm font-medium text-slate-500 max-w-sm">
-            Cliquez sur une entreprise dans la liste latérale pour consulter l'intégralité de sa fiche d'identité et de ses coordonnées.
-          </p>
+      <div class="flex items-center justify-between text-xs font-medium text-[#64748B]">
+        <div class="flex items-center gap-2 overflow-x-auto">
+          <button (click)="selectStatus('ALL')"
+            [class]="filterStatus() === 'ALL' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl transition-colors">Toutes</button>
+          <button (click)="selectStatus('ACTIVE')"
+            [class]="filterStatus() === 'ACTIVE' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+            Actives ({{ activeCount() }})
+          </button>
+          <button (click)="selectStatus('SUSPENDED')"
+            [class]="filterStatus() === 'SUSPENDED' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>
+            Suspendues ({{ suspendedCount() }})
+          </button>
+          <button (click)="selectStatus('CLOSED')"
+            [class]="filterStatus() === 'CLOSED' ? 'bg-[#EEF2FF] text-[#6366F1] font-semibold' : 'hover:bg-slate-50'"
+            class="px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#94A3B8]"></span>
+            Fermées ({{ closedCount() }})
+          </button>
         </div>
-      }
-    </section>
-  </main>
+        <div class="text-[#94A3B8] hidden md:block text-[11px]">
+          <span class="font-medium text-[#64748B]">{{ totalElements() }}</span> résultats
+        </div>
+      </div>
+    </header>
 
-  <!-- Modals -->
-  @if (isFormOpen()) {
-    <app-entreprise-form
-      [entreprise]="entrepriseToEdit()"
-      (close)="isFormOpen.set(false)"
-      (saved)="onFormSaved()"
-    ></app-entreprise-form>
+    <!-- ══ BANNER ACTIONS EN MASSE ═══════════════════════════ -->
+    @if (selectedIds().size > 0) {
+    <div @bannerFade
+      class="p-3 bg-[#EFF6FF] border border-[#C7D2FE] rounded-xl flex items-center justify-between gap-4 shadow-sm">
+      <div class="flex items-center gap-2.5 text-sm font-medium text-[#1E40AF]">
+        <span
+          class="flex h-5 w-5 items-center justify-center rounded-full bg-[#3B82F6] text-white text-[10px] font-bold">
+          {{ selectedIds().size }}
+        </span>
+        <span>entreprises sélectionnées</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button (click)="exportSelectedCSV()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-[#CBD5E1] rounded-lg text-xs font-semibold text-[#334155] transition-colors">
+          <lucide-angular [img]="iconDownload" size="14"></lucide-angular> Exporter CSV
+        </button>
+        <button (click)="suspendSelected()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B] rounded-lg text-xs font-bold text-[#B45309] transition-colors">
+          <lucide-angular [img]="iconPause" size="14"></lucide-angular> Suspendre
+        </button>
+        <button (click)="deleteSelected()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
+          <lucide-angular [img]="iconTrash" size="14"></lucide-angular> Supprimer
+        </button>
+        <button (click)="selectedIds().clear()" class="p-1 text-[#94A3B8] hover:text-[#475569] rounded-lg">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- ══ TABLEAU ═══════════════════════════════════════════ -->
+    <main class="min-h-0">
+      <div class="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
+
+        <!-- Skeleton -->
+        @if (isLoading()) {
+        <div class="divide-y divide-[#E2E8F0]">
+          @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="p-4 flex items-center justify-between animate-pulse">
+            <div class="flex items-center gap-4 w-1/3">
+              <div class="w-9 h-9 rounded-full bg-slate-200"></div>
+              <div class="h-4 bg-slate-200 rounded w-24"></div>
+            </div>
+            <div class="h-4 bg-slate-200 rounded w-16"></div>
+            <div class="h-4 bg-slate-200 rounded w-12"></div>
+            <div class="h-6 bg-slate-200 rounded w-16"></div>
+            <div class="w-16 h-8 bg-slate-200 rounded"></div>
+          </div>
+          }
+        </div>
+        }
+
+        @if (!isLoading()) {
+        <table class="w-full text-left border-collapse select-none">
+          <thead>
+            <tr
+              class="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wider h-10">
+              <th class="w-12 px-4 text-center">
+                <input type="checkbox" [checked]="isAllSelected()" (change)="toggleSelectAll()"
+                  class="rounded border-[#CBD5E1] text-[#6366F1] focus:ring-[#6366F1] cursor-pointer w-4 h-4" />
+              </th>
+              <th class="px-6 font-semibold py-3">Entreprise</th>
+              <th class="px-6 font-semibold py-3">Secteur</th>
+              <th class="px-6 font-semibold py-3 text-right">Employés</th>
+              <th class="px-6 font-semibold py-3">Statut</th>
+              <th class="px-6 font-semibold py-3">Dernière Activité</th>
+              <th class="w-20 px-6 py-3 text-right"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#E2E8F0]">
+            @for (ent of enterprises(); track ent.id) {
+            <tr (click)="selectEnterprise(ent)" [class.bg-\[#EFF6FF\]]="selectedEnterprise()?.id === ent.id"
+              [class.border-l-3]="selectedEnterprise()?.id === ent.id"
+              [class.border-l-\[#6366F1\]]="selectedEnterprise()?.id === ent.id"
+              class="group hover:bg-[#F8FAFC] cursor-pointer transition-colors duration-150 h-[52px]">
+
+              <td class="px-4 text-center" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="selectedIds().has(ent.id)" (change)="toggleSelect(ent.id, $event)"
+                  class="rounded border-[#CBD5E1] text-[#6366F1] focus:ring-[#6366F1] cursor-pointer w-4 h-4" />
+              </td>
+
+              <td class="px-6 py-3">
+                <div class="flex items-center gap-3">
+                   @if (ent.logo) {
+                    <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center p-1 border border-[#E2E8F0] shadow-sm select-none shrink-0 overflow-hidden">
+                      <img [src]="ent.logo" alt="Logo" class="w-full h-full object-contain" />
+                    </div>
+                  } @else {
+                    <div [style.background-color]="ent.avatarColor"
+                      class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm select-none">
+                      {{ ent.initials }}
+                    </div>
+                  }
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-sm font-semibold text-[#0F172A] truncate">{{ ent.name }}</span>
+                    <!-- codeInvitation remplace l'id brut -->
+                    <div class="flex items-center gap-1.5 group/code">
+                      <span class="text-[10px] text-[#475569] font-mono truncate max-w-[140px]">{{ ent.codeInvitation
+                        }}</span>
+                      <button (click)="copyToClipboard(ent.codeInvitation, $event)"
+                        class="opacity-0 group-hover/code:opacity-100 p-0.5 hover:bg-slate-100 rounded text-[#64748B] hover:text-[#0F172A] transition-all flex items-center justify-center"
+                        title="Copier le code">
+                        <lucide-angular [img]="iconCopy" size="10"></lucide-angular>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-6 py-3">
+                <span class="text-sm text-[#64748B] font-medium">{{ ent.sector }}</span>
+              </td>
+
+              <td class="px-6 py-3 text-right">
+                <span class="text-sm font-semibold text-[#475569]">{{ ent.employeesCount }}</span>
+              </td>
+
+              <td class="px-6 py-3">
+                <span [ngClass]="{
+                    'bg-[#D1FAE5] text-[#064E3B]': ent.status === 'ACTIVE',
+                    'bg-[#FEF3C7] text-[#78350F]': ent.status === 'SUSPENDED',
+                    'bg-[#F1F5F9] text-[#1E293B]': ent.status === 'CLOSED'
+                  }"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none">
+                  <span [ngClass]="{
+                      'bg-[#10B981]': ent.status === 'ACTIVE',
+                      'bg-[#F59E0B]': ent.status === 'SUSPENDED',
+                      'bg-[#94A3B8]': ent.status === 'CLOSED'
+                    }" class="w-1.5 h-1.5 rounded-full"></span>
+                  {{ ent.status === 'ACTIVE' ? 'ACTIVE' : ent.status === 'SUSPENDED' ? 'SUSPENDUE' : 'FERMÉE' }}
+                </span>
+              </td>
+
+              <td class="px-6 py-3 text-left">
+                <span class="text-xs text-[#94A3B8] font-medium">{{ ent.lastActivity | relativeTime }}</span>
+              </td>
+
+              <td class="px-6 py-3 text-right" (click)="$event.stopPropagation()">
+                <div
+                  class="flex items-center justify-end gap-1.5">
+                  <button (click)="selectEnterprise(ent); $event.stopPropagation()" title="Voir les détails"
+                    class="p-1.5 hover:bg-[#EFF6FF] text-[#64748B] hover:text-[#6366F1] rounded-md transition-colors">
+                    <lucide-angular [img]="iconEye" size="14"></lucide-angular>
+                  </button>
+                  <button (click)="openEditModal(ent, $event); $event.stopPropagation()" title="Modifier"
+                    class="p-1.5 hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] rounded-md transition-colors">
+                    <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
+                  </button>
+                  <button (click)="toggleStatus(ent, $event); $event.stopPropagation()"
+                    [title]="ent.status === 'ACTIVE' ? 'Suspendre' : 'Réactiver'"
+                    class="p-1.5 hover:bg-amber-50 text-[#64748B] hover:text-amber-700 rounded-md transition-colors">
+                    <lucide-angular [img]="ent.status === 'ACTIVE' ? iconPause : iconPlay" size="14"></lucide-angular>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            }
+            @empty {
+            <tr>
+              <td colspan="7" class="py-16 text-center">
+                <div class="flex flex-col items-center justify-center p-6">
+                  <div
+                    class="w-12 h-12 bg-slate-50 border border-dashed border-[#CBD5E1] text-[#94A3B8] rounded-xl flex items-center justify-center mb-3">
+                    <lucide-angular [img]="iconAlert" size="24"></lucide-angular>
+                  </div>
+                  <p class="text-sm font-semibold text-slate-800">Aucune entreprise trouvée</p>
+                  <p class="text-xs text-[#94A3B8] max-w-[240px] mt-1 mb-4">Modifiez votre recherche ou vos filtres.</p>
+                  <button (click)="clearSearch(); selectStatus('ALL')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#E2E8F0] hover:bg-slate-50 bg-white rounded-lg text-xs font-semibold text-[#475569] shadow-sm transition-colors cursor-pointer">
+                    Réinitialiser la recherche
+                  </button>
+                </div>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+        }
+      </div>
+    </main>
+
+    <!-- ══ PAGINATION (server-side) ══════════════════════════ -->
+    <footer
+      class="h-14 pl-6 pr-24 md:pr-28 border-t border-[#E2E8F0] bg-white flex items-center justify-between select-none">
+      <div class="text-xs text-[#94A3B8] font-medium">
+        Affichage de <span class="text-[#475569] font-bold">{{ pageFrom() }}</span> à
+        <span class="text-[#475569] font-bold">{{ pageTo() }}</span> sur
+        <span class="text-[#475569] font-bold">{{ totalElements() }}</span> entreprises
+      </div>
+      <div class="flex items-center gap-1">
+        <button (click)="prevPage()" [disabled]="currentPage() === 1"
+          class="inline-flex items-center justify-center p-1.5 border border-[#E2E8F0] rounded-lg bg-white text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <lucide-angular [img]="iconArrowLeft" size="14"></lucide-angular>
+        </button>
+        @for (page of pageNumbers(); track page) {
+        <button (click)="setPage(page)"
+          [class]="currentPage() === page ? 'bg-[#6366F1] text-white border-[#6366F1] font-semibold' : 'bg-white border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'"
+          class="w-8 h-8 flex items-center justify-center border rounded-lg text-xs transition-colors">
+          {{ page }}
+        </button>
+        }
+        <button (click)="nextPage()" [disabled]="currentPage() === totalPages()"
+          class="inline-flex items-center justify-center p-1.5 border border-[#E2E8F0] rounded-lg bg-white text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <lucide-angular [img]="iconArrowRight" size="14"></lucide-angular>
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-[#94A3B8] font-medium">Lignes par page :</span>
+        <select [value]="pageSize()" (change)="onPageSizeChange($event)"
+          class="bg-white border border-[#E2E8F0] text-xs font-semibold text-[#475569] rounded-lg py-1 pl-2 pr-8 focus:outline-none focus:border-[#6366F1] cursor-pointer">
+          <option [value]="5">5</option>
+          <option [value]="10">10</option>
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+        </select>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ══ DRAWER ════════════════════════════════════════════ -->
+  @if (selectedEnterprise(); as enterprise) {
+  <div class="fixed inset-0 z-[2000] flex justify-end select-none">
+    <div class="absolute inset-0 bg-slate-900/10 backdrop-blur-[2px]" (click)="closeDrawer()"></div>
+    <div @drawerSlide
+      class="drawer-container fixed bottom-0 left-0 right-0 md:left-auto md:top-0 z-10 w-full md:max-w-[440px] bg-white h-[80vh] md:h-screen shadow-2xl flex flex-col rounded-t-3xl md:rounded-t-none border-t md:border-t-0 md:border-l border-[#E2E8F0]">
+
+      <!-- Header drawer -->
+      <div class="relative p-6 border-b border-[#E2E8F0] flex flex-col gap-4 bg-[#F8FAFC]">
+        <button (click)="closeDrawer()"
+          class="absolute top-4 right-4 p-1.5 hover:bg-slate-200 text-[#94A3B8] hover:text-[#475569] rounded-lg transition-colors">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+        <div class="flex items-center gap-4 mt-2">
+          @if (enterprise.logo) {
+            <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center p-1.5 border border-[#E2E8F0] shadow-sm overflow-hidden shrink-0 select-none">
+              <img [src]="enterprise.logo" alt="Logo" class="w-full h-full object-contain" />
+            </div>
+          } @else {
+            <div [style.background-color]="enterprise.avatarColor"
+              class="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-sm">
+              {{ enterprise.initials }}
+            </div>
+          }
+          <div class="ml-auto flex items-center gap-2 pr-6">
+            <button (click)="openEditModal(enterprise)"
+              class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-[#E2E8F0] rounded-lg text-xs font-semibold text-[#475569] transition-colors">
+              <lucide-angular [img]="iconEdit" size="12"></lucide-angular> Modifier
+            </button>
+            <button (click)="toggleStatus(enterprise)"
+              class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B] rounded-lg text-xs font-bold text-[#B45309] transition-colors">
+              <lucide-angular [img]="enterprise.status === 'ACTIVE' ? iconPause : iconPlay" size="12"></lucide-angular>
+              {{ enterprise.status === 'ACTIVE' ? 'Suspendre' : 'Activer' }}
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-[#0F172A] tracking-tight truncate">{{ enterprise.name }}</h2>
+            <span [ngClass]="{
+                'bg-[#D1FAE5] text-[#064E3B]': enterprise.status === 'ACTIVE',
+                'bg-[#FEF3C7] text-[#78350F]': enterprise.status === 'SUSPENDED',
+                'bg-[#F1F5F9] text-[#1E293B]': enterprise.status === 'CLOSED'
+              }" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold">
+              {{ enterprise.status }}
+            </span>
+          </div>
+          <!-- codeInvitation affiché ici -->
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="text-xs text-[#475569] font-mono select-all">{{ enterprise.codeInvitation }}</span>
+            <button (click)="copyToClipboard(enterprise.codeInvitation, $event)"
+              class="p-0.5 hover:bg-slate-200 rounded text-[#64748B] hover:text-[#0F172A] transition-all flex items-center justify-center">
+              <lucide-angular [img]="iconCopy" size="10"></lucide-angular>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <nav class="flex border-b border-[#E2E8F0] px-4 overflow-x-auto bg-white">
+        @for (tab of [
+        {key:'overview', label:'Vue générale'},
+        {key:'users', label:'Utilisateurs'},
+        {key:'access-control', label:'Accès modules'},
+        {key:'activity', label:'Activité'},
+        {key:'settings', label:'Paramètres'}
+        ]; track tab.key) {
+        <button (click)="onTabChange(tab.key)"
+         [class.border-b-2]="activeTab() === tab.key"
+          [class.border-\[#6366F1\]]="activeTab() === tab.key" [class.text-\[#0F172A\]]="activeTab() === tab.key"
+          [class.font-bold]="activeTab() === tab.key" [class.text-\[#94A3B8\]]="activeTab() !== tab.key"
+          class="px-3 py-2 text-xs border-b-2 border-transparent hover:text-[#0F172A] transition-colors whitespace-nowrap">
+          {{ tab.label }}
+        </button>
+        }
+      </nav>
+
+      <!-- Tab content -->
+      <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+
+        <!-- Overview -->
+        @if (activeTab() === 'overview') {
+        <div class="flex flex-col gap-6">
+          <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-3">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Identité légale</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col justify-end">
+                <span class="block text-[11px] text-[#94A3B8] mb-0.5">SIRET</span>
+                <span class="text-xs font-semibold font-mono text-[#334155]">{{ enterprise.siret }}</span>
+              </div>
+              <div class="flex flex-col justify-end">
+                <span class="block text-[11px] text-[#94A3B8] mb-0.5">Secteur</span>
+                <span class="text-xs font-semibold text-[#334155]">{{ enterprise.sector }}</span>
+              </div>
+              <div class="col-span-2">
+                <span class="block text-[11px] text-[#94A3B8]">Code d'invitation</span>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="text-sm font-semibold font-mono text-[#6366F1]">{{ enterprise.codeInvitation }}</span>
+                  <button (click)="copyToClipboard(enterprise.codeInvitation, $event)"
+                    class="p-0.5 hover:bg-slate-100 rounded text-[#64748B]">
+                    <lucide-angular [img]="iconCopy" size="11"></lucide-angular>
+                  </button>
+                  <button (click)="regenerateCode(enterprise)"
+                    class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold border border-[#E2E8F0] hover:bg-slate-50 rounded-lg text-[#64748B] transition-colors">
+                    <lucide-angular [img]="iconRefresh" size="10"></lucide-angular> Régénérer
+                  </button>
+                </div>
+              </div>
+              <div class="col-span-2">
+                <span class="block text-[11px] text-[#94A3B8]">Date d'enregistrement</span>
+                <span class="text-sm font-semibold text-[#334155] flex items-center gap-1.5 mt-0.5">
+                  <lucide-angular [img]="iconCalendar" size="14" class="text-[#94A3B8]"></lucide-angular>
+                  {{ enterprise.createdAt | date:'longDate':'':'fr' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coordonnées & Localisation -->
+          <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-3">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Contact & Localisation</h3>
+            <div class="flex flex-col gap-2.5">
+              @if (enterprise.email) {
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#6366F1]">
+                  <lucide-angular [img]="iconMail" size="13"></lucide-angular>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-[#94A3B8] font-medium leading-none mb-0.5">Email de contact</span>
+                  <a href="mailto:{{ enterprise.email }}" class="text-xs font-semibold text-[#6366F1] hover:underline">{{ enterprise.email }}</a>
+                </div>
+              </div>
+              }
+              @if (enterprise.telephone) {
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                  <lucide-angular [img]="iconPhone" size="13"></lucide-angular>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-[#94A3B8] font-medium leading-none mb-0.5">Téléphone</span>
+                  <span class="text-xs font-semibold text-[#334155]">{{ enterprise.telephone }}</span>
+                </div>
+              </div>
+              }
+              @if (enterprise.siteWeb) {
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                  <lucide-angular [img]="iconGlobe" size="13"></lucide-angular>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-[#94A3B8] font-medium leading-none mb-0.5">Site Web</span>
+                  <a href="{{ enterprise.siteWeb }}" target="_blank" class="text-xs font-semibold text-[#6366F1] hover:underline">{{ enterprise.siteWeb }}</a>
+                </div>
+              </div>
+              }
+              @if (enterprise.adresse) {
+              <div class="flex items-start gap-2 pt-1 border-t border-[#E2E8F0] mt-1">
+                <div class="w-7 h-7 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                  <lucide-angular [img]="iconMapPin" size="13"></lucide-angular>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-[#94A3B8] font-medium leading-none mb-0.5">Adresse complète</span>
+                  <span class="text-xs font-semibold text-[#334155] leading-normal">{{ enterprise.adresse }}</span>
+                </div>
+              </div>
+              }
+              @if (!enterprise.email && !enterprise.telephone && !enterprise.siteWeb && !enterprise.adresse) {
+              <span class="text-xs text-[#94A3B8] italic">Aucune coordonnée de contact ou d'adresse disponible</span>
+              }
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider mb-3">Statistiques d'utilisation</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Utilisateurs actifs</span>
+                <span class="text-lg font-bold text-[#0F172A] mt-1 block">
+                  {{ enterprise.activeUsers }}
+                  <span class="text-xs font-semibold text-[#94A3B8]">/ {{ enterprise.employeesCount }}</span>
+                </span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Managers RH</span>
+                <span class="text-lg font-bold text-[#0F172A] mt-1 block">{{ enterprise.hrManagers }}</span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Modules activés</span>
+                <span class="text-lg font-bold text-[#6366F1] mt-1 block">{{ enterprise.modulesEnabled }}</span>
+              </div>
+              <div class="bg-white border border-[#E2E8F0] rounded-xl p-3 shadow-sm">
+                <span class="text-[11px] text-[#94A3B8] font-medium block">Dernière connexion</span>
+                <span class="text-xs font-bold text-[#475569] mt-2 block truncate">{{ enterprise.lastLogin |
+                  relativeTime }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        }
+
+        <!-- Users -->
+        @if (activeTab() === 'users') {
+        <div class="flex flex-col gap-4">
+          <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 flex flex-col gap-4">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Gestion de l'effectif</h3>
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between text-sm py-1.5 border-b border-[#E2E8F0]">
+                <span class="text-[#64748B]">Collaborateurs sous contrat</span>
+                <span class="font-bold text-[#0F172A]">{{ enterprise.employeesCount }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm py-1.5 border-b border-[#E2E8F0]">
+                <span class="text-[#64748B]">Licences consommées</span>
+                <span class="font-bold text-[#6366F1]">{{ enterprise.activeUsers }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm py-1.5">
+                <span class="text-[#64748B]">Taux d'engagement</span>
+                <span class="font-bold text-[#10B981]">
+                  {{ enterprise.employeesCount > 0 ? Math.round((enterprise.activeUsers / enterprise.employeesCount) *
+                  100) : 0 }} %
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        }
+
+        <!-- Access control matrix -->
+        @if (activeTab() === 'access-control') {
+        <div class="flex flex-col gap-4">
+
+          @if (acLoading()) {
+          <div class="flex items-center justify-center py-10 text-[#94A3B8] text-sm gap-2">
+            <lucide-angular [img]="iconRefresh" size="16" class="animate-spin"></lucide-angular>
+            Chargement…
+          </div>
+          }
+
+          @if (!acLoading() && accessControl()) {
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Matrice des permissions</h3>
+            <div class="flex items-center gap-2">
+              @if (!acEditMode()) {
+              <button (click)="loadAcHistory()"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-[#E2E8F0] bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold text-[#64748B] transition-colors">
+                <lucide-angular [img]="iconHistory" size="12"></lucide-angular> Historique
+              </button>
+              <button (click)="enterAcEditMode()"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#6366F1] hover:bg-[#4F46E5] rounded-lg text-xs font-semibold text-white shadow-sm transition-colors">
+                <lucide-angular [img]="iconEdit" size="12"></lucide-angular> Modifier
+              </button>
+              }
+              @if (acEditMode()) {
+              <button (click)="cancelAcEdit()"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-[#E2E8F0] bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold text-[#64748B] transition-colors">
+                Annuler
+              </button>
+              <button (click)="saveAccessControl()"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#10B981] hover:bg-[#059669] rounded-lg text-xs font-semibold text-white shadow-sm transition-colors">
+                <lucide-angular [img]="iconCheck" size="12"></lucide-angular> Enregistrer
+              </button>
+              }
+            </div>
+          </div>
+
+          <!-- Matrix table -->
+          <div class="overflow-x-auto rounded-xl border border-[#E2E8F0]">
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="bg-[#F8FAFC] border-b border-[#E2E8F0]">
+                  <th class="px-3 py-2 text-left font-semibold text-[#94A3B8] uppercase tracking-wider w-28">Module</th>
+                  @for (role of (acEditMode() ? acDraft() : accessControl()!.permissions); track role.role) {
+                  <th class="px-3 py-2 text-center font-semibold text-[#64748B]">{{ role.label }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#E2E8F0]">
+                @for (module of (acEditMode() ? acDraft()[0]?.modules : accessControl()!.permissions[0]?.modules); track
+                module.key; let mIdx = $index) {
+                <tr class="hover:bg-[#F8FAFC] transition-colors">
+                  <td class="px-3 py-2.5 font-semibold text-[#334155]">{{ module.label }}</td>
+                  @for (role of (acEditMode() ? acDraft() : accessControl()!.permissions); track role.role; let rIdx =
+                  $index) {
+                  <td class="px-3 py-2.5 text-center">
+                    @if (acEditMode()) {
+                    <button (click)="toggleModule(rIdx, mIdx)"
+                      [class]="role.modules[mIdx].enabled ? 'bg-[#D1FAE5] text-[#059669]' : 'bg-[#FEE2E2] text-[#DC2626]'"
+                      class="w-6 h-6 rounded-full flex items-center justify-center mx-auto transition-colors">
+                      <lucide-angular [img]="role.modules[mIdx].enabled ? iconCheck : iconX" size="12"></lucide-angular>
+                    </button>
+                    } @else {
+                    <span [class]="role.modules[mIdx].enabled ? 'text-[#10B981]' : 'text-[#CBD5E1]'"
+                      class="flex items-center justify-center">
+                      <lucide-angular [img]="role.modules[mIdx].enabled ? iconCheck : iconX" size="14"></lucide-angular>
+                    </span>
+                    }
+                  </td>
+                  }
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- History log -->
+          @if (accessControlHistory().length > 0) {
+          <div class="flex flex-col gap-2 mt-2">
+            <h4 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider">Historique récent</h4>
+            @for (h of accessControlHistory(); track h.id) {
+            <div
+              class="flex items-center justify-between bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs">
+              <div class="flex flex-col gap-0.5">
+                <span class="font-semibold text-[#334155]">{{ h.role }} · {{ h.moduleKey }}</span>
+                <span class="text-[#94A3B8]">par {{ h.changedBy }}</span>
+              </div>
+              <div class="flex items-center gap-2 text-right">
+                <span [class]="h.previousValue ? 'text-[#10B981]' : 'text-[#94A3B8]'">{{ h.previousValue ? '✓' : '✗'
+                  }}</span>
+                <span class="text-[#94A3B8]">→</span>
+                <span [class]="h.newValue ? 'text-[#10B981]' : 'text-red-400'">{{ h.newValue ? '✓' : '✗' }}</span>
+                <span class="text-[#94A3B8] ml-1">{{ h.changedAt | relativeTime }}</span>
+              </div>
+            </div>
+            }
+          </div>
+          }
+          }
+
+          @if (!acLoading() && !accessControl()) {
+          <div class="flex flex-col items-center justify-center py-10 gap-3 text-[#94A3B8]">
+            <lucide-angular [img]="iconShield" size="28"></lucide-angular>
+            <p class="text-sm font-semibold text-slate-700">Aucune configuration d'accès</p>
+            <p class="text-xs text-center max-w-[220px]">Les modules sont activés par défaut pour tous les rôles.</p>
+            <button (click)="loadAccessControl()"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6366F1] hover:bg-[#4F46E5] text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
+              <lucide-angular [img]="iconRefresh" size="12"></lucide-angular> Configurer
+            </button>
+          </div>
+          }
+        </div>
+        }
+
+        <!-- Activity -->
+        @if (activeTab() === 'activity') {
+        <div class="flex flex-col gap-4">
+          <h3 class="text-xs font-bold text-[#94A3B8] uppercase tracking-wider mb-2">Historique d'administration</h3>
+          <div class="relative pl-6 border-l border-[#E2E8F0] flex flex-col gap-6 ml-2">
+            @for (event of recentActivity; track event.id) {
+            <div class="relative">
+              <span
+                class="absolute -left-[30px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-white border-2 border-[#6366F1]">
+                <span class="h-1.5 w-1.5 rounded-full bg-[#6366F1]"></span>
+              </span>
+              <div class="flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-slate-800">{{ event.description }}</p>
+                <p class="text-[10px] text-[#94A3B8]">{{ event.date | relativeTime }}</p>
+              </div>
+            </div>
+            }
+          </div>
+        </div>
+        }
+
+        <!-- Settings -->
+        @if (activeTab() === 'settings') {
+        <div class="flex flex-col gap-6">
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-3">
+            <h3 class="text-xs font-bold text-red-800 uppercase tracking-wider">Zone de Danger</h3>
+            <p class="text-xs text-red-600">Ces actions affectent immédiatement l'accès des collaborateurs de
+              l'entreprise à WeenTime.</p>
+            <div class="flex flex-col gap-2 mt-2">
+              <button (click)="toggleStatus(enterprise)"
+                class="w-full inline-flex items-center justify-center px-4 py-2 border border-amber-300 hover:bg-amber-100 rounded-lg text-xs font-bold text-amber-800 transition-colors">
+                {{ enterprise.status === 'ACTIVE' ? 'Suspendre définitivement' : 'Réactiver l\'entreprise' }}
+              </button>
+              <button (click)="deleteEnterprise(enterprise)"
+                class="w-full inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-bold text-white shadow-sm transition-colors">
+                Supprimer de la plateforme
+              </button>
+            </div>
+          </div>
+        </div>
+        }
+
+      </div>
+    </div>
+  </div>
   }
 
-  @if (isDeleteConfirmOpen()) {
-    <app-entreprise-delete-confirm
-      [entreprise]="entrepriseToDelete()"
-      (close)="isDeleteConfirmOpen.set(false)"
-      (deleted)="onDeleted()"
-    ></app-entreprise-delete-confirm>
+  <!-- ══ MODAL CRÉATION / ÉDITION ══════════════════════════ -->
+  @if (isCreateModalOpen()) {
+  <div class="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[3px]" (click)="closeCreateModal()"></div>
+    <div
+      class="modal-container relative z-10 w-full max-w-xl bg-white border border-[#E2E8F0] shadow-2xl rounded-xl overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <div class="px-6 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+        <h3 class="text-base font-bold text-[#0F172A]">
+          {{ isEditMode() ? 'Modifier l\'entreprise' : 'Nouvelle entreprise' }}
+        </h3>
+        <button (click)="closeCreateModal()"
+          class="p-1.5 hover:bg-slate-100 text-[#94A3B8] hover:text-[#475569] rounded-lg transition-colors">
+          <lucide-angular [img]="iconX" size="16"></lucide-angular>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex flex-col gap-5">
+        
+        <!-- Logo Uploader -->
+        <div class="flex flex-col sm:flex-row items-center gap-4 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
+          <div class="relative group cursor-pointer w-16 h-16 rounded-full border-2 border-dashed border-[#CBD5E1] hover:border-[#6366F1] flex items-center justify-center overflow-hidden bg-white shrink-0 transition-colors">
+            @if (formModel.logo) {
+              <img [src]="formModel.logo" alt="Logo Preview" class="w-full h-full object-contain p-2" />
+              <button type="button" (click)="removeLogo(); $event.stopPropagation()" class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white" title="Supprimer le logo">
+                <lucide-angular [img]="iconTrash" size="14"></lucide-angular>
+              </button>
+            } @else {
+              <label class="w-full h-full flex flex-col items-center justify-center cursor-pointer text-[#64748B] hover:text-[#6366F1]">
+                <lucide-angular [img]="iconUpload" size="16" class="mb-0.5"></lucide-angular>
+                <span class="text-[8px] font-bold uppercase tracking-wider">Logo</span>
+                <input type="file" accept="image/*" class="hidden" (change)="onLogoFileSelected($event)" />
+              </label>
+            }
+          </div>
+          <div class="flex-1 text-center sm:text-left select-none">
+            <h4 class="text-xs font-bold text-[#475569] uppercase tracking-wider mb-0.5">Logo de l'entreprise</h4>
+            <p class="text-[10px] text-[#94A3B8] leading-normal">Formats acceptés : PNG, JPG, GIF. Max 1 Mo.</p>
+          </div>
+        </div>
+
+        <!-- Section 1 : Informations Générales -->
+        <div class="flex flex-col gap-3">
+          <h4 class="text-xs font-bold text-[#6366F1] uppercase tracking-wider border-b border-indigo-50 pb-1 mb-1">Informations Générales</h4>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Nom de l'entreprise *</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconBuilding" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.nom" placeholder="Ex: Vercel France"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Numéro SIRET *</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconFileText" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.siret" placeholder="14 chiffres"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs font-mono focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8]" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Secteur d'activité *</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconBriefcase" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.secteur" placeholder="Ex: Technologie, Finance"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Effectif initial</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconUsers" size="13"></lucide-angular>
+                </div>
+                <input type="number" [(ngModel)]="formModel.employeesCount"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] font-semibold text-slate-800" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2 : Contact & Présence Web -->
+        <div class="flex flex-col gap-3">
+          <h4 class="text-xs font-bold text-[#6366F1] uppercase tracking-wider border-b border-indigo-50 pb-1 mb-1">Contact & Présence</h4>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Email de contact</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconMail" size="13"></lucide-angular>
+                </div>
+                <input type="email" [(ngModel)]="formModel.email" placeholder="contact@entreprise.com"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Téléphone</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconPhone" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.telephone" placeholder="Ex: 0123456789"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Site Web</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                <lucide-angular [img]="iconGlobe" size="13"></lucide-angular>
+              </div>
+              <input type="url" [(ngModel)]="formModel.siteWeb" placeholder="https://www.entreprise.com"
+                class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-[#6366F1]" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3 : Adresse complète -->
+        <div class="flex flex-col gap-3">
+          <h4 class="text-xs font-bold text-[#6366F1] uppercase tracking-wider border-b border-indigo-50 pb-1 mb-1">Adresse Complète</h4>
+          
+          <div>
+            <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Rue (Numéro & Nom)</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                <lucide-angular [img]="iconMapPin" size="13"></lucide-angular>
+              </div>
+              <input type="text" [(ngModel)]="formModel.adresse_rue" placeholder="Ex: 12 Rue de la Paix"
+                class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Code Postal</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconMapPin" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.adresse_code_postal" placeholder="Ex: 75002"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-semibold text-slate-800" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Ville</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                  <lucide-angular [img]="iconBuilding" size="13"></lucide-angular>
+                </div>
+                <input type="text" [(ngModel)]="formModel.adresse_ville" placeholder="Ex: Paris"
+                  class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Pays</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                <lucide-angular [img]="iconMapPin" size="13"></lucide-angular>
+              </div>
+              <input type="text" [(ngModel)]="formModel.adresse_pays" placeholder="Ex: France"
+                class="w-full pl-9 pr-3 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] placeholder-[#94A3B8] font-medium text-slate-800" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4 : Paramètres Système -->
+        <div class="flex flex-col gap-3">
+          <h4 class="text-xs font-bold text-[#6366F1] uppercase tracking-wider border-b border-indigo-50 pb-1 mb-1">Paramètres de la Plateforme</h4>
+          <div>
+            <label class="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-1">Statut Initial</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#94A3B8]">
+                <lucide-angular [img]="iconShield" size="13"></lucide-angular>
+              </div>
+              <select [(ngModel)]="formModel.status"
+                class="w-full bg-white pl-9 pr-8 py-1.5 border border-[#E2E8F0] rounded-lg text-xs focus:outline-none focus:border-[#6366F1] cursor-pointer font-semibold text-slate-800">
+                <option value="ACTIVE">Actif</option>
+                <option value="SUSPENDED">Suspendu</option>
+                <option value="CLOSED">Fermé</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-end gap-3 shrink-0">
+        <button (click)="closeCreateModal()"
+          class="px-4 py-2 border border-[#E2E8F0] bg-white hover:bg-slate-50 text-xs font-semibold text-[#475569] rounded-lg transition-colors">
+          Annuler
+        </button>
+        <button (click)="saveEnterprise()" [disabled]="isSaving()"
+          class="px-4 py-2 bg-[#6366F1] hover:bg-[#4F46E5] text-xs font-semibold text-white rounded-lg shadow-sm transition-colors disabled:opacity-60">
+          {{ isSaving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
   }
 
-  @if (isAccessControlOpen()) {
-    <app-enterprise-access-control-modal
-      [entreprise]="entrepriseForAccessControl()"
-      (close)="closeAccessControl()"
-      (saved)="onAccessControlSaved()"
-    ></app-enterprise-access-control-modal>
-  }
+  <!-- ══ TOASTS ════════════════════════════════════════════ -->
+  <div
+    class="fixed bottom-6 right-6 z-[3000] flex flex-col gap-2.5 max-w-sm pointer-events-none select-none toast-container">
+    @for (toast of toasts(); track toast.id) {
+    <div @toastFade [ngClass]="{
+        'bg-emerald-600 text-white': toast.type === 'success',
+        'bg-blue-600 text-white':    toast.type === 'info',
+        'bg-amber-600 text-white':   toast.type === 'warning',
+        'bg-red-600 text-white':     toast.type === 'error'
+      }"
+      class="px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-4 pointer-events-auto border border-white/10">
+      <div class="flex items-center gap-2.5">
+        <lucide-angular [img]="toast.type === 'success' ? iconCheck : iconAlert" size="16"></lucide-angular>
+        <span class="text-xs font-medium">{{ toast.message }}</span>
+      </div>
+      <button (click)="removeToast(toast.id)" class="text-white/75 hover:text-white pointer-events-auto cursor-pointer">
+        <lucide-angular [img]="iconX" size="14"></lucide-angular>
+      </button>
+    </div>
+    }
+  </div>
 </div>

@@ -56,7 +56,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: #FFFFFF;
   color: #94a3b8;
   display: flex;
   align-items: center;
@@ -87,7 +87,7 @@
 .step-line {
   width: 40px;
   height: 2px;
-  background: #f1f5f9;
+  background: #FFFFFF;
   
   &.active {
     background: #10b981;
@@ -113,7 +113,7 @@
   transition: all 0.2s;
   
   &:hover {
-    background: #f1f5f9;
+    background: #FFFFFF;
     color: #1e293b;
   }
 }
@@ -179,7 +179,7 @@
   &.disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background: #f8fafc;
+    background: #FFFFFF;
   }
 }
 
@@ -207,7 +207,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: #FFFFFF;
   
   &.annuel { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
   &.maladie { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
@@ -307,7 +307,7 @@
   position: relative;
 
   &:hover:not(.unselectable) {
-    background: #f1f5f9;
+    background: #FFFFFF;
   }
 
   &.outside { color: #cbd5e1; }
@@ -347,7 +347,7 @@
 }
 
 .selection-summary {
-  background: #f8fafc;
+  background: #FFFFFF;
   padding: 16px;
   border-radius: 16px;
   display: flex;
@@ -377,7 +377,7 @@
 
 .days-count {
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   font-size: 13px;
   color: #64748b;
   display: flex;
@@ -446,7 +446,7 @@
     border-radius: 8px;
     font-size: 12px;
     font-weight: 800;
-    background: #f1f5f9;
+    background: #FFFFFF;
     color: #64748b;
 
     &.annuel { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
@@ -458,7 +458,7 @@
   &.total {
     margin-top: 20px;
     padding-top: 20px;
-    border-top: 1px dashed #e2e8f0;
+    border-top: 1px dashed var(--border);
     .label { font-size: 14px; font-weight: 800; color: #1e293b; }
     .value { font-size: 18px; font-weight: 900; color: #6366f1; }
   }
@@ -513,7 +513,7 @@
   textarea {
     width: 100%;
     border-radius: 16px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     padding: 16px;
     font-size: 14px;
     resize: none;
@@ -574,10 +574,10 @@
 
 .btn-secondary {
   background: white;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   color: #64748b;
   
-  &:hover:not(:disabled) { background: #f1f5f9; color: #1e293b; }
+  &:hover:not(:disabled) { background: #FFFFFF; color: #1e293b; }
 }
 
 .dark .btn-secondary {

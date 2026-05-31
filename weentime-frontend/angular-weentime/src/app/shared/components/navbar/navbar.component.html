@@ -25,8 +25,7 @@
         <!-- ==================== NAVIGATION (CENTER) ==================== -->
         <div class="hidden lg:flex flex-1 justify-center items-center gap-8 z-0">
             <a *ngFor="let link of navLinks" [routerLink]="link.path" [fragment]="link.fragment"
-                routerLinkActive="nav-link-active"
-                [routerLinkActiveOptions]="{exact: link.path === '/'}"
+                [class.nav-link-active]="isActive(link.path, link.fragment)"
                 class="relative px-2 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors group">
                 {{ link.label }}
                 <!-- Hover underline effect -->

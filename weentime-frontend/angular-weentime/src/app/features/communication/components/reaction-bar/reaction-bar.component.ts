@@ -45,7 +45,7 @@ import { ReactionSummaryModel } from '../../models/communication.models';
     }
 
     .comm-reaction:hover:not(:disabled) {
-      background: #f8fafc;
+      background: #FFFFFF;
       border-color: rgba(83, 74, 183, 0.2);
       transform: translateY(-1px);
     }

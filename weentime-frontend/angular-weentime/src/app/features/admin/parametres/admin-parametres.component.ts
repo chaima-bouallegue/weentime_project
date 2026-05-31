@@ -99,7 +99,7 @@ type FrontRole = 'ADMIN' | 'RH' | 'MANAGER' | 'EMPLOYEE';
   styles: [`
     .page { display: grid; gap: 16px; padding: 20px; }
     .hero, .card {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 16px;
       background: #fff;
       padding: 20px;
@@ -135,12 +135,12 @@ type FrontRole = 'ADMIN' | 'RH' | 'MANAGER' | 'EMPLOYEE';
     table { width: 100%; border-collapse: collapse; }
     th, td {
       text-align: left;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       padding: 10px;
       color: #1e293b;
       font-size: 0.88rem;
     }
-    th { border-top: none; color: #64748b; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; }
+    th { border-top: none; color: #64748b; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; background: #FFFFFF; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     :host-context(.dark) .hero,
     :host-context(.dark) .card {

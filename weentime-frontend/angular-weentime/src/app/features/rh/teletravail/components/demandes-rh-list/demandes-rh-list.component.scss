@@ -1,7 +1,7 @@
 .demandes-list { display: flex; flex-direction: column; gap: 12px; }
 .demande-card {
   background: #fff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 24px; display: flex; gap: 16px; align-items: flex-start; transition: all .2s;
-  &:hover { border-color: #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,.04); }
+  &:hover { border-color: var(--border); box-shadow: 0 4px 12px rgba(0,0,0,.04); }
 }
 .avatar { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 800; flex-shrink: 0; }
 .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -19,7 +19,7 @@
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; font-weight: 600; color: #64748b;
   .type-badge { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
   .date-range { display: flex; align-items: center; gap: 4px; }
-  .days-count { background: #f1f5f9; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+  .days-count { background: #FFFFFF; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; }
 }
 .motif { font-size: 13px; color: #64748b; margin: 0; line-height: 1.5; }
 .card-actions {
@@ -28,7 +28,7 @@
   .btn-refuse { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: transparent; color: #ef4444; border: 1px solid #fecaca; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; &:hover { background: #fef2f2; } }
 }
 .empty-state { padding: 48px; text-align: center; color: #94a3b8; .empty-icon { margin-bottom: 12px; opacity: .2; } }
-.item-skeleton { height: 140px; background: #f1f5f9; border-radius: 20px; position: relative; overflow: hidden;
+.item-skeleton { height: 140px; background: #FFFFFF; border-radius: 20px; position: relative; overflow: hidden;
   &::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent); animation: shimmer 1.5s infinite; }
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }

@@ -101,6 +101,9 @@ function shouldSilenceToast(req: HttpRequest<unknown>, error: HttpErrorResponse)
   }
 
   const url = req.url.toLowerCase();
+  if (url.includes('/api/v1/communication/unread-summary')) {
+    return true;
+  }
   const details = String(
     (error.error as Record<string, unknown> | null)?.['details']
     ?? (error.error as Record<string, unknown> | null)?.['message']

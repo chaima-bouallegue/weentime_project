@@ -1,0 +1,33 @@
+package com.weentime.weentimeproject.repository;
+
+import com.weentime.weentimeproject.entity.EntrepriseAccessControl;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface EntrepriseAccessControlRepository
+        extends JpaRepository<EntrepriseAccessControl, Long> {
+
+    List<EntrepriseAccessControl> findAllByEntrepriseId(Long entrepriseId);
+
+    Optional<EntrepriseAccessControl> findByEntrepriseIdAndRoleAndModuleKey(
+            Long entrepriseId, String role, String moduleKey);
+
+    @Query("""
+            SELECT eac.enabled FROM EntrepriseAccessControl eac
+            WHERE eac.entrepriseId = :entrepriseId
+              AND eac.role         = :role
+              AND eac.moduleKey    = :moduleKey
+            """)
+    Optional<Boolean> findEnabledByEntrepriseIdAndRoleAndModuleKey(
+            @Param("entrepriseId") Long entrepriseId,
+            @Param("role")         String role,
+            @Param("moduleKey")    String moduleKey);
+
+    void deleteAllByEntrepriseId(Long entrepriseId);
+}

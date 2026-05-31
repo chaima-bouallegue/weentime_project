@@ -91,4 +91,29 @@ Génère un compte-rendu réaliste et professionnel basé sur le contexte de la 
       })
     );
   }
+
+  /**
+   * Generate a structured meeting agenda from title and optional description.
+   */
+  generateAgenda(titre: string, description?: string): Observable<string> {
+    const systemPrompt = `Tu es un assistant d'organisation RH et de productivité.
+Tu rédiges des ordres du jour de réunion clairs, structurés et professionnels sous forme de liste numérotée en français.
+Chaque point de l'ordre du jour doit être concis et inclure une durée suggérée (ex : "1. Tour de table - Avancement (10 min)").
+Retourne uniquement la liste, sans introduction ni conclusion ni mise en forme markdown superflue.`;
+
+    const userPrompt = `Génère un ordre du jour pour la réunion suivante :
+Titre : ${titre}
+${description ? `Description / Objectif : ${description}` : ''}
+Propose entre 3 et 5 points pertinents adaptés à ce sujet.`;
+
+    return this.generateDocument({
+      system_prompt: systemPrompt,
+      user_prompt: userPrompt,
+      temperature: 0.5,
+      max_tokens: 800,
+    }).pipe(
+      map(response => response.content.trim())
+    );
+  }
 }
+

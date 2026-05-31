@@ -1,4 +1,4 @@
-ï»¿import { Component, ChangeDetectionStrategy, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -96,7 +96,7 @@ import { Departement } from '../../../rh/structure/models/structure.model';
     .info-field {
       display: flex; align-items: center; gap: 12px;
       padding: 14px 16px; border-radius: 12px;
-      background: #f8fafc; border: 1px solid #f1f5f9;
+      background: #FFFFFF; border: 1px solid #f1f5f9;
       transition: all 0.2s;
     }
     :host-context(.dark) .info-field { background: #1a1f2e; border-color: #2d3548; }
@@ -119,10 +119,10 @@ import { Departement } from '../../../rh/structure/models/structure.model';
     .edit-btn {
       display: flex; align-items: center; gap: 8px;
       margin-top: 24px; padding: 10px 20px; border-radius: 12px;
-      border: 1px solid #e2e8f0; background: #fff; color: #475569;
+      border: 1px solid var(--border); background: #fff; color: #475569;
       font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
     }
-    .edit-btn:hover { background: #f8fafc; border-color: #6366f1; color: #6366f1; }
+    .edit-btn:hover { background: #FFFFFF; border-color: #6366f1; color: #6366f1; }
     :host-context(.dark) .edit-btn { background: #1a1f2e; border-color: #2d3548; color: #94a3b8; }
     :host-context(.dark) .edit-btn:hover { border-color: #818cf8; color: #818cf8; }
 
@@ -139,23 +139,23 @@ import { Departement } from '../../../rh/structure/models/structure.model';
 
     .form-input {
       padding: 10px 14px; border-radius: 10px;
-      border: 1px solid #e2e8f0; background: #fff;
+      border: 1px solid var(--border); background: #fff;
       font-size: 14px; font-weight: 500; color: #1e293b;
       outline: none; transition: all 0.2s;
     }
     .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-    .form-input.disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
-    :host-context(.dark) .form-input { background: #141821; border-color: #2d3548; color: #e2e8f0; }
+    .form-input.disabled { background: #FFFFFF; color: #94a3b8; cursor: not-allowed; }
+    :host-context(.dark) .form-input { background: #141821; border-color: #2d3548; color: var(--border); }
     :host-context(.dark) .form-input.disabled { background: #0f1117; color: #64748b; }
 
     .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
 
     .btn-cancel {
       padding: 10px 20px; border-radius: 10px;
-      border: 1px solid #e2e8f0; background: #fff;
+      border: 1px solid var(--border); background: #fff;
       font-size: 13px; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s;
     }
-    .btn-cancel:hover { background: #f8fafc; }
+    .btn-cancel:hover { background: #FFFFFF; }
     :host-context(.dark) .btn-cancel { background: #1a1f2e; border-color: #2d3548; color: #94a3b8; }
 
     .btn-save {
@@ -219,8 +219,8 @@ export class ProfileInfoComponent implements OnInit {
       { label: 'Email', value: p.email, icon: 'mail' },
       { label: 'Telephone', value: p.telephone, icon: 'phone' },
       { label: 'Poste', value: p.poste, icon: 'briefcase' },
-      { label: 'Departement', value: p.departement?.nom ?? 'Non renseignÃ©', icon: 'building-2' },
-      { label: 'Entreprise', value: p.entreprise?.nom ?? 'Non renseignÃ©', icon: 'building' }
+      { label: 'Departement', value: p.departement?.nom ?? 'Non renseigné', icon: 'building-2' },
+      { label: 'Entreprise', value: p.entreprise?.nom ?? 'Non renseigné', icon: 'building' }
     ];
   });
 

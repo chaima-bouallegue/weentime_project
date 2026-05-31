@@ -307,7 +307,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
 
     forkJoin({
-      users: this.api.getUsers(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminUser>(200)))),
+      users: this.api.getUsers(0, 200, undefined, undefined, undefined, undefined, undefined, { silent: true }).pipe(catchError(() => of(empty<AdminUser>(200)))),
       entreprises: this.api.getEntreprises(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminEntreprise>(200)))),
       roles: this.api.getRoles({ silent: true }).pipe(catchError(() => of([] as AdminRole[]))),
       requests: this.api.getRequests(0, 100, {}, { silent: true }).pipe(catchError(() => of(empty<AdminRequest>(100)))),

@@ -1,6 +1,27 @@
 @use 'fonts';
 @use 'sass:color';
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100%;
+}
+
+app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
 /* ═══════════════════════════════════════════════════
    GLOBAL DESIGN SYSTEM
    ═══════════════════════════════════════════════════ */
@@ -9,7 +30,7 @@
   /* ─── colors ─────────────────────────────────────── */
   --background: #f8fafc;
   --foreground: #0f172a;
-  --surface: #ffffff;
+  --surface: #FFFFFF;
   --surface-alt: #f1f5f9;
 
   --primary: #6366f1;
@@ -40,9 +61,9 @@
   --text-disabled: #cbd5e1;
 
   /* ─── borders ────────────────────────────────────── */
-  --border: rgba(15, 23, 42, 0.08);
-  --border-light: rgba(15, 23, 42, 0.04);
-  --border-strong: rgba(15, 23, 42, 0.12);
+  --border: transparent;
+  --border-light: transparent;
+  --border-strong: transparent;
 
   /* ─── spacing & sizing ───────────────────────────── */
   --radius-xs: 6px;
@@ -61,13 +82,13 @@
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
 
-  /* ─── shadows ────────────────────────────────────── */
-  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
-  --shadow-sm: 0 2px 4px -1px rgba(15, 23, 42, 0.04), 0 1px 2px 0 rgba(15, 23, 42, 0.02);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
-  --shadow-lg: 0 8px 16px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
-  --shadow-xl: 0 16px 32px -8px rgba(15, 23, 42, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.06);
-  --shadow-2xl: 0 24px 48px -12px rgba(15, 23, 42, 0.18);
+  /* ─── shadows (2026 premium layered) ─────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08), 0 20px 48px rgba(0, 0, 0, 0.06);
+  --shadow-2xl: 0 16px 40px rgba(0, 0, 0, 0.10), 0 32px 64px rgba(0, 0, 0, 0.08);
 
   --shadow-glow-primary: 0 0 24px rgba(99, 102, 241, 0.3);
   --shadow-glow-success: 0 0 24px rgba(16, 185, 129, 0.3);
@@ -96,36 +117,36 @@
      ─ Scoped to the AI surface so the rest of the app keeps using
        --primary / --surface / --radius-* unchanged.
      ═══════════════════════════════════════════════════ */
-  --wt-primary:        #6C63FF;
-  --wt-primary-dark:   #5A52D5;
-  --wt-primary-light:  #EEF0FF;
-  --wt-secondary:      #FF4FD8;
-  --wt-accent:         #5B8CFF;
+  --wt-primary: #6C63FF;
+  --wt-primary-dark: #5A52D5;
+  --wt-primary-light: #EEF0FF;
+  --wt-secondary: #FF4FD8;
+  --wt-accent: #5B8CFF;
 
-  --wt-success:        #22C55E;
-  --wt-warning:        #F59E0B;
-  --wt-danger:         #EF4444;
-  --wt-danger-dark:    #DC2626;
+  --wt-success: #22C55E;
+  --wt-warning: #F59E0B;
+  --wt-danger: #EF4444;
+  --wt-danger-dark: #DC2626;
 
-  --wt-risk-critical:  #EF4444;
-  --wt-risk-high:      #F97316;
-  --wt-risk-medium:    #F59E0B;
-  --wt-risk-low:       #22C55E;
+  --wt-risk-critical: #EF4444;
+  --wt-risk-high: #F97316;
+  --wt-risk-medium: #F59E0B;
+  --wt-risk-low: #22C55E;
 
-  --wt-bg:                  #F5F7FB;
-  --wt-card-bg:             var(--surface);
-  --wt-card-border:         rgba(108, 99, 255, 0.12);
-  --wt-card-shadow:         0 2px 16px rgba(108, 99, 255, 0.08);
-  --wt-card-shadow-hover:   0 8px 32px rgba(108, 99, 255, 0.16);
+  --wt-bg: #F5F7FB;
+  --wt-card-bg: #FFFFFF;
+  --wt-card-border: transparent;
+  --wt-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --wt-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.06);
 
-  --wt-radius:    12px;
-  --wt-radius-sm: 8px;
-  --wt-radius-lg: 16px;
+  --wt-radius: 16px;
+  --wt-radius-sm: 12px;
+  --wt-radius-lg: 20px;
   --wt-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   --wt-text-strong: var(--text-primary);
-  --wt-text-muted:  #6b7280;
-  --wt-text-faint:  #9ca3af;
+  --wt-text-muted: #6b7280;
+  --wt-text-faint: #9ca3af;
 
   /* Shared AI chat tokens. The widget is a dark glass surface in every app
      theme, so these values prioritize contrast on dark backgrounds. */
@@ -156,12 +177,12 @@
 /* WT brand colors stay readable on dark surfaces. */
 :root.dark,
 [data-theme='dark'] {
-  --wt-card-bg:           var(--surface);
-  --wt-card-border:       rgba(108, 99, 255, 0.22);
-  --wt-card-shadow:       0 2px 16px rgba(0, 0, 0, 0.45);
+  --wt-card-bg: var(--surface);
+  --wt-card-border: rgba(108, 99, 255, 0.22);
+  --wt-card-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
   --wt-card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.6);
-  --wt-text-muted:        #94a3b8;
-  --wt-text-faint:        #64748b;
+  --wt-text-muted: #94a3b8;
+  --wt-text-faint: #64748b;
 }
 
 /* ═══════════════════ DARK MODE ═══════════════════ */
@@ -320,6 +341,17 @@
   select:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
+  }
+
+  /* ─── light mode inputs default ─── */
+  html:not(.dark) {
+
+    input,
+    textarea,
+    select {
+      background: #FFFFFF;
+      border: 1px solid #E5E7EB;
+    }
   }
 }
 
@@ -556,13 +588,19 @@
     @apply w-full px-3 py-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent;
   }
 
-  /* ─── cards ──────────────────────────────────────── */
+  /* ─── cards (borderless + layered shadow) ────────── */
   .card {
-    @apply bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-sm transition-all duration-200;
+    @apply bg-white rounded-[16px] transition-all duration-200;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
   }
 
   .card-hover {
-    @apply card hover:shadow-lg hover:-translate-y-1;
+    @apply card hover:-translate-y-1;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.06);
+    }
   }
 
   /* ─── badges ─────────────────────────────────────── */
@@ -701,4 +739,33 @@ app-chat-widget {
     outline: 2px solid currentColor;
     outline-offset: 2px;
   }
+}
+
+/* ═══════════════════ GLOBAL LIGHT MODE — LAYOUT BORDERS ═══════════════════ */
+html:not(.dark) {
+
+  /* ─── Sidebar right border ───────────────────────── */
+  .sidebar-bento-container {
+    border-right: 1px solid #E5E7EB !important;
+  }
+
+  /* ─── Topbar bottom border ───────────────────────── */
+  .topbar,
+  .navbar,
+  .header,
+  app-shell-header {
+    border-bottom: 1px solid #E5E7EB !important;
+    box-shadow: 0 1px 0 #E5E7EB !important;
+  }
+}
+
+/* ─── Main content top padding ────────────────────── */
+.main-content,
+.page-content,
+.shell-content router-outlet+* {
+  padding-top: 24px !important;
+}
+
+button {
+  border-radius: 0.5rem;
 }

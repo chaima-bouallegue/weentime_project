@@ -17,14 +17,16 @@ public class UserDetailsImpl implements UserDetails {
     private final String email;
     private final String password;
     private final String statut;
+    private final Long entrepriseId;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserDetailsImpl(Long id, String email, String password, String statut,
+    public UserDetailsImpl(Long id, String email, String password, String statut, Long entrepriseId,
                            Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.statut = statut;
+        this.entrepriseId = entrepriseId;
         this.authorities = authorities;
     }
 
@@ -40,6 +42,7 @@ public class UserDetailsImpl implements UserDetails {
                 dto.getEmail(),
                 dto.getMotDePasse(),
                 dto.getStatut(),
+                dto.getEntrepriseId(),
                 authorities
         );
     }

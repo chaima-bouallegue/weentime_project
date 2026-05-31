@@ -46,6 +46,7 @@ export class RhListComponent {
     this.toggleStatus.emit(id);
   }
 
+
   getInitials(prenom: string, nom: string): string {
     const p = prenom ? prenom.charAt(0) : '';
     const n = nom ? nom.charAt(0) : '';
@@ -56,7 +57,7 @@ export class RhListComponent {
     const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
-       hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
   }
@@ -66,7 +67,7 @@ export class RhListComponent {
     if (!entrepriseName) return '#94a3b8';
     let hash = 0;
     for (let i = 0; i < entrepriseName.length; i++) {
-       hash = entrepriseName.charCodeAt(i) + ((hash << 5) - hash);
+      hash = entrepriseName.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
   }

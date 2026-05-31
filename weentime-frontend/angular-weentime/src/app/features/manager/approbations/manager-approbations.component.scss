@@ -603,7 +603,7 @@
       width: 100%;
       padding: 1rem;
       border-radius: 16px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       background: white;
       font-size: 0.9rem;
       color: #334155;
@@ -632,7 +632,7 @@
       &:disabled { opacity: 0.7; cursor: not-allowed; }
 
       &.secondary {
-        background: #f1f5f9;
+        background: #FFFFFF;
         color: #475569;
         &:hover:not(:disabled) { background: #e2e8f0; }
         

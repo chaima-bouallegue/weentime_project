@@ -30,7 +30,7 @@
   .modal-subtitle { font-size: 13px; color: #64748b; margin: 0; font-weight: 600; }
 
   .close-btn {
-    width: 32px; height: 32px; border-radius: 8px; border: none; background: #f8fafc; color: #64748b; cursor: pointer; transition: all 0.2s;
+    width: 32px; height: 32px; border-radius: 8px; border: none; background: #FFFFFF; color: #64748b; cursor: pointer; transition: all 0.2s;
     display: flex; align-items: center; justify-content: center;
     &:hover { background: #fee2e2; color: #dc2626; }
   }
@@ -40,7 +40,7 @@
   padding: 24px;
 
   .demande-summary {
-    background: #f8fafc;
+    background: #FFFFFF;
     padding: 12px 16px;
     border-radius: 12px;
     margin-bottom: 24px;
@@ -51,7 +51,7 @@
 }
 
 .upload-area {
-  border: 2px dashed #e2e8f0;
+  border: 2px dashed var(--border);
   border-radius: 20px;
   padding: 40px 20px;
   text-align: center;
@@ -66,7 +66,7 @@
   &.has-file {
     border-style: solid;
     border-color: #f1f5f9;
-    background: #f8fafc;
+    background: #FFFFFF;
     cursor: default;
     padding: 30px 20px;
   }
@@ -105,7 +105,7 @@
 
 .modal-footer {
   padding: 20px 24px;
-  background: #f8fafc;
+  background: #FFFFFF;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -113,7 +113,7 @@
   button {
     height: 44px; padding: 0 24px; border-radius: 12px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s;
   }
-  .btn-secondary { background: #fff; border: 1px solid #e2e8f0; color: #475569; &:hover { background: #f1f5f9; color: #0f172a; } }
+  .btn-secondary { background: #fff; border: 1px solid var(--border); color: #475569; &:hover { background: #FFFFFF; color: #0f172a; } }
   .btn-primary { 
     background: #6366f1; color: #fff; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2); 
     &:hover:not(:disabled) { transform: translateY(-1px); background: #4f46e5; }

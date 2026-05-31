@@ -1,262 +1,53 @@
-.admin-page {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-}
-
-.hero-card {
+// 1. Configuration de l'hôte du composant pour s'étendre sur toute la hauteur
+:host {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-end;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  background: #ffffff;
-  padding: 20px;
-}
-
-.hero-card h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: #0f172a;
-}
-
-.hero-card p {
-  margin: 6px 0 0;
-  color: #64748b;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.toolbar input {
-  width: min(520px, 100%);
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  padding: 10px 12px;
-  outline: none;
-}
-
-.toolbar input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-.table-wrap {
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #ffffff;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+// 2. Customisation subtile de la barre de défilement du tableau horizontal
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    height: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.2);
+    border-radius: 99px;
+
+    &:hover {
+      background-color: rgba(148, 163, 184, 0.4);
+    }
+  }
 }
 
-th,
-td {
-  text-align: left;
-  padding: 12px 14px;
-  border-top: 1px solid #f1f5f9;
-  color: #1e293b;
-  font-size: 0.92rem;
+// 3. Animation d'apparition fluide pour les modaux
+.animate-fade-in {
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-thead th {
-  border-top: none;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #64748b;
-  background: #f8fafc;
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-.actions-col {
-  width: 140px;
-}
-
-.actions {
-  display: flex;
-  gap: 6px;
-}
-
-.icon-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.icon-btn:hover {
-  background: #f8fafc;
-}
-
-.icon-btn.danger {
-  border-color: #fecaca;
-  color: #b91c1c;
-}
-
-.loading,
-.empty {
-  padding: 24px;
-  text-align: center;
-  color: #64748b;
-}
-
-.btn {
-  border: none;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.btn.primary {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-.btn.ghost {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  z-index: 70;
-}
-
-.modal {
-  position: fixed;
-  z-index: 80;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(560px, calc(100vw - 32px));
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  padding: 18px;
-  display: grid;
-  gap: 14px;
-}
-
-.modal h2 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 900;
-}
-
-.subtitle {
-  margin: -4px 0 6px;
-  color: #64748b;
-}
-
-label {
-  display: grid;
-  gap: 6px;
-  font-size: 0.86rem;
-  color: #334155;
-  margin-bottom: 12px;
-}
-
-input,
-select {
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 11px;
-  outline: none;
-}
-
-input:focus,
-select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-small {
-  color: #b91c1c;
-  font-weight: 600;
-}
-
-.field-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.field-row .meta {
-  font-size: 0.78rem;
-  color: #64748b;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-:host-context(.dark) .hero-card,
-:host-context(.dark) .table-wrap,
-:host-context(.dark) .modal {
-  background: #0f172a;
-  border-color: #1e293b;
-}
-
-:host-context(.dark) .hero-card h1,
-:host-context(.dark) th,
-:host-context(.dark) td,
-:host-context(.dark) .modal h2,
-:host-context(.dark) label {
-  color: #e2e8f0;
-}
-
-:host-context(.dark) .hero-card p,
-:host-context(.dark) .loading,
-:host-context(.dark) .empty,
-:host-context(.dark) .subtitle,
-:host-context(.dark) .field-row .meta {
-  color: #94a3b8;
-}
-
-:host-context(.dark) thead th {
-  background: #111827;
-  color: #94a3b8;
-}
-
-:host-context(.dark) th,
-:host-context(.dark) td {
-  border-top-color: #1e293b;
-}
-
-:host-context(.dark) .btn.ghost {
-  background: #1f2937;
-  color: #e2e8f0;
-}
-
-:host-context(.dark) input,
-:host-context(.dark) select,
-:host-context(.dark) .icon-btn {
-  background: #0b1220;
-  border-color: #334155;
-  color: #e2e8f0;
+// 4. Teinte d'arrière-plan pour le flou du fond de modal (Backdrop)
+.backdrop-blur-xs {
+  backdrop-filter: blur(2px);
 }

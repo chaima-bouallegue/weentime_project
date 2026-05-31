@@ -56,7 +56,7 @@ import { ActivityItem, ProfileService } from '../../profile.service';
       gap: 12px;
       padding: 12px;
       border-radius: 12px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       background: #fff;
     }
     .icon {

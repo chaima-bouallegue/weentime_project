@@ -94,7 +94,7 @@
 .row-skeleton {
   height: 44px;
   border-radius: 10px;
-  background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
+  background: linear-gradient(90deg, #F8F9FA, #FFFFFF, #F8F9FA);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -123,12 +123,12 @@
 
 .row {
   border-radius: 10px;
-  background: #f8fafc;
+  background: #FFFFFF;
   border: 1px solid rgba(226, 232, 240, 0.7);
   overflow: hidden;
   transition: border-color 140ms ease, background 140ms ease;
 
-  &:hover { background: #f1f5f9; }
+  &:hover { background: #FFFFFF; }
   &--open { background: #ffffff; border-color: rgba(99, 102, 241, 0.28); }
 
   &[data-tone="critical"] { border-left: 3px solid #ef4444; }
@@ -260,7 +260,7 @@
   padding: 18px;
   border: 1px dashed rgba(148, 163, 184, 0.45);
   border-radius: 14px;
-  background: #f8fafc;
+  background: #FFFFFF;
 
   p {
     margin: 0;
@@ -407,7 +407,7 @@
 .action-close--plain {
   position: static;
   color: #475569;
-  background: #f1f5f9;
+  background: #FFFFFF;
 
   &:hover,
   &:focus-visible {
@@ -459,7 +459,7 @@
   li {
     padding: 10px 12px;
     border-radius: 10px;
-    background: #f8fafc;
+    background: #FFFFFF;
     color: #334155;
     border: 1px solid rgba(226, 232, 240, 0.85);
   }
@@ -476,7 +476,7 @@
   gap: 4px;
   padding: 12px;
   border-radius: 12px;
-  background: #f8fafc;
+  background: #FFFFFF;
   border: 1px solid rgba(226, 232, 240, 0.85);
 
   span {
@@ -577,7 +577,7 @@
   padding: 12px;
   border: 1px solid rgba(226, 232, 240, 0.85);
   border-radius: 14px;
-  background: #f8fafc;
+  background: #FFFFFF;
 
   div {
     display: grid;
@@ -679,8 +679,8 @@
 
 .btn--ghost {
   color: #475569;
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: #FFFFFF;
+  border-color: var(--border);
 }
 
 .btn--outline {

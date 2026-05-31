@@ -231,7 +231,7 @@ input:focus + lucide-icon,
 .btn-secondary {
   flex: 1;
   padding: 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--border);
   border-radius: 12px;
   background: white;
   font-size: 14px;
@@ -242,7 +242,7 @@ input:focus + lucide-icon,
 
   &:hover {
     border-color: #c7d2fe;
-    background: #f8fafc;
+    background: #FFFFFF;
   }
 }
 
@@ -262,7 +262,7 @@ input:focus + lucide-icon,
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--border);
   background: white;
   display: flex;
   align-items: center;

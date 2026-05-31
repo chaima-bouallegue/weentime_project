@@ -33,44 +33,43 @@
   <!-- Main Navigation Area -->
   <div class="sidebar-content custom-scrollbar">
     <nav class="nav-sections">
-      <div class="nav-section-label" [class.hidden]="collapsed()">Menu Principal</div>
+      @for (group of groupedNavItems(); track group.label) {
+        <div class="nav-section-label" [class.hidden]="collapsed()">{{ group.label }}</div>
 
-      <div class="nav-items-grid">
-        @for (item of navItems(); track navTrackingKey(item)) {
-        <a [routerLink]="item.route" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: false }"
-          (click)="mobileOpen.set(false)" class="bento-nav-item group" [class.is-collapsed]="collapsed()"
-          [title]="collapsed() ? item.label : ''">
+        <div class="nav-items-grid mb-4">
+          @for (item of group.items; track navTrackingKey(item)) {
+          <a [routerLink]="item.route" routerLinkActive="nav-active" [routerLinkActiveOptions]="{ exact: false }"
+            (click)="mobileOpen.set(false)" class="bento-nav-item group" [class.is-collapsed]="collapsed()"
+            [title]="collapsed() ? item.label : ''">
 
-          <div class="item-icon-box">
-            <lucide-icon [img]="getNavItemIcon(item.icon)" size="20"></lucide-icon>
-            @if (collapsed()) {
-            <div class="collapsed-tooltip">{{ item.label }}</div>
+            <div class="item-icon-box">
+              <lucide-icon [img]="getNavItemIcon(item.icon)" size="20"></lucide-icon>
+              @if (collapsed()) {
+              <div class="collapsed-tooltip">{{ item.label }}</div>
+              }
+            </div>
+
+            @if (!collapsed()) {
+            <div class="item-info">
+              <span class="item-label">{{ item.label }}</span>
+            </div>
+            @if (getBadgeCount(item.id) > 0) {
+            <span class="nav-badge">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
             }
-          </div>
+            <lucide-icon [img]="iconChevronRight" size="14" class="chevron-indicator"></lucide-icon>
+            }
 
-          @if (!collapsed()) {
-          <div class="item-info">
-            <span class="item-label">{{ item.label }}</span>
-            <span class="item-desc">Consulter {{ item.label | lowercase }}</span>
-          </div>
-          @if (getBadgeCount(item.id) > 0) {
-          <span class="nav-badge">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
-          }
-          <lucide-icon [img]="iconChevronRight" size="14" class="chevron-indicator"></lucide-icon>
-          }
+            @if (collapsed() && getBadgeCount(item.id) > 0) {
+            <span class="nav-badge collapsed">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
+            }
 
-          @if (collapsed() && getBadgeCount(item.id) > 0) {
-          <span class="nav-badge collapsed">{{ getBadgeCount(item.id) > 99 ? '99+' : getBadgeCount(item.id) }}</span>
+            <!-- Background Glow Effect on Active -->
+            <div class="active-glow"></div>
+          </a>
           }
-
-          <!-- Background Glow Effect on Active -->
-          <div class="active-glow"></div>
-        </a>
-        }
-      </div>
+        </div>
+      }
     </nav>
-
-
   </div>
 
   <!-- Footer Section: User Profile -->

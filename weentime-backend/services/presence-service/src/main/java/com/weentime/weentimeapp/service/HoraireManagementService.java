@@ -140,6 +140,13 @@ public class HoraireManagementService {
         HoraireModele horaire = requireHoraire(request.getHoraireId(), entrepriseId);
         List<AffectationHoraireDto> result = new ArrayList<>();
 
+        List<UserSummaryDTO> activeUsers = null;
+        try {
+            activeUsers = userServiceClient.getActiveUsers();
+        } catch (Exception e) {
+            log.warn("Impossible de recuperer les utilisateurs actifs dans assignHoraireBatch : {}", e.getMessage());
+        }
+
         for (Long cibleId : request.getCibleIds()) {
             AffectationHoraire saved = affectationHoraireRepository.save(AffectationHoraire.builder()
                     .horaire(horaire)
@@ -151,7 +158,7 @@ public class HoraireManagementService {
                     .priorite(priorityFor(request.getCibleType()))
                     .entrepriseId(entrepriseId)
                     .build());
-            result.add(toAffectationDto(saved));
+            result.add(toAffectationDto(saved, activeUsers));
         }
 
         return result;
@@ -165,8 +172,16 @@ public class HoraireManagementService {
             return Page.empty(safePageable);
         }
         
+        List<UserSummaryDTO> activeUsers = null;
+        try {
+            activeUsers = userServiceClient.getActiveUsers();
+        } catch (Exception e) {
+            log.warn("Impossible de recuperer les utilisateurs actifs dans getAffectations : {}", e.getMessage());
+        }
+        
+        final List<UserSummaryDTO> finalActiveUsers = activeUsers;
         return affectationHoraireRepository.findByEntrepriseIdOrderByCreatedAtDesc(entrepriseId, safePageable)
-                .map(this::toAffectationDto);
+                .map(entity -> toAffectationDto(entity, finalActiveUsers));
     }
 
     public void deleteAffectation(Long currentUserId, Long id) {
@@ -484,13 +499,69 @@ public class HoraireManagementService {
     }
 
     private AffectationHoraireDto toAffectationDto(AffectationHoraire entity) {
+        return toAffectationDto(entity, null);
+    }
+
+    private AffectationHoraireDto toAffectationDto(AffectationHoraire entity, List<UserSummaryDTO> activeUsers) {
+        String label = "Inconnu";
+        List<UserSummaryDTO> resolvedActiveUsers = activeUsers;
+        try {
+            if (resolvedActiveUsers == null) {
+                try {
+                    resolvedActiveUsers = userServiceClient.getActiveUsers();
+                } catch (Exception e) {
+                    log.warn("Impossible de recuperer les utilisateurs actifs pour resolution : {}", e.getMessage());
+                }
+            }
+
+            if (entity.getCibleType() == CibleType.UTILISATEUR) {
+                UserSummaryDTO user = null;
+                if (resolvedActiveUsers != null) {
+                    user = resolvedActiveUsers.stream()
+                            .filter(u -> Objects.equals(u.getId(), entity.getCibleId()))
+                            .findFirst()
+                            .orElse(null);
+                }
+                if (user == null) {
+                    user = safeUser(entity.getCibleId());
+                }
+                if (user != null) {
+                    label = user.getFullName();
+                }
+            } else if (entity.getCibleType() == CibleType.EQUIPE) {
+                if (resolvedActiveUsers != null) {
+                    label = resolvedActiveUsers.stream()
+                            .filter(u -> Objects.equals(u.getEquipeId(), entity.getCibleId()))
+                            .map(UserSummaryDTO::getEquipe)
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElse("Équipe " + entity.getCibleId());
+                } else {
+                    label = "Équipe " + entity.getCibleId();
+                }
+            } else if (entity.getCibleType() == CibleType.ENTREPRISE) {
+                if (resolvedActiveUsers != null) {
+                    label = resolvedActiveUsers.stream()
+                            .filter(u -> Objects.equals(u.getEntrepriseId(), entity.getCibleId()))
+                            .map(UserSummaryDTO::getEntreprise)
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElse("Entreprise " + entity.getCibleId());
+                } else {
+                    label = "Entreprise " + entity.getCibleId();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Erreur lors de la resolution du label pour cible: {} {}", entity.getCibleType(), entity.getCibleId(), e);
+        }
+
         return AffectationHoraireDto.builder()
                 .id(entity.getId())
                 .horaireId(entity.getHoraire().getId())
                 .horaireNom(entity.getHoraire().getNom())
                 .cibleType(entity.getCibleType().name())
                 .cibleId(entity.getCibleId())
-                .cibleLabel(null)
+                .cibleLabel(label)
                 .dateDebut(entity.getDateDebut())
                 .dateFin(entity.getDateFin())
                 .motif(entity.getMotif())

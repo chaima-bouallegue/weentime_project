@@ -106,12 +106,12 @@ import { ToastService } from '../../../../core/services/toast.service';
 
     .form-input {
       width: 100%; padding: 10px 40px 10px 36px; border-radius: 10px;
-      border: 1px solid #e2e8f0; background: #fff;
+      border: 1px solid var(--border); background: #fff;
       font-size: 14px; font-weight: 500; color: #1e293b;
       outline: none; transition: all 0.2s; font-family: inherit;
     }
     .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-    :host-context(.dark) .form-input { background: #141821; border-color: #2d3548; color: #e2e8f0; }
+    :host-context(.dark) .form-input { background: #141821; border-color: #2d3548; color: var(--border); }
 
     .eye-btn {
       position: absolute; right: 10px; background: none; border: none;

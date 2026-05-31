@@ -2,8 +2,8 @@
 .type-option-card {
   position: relative;
   padding: 1.25rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -76,8 +76,8 @@
 .modern-input, .modern-textarea {
   width: 100%;
   padding: 0.875rem 1.125rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
   border-radius: 16px;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -105,9 +105,9 @@
 /* --- Duration Preview --- */
 .duration-preview {
   padding: 1.25rem;
-  background: #f1f5f9;
+  background: #FFFFFF;
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   opacity: 0.5;
   filter: grayscale(1);
   transition: all 0.4s;
@@ -139,8 +139,8 @@
 .file-drop-zone {
   display: block;
   padding: 2rem;
-  background: #f8fafc;
-  border: 2px dashed #e2e8f0;
+  background: #FFFFFF;
+  border: 2px dashed var(--border);
   border-radius: 24px;
   cursor: pointer;
   transition: all 0.3s;

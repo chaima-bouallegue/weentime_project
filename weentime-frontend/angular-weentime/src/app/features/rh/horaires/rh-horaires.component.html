@@ -133,14 +133,22 @@
                 <tr>
                   <td>
                     <div class="target-info">
-                      <div class="target-avatar">
-                        {{ (ah.cibleLabel || '?').substring(0, 1) }}
+                      <div class="target-avatar" [class]="'avatar-' + ah.cibleType?.toLowerCase()">
+                        @if (ah.cibleType === 'UTILISATEUR') {
+                          <lucide-icon name="user" size="16"></lucide-icon>
+                        } @else if (ah.cibleType === 'EQUIPE') {
+                          <lucide-icon name="users" size="16"></lucide-icon>
+                        } @else {
+                          <lucide-icon name="building-2" size="16"></lucide-icon>
+                        }
                       </div>
-                      <span class="target-name">{{ ah.cibleLabel }}</span>
+                      <span class="target-name">{{ ah.cibleLabel || 'Non résolu' }}</span>
                     </div>
                   </td>
                   <td>
-                    <span class="badge badge-outline">{{ ah.cibleType }}</span>
+                    <span class="type-badge" [class]="'type-' + ah.cibleType?.toLowerCase()">
+                      {{ ah.cibleType === 'UTILISATEUR' ? 'Collaborateur' : ah.cibleType === 'EQUIPE' ? 'Équipe' : 'Entreprise' }}
+                    </span>
                   </td>
                   <td class="col-modele">
                     <div class="modele-badge">

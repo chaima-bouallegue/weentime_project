@@ -79,7 +79,7 @@ import { ChannelModel } from '../../models/communication.models';
       width: 32px;
       height: 32px;
       border: none;
-      background: #f8fafc;
+      background: #FFFFFF;
       color: #64748b;
       border-radius: 8px;
       cursor: pointer;
@@ -90,7 +90,7 @@ import { ChannelModel } from '../../models/communication.models';
     }
 
     .close-btn:hover {
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #1e1b4b;
     }
 

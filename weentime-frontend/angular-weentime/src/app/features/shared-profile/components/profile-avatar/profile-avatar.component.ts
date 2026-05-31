@@ -43,7 +43,7 @@ import { AuthService } from '../../../../core/services/auth.service';
     .avatar-circle {
       width: 96px; height: 96px; border-radius: 50%;
       position: relative; cursor: pointer; overflow: hidden;
-      border: 3px solid #e2e8f0; transition: border-color 0.2s;
+      border: 3px solid var(--border); transition: border-color 0.2s;
     }
     .avatar-circle:hover { border-color: #6366f1; }
     :host-context(.dark) .avatar-circle { border-color: #334155; }

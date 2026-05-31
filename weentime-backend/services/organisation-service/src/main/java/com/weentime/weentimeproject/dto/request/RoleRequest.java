@@ -1,7 +1,7 @@
 package com.weentime.weentimeproject.dto.request;
 
-import com.weentime.weentimeproject.enums.RoleNom;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,7 +17,8 @@ import java.util.Set;
 @Builder
 public class RoleRequest {
     @NotNull(message = "Le nom de role est obligatoire")
-    private RoleNom nom;
+    @Pattern(regexp = "^ROLE_[A-Z0-9_]+$", message = "Format: ROLE_NOM (majuscules)")
+    private String nom;
 
     private String description;
 

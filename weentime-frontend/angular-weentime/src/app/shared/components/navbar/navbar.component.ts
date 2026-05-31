@@ -1,6 +1,6 @@
 import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LanguageService } from '../../../core/services/language.service';
@@ -33,6 +33,24 @@ import { LogoComponent } from '../logo/logo.component';
 export class NavbarComponent {
     themeService = inject(ThemeService);
     langService = inject(LanguageService);
+    private router = inject(Router);
+
+    isActive(path: string, fragment?: string): boolean {
+        const url = this.router.url;
+        const currentPath = url.split('#')[0].split('?')[0];
+        
+        if (currentPath !== path) {
+            return false;
+        }
+
+        const currentHash = window.location.hash;
+
+        if (fragment) {
+            return currentHash === '#' + fragment;
+        } else {
+            return currentHash === '' || currentHash === '#';
+        }
+    }
 
     scrolled = false;
 

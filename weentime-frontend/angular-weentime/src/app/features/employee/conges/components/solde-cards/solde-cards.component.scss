@@ -19,7 +19,7 @@
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    border-color: #e2e8f0;
+    border-color: var(--border);
   }
 
   .card-header {
@@ -66,7 +66,7 @@
   .progress-section {
     .progress-bar-bg {
       height: 8px;
-      background: #f1f5f9;
+      background: #FFFFFF;
       border-radius: 10px;
       margin-bottom: 12px;
       overflow: hidden;
@@ -114,11 +114,11 @@
 .skeleton {
   pointer-events: none;
   .skeleton-header { display: flex; gap: 12px; margin-bottom: 20px; }
-  .skeleton-icon { width: 40px; height: 40px; border-radius: 12px; background: #f1f5f9; }
-  .skeleton-title { width: 100px; height: 16px; border-radius: 4px; background: #f1f5f9; align-self: center; }
-  .skeleton-value { width: 60px; height: 32px; border-radius: 4px; background: #f1f5f9; margin-bottom: 24px; }
-  .skeleton-progress { width: 100%; height: 8px; border-radius: 10px; background: #f1f5f9; margin-bottom: 12px; }
-  .skeleton-footer { width: 100%; height: 12px; border-radius: 4px; background: #f1f5f9; }
+  .skeleton-icon { width: 40px; height: 40px; border-radius: 12px; background: #FFFFFF; }
+  .skeleton-title { width: 100px; height: 16px; border-radius: 4px; background: #FFFFFF; align-self: center; }
+  .skeleton-value { width: 60px; height: 32px; border-radius: 4px; background: #FFFFFF; margin-bottom: 24px; }
+  .skeleton-progress { width: 100%; height: 8px; border-radius: 10px; background: #FFFFFF; margin-bottom: 12px; }
+  .skeleton-footer { width: 100%; height: 12px; border-radius: 4px; background: #FFFFFF; }
 }
 
 :host-context(.dark) .skeleton {

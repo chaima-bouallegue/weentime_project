@@ -12,11 +12,11 @@ if env_path.exists():
     load_dotenv(dotenv_path=env_path)
     key = os.getenv("GEMINI_API_KEY")
     if key:
-        print(f"✅ Clé API Gemini chargée : {key[:8]}...{key[-4:]}")
+        print(f"[OK] Cle API Gemini chargee : {key[:8]}...{key[-4:]}")
     else:
-        print("❌ Clé API Gemini manquante dans le .env")
+        print("[ERROR] Cle API Gemini manquante dans le .env")
 else:
-    print(f"⚠️ Fichier .env non trouvé à : {env_path}")
+    print(f"[WARN] Fichier .env non trouve a : {env_path}")
 
 DEFAULT_CORS_ORIGINS = ["http://localhost:4200", "http://127.0.0.1:4200"]
 

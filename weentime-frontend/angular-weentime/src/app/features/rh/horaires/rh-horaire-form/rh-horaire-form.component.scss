@@ -25,7 +25,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border);
   background: white;
   color: #4B5563;
   display: flex;
@@ -304,7 +304,7 @@
   display: grid;
   grid-template-columns: 180px 1fr;
   background: white;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -414,7 +414,7 @@
     .label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #9CA3AF; }
     .mini-time-input {
       background: white;
-      border: 1px solid #E5E7EB;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 6px 10px;
       font-size: 14px;
@@ -495,7 +495,7 @@
   justify-content: flex-end;
   gap: 16px;
   padding-top: 32px;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--border);
   :host-context(.dark) & { border-color: #374151; }
 }
 

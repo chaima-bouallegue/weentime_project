@@ -10,6 +10,8 @@ import {
   effect,
   inject,
   signal,
+  ChangeDetectorRef,
+  AfterViewInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -99,6 +101,7 @@ interface ChatMessage {
   readResult?: ChatReadResult | null;
   pendingFlow?: PendingFlowStatus | null;
   confirmationSummary?: ConfirmationSummary | null;
+  isStreaming?: boolean;
 }
 
 interface CachedChatMessage {
@@ -124,12 +127,17 @@ interface CachedChatMessage {
   styleUrl: './chat-widget.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
+export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnDestroy {
   private static readonly SESSION_CACHE_LIMIT = 24;
   private static readonly SESSION_CACHE_PREFIX = 'weentime.ai.chat.session.';
 
   @ViewChild('messageContainer') private messageContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('chatPanel') private chatPanel?: ElementRef<HTMLElement>;
+
+  // FIX 3: References for chip arrow navigation
+  @ViewChild('chipsScrollTrack') private chipsScrollTrack?: ElementRef<HTMLDivElement>;
+  @ViewChild('chipsArrowLeft') private chipsArrowLeft?: ElementRef<HTMLButtonElement>;
+  @ViewChild('chipsArrowRight') private chipsArrowRight?: ElementRef<HTMLButtonElement>;
 
   private readonly chatService = inject(ChatService);
   private readonly voiceAssistant = inject(VoiceAssistantService);
@@ -152,21 +160,75 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   readonly handsFreeMode = signal(true);
   readonly speaking = signal(false);
 
+  readonly speechSupported = signal<boolean>(
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices &&
+    typeof MediaRecorder !== 'undefined'
+  );
+  readonly statusPillVisible = signal(true);
+  readonly doneFlash = signal(false);
+  readonly ghostText = signal('');
+  readonly ghostActive = signal(false);
+  readonly ghostDisappearing = signal(false);
+
+  private _doneFlashTimer?: any;
+  private statusPillTimeout?: any;
+
+  readonly recordingTime = signal(0);
+  private recordingTimerInterval?: any;
+
+  // FIX 3: chip scroll intersection observer
+  private chipsScrollObserver?: IntersectionObserver;
+
   readonly currentUserName = computed(() => {
     const user = this.authService.currentUser();
     return user?.prenom || user?.nom || user?.email || 'collaborateur';
   });
-  readonly assistantRole = computed(() => this.resolveRole(this.authService.currentUser()) ?? 'EMPLOYEE');
-  readonly roleLabel = computed(() => {
+
+  readonly assistantRole = computed<'EMPLOYEE' | 'MANAGER' | 'RH' | 'ADMIN'>(() => {
+    return (this.resolveRole(this.authService.currentUser()) as 'EMPLOYEE' | 'MANAGER' | 'RH' | 'ADMIN') ?? 'EMPLOYEE';
+  });
+
+  readonly activeAgent = computed(() => {
     switch (this.assistantRole()) {
       case 'MANAGER':
-        return 'Manager';
+        return {
+          name: 'Assistant Manager',
+          role: 'Manager',
+          icon: 'users',
+          avatarBg: 'linear-gradient(135deg, #8B5CF6 0%, #C084FC 100%)'
+        };
       case 'RH':
-        return 'RH';
+        return {
+          name: 'Assistant RH',
+          role: 'Ressources Humaines',
+          icon: 'briefcase',
+          avatarBg: 'linear-gradient(135deg, #DC2626 0%, #FB7185 100%)'
+        };
       case 'ADMIN':
-        return 'Admin';
+        return {
+          name: 'Assistant Admin',
+          role: 'Administrateur',
+          icon: 'shield',
+          avatarBg: 'linear-gradient(135deg, #1F2937 0%, #475569 100%)'
+        };
       default:
-        return 'Employee';
+        return {
+          name: 'Assistant Collaborateur',
+          role: 'Collaborateur',
+          icon: 'user',
+          avatarBg: 'linear-gradient(135deg, #6C47FF 0%, #54D1FF 100%)'
+        };
+    }
+  });
+
+  readonly roleLabel = computed(() => {
+    switch (this.assistantRole()) {
+      case 'MANAGER': return 'Manager';
+      case 'RH': return 'RH';
+      case 'ADMIN': return 'Admin';
+      default: return 'Employee';
     }
   });
   readonly panelTitle = computed(() => `${this.roleLabel()} AI`);
@@ -174,138 +236,110 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   readonly voiceBusy = computed(() => this.isVoiceBusyState(this.voiceState()));
   readonly canSend = computed(() => this.input().trim().length > 0 && !this.loading() && !this.recording());
   readonly voiceDisabled = computed(() => this.loading() || this.voiceState() === 'authExpired');
+
+  readonly currentVisualState = computed<'idle' | 'recording' | 'processing' | 'responding' | 'error'>(() => {
+    if (this.voiceState() === 'audioError' || this.voiceState() === 'authExpired') return 'error';
+    if (this.voiceState() === 'listening') return 'recording';
+    if (this.voiceState() === 'stopping' || this.voiceState() === 'uploading' || this.voiceState() === 'transcribing') return 'processing';
+    if (this.voiceState() === 'responding' || this.speaking() || this.loading()) return 'responding';
+    return 'idle';
+  });
+
+  readonly formattedRecordingTime = computed(() => {
+    const totalSecs = this.recordingTime();
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  });
+
   readonly quickActions = computed(() => {
     switch (this.assistantRole()) {
       case 'MANAGER':
         return [
-          "Today's team summary",
-          'Pending approvals',
-          'Team attendance anomalies',
-          'Did I check in?',
-          'Pointage equipe',
-          'Horaires equipe',
+          { label: 'Demandes en attente', action: 'manager.pending_approvals' },
+          { label: 'Présence équipe', action: 'get_team_presence' },
+          { label: 'Mes horaires', action: 'telework.list_manager_requests' },
+          { label: 'Résumé équipe', action: "Today's team summary" }
         ];
       case 'RH':
         return [
-          'RH backlog',
-          'Pending validations',
-          'Document workload',
-          'RH stats',
-          'Presence aujourd\'hui',
-          'Affecter employé équipe',
+          { label: 'Mes demandes de congé', action: 'leave.list_manager_requests' },
+          { label: 'Suivi dossiers RH', action: 'RH backlog' },
+          { label: 'Présence équipe', action: 'get_team_presence' },
+          { label: 'Validations en cours', action: 'Pending validations' }
         ];
       case 'ADMIN':
         return [
-          'System health',
-          'AI provider status',
-          'Tenant configuration issues',
-          'Redis status',
-          'Braintrust status',
-          'Create user',
+          { label: 'Santé système', action: 'System health' },
+          { label: 'Statut provider IA', action: 'AI provider status' },
+          { label: 'Redis status', action: 'Redis status' }
         ];
       default:
         return [
-          'Show my daily summary',
-          'Check my leave balance',
-          'Did I forget checkout?',
-          'Request a document',
-          'Check my pointage',
-          'My meetings',
-          'My planning',
+          { label: 'Mes demandes de congé', action: 'leave.list_manager_requests' },
+          { label: 'Mes horaires', action: 'telework.list_manager_requests' },
+          { label: 'Solde de congés', action: 'Check my leave balance' },
+          { label: 'Résumé quotidien', action: 'Show my daily summary' }
         ];
     }
   });
+
   readonly inputPlaceholder = computed(() => {
     switch (this.assistantRole()) {
-      case 'MANAGER':
-        return "Ask about approvals, team presence, or today's team summary...";
-      case 'RH':
-        return 'Ask about RH backlog, validations, or documents...';
-      case 'ADMIN':
-        return 'Ask about system health, provider status, or tenant issues...';
-      default:
-        return 'Ask about leave, attendance, documents, or use voice...';
+      case 'MANAGER': return "Ask about approvals, team presence, or today's team summary...";
+      case 'RH': return 'Ask about RH backlog, validations, or documents...';
+      case 'ADMIN': return 'Ask about system health, provider status, or tenant issues...';
+      default: return 'Ask about leave, attendance, documents, or use voice...';
     }
   });
+
   readonly voiceButtonIcon = computed(() => {
-    if (this.recording()) {
-      return 'square';
-    }
-    if (this.isVoiceBusyState(this.voiceState())) {
-      return 'loader-2';
-    }
-    if (this.voiceState() === 'authExpired') {
-      return 'shield-alert';
-    }
+    if (this.recording()) return 'square';
+    if (this.isVoiceBusyState(this.voiceState())) return 'loader-2';
+    if (this.voiceState() === 'authExpired') return 'shield-alert';
     return 'mic';
   });
+
   readonly voiceButtonLabel = computed(() => {
     switch (this.voiceState()) {
-      case 'listening':
-        return 'Arreter l enregistrement';
-      case 'stopping':
-        return 'Arret de l enregistrement';
-      case 'uploading':
-        return 'Envoi du message vocal';
-      case 'transcribing':
-        return 'Transcription en cours';
-      case 'responding':
-        return 'Generation de la reponse vocale';
-      case 'success':
-        return 'Reponse vocale prete';
-      case 'authExpired':
-        return 'Session expiree';
-      case 'audioError':
-        return 'Assistant vocal indisponible';
-      default:
-        return 'Enregistrer un message vocal';
+      case 'listening': return 'Arreter l enregistrement';
+      case 'stopping': return 'Arret de l enregistrement';
+      case 'uploading': return 'Envoi du message vocal';
+      case 'transcribing': return 'Transcription en cours';
+      case 'responding': return 'Generation de la reponse vocale';
+      case 'success': return 'Reponse vocale prete';
+      case 'authExpired': return 'Session expiree';
+      case 'audioError': return 'Assistant vocal indisponible';
+      default: return 'Enregistrer un message vocal';
     }
   });
+
   readonly voiceStatusText = computed(() => {
     switch (this.voiceState()) {
-      case 'listening':
-        return 'Recording in progress';
-      case 'stopping':
-        return 'Stopping recording';
-      case 'uploading':
-        return 'Uploading voice message';
-      case 'transcribing':
-        return 'Transcribing your message';
-      case 'responding':
-        return 'Generating reply';
-      case 'success':
-        return 'Voice reply ready';
-      case 'authExpired':
-        return 'Session expired';
-      case 'audioError':
-        return 'Voice unavailable';
-      default:
-        return this.handsFreeMode() ? 'Voice auto ready' : 'Voice manual ready';
+      case 'listening': return 'Recording in progress';
+      case 'stopping': return 'Stopping recording';
+      case 'uploading': return 'Uploading voice message';
+      case 'transcribing': return 'Transcribing your message';
+      case 'responding': return 'Generating reply';
+      case 'success': return 'Voice reply ready';
+      case 'authExpired': return 'Session expired';
+      case 'audioError': return 'Voice unavailable';
+      default: return this.handsFreeMode() ? 'Voice auto ready' : 'Voice manual ready';
     }
   });
+
   readonly statusLabel = computed(() => {
-    if (this.speaking()) {
-      return 'Audio reply playing';
-    }
+    if (this.speaking()) return 'Audio reply playing';
     switch (this.voiceState()) {
-      case 'listening':
-        return 'Recording...';
-      case 'stopping':
-        return 'Stopping recording...';
-      case 'uploading':
-        return 'Uploading voice message...';
-      case 'transcribing':
-        return 'Transcribing...';
-      case 'responding':
-        return 'Preparing answer...';
-      case 'success':
-        return 'Voice reply ready';
-      case 'authExpired':
-        return 'Session expirée, reconnectez-vous.';
-      case 'audioError':
-        return 'Voice currently unavailable';
-      default:
-        return this.loading() ? 'Assistant is working...' : `${this.panelTitle()} | ${this.currentUserName()}`;
+      case 'listening': return 'Recording...';
+      case 'stopping': return 'Stopping recording...';
+      case 'uploading': return 'Uploading voice message...';
+      case 'transcribing': return 'Transcribing...';
+      case 'responding': return 'Preparing answer...';
+      case 'success': return 'Voice reply ready';
+      case 'authExpired': return 'Session expirée, reconnectez-vous.';
+      case 'audioError': return 'Voice currently unavailable';
+      default: return this.loading() ? 'Assistant is working...' : `${this.panelTitle()} | ${this.currentUserName()}`;
     }
   });
 
@@ -319,22 +353,20 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private readonly inFlightConfirmations = new Set<string>();
   private readonly resolvedConfirmations = new Set<string>();
 
+  private readonly changeDetector = inject(ChangeDetectorRef);
+
   constructor() {
     this.voiceSubscription = this.voiceAssistant.events$.subscribe(event => this.handleVoiceEvent(event));
     effect(() => {
       const user = this.authService.currentUser();
-      if (!user?.id || this.loadedHistoryForUserId === user.id) {
-        return;
-      }
+      if (!user?.id || this.loadedHistoryForUserId === user.id) return;
       this.loadedHistoryForUserId = user.id;
       this.loadHistory();
     });
     effect(() => {
       const userId = this.authService.currentUser()?.id;
       const messages = this.messages();
-      if (!userId || messages.length === 0) {
-        return;
-      }
+      if (!userId || messages.length === 0) return;
       this.persistSessionHistory(userId, messages);
     });
     effect(() => {
@@ -344,38 +376,52 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         && !this.activeAudio
         && this.voiceState() === 'idle'
         && this.input().trim().length === 0;
-      if (!shouldAutoListen) {
-        this.clearAutoListen();
-        return;
-      }
+      if (!shouldAutoListen) { this.clearAutoListen(); return; }
       this.scheduleAutoListen(250);
+    });
+    effect(() => {
+      if (this.voiceState() === 'listening') {
+        this.recordingTime.set(0);
+        if (this.recordingTimerInterval) clearInterval(this.recordingTimerInterval);
+        this.recordingTimerInterval = setInterval(() => {
+          this.recordingTime.update(t => t + 1);
+        }, 1000);
+      } else {
+        if (this.recordingTimerInterval) {
+          clearInterval(this.recordingTimerInterval);
+          this.recordingTimerInterval = undefined;
+        }
+      }
     });
   }
 
+  ngAfterViewInit(): void {
+    // FIX 3: Setup chip scroll arrow observer after view initializes
+    this.setupChipsScrollObserver();
+  }
+
   ngAfterViewChecked(): void {
-    if (!this.shouldScrollToBottom) {
-      return;
-    }
+    if (!this.shouldScrollToBottom) return;
     this.shouldScrollToBottom = false;
     this.scrollToBottom();
   }
 
   ngOnDestroy(): void {
     this.voiceSubscription?.unsubscribe();
-    for (const handle of this.animationHandles) {
-      window.clearTimeout(handle);
-    }
+    for (const handle of this.animationHandles) window.clearTimeout(handle);
     this.animationHandles.clear();
     this.clearAutoListen();
     this.stopAudioPlayback();
+    if (this._doneFlashTimer) clearTimeout(this._doneFlashTimer);
+    if (this.statusPillTimeout) clearTimeout(this.statusPillTimeout);
+    if (this.recordingTimerInterval) clearInterval(this.recordingTimerInterval);
+    this.chipsScrollObserver?.disconnect();
     void this.voiceAssistant.stop();
   }
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
-    if (this.isOpen()) {
-      this.closeChat();
-    }
+    if (this.isOpen()) this.closeChat();
   }
 
   toggleChat(): void {
@@ -388,6 +434,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       void this.voiceAssistant.stop();
     } else {
       window.setTimeout(() => this.chatPanel?.nativeElement.focus(), 0);
+      // Re-initialize scroll arrows when panel opens
+      window.setTimeout(() => this.setupChipsScrollObserver(), 50);
     }
     this.shouldScrollToBottom = true;
   }
@@ -401,12 +449,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   clearConversation(): void {
-    // Header button: drop the backend's pending slot-fill flow + per-user
-    // confirmation queue and reset the local message list so the user is
-    // never stuck inside a stale flow after a refresh.
-    if (this.resetting()) {
-      return;
-    }
+    if (this.resetting()) return;
     this.resetting.set(true);
     this.chatService.resetSession().subscribe({
       next: () => {
@@ -416,18 +459,12 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         this.shouldScrollToBottom = true;
       },
       error: () => {
-        // We don't surface a toast here — the most common failure is the
-        // chatbot service being down, in which case the toast for the next
-        // user message will cover it anyway. Still clear the local UI so
-        // the user sees a fresh slate.
         this.messages.set([this.buildWelcomeMessage()]);
         this.input.set('');
         this.loading.set(false);
         this.shouldScrollToBottom = true;
       },
-      complete: () => {
-        this.resetting.set(false);
-      },
+      complete: () => { this.resetting.set(false); },
     });
   }
 
@@ -453,10 +490,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   sendMessage(): void {
     const message = this.input().trim();
-    if (!message || this.loading()) {
-      return;
-    }
-
+    if (!message || this.loading()) return;
     this.pushMessage({
       id: this.createMessageId(),
       sender: 'user',
@@ -467,21 +501,22 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.lastSubmittedText = message;
     this.input.set('');
     this.loading.set(true);
-
     this.chatService.sendMessage(message).pipe(finalize(() => this.loading.set(false))).subscribe({
-      next: response => {
-        this.pushAssistantReply(response, 'text');
-      },
+      next: response => { this.pushAssistantReply(response, 'text'); },
       error: error => this.handleRequestFailure(this.resolveErrorMessage(error), 'text'),
     });
   }
 
   async toggleRecording(): Promise<void> {
+    if (!this.speechSupported()) return;
     if (this.recording()) {
       await this.voiceAssistant.stop();
       return;
     }
     this.liveTranscript.set('');
+    this.ghostText.set('');
+    this.ghostActive.set(false);
+    this.ghostDisappearing.set(false);
     await this.voiceAssistant.start();
   }
 
@@ -492,10 +527,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     }
     this.chatService.textToSpeech(message.text).subscribe({
       next: (response: TtsResponse) => {
-        this.patchMessage(message.id, {
-          audioUrl: response.audio_url,
-          audioStatusLabel: 'Audio reply ready',
-        });
+        this.patchMessage(message.id, { audioUrl: response.audio_url, audioStatusLabel: 'Audio reply ready' });
         this.playAudio(response.audio_url, false);
       },
       error: error => {
@@ -510,47 +542,33 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   sendQuickAction(prompt: string): void {
-    if (this.loading()) {
-      return;
-    }
+    if (this.loading()) return;
     this.input.set(prompt);
     this.sendMessage();
   }
 
   retryFailedMessage(message: ChatMessage): void {
-    if (this.loading()) {
-      return;
-    }
+    if (this.loading()) return;
     if (message.retryKind === 'voice') {
       this.liveTranscript.set('');
       this.voiceState.set('idle');
       void this.voiceAssistant.start();
       return;
     }
-    if (!message.retryPayload) {
-      return;
-    }
+    if (!message.retryPayload) return;
     this.sendStoredText(message.retryPayload);
   }
 
   runMessageAction(message: ChatMessage): void {
-    if (!message.actionTarget) {
-      return;
-    }
+    if (!message.actionTarget) return;
     if (message.actionKind === 'confirm') {
       this.sendStoredText(message.actionTarget);
       return;
     }
     if (message.actionKind === 'route') {
       void this.router.navigateByUrl(message.actionTarget)
-        .then(navigated => {
-          if (!navigated) {
-            this.pushSystemError('Navigation refusee par les permissions ou les guards.');
-          }
-        })
-        .catch(() => {
-          this.pushSystemError('Navigation refusee par les permissions ou les guards.');
-        });
+        .then(navigated => { if (!navigated) this.pushSystemError('Navigation refusee par les permissions ou les guards.'); })
+        .catch(() => { this.pushSystemError('Navigation refusee par les permissions ou les guards.'); });
       return;
     }
     this.openExternalLink(message.actionTarget);
@@ -558,17 +576,11 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   confirmAssistantAction(message: ChatMessage, approved: boolean): void {
     const confirmationId = message.confirmationId;
-    if (!confirmationId || message.confirmationPending || message.confirmationResolved || this.loading()) {
-      return;
-    }
-    if (this.inFlightConfirmations.has(confirmationId) || this.resolvedConfirmations.has(confirmationId)) {
-      return;
-    }
-
+    if (!confirmationId || message.confirmationPending || message.confirmationResolved || this.loading()) return;
+    if (this.inFlightConfirmations.has(confirmationId) || this.resolvedConfirmations.has(confirmationId)) return;
     this.inFlightConfirmations.add(confirmationId);
     this.markConfirmationPending(message.id, true);
     this.loading.set(true);
-
     this.chatService.confirmAction(confirmationId, approved).pipe(finalize(() => {
       this.loading.set(false);
       this.inFlightConfirmations.delete(confirmationId);
@@ -597,9 +609,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   readResultItems(readResult: ChatReadResult | null | undefined): unknown[] {
-    if (!readResult || readResult.empty) {
-      return [];
-    }
+    if (!readResult || readResult.empty) return [];
     return (Array.isArray(readResult.items) ? readResult.items : []).slice(0, 5);
   }
 
@@ -720,62 +730,37 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   readItemLabel(item: unknown): string {
-    if (typeof item === 'string' || typeof item === 'number') {
-      return String(item);
-    }
-    if (!item || typeof item !== 'object') {
-      return 'Element';
-    }
+    if (typeof item === 'string' || typeof item === 'number') return String(item);
+    if (!item || typeof item !== 'object') return 'Element';
     const record = item as UnknownRecord;
     return this.firstDisplayString(
-      record['title'],
-      record['label'],
-      record['name'],
-      record['nom'],
-      record['type'],
-      record['typeLabel'],
-      record['typeDemande'],
-      record['objet'],
-      record['motif'],
-      record['statut'],
-      record['status'],
+      record['title'], record['label'], record['name'], record['nom'],
+      record['type'], record['typeLabel'], record['typeDemande'],
+      record['objet'], record['motif'], record['statut'], record['status'],
     ) ?? 'Element';
   }
 
   readItemStatus(item: unknown): string | null {
-    if (!item || typeof item !== 'object') {
-      return null;
-    }
+    if (!item || typeof item !== 'object') return null;
     const record = item as UnknownRecord;
     return this.firstDisplayString(
-      record['status'],
-      record['statut'],
-      record['date'],
-      record['dateDebut'],
-      record['createdAt'],
+      record['status'], record['statut'], record['date'],
+      record['dateDebut'], record['createdAt'],
     );
   }
 
   pendingFieldLabel(field: string): string {
     switch (field) {
-      case 'date':
-        return 'date';
-      case 'time':
-      case 'start_time':
-        return 'horaire';
-      case 'type':
-        return 'type';
-      case 'reason':
-        return 'motif';
-      default:
-        return field;
+      case 'date': return 'date';
+      case 'time': case 'start_time': return 'horaire';
+      case 'type': return 'type';
+      case 'reason': return 'motif';
+      default: return field;
     }
   }
 
   confirmationSummaryRows(summary: ConfirmationSummary | null | undefined): Array<{ label: string; value: string }> {
-    if (!summary) {
-      return [];
-    }
+    if (!summary) return [];
     return [
       { label: 'Type', value: summary.type ?? '' },
       { label: 'Date', value: summary.endDate && summary.endDate !== summary.date ? `${summary.date} -> ${summary.endDate}` : summary.date ?? '' },
@@ -785,49 +770,30 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   messageSenderLabel(message: ChatMessage): string {
-    if (message.sender === 'user') {
-      return 'You';
-    }
-    if (message.sender === 'assistant') {
-      return this.panelTitle();
-    }
+    if (message.sender === 'user') return 'You';
+    if (message.sender === 'assistant') return this.panelTitle();
     return 'System';
   }
 
   formatDetectedLanguage(value: unknown): string | null {
     const safe = safeDisplayText(value);
-    if (!safe) {
-      return null;
-    }
-
+    if (!safe) return null;
     switch (safe.toLowerCase()) {
-      case 'fr':
-        return 'FR';
-      case 'en':
-        return 'EN';
-      case 'ar':
-        return 'AR';
-      case 'tn':
-        return 'TN';
-      default:
-        return safe.toUpperCase();
+      case 'fr': return 'FR';
+      case 'en': return 'EN';
+      case 'ar': return 'AR';
+      case 'tn': return 'TN';
+      default: return safe.toUpperCase();
     }
   }
 
   confirmationResolutionLabel(message: ChatMessage): string {
     switch (message.confirmationState) {
-      case 'failure':
-        return 'Execution failed';
-      case 'cancelled':
-        return 'Action cancelled';
-      case 'executing':
-        return 'Execution in progress';
-      case 'success':
-        return 'Action approved';
-      default:
-        return message.confirmationDecision === 'cancelled'
-          ? 'Action cancelled'
-          : 'Action approved';
+      case 'failure': return 'Execution failed';
+      case 'cancelled': return 'Action cancelled';
+      case 'executing': return 'Execution in progress';
+      case 'success': return 'Action approved';
+      default: return message.confirmationDecision === 'cancelled' ? 'Action cancelled' : 'Action approved';
     }
   }
 
@@ -846,15 +812,46 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   actionToneIcon(tone: ActionTone | undefined): string {
     switch (tone) {
-      case 'success':
-        return 'check-circle-2';
-      case 'warning':
-        return 'triangle-alert';
-      case 'error':
-        return 'circle-x';
-      default:
-        return 'info';
+      case 'success': return 'check-circle-2';
+      case 'warning': return 'triangle-alert';
+      case 'error': return 'circle-x';
+      default: return 'info';
     }
+  }
+
+  // FIX 3: Scroll chips track left or right
+  scrollChips(delta: number): void {
+    const track = this.chipsScrollTrack?.nativeElement;
+    if (!track) return;
+    track.scrollBy({ left: delta, behavior: 'smooth' });
+    // Update arrow visibility after scroll settles
+    window.setTimeout(() => this.updateChipsArrows(track), 350);
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  // FIX 3: Setup IntersectionObserver on first and last chip
+  private setupChipsScrollObserver(): void {
+    this.chipsScrollObserver?.disconnect();
+
+    const track = this.chipsScrollTrack?.nativeElement;
+    if (!track) return;
+
+    // Also update arrows on scroll events
+    track.addEventListener('scroll', () => this.updateChipsArrows(track), { passive: true });
+    this.updateChipsArrows(track);
+  }
+
+  private updateChipsArrows(track: HTMLElement): void {
+    const leftArrow = this.chipsArrowLeft?.nativeElement;
+    const rightArrow = this.chipsArrowRight?.nativeElement;
+    if (!leftArrow || !rightArrow) return;
+
+    const atStart = track.scrollLeft <= 4;
+    const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+
+    leftArrow.classList.toggle('hidden', atStart);
+    rightArrow.classList.toggle('hidden', atEnd);
   }
 
   private loadHistory(): void {
@@ -864,11 +861,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       next: response => {
         const history = response.items.map(item => this.mapHistoryMessage(item));
         this.messages.set(
-          history.length > 0
-            ? history
-            : cachedMessages.length > 0
-              ? cachedMessages
-              : [this.buildWelcomeMessage()]
+          history.length > 0 ? history :
+          cachedMessages.length > 0 ? cachedMessages :
+          [this.buildWelcomeMessage()]
         );
         this.shouldScrollToBottom = true;
       },
@@ -886,13 +881,8 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     const normalized = normalizeVoiceAiResponse(response);
     const meta = this.chatService.extractAssistantMeta(response);
     this.handleAssistantMeta(meta, retryKind);
-    const readResult = this.extractReadResult(
-      normalized.actionResult ?? response.actionResult ?? response.action_result ?? response.data
-    );
-    const text = normalized.assistantText
-      ?? readResult?.summary
-      ?? normalized.error
-      ?? this.extractAssistantText(response);
+    const readResult = this.extractReadResult(normalized.actionResult ?? response.actionResult ?? response.action_result ?? response.data);
+    const text = normalized.assistantText ?? readResult?.summary ?? normalized.error ?? this.extractAssistantText(response);
     const audioUrl = normalized.audioUrl ?? this.extractAudioUrl(response);
     const audioStatusLabel = this.resolveAudioStatusLabel(normalized.audioStatus, !!audioUrl, retryKind);
     const detectedLanguage = normalized.detectedLanguage ?? response.detectedLanguage ?? null;
@@ -907,10 +897,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     );
     const actionResultSource = normalized.actionResult ?? response.actionResult ?? response.action_result;
     const fallbackLabel = this.extractFallbackLabel(normalized.fallback, normalized.warnings);
-    const requiresConfirmation = normalized.requiresConfirmation
-      || !!confirmationId
-      || response.requiresConfirmation === true
-      || response.requires_confirmation === true;
+    const requiresConfirmation = normalized.requiresConfirmation || !!confirmationId || response.requiresConfirmation === true || response.requires_confirmation === true;
     const isWorkflowFailure = response.type === 'workflow' && response.status === 'failed';
     // capability_unavailable / capability_hint cards are informational, not
     // hard errors. Some agents return them with type='error' (e.g. manager
@@ -962,9 +949,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       confirmationId: requiresConfirmation ? confirmationId : null,
       confirmationPending: false,
       confirmationResolved: confirmationId ? this.resolvedConfirmations.has(confirmationId) : false,
-      confirmationState: requiresConfirmation
-        ? (this.resolvedConfirmations.has(confirmationId ?? '') ? 'success' : 'pending')
-        : null,
+      confirmationState: requiresConfirmation ? (this.resolvedConfirmations.has(confirmationId ?? '') ? 'success' : 'pending') : null,
       confirmationDecision: null,
       workflow,
       readResult,
@@ -973,15 +958,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     };
     this.pushMessage(message);
 
-    if (audioUrl && !isHardError) {
-      this.playAudio(audioUrl, retryKind === 'voice');
-    }
+    if (audioUrl && !isHardError) this.playAudio(audioUrl, retryKind === 'voice');
+    if (isHardError || requiresConfirmation) return { isError, audioUrl };
 
-    if (isHardError || requiresConfirmation) {
-      return { isError, audioUrl };
-    }
-
-    this.animateAssistantText(message.id, text);
+    this.streamAssistantText(message.id, text);
     if (response.intent === 'OPEN_DOCUMENT' && messageAction?.kind === 'link' && messageAction.target) {
       this.openExternalLink(messageAction.target);
     }
@@ -992,9 +972,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.lastSubmittedText = message;
     this.loading.set(true);
     this.chatService.sendMessage(message).pipe(finalize(() => this.loading.set(false))).subscribe({
-      next: response => {
-        this.pushAssistantReply(response, 'text');
-      },
+      next: response => { this.pushAssistantReply(response, 'text'); },
       error: error => this.handleRequestFailure(this.resolveErrorMessage(error), 'text'),
     });
   }
@@ -1007,9 +985,21 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     }
     if (event.type === 'partial') {
       this.liveTranscript.set(event.text);
+      this.ghostText.set(event.text);
+      this.ghostActive.set(true);
+      this.ghostDisappearing.set(false);
       return;
     }
     if (event.type === 'final') {
+      this.ghostActive.set(false);
+      this.ghostDisappearing.set(true);
+      const ghostTimeout = window.setTimeout(() => {
+        this.ghostText.set('');
+        this.ghostDisappearing.set(false);
+        this.animationHandles.delete(ghostTimeout);
+      }, 400);
+      this.animationHandles.add(ghostTimeout);
+
       const normalized = normalizeVoiceAiResponse(event.response);
       if (this.isSoftVoiceResponse(event.response)) {
         this.liveTranscript.set('');
@@ -1032,8 +1022,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       }
 
       const rawTranscription = event.response.transcription;
-      const transcription = normalized.transcript?.trim()
-        ?? (typeof rawTranscription === 'string' ? rawTranscription.trim() : null);
+      const transcription = normalized.transcript?.trim() ?? (typeof rawTranscription === 'string' ? rawTranscription.trim() : null);
       if (transcription) {
         this.pushMessage({
           id: this.createMessageId(),
@@ -1048,11 +1037,12 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       const result = this.pushAssistantReply(event.response, 'voice');
       this.voiceState.set('idle');
       this.loading.set(false);
-      if (!result.isError && !result.audioUrl) {
-        this.scheduleAutoListen(300);
-      }
+      if (!result.isError && !result.audioUrl) this.scheduleAutoListen(300);
       return;
     }
+    this.ghostActive.set(false);
+    this.ghostDisappearing.set(false);
+    this.ghostText.set('');
     this.liveTranscript.set('');
     this.loading.set(false);
     if (this.isSoftNoSpeechMessage(event.message)) {
@@ -1068,13 +1058,6 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
       return;
     }
     if (event.kind === 'authExpired') {
-      // CHATBOT_PUBLIC_MODE only changes how the backend builds the
-      // CurrentUserContext — it does not turn /v2/voice into a demo
-      // endpoint. If an authExpired event still reaches us in public
-      // mode it is a real configuration bug (env var missing, JWT now
-      // required again, ...). Surface it the same way we would in
-      // authenticated mode so it cannot be silently hidden by a
-      // placeholder reply.
       this.voiceState.set('authExpired');
       this.pushSessionExpiredMessage('voice');
       return;
@@ -1084,25 +1067,88 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     this.pushSystemError(event.message, 'voice');
   }
 
-  private animateAssistantText(messageId: string, fullText: string): void {
-    const tokens = fullText.split(/(\s+)/).filter(token => token.length > 0);
-    if (tokens.length <= 1) {
-      this.updateMessageText(messageId, fullText);
+  private streamAssistantText(messageId: string, fullText: string): void {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      this.animateAssistantText(messageId, fullText);
       return;
     }
+    const token = this.authService.getToken();
+    const sessionId = sessionStorage.getItem('weentime.ai.chat.session_id') || 'default';
+    const sseUrl = `${environment.aiServiceUrl}/v2/chat/stream?session_id=${encodeURIComponent(sessionId)}` +
+                   (token ? `&token=${encodeURIComponent(token)}` : '');
+    this.patchMessage(messageId, { isStreaming: true, text: '' });
+    this.changeDetector.markForCheck();
+    const eventSource = new EventSource(sseUrl);
+    let hasReceivedMessage = false;
+    eventSource.onmessage = (event) => {
+      hasReceivedMessage = true;
+      if (event.data === '[DONE]') {
+        this.patchMessage(messageId, { isStreaming: false });
+        eventSource.close();
+        this.triggerDoneFlash();
+        this.changeDetector.markForCheck();
+        return;
+      }
+      this.messages.update(messages =>
+        messages.map(msg => msg.id === messageId ? { ...msg, text: msg.text + event.data } : msg)
+      );
+      this.shouldScrollToBottom = true;
+      this.changeDetector.markForCheck();
+    };
+    eventSource.onerror = () => {
+      eventSource.close();
+      if (!hasReceivedMessage) {
+        this.animateAssistantText(messageId, fullText);
+      } else {
+        this.patchMessage(messageId, { isStreaming: false });
+        this.changeDetector.markForCheck();
+      }
+    };
+  }
 
+  private animateAssistantText(messageId: string, fullText: string): void {
+    const tokens = fullText.split(/(\s+)/).filter(token => token.length > 0);
+    this.patchMessage(messageId, { isStreaming: true });
+    if (tokens.length <= 1) {
+      this.updateMessageText(messageId, fullText);
+      this.patchMessage(messageId, { isStreaming: false });
+      this.triggerDoneFlash();
+      return;
+    }
     let index = 0;
     const tick = () => {
       index = Math.min(index + 2, tokens.length);
-      this.updateMessageText(messageId, tokens.slice(0, index).join(''));
-      if (index < tokens.length) {
+      const isDone = index >= tokens.length;
+      this.patchMessage(messageId, { text: tokens.slice(0, index).join(''), isStreaming: !isDone });
+      this.shouldScrollToBottom = true;
+      if (!isDone) {
         const handle = window.setTimeout(tick, 28);
         this.animationHandles.add(handle);
         return;
       }
+      this.triggerDoneFlash();
       this.animationHandles.clear();
     };
     tick();
+  }
+
+  triggerStatusPill(): void {
+    this.statusPillVisible.set(true);
+    if (this.statusPillTimeout) clearTimeout(this.statusPillTimeout);
+    this.statusPillTimeout = setTimeout(() => { this.statusPillVisible.set(false); }, 3000);
+  }
+
+  triggerDoneFlash(): void {
+    this.doneFlash.set(true);
+    if (this._doneFlashTimer) clearTimeout(this._doneFlashTimer);
+    this._doneFlashTimer = setTimeout(() => {
+      this.doneFlash.set(false);
+      this._doneFlashTimer = undefined;
+    }, 800);
+  }
+
+  onPanelClick(event: MouseEvent): void {
+    this.triggerStatusPill();
   }
 
   private updateMessageText(messageId: string, text: string): void {
@@ -1147,9 +1193,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private pushMessage(message: ChatMessage): void {
     const current = this.messages();
     const last = current[current.length - 1];
-    if (last && last.sender === message.sender && last.text.trim() === message.text.trim()) {
-      return;
-    }
+    if (last && last.sender === message.sender && last.text.trim() === message.text.trim()) return;
     this.messages.update(messages => [...messages, message]);
     this.shouldScrollToBottom = true;
   }
@@ -1157,28 +1201,19 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private handleAssistantMeta(meta: AssistantResponseMeta, retryKind: RetryKind): void {
     this.assistantWorkflow.consumeResponse(meta);
     this.assistantSync.publish(meta, retryKind === 'voice' ? 'voice' : 'chat');
-
-    if (meta.action_result?.executed) {
-      this.notificationService.getNotifications().subscribe();
-    }
+    if (meta.action_result?.executed) this.notificationService.getNotifications().subscribe();
   }
 
   private scrollToBottom(): void {
     const container = this.messageContainer?.nativeElement;
-    if (!container) {
-      return;
-    }
+    if (!container) return;
     container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
   }
 
   private extractAssistantText(response: ChatApiResponse | null | undefined): string {
-    if (!response) {
-      return "Le service AI n'a retourne aucune reponse.";
-    }
+    if (!response) return "Le service AI n'a retourne aucune reponse.";
     const normalized = normalizeVoiceAiResponse(response);
-    if (normalized.assistantText) {
-      return normalized.assistantText;
-    }
+    if (normalized.assistantText) return normalized.assistantText;
     const readResult = this.extractReadResult(normalized.actionResult ?? response.actionResult ?? response.action_result ?? response.data);
     return readResult?.summary
       || this.toDisplayText(response.text)
@@ -1190,15 +1225,9 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private extractAudioUrl(response: ChatApiResponse | null | undefined): string | null {
     const normalized = normalizeVoiceAiResponse(response);
-    if (normalized.audioUrl) {
-      return normalized.audioUrl;
-    }
-    if (typeof response?.audio_url === 'string' && response.audio_url.trim()) {
-      return response.audio_url.trim();
-    }
-    if (typeof response?.audioUrl === 'string' && response.audioUrl.trim()) {
-      return response.audioUrl.trim();
-    }
+    if (normalized.audioUrl) return normalized.audioUrl;
+    if (typeof response?.audio_url === 'string' && response.audio_url.trim()) return response.audio_url.trim();
+    if (typeof response?.audioUrl === 'string' && response.audioUrl.trim()) return response.audioUrl.trim();
     if (response?.data && typeof response.data === 'object') {
       const data = response.data as Record<string, unknown>;
       return this.firstDisplayString(data['audioUrl'], data['audio_url']);
@@ -1206,29 +1235,13 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     return null;
   }
 
-  private resolveAudioStatusLabel(
-    rawStatus: string | null | undefined,
-    hasAudioUrl: boolean,
-    retryKind: RetryKind,
-  ): string | null {
-    if (hasAudioUrl) {
-      return 'Audio reply ready';
-    }
-
+  private resolveAudioStatusLabel(rawStatus: string | null | undefined, hasAudioUrl: boolean, retryKind: RetryKind): string | null {
+    if (hasAudioUrl) return 'Audio reply ready';
     const status = String(rawStatus ?? '').trim().toLowerCase();
-    if (!status) {
-      return retryKind === 'voice' ? 'Text reply only' : null;
-    }
-
-    if (status === 'ready' || status === 'generated' || status === 'ok') {
-      return 'Audio reply ready';
-    }
-    if (status === 'tts_unavailable' || status === 'unavailable' || status === 'text_only') {
-      return 'Text reply only';
-    }
-    if (status === 'disabled') {
-      return 'Audio disabled';
-    }
+    if (!status) return retryKind === 'voice' ? 'Text reply only' : null;
+    if (status === 'ready' || status === 'generated' || status === 'ok') return 'Audio reply ready';
+    if (status === 'tts_unavailable' || status === 'unavailable' || status === 'text_only') return 'Text reply only';
+    if (status === 'disabled') return 'Audio disabled';
     return status.replace(/_/g, ' ');
   }
 
@@ -1246,20 +1259,15 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private isCapabilityUnavailableKind(value: unknown): boolean {
     const action = this.asRecord(value);
-    if (!action) {
-      return false;
-    }
+    if (!action) return false;
     const kind = typeof action['kind'] === 'string' ? (action['kind'] as string).toLowerCase() : '';
     return kind === 'capability_unavailable' || kind === 'capability_hint';
   }
 
   isArabicText(value: string | null | undefined): boolean {
-    if (!value) {
-      return false;
-    }
+    if (!value) return false;
     for (let i = 0; i < value.length; i++) {
       const code = value.charCodeAt(i);
-      // Arabic + Arabic Supplement + Arabic Extended-A
       if (code >= 0x0600 && code <= 0x06FF) return true;
       if (code >= 0x0750 && code <= 0x077F) return true;
       if (code >= 0x08A0 && code <= 0x08FF) return true;
@@ -1416,57 +1424,30 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private escapeAttribute(value: string): string {
     return this.escapeHtml(value).replace(/`/g, '&#96;');
   }
-
   private extractActionResultDisplay(value: unknown): ActionResultDisplay | null {
     const result = this.asRecord(value);
-    if (!result) {
-      return null;
-    }
-
+    if (!result) return null;
     const status = this.firstDisplayString(result['status'])?.toLowerCase() ?? 'neutral';
     const message = this.firstDisplayString(
       result['message'],
       this.asRecord(result['details'])?.['message'],
       this.asRecord(result['details'])?.['summary'],
     );
-
-    if (!message && status === 'neutral') {
-      return null;
-    }
-
-    const tone: ActionTone = status === 'success'
-      ? 'success'
-      : status === 'pending'
-        ? 'warning'
-        : status === 'failed'
-          ? 'error'
-          : 'neutral';
-
-    return {
-      text: message ?? `Action ${status}`,
-      tone,
-    };
+    if (!message && status === 'neutral') return null;
+    const tone: ActionTone = status === 'success' ? 'success' : status === 'pending' ? 'warning' : status === 'failed' ? 'error' : 'neutral';
+    return { text: message ?? `Action ${status}`, tone };
   }
 
   private extractFallbackLabel(fallback: UnknownRecord | null, warnings: string[]): string | null {
-    const provider = this.firstDisplayString(
-      fallback?.['provider'],
-      fallback?.['provider_name'],
-      fallback?.['providerName'],
-    );
-    if (provider) {
-      return `Fallback provider: ${provider}`;
-    }
-
+    const provider = this.firstDisplayString(fallback?.['provider'], fallback?.['provider_name'], fallback?.['providerName']);
+    if (provider) return `Fallback provider: ${provider}`;
     const warning = warnings.find(item => item.toLowerCase().includes('fallback'));
     return warning ? 'Provider fallback used' : null;
   }
 
   private extractConfirmationId(response: ChatApiResponse | null | undefined): string | null {
     const normalized = normalizeVoiceAiResponse(response);
-    if (normalized.confirmationId) {
-      return normalized.confirmationId;
-    }
+    if (normalized.confirmationId) return normalized.confirmationId;
     const data = this.asRecord(response?.data);
     return this.firstDisplayString(
       response?.confirmationId,
@@ -1478,77 +1459,45 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private extractReadResult(value: unknown): ChatReadResult | null {
     const root = this.asRecord(value);
-    if (!root) {
-      return null;
-    }
-
+    if (!root) return null;
     const data = this.asRecord(root['data']);
-    const candidate = this.asRecord(data?.['read_result'])
-      ?? this.asRecord(root['read_result'])
-      ?? (root['kind'] === 'read_result' ? root : null);
-
-    if (!candidate || candidate['kind'] !== 'read_result') {
-      return null;
-    }
-
+    const candidate = this.asRecord(data?.['read_result']) ?? this.asRecord(root['read_result']) ?? (root['kind'] === 'read_result' ? root : null);
+    if (!candidate || candidate['kind'] !== 'read_result') return null;
     const items = Array.isArray(candidate['items']) ? candidate['items'] : [];
-    const count = typeof candidate['count'] === 'number' && Number.isFinite(candidate['count'])
-      ? candidate['count']
-      : items.length;
-
+    const count = typeof candidate['count'] === 'number' && Number.isFinite(candidate['count']) ? candidate['count'] : items.length;
     return {
       kind: 'read_result',
       toolName: this.firstDisplayString(candidate['toolName'], candidate['tool_name']),
-      summary: this.firstDisplayString(candidate['summary'])
-        ?? (count > 0 ? `${count} resultat(s) trouve(s).` : 'Aucune donnee a afficher.'),
+      summary: this.firstDisplayString(candidate['summary']) ?? (count > 0 ? `${count} resultat(s) trouve(s).` : 'Aucune donnee a afficher.'),
       items,
       empty: candidate['empty'] === true || count === 0,
       count,
       data: candidate['data'],
       error: candidate['error'] ?? null,
-      backendStatus: typeof candidate['backendStatus'] === 'number'
-        ? candidate['backendStatus']
-        : typeof candidate['backend_status'] === 'number'
-          ? candidate['backend_status']
-          : null,
+      backendStatus: typeof candidate['backendStatus'] === 'number' ? candidate['backendStatus'] : typeof candidate['backend_status'] === 'number' ? candidate['backend_status'] : null,
     };
   }
 
   private extractPendingFlow(value: unknown): PendingFlowStatus | null {
     const root = this.asRecord(value);
     const data = this.asRecord(root?.['data']);
-    const candidate = this.asRecord(root?.['pendingFlow'])
-      ?? this.asRecord(data?.['pendingFlow'])
-      ?? this.asRecord(root?.['pending_flow'])
-      ?? this.asRecord(data?.['pending_flow']);
-    if (!candidate) {
-      return null;
-    }
+    const candidate = this.asRecord(root?.['pendingFlow']) ?? this.asRecord(data?.['pendingFlow']) ?? this.asRecord(root?.['pending_flow']) ?? this.asRecord(data?.['pending_flow']);
+    if (!candidate) return null;
     const missing = Array.isArray(candidate['missingFields'])
-      ? candidate['missingFields'].filter((field): field is string => typeof field === 'string')
+      ? candidate['missingFields'].filter((f): f is string => typeof f === 'string')
       : Array.isArray(candidate['missing_fields'])
-        ? candidate['missing_fields'].filter((field): field is string => typeof field === 'string')
+        ? candidate['missing_fields'].filter((f): f is string => typeof f === 'string')
         : [];
     const status = this.firstDisplayString(candidate['status']);
-    if (status && status !== 'pending') {
-      return null;
-    }
-    return {
-      intent: this.firstDisplayString(candidate['intent']),
-      agent: this.firstDisplayString(candidate['agent']),
-      status,
-      missingFields: missing,
-    };
+    if (status && status !== 'pending') return null;
+    return { intent: this.firstDisplayString(candidate['intent']), agent: this.firstDisplayString(candidate['agent']), status, missingFields: missing };
   }
 
   private extractConfirmationSummary(value: unknown): ConfirmationSummary | null {
     const root = this.asRecord(value);
     const data = this.asRecord(root?.['data']);
-    const summary = this.asRecord(root?.['summary'])
-      ?? this.asRecord(data?.['summary']);
-    if (!summary) {
-      return null;
-    }
+    const summary = this.asRecord(root?.['summary']) ?? this.asRecord(data?.['summary']);
+    if (!summary) return null;
     return {
       type: this.firstDisplayString(summary['type']),
       date: this.firstDisplayString(summary['date']),
@@ -1577,13 +1526,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         : role === 'ADMIN'
           ? 'Admin AI is ready for system health, provider status, and tenant issues.'
           : 'Employee AI is ready for daily summaries, leave balance, and attendance help.';
-    return {
-      id: this.createMessageId(),
-      sender: 'assistant',
-      text,
-      timestamp: new Date(),
-      origin: 'system',
-    };
+    return { id: this.createMessageId(), sender: 'assistant', text, timestamp: new Date(), origin: 'system' };
   }
 
   private persistSessionHistory(userId: number, messages: ChatMessage[]): void {
@@ -1604,30 +1547,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           confirmationState: message.confirmationState ?? null,
           confirmationDecision: message.confirmationDecision ?? null,
         }));
-
       localStorage.setItem(this.sessionCacheKey(userId), JSON.stringify(snapshots));
-    } catch {
-      // Ignore storage write failures.
-    }
+    } catch {}
   }
 
   private readSessionHistory(): ChatMessage[] {
     const userId = this.authService.currentUser()?.id;
-    if (!userId) {
-      return [];
-    }
-
+    if (!userId) return [];
     try {
       const raw = localStorage.getItem(this.sessionCacheKey(userId));
-      if (!raw) {
-        return [];
-      }
-
+      if (!raw) return [];
       const cached = JSON.parse(raw) as CachedChatMessage[];
-      if (!Array.isArray(cached)) {
-        return [];
-      }
-
+      if (!Array.isArray(cached)) return [];
       return cached
         .filter(item => typeof item?.text === 'string' && item.text.trim().length > 0)
         .map(item => ({
@@ -1642,15 +1573,10 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
           audioStatusLabel: item.audioStatusLabel ?? null,
           fallbackLabel: item.fallbackLabel ?? null,
           confirmationResolved: item.confirmationResolved === true,
-          confirmationState: item.confirmationState
-            ?? (item.confirmationResolved === true
-              ? (item.confirmationDecision === 'cancelled' ? 'cancelled' : 'success')
-              : null),
+          confirmationState: item.confirmationState ?? (item.confirmationResolved === true ? (item.confirmationDecision === 'cancelled' ? 'cancelled' : 'success') : null),
           confirmationDecision: item.confirmationDecision ?? null,
         }));
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
 
   private sessionCacheKey(userId: number): string {
@@ -1662,47 +1588,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     const audio = new Audio(url);
     this.activeAudio = audio;
     this.speaking.set(true);
-
-    audio.onended = () => {
-      if (this.activeAudio === audio) {
-        this.activeAudio = undefined;
-      }
+    const onEnd = () => {
+      if (this.activeAudio === audio) this.activeAudio = undefined;
       this.speaking.set(false);
-      if (resumeVoiceAfterPlayback) {
-        this.scheduleAutoListen(250);
-      }
+      if (resumeVoiceAfterPlayback) this.scheduleAutoListen(250);
     };
-    audio.onerror = () => {
-      if (this.activeAudio === audio) {
-        this.activeAudio = undefined;
-      }
-      this.speaking.set(false);
-      if (resumeVoiceAfterPlayback) {
-        this.scheduleAutoListen(250);
-      }
-    };
-
-    void audio.play().catch(() => {
-      if (this.activeAudio === audio) {
-        this.activeAudio = undefined;
-      }
-      this.speaking.set(false);
-      if (resumeVoiceAfterPlayback) {
-        this.scheduleAutoListen(250);
-      }
-    });
+    audio.onended = onEnd;
+    audio.onerror = onEnd;
+    void audio.play().catch(onEnd);
   }
 
   private handleRequestFailure(message: string, retryKind: RetryKind): void {
     if (this.isAuthExpiredMessage(message)) {
-      // In CHATBOT_PUBLIC_MODE the AI service builds the context from
-      // request metadata (no JWT required), so the 401-as-"session
-      // expired" path must not happen. If it does, it means the backend
-      // public-mode flag is off / mis-set, or the AI service crashed on
-      // the public-context path. Surface the real error to operators
-      // instead of masking it with a "demo placeholder" reply (which is
-      // what the previous behaviour did, hiding live bugs in public
-      // mode and giving every user the same canned message).
       this.pushSessionExpiredMessage(retryKind);
       return;
     }
@@ -1720,21 +1617,15 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
         retryable: retryKind === 'voice',
         retryKind: retryKind === 'voice' ? 'voice' : undefined,
       });
-      if (retryKind === 'voice') {
-        this.scheduleAutoListen(300);
-      }
+      if (retryKind === 'voice') this.scheduleAutoListen(300);
       return;
     }
     this.pushSystemError(message, retryKind);
   }
 
   private resolveErrorMessage(error: unknown): string {
-    const raw = error instanceof Error && error.message.trim()
-      ? error.message.trim()
-      : '';
-    if (!raw) {
-      return "Une erreur inattendue a interrompu la reponse de l'assistant.";
-    }
+    const raw = error instanceof Error && error.message.trim() ? error.message.trim() : '';
+    if (!raw) return "Je n'ai pas pu récupérer cette information, veuillez réessayer.";
     const normalized = raw.toLowerCase();
     if ((normalized.includes('session') && normalized.includes('expire')) || normalized.includes('auth_required') || raw.includes('401')) {
       return 'Session expirée, reconnectez-vous.';
@@ -1782,10 +1673,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   private isSoftNoSpeechMessage(message: string | null | undefined): boolean {
     const normalized = (message || '').trim().toLowerCase();
-    return normalized.includes("je n'ai pas bien entendu")
-      || normalized.includes("je n'ai pas bien compris")
-      || normalized.includes("je n'ai rien entendu")
-      || normalized.includes("je n'ai pas entendu");
+    return normalized.includes("je n'ai pas bien entendu") || normalized.includes("je n'ai pas bien compris") || normalized.includes("je n'ai rien entendu") || normalized.includes("je n'ai pas entendu");
   }
 
   private isAuthExpiredMessage(message: string | null | undefined): boolean {
@@ -1808,30 +1696,18 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   private isVoiceBusyState(state: VoiceAssistantState): boolean {
-    return state === 'stopping'
-      || state === 'uploading'
-      || state === 'transcribing'
-      || state === 'responding';
+    return state === 'stopping' || state === 'uploading' || state === 'transcribing' || state === 'responding';
   }
 
   private isSoftVoiceResponse(response: ChatApiResponse | null | undefined): boolean {
     const normalized = normalizeVoiceAiResponse(response);
     const status = (normalized.status || response?.status || '').trim().toLowerCase();
     const text = `${normalized.assistantText ?? ''} ${normalized.error ?? ''}`.toLowerCase();
-    return status === 'retry'
-      || status === 'no_input'
-      || status === 'no_speech'
-      || status === 'unclear_audio'
-      || status === 'invalid_audio'
-      || text.includes("je n'ai pas bien compris")
-      || text.includes("je n'ai rien entendu")
-      || text.includes("je n'ai pas entendu");
+    return status === 'retry' || status === 'no_input' || status === 'no_speech' || status === 'unclear_audio' || status === 'invalid_audio' || text.includes("je n'ai pas bien compris") || text.includes("je n'ai rien entendu") || text.includes("je n'ai pas entendu");
   }
 
   private toDisplayText(value: unknown): string | null {
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
+    if (typeof value === 'string' && value.trim()) return value.trim();
     return null;
   }
 
@@ -1914,79 +1790,42 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  private buildMessageAction(
-    response: ChatApiResponse,
-    meta: AssistantResponseMeta,
-  ): { label: string; target: string; kind: MessageActionKind } | null {
-    if (response.status === 'confirm') {
-      return { label: 'Confirmer', target: 'oui confirme', kind: 'confirm' };
-    }
-
-    if (response.type === 'workflow' && response.status === 'failed') {
-      return null;
-    }
-
+  private buildMessageAction(response: ChatApiResponse, meta: AssistantResponseMeta): { label: string; target: string; kind: MessageActionKind } | null {
+    if (response.status === 'confirm') return { label: 'Confirmer', target: 'oui confirme', kind: 'confirm' };
+    if (response.type === 'workflow' && response.status === 'failed') return null;
     const downloadUrl = this.extractDownloadUrl(response, meta);
-    if (downloadUrl) {
-      return { label: 'Ouvrir le document', target: downloadUrl, kind: 'link' };
-    }
-
-    if (response.type === 'ask') {
-      return null;
-    }
-
+    if (downloadUrl) return { label: 'Ouvrir le document', target: downloadUrl, kind: 'link' };
+    if (response.type === 'ask') return null;
     const route = this.defaultRouteForIntent(meta.intent);
-    if (!route) {
-      return null;
-    }
-
+    if (!route) return null;
     const label = meta.action_result?.executed ? 'Voir la page' : 'Ouvrir';
     return { label, target: route, kind: 'route' };
   }
 
   private extractDownloadUrl(response: ChatApiResponse, meta: AssistantResponseMeta): string | null {
     const directUrl = meta.entities?.['download_url'];
-    if (typeof directUrl === 'string' && directUrl.trim().length > 0) {
-      return directUrl.trim();
-    }
-
+    if (typeof directUrl === 'string' && directUrl.trim().length > 0) return directUrl.trim();
     const detailUrl = meta.action_result?.details?.['download_url'];
-    if (typeof detailUrl === 'string' && detailUrl.trim().length > 0) {
-      return detailUrl.trim();
-    }
-
-    const data = response.data && typeof response.data === 'object'
-      ? response.data as Record<string, unknown>
-      : null;
+    if (typeof detailUrl === 'string' && detailUrl.trim().length > 0) return detailUrl.trim();
+    const data = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
     const result = data?.['result'];
     if (result && typeof result === 'object') {
       const nested = (result as Record<string, unknown>)['download_url'];
-      if (typeof nested === 'string' && nested.trim().length > 0) {
-        return nested.trim();
-      }
+      if (typeof nested === 'string' && nested.trim().length > 0) return nested.trim();
     }
     const payloadUrl = data?.['download_url'];
     return typeof payloadUrl === 'string' && payloadUrl.trim().length > 0 ? payloadUrl.trim() : null;
   }
 
   private extractWorkflow(response: ChatApiResponse, meta: AssistantResponseMeta): AssistantWorkflowState | null {
-    if (meta.workflow) {
-      return meta.workflow;
-    }
-    if (response.type !== 'workflow' && !Array.isArray(response.steps)) {
-      return null;
-    }
-
+    if (meta.workflow) return meta.workflow;
+    if (response.type !== 'workflow' && !Array.isArray(response.steps)) return null;
     return {
       workflow_id: null,
       name: response.action ?? response.intent ?? 'workflow',
       status: response.status ?? 'success',
       pending_step: null,
-      completed_steps: Array.isArray(response.steps)
-        ? response.steps
-          .filter(step => step.status === 'success' || step.status === 'warning')
-          .map(step => step.key)
-        : [],
+      completed_steps: Array.isArray(response.steps) ? response.steps.filter(s => s.status === 'success' || s.status === 'warning').map(s => s.key) : [],
       can_retry: response.status === 'failed',
       steps: Array.isArray(response.steps) ? response.steps : [],
     };
@@ -1994,89 +1833,56 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
 
   workflowStatusLabel(workflow: AssistantWorkflowState | null | undefined): string {
     const status = workflow?.status;
-    if (status === 'failed') {
-      return 'Workflow interrompu';
-    }
-    if (status === 'success') {
-      return 'Workflow termine';
-    }
+    if (status === 'failed') return 'Workflow interrompu';
+    if (status === 'success') return 'Workflow termine';
     return 'Workflow';
   }
 
   workflowStepIcon(status: string | undefined): string {
     switch (status) {
-      case 'success':
-        return 'check-circle-2';
-      case 'warning':
-        return 'triangle-alert';
-      case 'failed':
-        return 'circle-x';
-      case 'running':
-        return 'loader-2';
-      default:
-        return 'circle';
+      case 'success': return 'check-circle-2';
+      case 'warning': return 'triangle-alert';
+      case 'failed': return 'circle-x';
+      case 'running': return 'loader-2';
+      default: return 'circle';
     }
   }
 
   private defaultRouteForIntent(intent?: string): string | null {
     const role = this.assistantRole();
     switch (intent) {
-      case 'CREATE_LEAVE':
-      case 'GET_LEAVE_BALANCE':
-      case 'GET_MY_REQUESTS':
-      case 'leave.balance':
-      case 'leave.list':
+      case 'CREATE_LEAVE': case 'GET_LEAVE_BALANCE': case 'GET_MY_REQUESTS': case 'leave.balance': case 'leave.list':
         if (role === 'RH') return '/app/rh/conges';
         if (role === 'MANAGER') return '/app/manager/approbations';
         return '/app/employee/conges';
-      case 'CREATE_AUTORISATION':
-      case 'authorization.list':
-        return '/app/employee/autorisations';
-      case 'CREATE_TELEWORK':
-      case 'telework.list':
+      case 'CREATE_AUTORISATION': case 'authorization.list': return '/app/employee/autorisations';
+      case 'CREATE_TELEWORK': case 'telework.list':
         if (role === 'RH') return '/app/rh/teletravail';
         if (role === 'MANAGER') return '/app/manager/teletravail';
         return '/app/employee/teletravail';
-      case 'REQUEST_DOCUMENT':
-      case 'OPEN_DOCUMENT':
-      case 'document.list':
+      case 'REQUEST_DOCUMENT': case 'OPEN_DOCUMENT': case 'document.list':
         if (role === 'RH') return '/app/rh/documents';
         if (role === 'MANAGER') return '/app/manager/documents';
         return '/app/employee/documents';
-      case 'GET_NOTIFICATIONS':
-        return '/app/notifications';
-      case 'GET_TEAM_REQUESTS':
-      case 'GET_PENDING_VALIDATIONS':
-      case 'APPROVE_REQUEST':
-      case 'REJECT_REQUEST':
-        return '/app/manager/approbations';
-      case 'GET_RH_STATS':
-        return '/app/rh/dashboard';
-      case 'GET_ALL_REQUESTS':
-      case 'PROCESS_REQUEST':
-        return '/app/rh/requests';
-      default:
-        return null;
+      case 'GET_NOTIFICATIONS': return '/app/notifications';
+      case 'GET_TEAM_REQUESTS': case 'GET_PENDING_VALIDATIONS': case 'APPROVE_REQUEST': case 'REJECT_REQUEST': return '/app/manager/approbations';
+      case 'GET_RH_STATS': return '/app/rh/dashboard';
+      case 'GET_ALL_REQUESTS': case 'PROCESS_REQUEST': return '/app/rh/requests';
+      default: return null;
     }
   }
 
   private openExternalLink(target: string): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
+    if (typeof window === 'undefined') return;
     window.open(target, '_blank', 'noopener,noreferrer');
   }
 
   private scheduleAutoListen(delayMs: number): void {
-    if (!this.handsFreeMode() || !this.isOpen() || this.loading() || this.voiceState() !== 'idle' || this.activeAudio) {
-      return;
-    }
+    if (!this.handsFreeMode() || !this.isOpen() || this.loading() || this.voiceState() !== 'idle' || this.activeAudio) return;
     this.clearAutoListen();
     this.autoListenHandle = window.setTimeout(() => {
       this.autoListenHandle = null;
-      if (!this.isOpen() || this.loading() || this.voiceState() !== 'idle' || this.input().trim().length > 0 || this.activeAudio) {
-        return;
-      }
+      if (!this.isOpen() || this.loading() || this.voiceState() !== 'idle' || this.input().trim().length > 0 || this.activeAudio) return;
       this.liveTranscript.set('');
       void this.voiceAssistant.start();
     }, delayMs);
@@ -2090,10 +1896,7 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   private stopAudioPlayback(): void {
-    if (!this.activeAudio) {
-      this.speaking.set(false);
-      return;
-    }
+    if (!this.activeAudio) { this.speaking.set(false); return; }
     this.activeAudio.pause();
     this.activeAudio.currentTime = 0;
     this.activeAudio = undefined;
@@ -2101,34 +1904,20 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   }
 
   private resolveConfirmationState(response: ChatApiResponse, approved: boolean): ConfirmationState {
-    if (!approved) {
-      return response.type === 'error' ? 'failure' : 'cancelled';
-    }
-
+    if (!approved) return response.type === 'error' ? 'failure' : 'cancelled';
     const actionResult = this.asRecord(response.actionResult ?? response.action_result);
-    if (response.type === 'error') {
-      return 'failure';
-    }
-    if (actionResult?.['success'] === false || actionResult?.['error']) {
-      return 'failure';
-    }
-
+    if (response.type === 'error') return 'failure';
+    if (actionResult?.['success'] === false || actionResult?.['error']) return 'failure';
     const toolCalls = Array.isArray(response.toolCalls) ? response.toolCalls : [];
     for (const call of toolCalls) {
       const status = this.firstDisplayString(this.asRecord(call)?.['status'])?.toLowerCase();
-      if (status === 'failed' || status === 'denied' || status === 'business_conflict') {
-        return 'failure';
-      }
+      if (status === 'failed' || status === 'denied' || status === 'business_conflict') return 'failure';
     }
-
     return 'success';
   }
 
   private markConfirmationPending(messageId: string, pending: boolean): void {
-    this.patchMessage(messageId, {
-      confirmationPending: pending,
-      confirmationState: pending ? 'executing' : 'pending',
-    });
+    this.patchMessage(messageId, { confirmationPending: pending, confirmationState: pending ? 'executing' : 'pending' });
   }
 
   private markConfirmationResolved(messageId: string, state: ConfirmationState): void {
@@ -2147,33 +1936,23 @@ export class ChatWidgetComponent implements AfterViewChecked, OnDestroy {
   private blurActiveElementInPanel(): void {
     const panel = this.chatPanel?.nativeElement;
     const active = typeof document !== 'undefined' ? document.activeElement : null;
-    if (panel && active instanceof HTMLElement && panel.contains(active)) {
-      active.blur();
-    }
+    if (panel && active instanceof HTMLElement && panel.contains(active)) active.blur();
   }
 
   private asRecord(value: unknown): UnknownRecord | null {
-    return value && typeof value === 'object' && !Array.isArray(value)
-      ? value as UnknownRecord
-      : null;
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : null;
   }
 
   private firstDisplayString(...values: unknown[]): string | null {
     for (const value of values) {
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
-      }
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return String(value);
-      }
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value);
     }
     return null;
   }
 
   private resolveRole(user: ReturnType<AuthService['currentUser']>): string | null {
-    if (!user) {
-      return null;
-    }
+    if (!user) return null;
     const primaryRole = typeof user.role === 'string' && user.role.trim().length > 0
       ? user.role.trim()
       : Array.isArray(user.roles) && user.roles.length > 0

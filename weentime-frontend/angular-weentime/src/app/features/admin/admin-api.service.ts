@@ -215,14 +215,32 @@ export class AdminApiService {
   private readonly api = inject(ApiConfigService);
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
-  getUsers(page: number, size: number, options?: RequestOptions): Observable<AdminPage<AdminUser>> {
+  getUsers(page: number, size: number, search?: string, role?: string, statut?: string, entrepriseId?: string, sort?: string, options?: RequestOptions): Observable<AdminPage<AdminUser>> {
     const normalizedPage = Math.max(page, 0);
     const normalizedSize = this.normalizePageSize(size);
+    let params = new HttpParams()
+      .set('page', String(normalizedPage))
+      .set('size', String(normalizedSize));
+
+    if (search) {
+      params = params.set('search', search.trim());
+    }
+    if (role) {
+      params = params.set('role', role);
+    }
+    if (statut) {
+      params = params.set('statut', statut);
+    }
+    if (entrepriseId) {
+      params = params.set('entrepriseId', entrepriseId);
+    }
+    if (sort) {
+      params = params.set('sort', sort);
+    }
+
     return this.http
       .get<unknown>(this.api.ORGANISATION.GET_ADMIN_USERS, {
-        params: new HttpParams()
-          .set('page', String(normalizedPage))
-          .set('size', String(normalizedSize)),
+        params,
         context: this.requestContext(options)
       })
       .pipe(map(response => {
@@ -233,6 +251,7 @@ export class AdminApiService {
         };
       }));
   }
+
 
   createUser(payload: AdminUserPayload): Observable<AdminUser> {
     return this.http.post<unknown>(this.api.ORGANISATION.CREATE_USER, payload).pipe(

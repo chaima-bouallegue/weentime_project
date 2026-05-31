@@ -3,7 +3,6 @@ package com.weentime.weentimeproject.service.impl;
 import com.weentime.weentimeproject.dto.request.NotificationDispatchRequest;
 import com.weentime.weentimeproject.entity.Utilisateur;
 import com.weentime.weentimeproject.enums.NotificationType;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.enums.StatutUtilisateurEnum;
 import com.weentime.weentimeproject.repository.NotificationRepository;
 import com.weentime.weentimeproject.repository.PresenceRepository;
@@ -33,6 +32,10 @@ public class PresenceNotificationScheduler {
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
 
+    // -------------------------------------------------------------------------
+    // Scheduler
+    // -------------------------------------------------------------------------
+
     @Scheduled(cron = "0 */15 10-18 * * MON-FRI")
     public void notifyDailyAbsences() {
         LocalDate today = LocalDate.now();
@@ -46,20 +49,27 @@ public class PresenceNotificationScheduler {
                 .forEach(user -> notifyAbsence(user, today));
     }
 
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
     private boolean shouldTrackAbsence(Utilisateur user) {
-        if (user == null || user.getId() == null || user.getRoles() == null || user.getRoles().isEmpty()) {
+        if (user == null || user.getId() == null
+                || user.getRoles() == null || user.getRoles().isEmpty()) {
             return false;
         }
 
-        Set<RoleNom> roles = user.getRoles().stream()
+        // getNom() retourne String — plus d'enum RoleNom
+        Set<String> roles = user.getRoles().stream()
                 .map(role -> role.getNom())
                 .collect(Collectors.toSet());
 
-        if (roles.contains(RoleNom.ROLE_ADMIN) || roles.contains(RoleNom.ROLE_RH)) {
+        // Les admins et RH ne sont pas trackés
+        if (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_RH")) {
             return false;
         }
 
-        return roles.contains(RoleNom.ROLE_EMPLOYEE) || roles.contains(RoleNom.ROLE_MANAGER);
+        return roles.contains("ROLE_EMPLOYEE") || roles.contains("ROLE_MANAGER");
     }
 
     private void notifyAbsence(Utilisateur user, LocalDate today) {
@@ -72,9 +82,9 @@ public class PresenceNotificationScheduler {
                 "status", "ABSENT",
                 "employeeId", user.getId(),
                 "employeeName", employeeName,
-                "date", today.toString()
-        );
+                "date", today.toString());
 
+        // Notifier le manager direct
         if (user.getManager() != null && !user.getManager().getId().equals(user.getId())) {
             sendIfNotAlreadySent(
                     user.getManager().getId(),
@@ -86,13 +96,16 @@ public class PresenceNotificationScheduler {
                             .actionUrl("/app/manager/equipe")
                             .metadata(metadata)
                             .build(),
-                    today
-            );
+                    today);
         }
 
+        // Notifier les utilisateurs RH de la même entreprise
+        // findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc accepte désormais
+        // String
         List<Utilisateur> rhUsers = user.getEntrepriseId() == null
                 ? List.of()
-                : utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(user.getEntrepriseId(), RoleNom.ROLE_RH);
+                : utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(
+                        user.getEntrepriseId(), "ROLE_RH");
 
         for (Utilisateur rhUser : rhUsers) {
             if (rhUser.getStatut() != StatutUtilisateurEnum.ACTIF) {
@@ -108,21 +121,25 @@ public class PresenceNotificationScheduler {
                             .actionUrl("/app/rh/presence")
                             .metadata(metadata)
                             .build(),
-                    today
-            );
+                    today);
         }
     }
 
-    private void sendIfNotAlreadySent(Long recipientId, String title, NotificationDispatchRequest request, LocalDate today) {
+    private void sendIfNotAlreadySent(
+            Long recipientId,
+            String title,
+            NotificationDispatchRequest request,
+            LocalDate today) {
+
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.atTime(LocalTime.MAX);
+
         boolean alreadySent = notificationRepository.existsByUser_IdAndTypeAndTitleAndCreatedAtBetween(
                 recipientId,
                 NotificationType.PRESENCE,
                 title,
                 start,
-                end
-        );
+                end);
 
         if (alreadySent) {
             return;
@@ -131,7 +148,8 @@ public class PresenceNotificationScheduler {
         try {
             notificationService.notifyUser(recipientId, request);
         } catch (Exception exception) {
-            log.warn("Unable to dispatch absence notification to user {}: {}", recipientId, exception.getMessage());
+            log.warn("Unable to dispatch absence notification to user {}: {}",
+                    recipientId, exception.getMessage());
         }
     }
 

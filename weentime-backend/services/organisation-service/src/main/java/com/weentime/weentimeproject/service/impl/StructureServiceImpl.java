@@ -6,7 +6,6 @@ import com.weentime.weentimeproject.dto.response.StructureTeamResponse;
 import com.weentime.weentimeproject.entity.Departement;
 import com.weentime.weentimeproject.entity.Equipe;
 import com.weentime.weentimeproject.entity.Utilisateur;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.repository.DepartementRepository;
 import com.weentime.weentimeproject.repository.EquipeRepository;
 import com.weentime.weentimeproject.repository.UtilisateurRepository;
@@ -31,10 +30,8 @@ public class StructureServiceImpl implements StructureService {
     @Override
     public List<StructureDepartmentResponse> getDepartments() {
         Long entrepriseId = resolveEntrepriseIdOrNull();
-        if (entrepriseId == null) {
+        if (entrepriseId == null)
             return List.of();
-        }
-
         return departementRepository.findByEntreprise_IdOrderByNomAsc(entrepriseId).stream()
                 .map(this::toDepartmentResponse)
                 .toList();
@@ -43,10 +40,8 @@ public class StructureServiceImpl implements StructureService {
     @Override
     public List<StructureTeamResponse> getTeams() {
         Long entrepriseId = resolveEntrepriseIdOrNull();
-        if (entrepriseId == null) {
+        if (entrepriseId == null)
             return List.of();
-        }
-
         return equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(entrepriseId).stream()
                 .map(this::toTeamResponse)
                 .toList();
@@ -55,11 +50,11 @@ public class StructureServiceImpl implements StructureService {
     @Override
     public List<StructureEmployeeResponse> getManagers() {
         Long entrepriseId = resolveEntrepriseIdOrNull();
-        if (entrepriseId == null) {
+        if (entrepriseId == null)
             return List.of();
-        }
-
-        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, RoleNom.ROLE_MANAGER).stream()
+        // String au lieu de RoleNom.ROLE_MANAGER
+        return utilisateurRepository
+                .findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, "ROLE_MANAGER").stream()
                 .map(this::toEmployeeResponse)
                 .toList();
     }
@@ -67,23 +62,24 @@ public class StructureServiceImpl implements StructureService {
     @Override
     public List<StructureEmployeeResponse> getEmployees() {
         Long entrepriseId = resolveEntrepriseIdOrNull();
-        if (entrepriseId == null) {
+        if (entrepriseId == null)
             return List.of();
-        }
-
-        return utilisateurRepository.findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, RoleNom.ROLE_EMPLOYEE).stream()
+        // String au lieu de RoleNom.ROLE_EMPLOYEE
+        return utilisateurRepository
+                .findByEntrepriseIdAndRolesNomOrderByPrenomAscNomAsc(entrepriseId, "ROLE_EMPLOYEE").stream()
                 .map(this::toEmployeeResponse)
                 .toList();
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
     private Long resolveEntrepriseIdOrNull() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated())
             return null;
-        }
-
-        String email = authentication.getName();
-        return utilisateurRepository.findByEmail(email)
+        return utilisateurRepository.findByEmail(authentication.getName())
                 .map(Utilisateur::getEntrepriseId)
                 .orElse(null);
     }
@@ -102,10 +98,9 @@ public class StructureServiceImpl implements StructureService {
     }
 
     private StructureTeamResponse toTeamResponse(Equipe equipe) {
-        String managerNom = equipe.getResponsable() == null
-                ? null
+        String managerNom = equipe.getResponsable() == null ? null
                 : ((equipe.getResponsable().getPrenom() == null ? "" : equipe.getResponsable().getPrenom() + " ")
-                + (equipe.getResponsable().getNom() == null ? "" : equipe.getResponsable().getNom())).trim();
+                        + (equipe.getResponsable().getNom() == null ? "" : equipe.getResponsable().getNom())).trim();
 
         return StructureTeamResponse.builder()
                 .id(equipe.getId())
@@ -113,8 +108,12 @@ public class StructureServiceImpl implements StructureService {
                 .description(equipe.getDescription())
                 .departementId(equipe.getDepartement() != null ? equipe.getDepartement().getId() : null)
                 .departement(equipe.getDepartement() != null ? equipe.getDepartement().getNom() : null)
-                .entrepriseId(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null ? equipe.getDepartement().getEntreprise().getId() : null)
-                .entreprise(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null ? equipe.getDepartement().getEntreprise().getNom() : null)
+                .entrepriseId(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null
+                        ? equipe.getDepartement().getEntreprise().getId()
+                        : null)
+                .entreprise(equipe.getDepartement() != null && equipe.getDepartement().getEntreprise() != null
+                        ? equipe.getDepartement().getEntreprise().getNom()
+                        : null)
                 .estActive(equipe.getEstActive())
                 .effectifMaximum(equipe.getEffectifMaximum())
                 .managerId(equipe.getResponsable() != null ? equipe.getResponsable().getId() : null)
@@ -127,10 +126,9 @@ public class StructureServiceImpl implements StructureService {
     private StructureEmployeeResponse toEmployeeResponse(Utilisateur utilisateur) {
         String fullName = ((utilisateur.getPrenom() == null ? "" : utilisateur.getPrenom() + " ")
                 + (utilisateur.getNom() == null ? "" : utilisateur.getNom())).trim();
-        String managerNom = utilisateur.getManager() == null
-                ? null
+        String managerNom = utilisateur.getManager() == null ? null
                 : ((utilisateur.getManager().getPrenom() == null ? "" : utilisateur.getManager().getPrenom() + " ")
-                + (utilisateur.getManager().getNom() == null ? "" : utilisateur.getManager().getNom())).trim();
+                        + (utilisateur.getManager().getNom() == null ? "" : utilisateur.getManager().getNom())).trim();
 
         return StructureEmployeeResponse.builder()
                 .id(utilisateur.getId())
@@ -151,10 +149,11 @@ public class StructureServiceImpl implements StructureService {
                 .managerEmail(utilisateur.getManager() != null ? utilisateur.getManager().getEmail() : null)
                 .entrepriseId(utilisateur.getEntrepriseId())
                 .entreprise(utilisateur.getEntreprise() != null ? utilisateur.getEntreprise().getNom() : null)
-                .roles(utilisateur.getRoles() == null ? List.of() : utilisateur.getRoles().stream()
-                        .map(role -> role.getNom().name())
-                        .sorted()
-                        .toList())
+                .roles(utilisateur.getRoles() == null ? List.of()
+                        : utilisateur.getRoles().stream()
+                                .map(role -> role.getNom()) // String direct, plus de .name()
+                                .sorted()
+                                .toList())
                 .build();
     }
 }

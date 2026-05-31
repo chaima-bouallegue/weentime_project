@@ -88,7 +88,7 @@ import { MessageModel, AttachmentModel } from '../../models/communication.models
       width: 32px;
       height: 32px;
       border: none;
-      background: #f8fafc;
+      background: #FFFFFF;
       color: #64748b;
       border-radius: 8px;
       cursor: pointer;
@@ -99,7 +99,7 @@ import { MessageModel, AttachmentModel } from '../../models/communication.models
     }
 
     .close-btn:hover {
-      background: #f1f5f9;
+      background: #FFFFFF;
       color: #1e1b4b;
     }
 
@@ -146,7 +146,7 @@ import { MessageModel, AttachmentModel } from '../../models/communication.models
       gap: 12px;
       padding: 12px;
       border-radius: 12px;
-      background: #f8fafc;
+      background: #FFFFFF;
       border: 1px solid rgba(83, 74, 183, 0.05);
       transition: all 0.2s ease;
     }

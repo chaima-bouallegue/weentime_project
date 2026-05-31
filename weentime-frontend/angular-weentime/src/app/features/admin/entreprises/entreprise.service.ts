@@ -1,72 +1,49 @@
+// src/app/features/admin/entreprises/entreprise.service.ts
+
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
-import { ApiConfigService } from '../../../core/services/api-config.service';
+import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, map, retry } from 'rxjs/operators';
 
-export enum StatutEntreprise {
-  ACTIVE = 'ACTIVE',
-  CLOSED = 'CLOSED'
-}
+import {
+  Enterprise,
+  EntrepriseStats,
+  EntrepriseAccessControl,
+  EntrepriseAccessControlHistory,
+  PagedResponse,
+  mapEntreprise,
+} from './mock-enterprises';
 
-export interface Entreprise {
-  id: number;
-  nom: string;
-  siret: string;
-  adresse?: string;
-  telephone?: string;
-  email?: string;
-  siteWeb?: string;
-  secteur?: string;
-  codeInvitation?: string;
-  estActive: boolean;
-  status: StatutEntreprise;
-  statusLabel: 'ACTIVE' | 'FERMÉE';
-  nombreDepartements: number;
-  createdAt: string;
-}
+// ── Re-exports pour les sous-composants ───────────────────
+export type { Enterprise }                      from './mock-enterprises';
+export type { EntrepriseStats }                 from './mock-enterprises';
+export type { EntrepriseAccessControl }         from './mock-enterprises';
+export type { EntrepriseAccessControlHistory }  from './mock-enterprises';
+export type { RolePermission }                  from './mock-enterprises';
+export type { ModulePermission }                from './mock-enterprises';
+export type { PagedResponse }                   from './mock-enterprises';
 
-interface EntrepriseApiResponse {
-  id: number;
-  nom: string;
-  siret: string;
-  adresse?: string | null;
-  telephone?: string | null;
-  email?: string | null;
-  siteWeb?: string | null;
-  secteur?: string | null;
-  codeInvitation?: string | null;
-  estActive?: boolean | null;
-  isActive?: boolean | null;
-  active?: boolean | null;
-  statut?: string | null;
-  status?: string | null;
-  nombreDepartements: number;
-  createdAt: string;
-}
+// ── Aliases rétrocompat ───────────────────────────────────
+export interface Entreprise extends Enterprise {}
+export type StatutEntreprise = 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
 
-export interface EntrepriseRequest {
-  nom: string;
-  siret: string;
-  adresse?: string;
-  telephone?: string;
-  email?: string;
-  siteWeb?: string;
-  secteur?: string;
-}
-
-export interface EnterpriseAccessUser {
+// ── Ancien type access-control (legacy modal) ─────────────
+// Le modal enterprise-access-control-modal.component utilise
+// l'ancienne API (rhUsers/managerUsers). On garde ce type
+// séparé pour ne pas casser ce composant.
+export interface EnterpriseAccessUserResponse {
   id: number;
   fullName: string;
   email: string;
-  role: 'ROLE_RH' | 'ROLE_MANAGER' | string;
+  role: string;
   allowed: boolean;
 }
 
 export interface EnterpriseAccessControl {
   enterpriseId: number;
   enterpriseName: string;
-  rhUsers: EnterpriseAccessUser[];
-  managerUsers: EnterpriseAccessUser[];
+  rhUsers: EnterpriseAccessUserResponse[];
+  managerUsers: EnterpriseAccessUserResponse[];
 }
 
 export interface EnterpriseAccessControlRequest {
@@ -74,144 +51,201 @@ export interface EnterpriseAccessControlRequest {
   managerUserIds: number[];
 }
 
-export interface Departement {
-  id: number;
-  nom: string;
-  description?: string;
-  codeInterne: string;
-  nombreEquipes: number;
-  nombreUtilisateurs: number;
+// ── Request DTO ───────────────────────────────────────────
+export interface EntrepriseRequest {
+  nom?: string;
+  siret: string;
+  secteur?: string;
+  adresse?: string;
+  telephone?: string;
+  email?: string;
+  siteWeb?: string;
+  logo?: string;
+  maxUsers?: number;
+  employeesCount?: number;
+  status?: 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
+  estActive?: boolean;
 }
 
-export interface DepartementRequest {
-  nom: string;
-  description?: string;
-  codeInterne: string;
-  entrepriseId?: number;
-}
-
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class EntrepriseService {
-  private http = inject(HttpClient);
-  private api = inject(ApiConfigService);
-  private readonly API_URL = this.api.ORGANISATION.GET_ENTREPRISES;
-  private readonly DEPT_API_URL = this.api.ORGANISATION.GET_DEPARTEMENTS;
 
-  // Entreprises
-  getEntreprises(page: number = 0, size: number = 50): Observable<{ content: Entreprise[] }> {
+  private readonly http = inject(HttpClient);
+  private readonly base = '/api/v1/organisations/entreprises';
+
+  // ── Liste filtrée + paginée ───────────────────────────────
+
+  getAll(
+    status: string = 'ALL',
+    search: string = '',
+    page: number = 0,
+    size: number = 10,
+    sort: string = 'createdAt,desc'
+  ): Observable<PagedResponse<Enterprise>> {
+    let params = new HttpParams()
+      .set('status', status)
+      .set('page', String(page))
+      .set('size', String(size))
+      .set('sort', sort);
+
+    if (search.trim()) {
+      params = params.set('search', search.trim());
+    }
+
     return this.http
-      .get<{ content: EntrepriseApiResponse[] }>(`${this.API_URL}?page=${page}&size=${size}`)
+      .get<PagedResponse<any>>(this.base, { params })
       .pipe(
-        map(response => ({
-          ...response,
-          content: (response.content ?? []).map(item => this.normalizeEntreprise(item))
-        }))
+        retry({ count: 2, delay: 500 }),
+        map(p => ({ ...p, content: p.content.map(mapEntreprise) })),
+        catchError(this.handleError)
       );
   }
 
-  getEntrepriseById(id: number): Observable<Entreprise> {
+  // ── Stats ─────────────────────────────────────────────────
+
+  getStats(): Observable<EntrepriseStats> {
     return this.http
-      .get<EntrepriseApiResponse>(`${this.API_URL}/${id}`)
-      .pipe(map(item => this.normalizeEntreprise(item)));
+      .get<EntrepriseStats>(`${this.base}/stats`)
+      .pipe(
+        retry({ count: 2, delay: 500 }),
+        catchError(this.handleError)
+      );
   }
 
-  createEntreprise(data: EntrepriseRequest): Observable<Entreprise> {
+  // ── Single ────────────────────────────────────────────────
+
+  getById(id: string): Observable<Enterprise> {
     return this.http
-      .post<EntrepriseApiResponse>(this.API_URL, data)
-      .pipe(map(item => this.normalizeEntreprise(item)));
+      .get<any>(`${this.base}/${id}`)
+      .pipe(map(mapEntreprise), catchError(this.handleError));
   }
 
-  updateEntreprise(id: number, data: EntrepriseRequest): Observable<Entreprise> {
+  // ── CRUD ──────────────────────────────────────────────────
+
+  create(payload: EntrepriseRequest): Observable<Enterprise> {
     return this.http
-      .patch<EntrepriseApiResponse>(`${this.API_URL}/${id}`, data)
-      .pipe(map(item => this.normalizeEntreprise(item)));
+      .post<any>(this.base, payload)
+      .pipe(map(mapEntreprise), catchError(this.handleError));
   }
 
-  deleteEntreprise(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.API_URL}/${id}`);
+  createEntreprise(payload: EntrepriseRequest): Observable<Enterprise> {
+    return this.create(payload);
   }
 
-  getEnterpriseAccessControl(enterpriseId: number): Observable<EnterpriseAccessControl> {
-    return this.http.get<EnterpriseAccessControl>(
-      `${this.api.getApiBase()}/admin/entreprises/${enterpriseId}/access-control`
-    );
+  update(id: string, payload: EntrepriseRequest): Observable<Enterprise> {
+    return this.http
+      .put<any>(`${this.base}/${id}`, payload)
+      .pipe(map(mapEntreprise), catchError(this.handleError));
+  }
+
+  updateEntreprise(id: string, payload: EntrepriseRequest): Observable<Enterprise> {
+    return this.update(id, payload);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http
+      .delete<void>(`${this.base}/${id}`)
+      .pipe(catchError(this.handleError));
+  }
+
+  deleteEntreprise(id: string): Observable<void> {
+    return this.delete(id);
+  }
+
+  // ── Statut ────────────────────────────────────────────────
+
+  changeStatus(
+    id: string,
+    status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'
+  ): Observable<Enterprise> {
+    return this.http
+      .patch<any>(`${this.base}/${id}/status`, { status })
+      .pipe(map(mapEntreprise), catchError(this.handleError));
+  }
+
+  // ── Batch ─────────────────────────────────────────────────
+
+  deleteBatch(ids: string[]): Observable<void> {
+    return this.http
+      .delete<void>(`${this.base}/batch`, { body: { ids } })
+      .pipe(catchError(this.handleError));
+  }
+
+  changeStatusBatch(
+    ids: string[],
+    status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'
+  ): Observable<void> {
+    return this.http
+      .patch<void>(`${this.base}/batch/status`, { ids, status })
+      .pipe(catchError(this.handleError));
+  }
+
+  // ── Code invitation ───────────────────────────────────────
+
+  regenerateCode(id: string): Observable<Enterprise> {
+    return this.http
+      .post<any>(`${this.base}/${id}/regenerate-code`, {})
+      .pipe(map(mapEntreprise), catchError(this.handleError));
+  }
+
+  // ── Contrôle d'accès (nouveau — matrice modules/rôles) ────
+
+  getAccessControl(id: string): Observable<EntrepriseAccessControl> {
+    return this.http
+      .get<EntrepriseAccessControl>(`${this.base}/${id}/access-control`)
+      .pipe(catchError(this.handleError));
+  }
+
+  updateAccessControl(
+    id: string,
+    payload: EntrepriseAccessControl
+  ): Observable<EntrepriseAccessControl> {
+    return this.http
+      .put<EntrepriseAccessControl>(`${this.base}/${id}/access-control`, payload)
+      .pipe(catchError(this.handleError));
+  }
+
+  getAccessControlHistory(id: string): Observable<EntrepriseAccessControlHistory[]> {
+    return this.http
+      .get<EntrepriseAccessControlHistory[]>(
+        `${this.base}/${id}/access-control/history`
+      )
+      .pipe(catchError(this.handleError));
+  }
+
+  // ── Contrôle d'accès (legacy — users RH/Manager) ─────────
+  // Utilisé par enterprise-access-control-modal.component
+
+  getEnterpriseAccessControl(id: string): Observable<EnterpriseAccessControl> {
+    return this.http
+      .get<EnterpriseAccessControl>(`${this.base}/${id}/access-control/users`)
+      .pipe(catchError(this.handleError));
   }
 
   updateEnterpriseAccessControl(
-    enterpriseId: number,
+    id: string,
     payload: EnterpriseAccessControlRequest
   ): Observable<EnterpriseAccessControl> {
-    return this.http.put<EnterpriseAccessControl>(
-      `${this.api.getApiBase()}/admin/entreprises/${enterpriseId}/access-control`,
-      payload
-    );
+    return this.http
+      .put<EnterpriseAccessControl>(
+        `${this.base}/${id}/access-control/users`,
+        payload
+      )
+      .pipe(catchError(this.handleError));
   }
 
-  // Departements
-  getDepartements(entrepriseId: number, page: number = 0, size: number = 50): Observable<{ content: Departement[] }> {
-    return this.http.get<{ content: Departement[] }>(`${this.DEPT_API_URL}?page=${page}&size=${size}`);
-  }
+  // ── Error handler ─────────────────────────────────────────
 
-  createDepartement(data: DepartementRequest): Observable<Departement> {
-    return this.http.post<Departement>(this.DEPT_API_URL, data);
-  }
-
-  updateDepartement(id: number, data: DepartementRequest): Observable<Departement> {
-    return this.http.patch<Departement>(`${this.DEPT_API_URL}/${id}`, data);
-  }
-
-  deleteDepartement(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.DEPT_API_URL}/${id}`);
-  }
-
-  private normalizeEntreprise(item: EntrepriseApiResponse): Entreprise {
-    const estActive = this.resolveEntrepriseActive(item);
-
-    return {
-      id: item.id,
-      nom: item.nom,
-      siret: item.siret,
-      adresse: item.adresse ?? undefined,
-      telephone: item.telephone ?? undefined,
-      email: item.email ?? undefined,
-      siteWeb: item.siteWeb ?? undefined,
-      secteur: item.secteur ?? undefined,
-      codeInvitation: item.codeInvitation ?? undefined,
-      estActive,
-      status: estActive ? StatutEntreprise.ACTIVE : StatutEntreprise.CLOSED,
-      statusLabel: estActive ? 'ACTIVE' : 'FERMÉE',
-      nombreDepartements: item.nombreDepartements ?? 0,
-      createdAt: item.createdAt
-    };
-  }
-
-  private resolveEntrepriseActive(item: EntrepriseApiResponse): boolean {
-    if (typeof item.estActive === 'boolean') {
-      return item.estActive;
-    }
-
-    if (typeof item.isActive === 'boolean') {
-      return item.isActive;
-    }
-
-    if (typeof item.active === 'boolean') {
-      return item.active;
-    }
-
-    const rawStatus = String(item.status ?? item.statut ?? '')
-      .trim()
-      .toUpperCase();
-
-    if (['ACTIVE', 'ACTIF'].includes(rawStatus)) {
-      return true;
-    }
-
-    if (['INACTIVE', 'INACTIF', 'CLOSED', 'CLOSE', 'FERMEE', 'FERMÉE'].includes(rawStatus)) {
-      return false;
-    }
-
-    return true;
+  private handleError(err: HttpErrorResponse): Observable<never> {
+    const message =
+      err.error?.details  ||
+      err.error?.message  ||
+      err.message         ||
+      'Une erreur inattendue est survenue.';
+    return throwError(() => ({
+      status:  err.status,
+      message,
+      code:    err.error?.error ?? err.error?.code,
+    }));
   }
 }

@@ -103,7 +103,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       background: #ffffff;
       border-radius: 20px;
       box-shadow: 0 20px 50px -12px rgba(0,0,0,0.15);
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       z-index: 10000;
       overflow: hidden;
       display: flex;
@@ -269,7 +269,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       letter-spacing: 0.05em;
       white-space: nowrap;
     }
-    .group-line { flex: 1; height: 1px; background: #f1f5f9; }
+    .group-line { flex: 1; height: 1px; background: #FFFFFF; }
     :host-context(.dark) .group-line { background: #2d3548; }
 
     /* Items */
@@ -281,7 +281,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       transition: all 0.2s;
       position: relative;
     }
-    .notif-item:hover { background: #f8fafc; }
+    .notif-item:hover { background: #FFFFFF; }
     :host-context(.dark) .notif-item:hover { background: rgba(255,255,255,0.03); }
 
     .notif-item.unread { background: #EEEDFE22; }
@@ -368,7 +368,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #f8fafc;
+      background: #FFFFFF;
       border-top: 1px solid #f1f5f9;
     }
     :host-context(.dark) .notif-footer { background: #1a1f2e; border-color: #2d3548; }
