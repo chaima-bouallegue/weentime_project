@@ -5,7 +5,6 @@ import com.weentime.weentimeproject.dto.response.NotificationResponse;
 import com.weentime.weentimeproject.entity.Notification;
 import com.weentime.weentimeproject.entity.Utilisateur;
 import com.weentime.weentimeproject.enums.NotificationType;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.enums.StatutUtilisateurEnum;
 import com.weentime.weentimeproject.repository.NotificationRepository;
 import com.weentime.weentimeproject.repository.UtilisateurRepository;
@@ -48,8 +47,7 @@ public class NotificationServiceImpl implements NotificationService {
             String message,
             NotificationType type,
             String actionUrl,
-            Map<String, Object> metadata
-    ) {
+            Map<String, Object> metadata) {
         Utilisateur user = utilisateurRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouve avec l'id : " + userId));
 
@@ -78,18 +76,18 @@ public class NotificationServiceImpl implements NotificationService {
                 payload.getMessage(),
                 payload.getType(),
                 payload.getActionUrl(),
-                payload.getMetadata()
-        );
+                payload.getMetadata());
     }
 
     @Async
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void notifyRole(String roleName, NotificationDispatchRequest payload) {
-        RoleNom role = RoleNom.valueOf(roleName);
+        // roleName est déjà un String "ROLE_X" — plus besoin de RoleNom.valueOf()
         List<Utilisateur> users = payload.getEntrepriseId() == null
-                ? utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(role)
-                : utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(payload.getEntrepriseId(), role);
+                ? utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(roleName)
+                : utilisateurRepository.findByEntreprise_IdAndRoles_NomOrderByDateCreationDesc(
+                        payload.getEntrepriseId(), roleName);
 
         users.stream()
                 .filter(Objects::nonNull)
@@ -101,7 +99,8 @@ public class NotificationServiceImpl implements NotificationService {
     public NotificationResponse markAsRead(Long notificationId) {
         Long currentUserId = resolveCurrentUserId();
         Notification notification = notificationRepository.findByIdAndUser_Id(notificationId, currentUserId)
-                .orElseThrow(() -> new EntityNotFoundException("Notification introuvable avec l'id : " + notificationId));
+                .orElseThrow(
+                        () -> new EntityNotFoundException("Notification introuvable avec l'id : " + notificationId));
 
         if (Boolean.TRUE.equals(notification.getIsRead())) {
             return toResponse(notification);

@@ -10,16 +10,18 @@ import com.weentime.weentimeproject.dto.response.UtilisateurAuthResponse;
 import com.weentime.weentimeproject.dto.response.UtilisateurResponse;
 import com.weentime.weentimeproject.entity.Role;
 import com.weentime.weentimeproject.entity.Utilisateur;
-import com.weentime.weentimeproject.enums.RoleNom;
 import org.mapstruct.*;
 
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Set;
 
-
-@Mapper(componentModel = "spring", uses = {RoleMapper.class})
+@Mapper(componentModel = "spring", uses = { RoleMapper.class })
 public interface UtilisateurMapper {
+
+    // -------------------------------------------------------------------------
+    // Entity mappings
+    // -------------------------------------------------------------------------
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "motDePasse", ignore = true)
@@ -30,6 +32,10 @@ public interface UtilisateurMapper {
     @Mapping(target = "equipe", ignore = true)
     @Mapping(target = "entreprise", ignore = true)
     Utilisateur toEntity(UtilisateurRequest request);
+
+    // -------------------------------------------------------------------------
+    // Response mappings
+    // -------------------------------------------------------------------------
 
     @Mapping(source = "departement.id", target = "departementId")
     @Mapping(source = "departement.nom", target = "departementNom")
@@ -52,7 +58,9 @@ public interface UtilisateurMapper {
     @Mapping(source = "equipe.nom", target = "equipe")
     @Mapping(source = "avatarUrl", target = "photo")
     @Mapping(source = "manager.id", target = "managerId")
-    @Mapping(expression = "java(utilisateur.getManager() != null ? ((utilisateur.getManager().getPrenom() != null ? utilisateur.getManager().getPrenom() : \"\") + \" \" + (utilisateur.getManager().getNom() != null ? utilisateur.getManager().getNom() : \"\")).trim() : null)", target = "managerNom")
+    @Mapping(expression = "java(utilisateur.getManager() != null ? "
+            + "((utilisateur.getManager().getPrenom() != null ? utilisateur.getManager().getPrenom() : \"\") + \" \" "
+            + "+ (utilisateur.getManager().getNom() != null ? utilisateur.getManager().getNom() : \"\")).trim() : null)", target = "managerNom")
     @Mapping(source = "entreprise.id", target = "entrepriseId")
     @Mapping(source = "entreprise.nom", target = "entrepriseNom")
     @Mapping(source = "roles", target = "role", qualifiedByName = "rolesToPrimaryName")
@@ -72,10 +80,15 @@ public interface UtilisateurMapper {
     @Mapping(source = "avatarUrl", target = "photo")
     UserProfileResponse toProfileResponse(Utilisateur utilisateur);
 
+    // -------------------------------------------------------------------------
+    // Named converters
+    // -------------------------------------------------------------------------
+
     @Named("rolesToStrings")
     default Set<String> rolesToStrings(Set<Role> roles) {
         Role role = canonicalRole(roles);
-        return role == null ? Collections.emptySet() : Set.of(role.getNom().name());
+        // getNom() retourne déjà un String — plus de .name()
+        return role == null ? Collections.emptySet() : Set.of(role.getNom());
     }
 
     @Named("rolesToAuthDTOs")
@@ -85,7 +98,7 @@ public interface UtilisateurMapper {
             return Collections.emptySet();
         }
         return Set.of(UtilisateurAuthResponse.RoleDTO.builder()
-                .nom(role.getNom().name())
+                .nom(role.getNom()) // String direct
                 .build());
     }
 
@@ -95,7 +108,7 @@ public interface UtilisateurMapper {
         if (role == null || role.getNom() == null) {
             return "EMPLOYEE";
         }
-        String roleName = role.getNom().name();
+        String roleName = role.getNom(); // String, pas d'enum — plus de .name()
         return roleName.startsWith("ROLE_") ? roleName.substring("ROLE_".length()) : roleName;
     }
 
@@ -107,11 +120,17 @@ public interface UtilisateurMapper {
         }
         return Set.of(RoleResponse.builder()
                 .id(role.getId())
-                .nom(role.getNom())
+                .nom(role.getNom()) // String direct
                 .description(role.getDescription())
-                .permissions(role.getPermissions() == null ? Collections.emptySet() : new java.util.HashSet<>(role.getPermissions()))
+                .permissions(role.getPermissions() == null
+                        ? Collections.emptySet()
+                        : new java.util.HashSet<>(role.getPermissions()))
                 .build());
     }
+
+    // -------------------------------------------------------------------------
+    // Priority helpers
+    // -------------------------------------------------------------------------
 
     default Role canonicalRole(Set<Role> roles) {
         if (roles == null || roles.isEmpty()) {
@@ -123,17 +142,25 @@ public interface UtilisateurMapper {
                 .orElse(null);
     }
 
-    default int rolePriority(RoleNom role) {
-        if (role == null) {
+    /**
+     * Priorité des rôles système. Les rôles custom (PHARMACIE, etc.) obtiennent
+     * une priorité basse (10) pour ne pas écraser les rôles système.
+     */
+    default int rolePriority(String role) {
+        if (role == null)
             return 99;
-        }
         return switch (role) {
-            case ROLE_ADMIN -> 0;
-            case ROLE_RH -> 1;
-            case ROLE_MANAGER -> 2;
-            case ROLE_EMPLOYEE -> 3;
+            case "ROLE_ADMIN" -> 0;
+            case "ROLE_RH" -> 1;
+            case "ROLE_MANAGER" -> 2;
+            case "ROLE_EMPLOYEE" -> 3;
+            default -> 10; // rôles personnalisés
         };
     }
+
+    // -------------------------------------------------------------------------
+    // Update mappings
+    // -------------------------------------------------------------------------
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "motDePasse", ignore = true)

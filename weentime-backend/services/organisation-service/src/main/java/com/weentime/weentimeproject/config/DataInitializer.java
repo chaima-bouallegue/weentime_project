@@ -5,7 +5,6 @@ import com.weentime.weentimeproject.entity.Entreprise;
 import com.weentime.weentimeproject.entity.Equipe;
 import com.weentime.weentimeproject.entity.Role;
 import com.weentime.weentimeproject.entity.Utilisateur;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.enums.StatutUtilisateurEnum;
 import com.weentime.weentimeproject.repository.DepartementRepository;
 import com.weentime.weentimeproject.repository.EntrepriseRepository;
@@ -21,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Component
@@ -33,12 +33,20 @@ public class DataInitializer implements CommandLineRunner {
     private static final String COMPANY_SIRET = "12345678901234";
     private static final String DEPARTMENT_CODE = "ENG-001";
 
+    // Rôles système créés au démarrage (String, plus enum)
+    private static final List<String> DEFAULT_ROLES = List.of(
+            "ROLE_EMPLOYEE", "ROLE_MANAGER", "ROLE_RH", "ROLE_ADMIN");
+
     private final RoleRepository roleRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final EntrepriseRepository entrepriseRepository;
     private final DepartementRepository departementRepository;
     private final EquipeRepository equipeRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // -------------------------------------------------------------------------
+    // Entry point
+    // -------------------------------------------------------------------------
 
     @Override
     @Transactional
@@ -55,8 +63,12 @@ public class DataInitializer implements CommandLineRunner {
         log.info("Data initialization complete.");
     }
 
+    // -------------------------------------------------------------------------
+    // Roles
+    // -------------------------------------------------------------------------
+
     private void initializeRoles() {
-        for (RoleNom roleNom : RoleNom.values()) {
+        for (String roleNom : DEFAULT_ROLES) {
             if (roleRepository.findByNom(roleNom).isEmpty()) {
                 log.info("Creating role: {}", roleNom);
                 Role role = new Role();
@@ -65,6 +77,10 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Entreprise
+    // -------------------------------------------------------------------------
 
     private Entreprise initializeEntreprise() {
         return entrepriseRepository.findByNomIgnoreCase(COMPANY_NAME)
@@ -89,6 +105,10 @@ public class DataInitializer implements CommandLineRunner {
                 });
     }
 
+    // -------------------------------------------------------------------------
+    // Departement
+    // -------------------------------------------------------------------------
+
     private Departement initializeDepartement(Entreprise entreprise) {
         return departementRepository.findByEntreprise_IdOrderByNomAsc(entreprise.getId()).stream()
                 .filter(item -> "Engineering".equalsIgnoreCase(item.getNom()))
@@ -108,11 +128,15 @@ public class DataInitializer implements CommandLineRunner {
                 });
     }
 
+    // -------------------------------------------------------------------------
+    // Users
+    // -------------------------------------------------------------------------
+
     private void initializeAdminUser() {
         String adminEmail = "admin@weentime.com";
         if (!utilisateurRepository.existsByEmail(adminEmail)) {
             log.info("Creating default admin user");
-            Role adminRole = getRole(RoleNom.ROLE_ADMIN);
+            Role adminRole = getRole("ROLE_ADMIN");
             Utilisateur admin = Utilisateur.builder()
                     .nom("Admin")
                     .prenom("WeenTime")
@@ -134,12 +158,11 @@ public class DataInitializer implements CommandLineRunner {
                 "Diallo",
                 "Mariam",
                 "Engineering Manager",
-                RoleNom.ROLE_MANAGER,
+                "ROLE_MANAGER",
                 entreprise,
                 departement,
                 null,
-                null
-        );
+                null);
 
         Equipe equipe = initializeEquipe(departement, manager);
 
@@ -154,35 +177,43 @@ public class DataInitializer implements CommandLineRunner {
                 "Ndiaye",
                 "Awa",
                 "Developpeuse Full Stack",
-                RoleNom.ROLE_EMPLOYEE,
+                "ROLE_EMPLOYEE",
                 entreprise,
                 departement,
                 equipe,
-                manager
-        );
+                manager);
 
         upsertUser(
                 "rh@weentime.com",
                 "Traore",
                 "Fatou",
                 "Responsable RH",
-                RoleNom.ROLE_RH,
+                "ROLE_RH",
                 entreprise,
                 departement,
                 null,
-                null
-        );
+                null);
 
-        entreprise.setCurrentUsers((int) utilisateurRepository.findByEntrepriseIdOrderByPrenomAscNomAsc(entreprise.getId()).size());
+        entreprise.setCurrentUsers(
+                (int) utilisateurRepository
+                        .findByEntrepriseIdOrderByPrenomAscNomAsc(entreprise.getId())
+                        .size());
         entrepriseRepository.save(entreprise);
     }
 
+    // -------------------------------------------------------------------------
+    // Equipe
+    // -------------------------------------------------------------------------
+
     private Equipe initializeEquipe(Departement departement, Utilisateur manager) {
-        return equipeRepository.findByDepartement_Entreprise_IdOrderByNomAsc(departement.getEntreprise().getId()).stream()
+        return equipeRepository
+                .findByDepartement_Entreprise_IdOrderByNomAsc(departement.getEntreprise().getId())
+                .stream()
                 .filter(item -> "Produit".equalsIgnoreCase(item.getNom()))
                 .findFirst()
                 .map(existing -> {
-                    if (existing.getResponsable() == null || !manager.getId().equals(existing.getResponsable().getId())) {
+                    if (existing.getResponsable() == null
+                            || !manager.getId().equals(existing.getResponsable().getId())) {
                         existing.setResponsable(manager);
                         existing.setEstActive(Boolean.TRUE);
                         return equipeRepository.save(existing);
@@ -204,18 +235,22 @@ public class DataInitializer implements CommandLineRunner {
                 });
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
     private Utilisateur upsertUser(
             String email,
             String nom,
             String prenom,
             String poste,
-            RoleNom roleNom,
+            String roleNom, // String au lieu de RoleNom enum
             Entreprise entreprise,
             Departement departement,
             Equipe equipe,
-            Utilisateur manager
-    ) {
-        Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElseGet(Utilisateur::new);
+            Utilisateur manager) {
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+                .orElseGet(Utilisateur::new);
         utilisateur.setNom(nom);
         utilisateur.setPrenom(prenom);
         utilisateur.setEmail(email);
@@ -231,13 +266,13 @@ public class DataInitializer implements CommandLineRunner {
         return utilisateurRepository.save(utilisateur);
     }
 
-    private Set<Role> withRole(RoleNom roleNom) {
+    private Set<Role> withRole(String roleNom) {
         Set<Role> roles = new HashSet<>();
         roles.add(getRole(roleNom));
         return roles;
     }
 
-    private Role getRole(RoleNom roleNom) {
+    private Role getRole(String roleNom) {
         return roleRepository.findByNom(roleNom)
                 .orElseThrow(() -> new IllegalStateException("Role not found: " + roleNom));
     }

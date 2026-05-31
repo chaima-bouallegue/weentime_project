@@ -5,7 +5,6 @@ import com.weentime.weentimeproject.dto.response.EnterpriseAccessControlResponse
 import com.weentime.weentimeproject.dto.response.EnterpriseAccessUserResponse;
 import com.weentime.weentimeproject.entity.Entreprise;
 import com.weentime.weentimeproject.entity.Utilisateur;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.repository.EntrepriseRepository;
 import com.weentime.weentimeproject.repository.UtilisateurRepository;
 import com.weentime.weentimeproject.service.EnterpriseAccessControlService;
@@ -30,31 +29,34 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
     private final EntrepriseRepository entrepriseRepository;
     private final UtilisateurRepository utilisateurRepository;
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+
     @Override
     @Transactional(readOnly = true)
     public EnterpriseAccessControlResponse getEnterpriseAccessControl(Long enterpriseId) {
         Entreprise enterprise = findEnterprise(enterpriseId);
-        List<Utilisateur> rhUsers = findUsersByRole(RoleNom.ROLE_RH);
-        List<Utilisateur> managerUsers = findUsersByRole(RoleNom.ROLE_MANAGER);
-
-        return buildResponse(enterprise, rhUsers, managerUsers);
+        List<Utilisateur> rh = findUsersByRole("ROLE_RH");
+        List<Utilisateur> managers = findUsersByRole("ROLE_MANAGER");
+        return buildResponse(enterprise, rh, managers);
     }
 
     @Override
     @Transactional
     public EnterpriseAccessControlResponse updateEnterpriseAccessControl(
             Long enterpriseId,
-            EnterpriseAccessControlRequest request
-    ) {
+            EnterpriseAccessControlRequest request) {
+
         Entreprise enterprise = findEnterprise(enterpriseId);
         Set<Long> selectedRhIds = sanitizeIds(request == null ? null : request.getRhUserIds());
         Set<Long> selectedManagerIds = sanitizeIds(request == null ? null : request.getManagerUserIds());
 
-        List<Utilisateur> rhUsers = findUsersByRole(RoleNom.ROLE_RH);
-        List<Utilisateur> managerUsers = findUsersByRole(RoleNom.ROLE_MANAGER);
+        List<Utilisateur> rhUsers = findUsersByRole("ROLE_RH");
+        List<Utilisateur> managerUsers = findUsersByRole("ROLE_MANAGER");
 
-        validateSelectedUsers(selectedRhIds, rhUsers, RoleNom.ROLE_RH);
-        validateSelectedUsers(selectedManagerIds, managerUsers, RoleNom.ROLE_MANAGER);
+        validateSelectedUsers(selectedRhIds, rhUsers, "ROLE_RH");
+        validateSelectedUsers(selectedManagerIds, managerUsers, "ROLE_MANAGER");
 
         List<Utilisateur> changedUsers = new ArrayList<>();
         changedUsers.addAll(applyAssignments(enterprise, rhUsers, selectedRhIds));
@@ -67,34 +69,40 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
         return getEnterpriseAccessControl(enterpriseId);
     }
 
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
     private Entreprise findEnterprise(Long enterpriseId) {
         return entrepriseRepository.findById(enterpriseId)
                 .orElseThrow(() -> new EntityNotFoundException("Entreprise introuvable: " + enterpriseId));
     }
 
-    private List<Utilisateur> findUsersByRole(RoleNom roleName) {
+    private List<Utilisateur> findUsersByRole(String roleName) {
         return utilisateurRepository.findByRoles_NomOrderByDateCreationDesc(roleName);
     }
 
     private Set<Long> sanitizeIds(List<Long> ids) {
-        if (ids == null) {
+        if (ids == null)
             return Set.of();
-        }
-
         return ids.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(HashSet::new));
     }
 
-    private void validateSelectedUsers(Set<Long> selectedIds, List<Utilisateur> roleUsers, RoleNom roleName) {
+    private void validateSelectedUsers(
+            Set<Long> selectedIds,
+            List<Utilisateur> roleUsers,
+            String roleName) { // String au lieu de RoleNom
+
         Map<Long, Utilisateur> usersById = roleUsers.stream()
                 .collect(Collectors.toMap(Utilisateur::getId, Function.identity()));
 
         for (Long selectedId : selectedIds) {
             if (!usersById.containsKey(selectedId)) {
                 throw new IllegalArgumentException(
-                        "L'utilisateur " + selectedId + " doit avoir le role " + roleName.name() + "."
-                );
+                        "L'utilisateur " + selectedId + " doit avoir le role " + roleName + ".");
+                // plus de .name() — roleName est déjà un String
             }
         }
     }
@@ -102,10 +110,9 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
     private List<Utilisateur> applyAssignments(
             Entreprise enterprise,
             List<Utilisateur> roleUsers,
-            Set<Long> selectedIds
-    ) {
-        List<Utilisateur> changedUsers = new ArrayList<>();
+            Set<Long> selectedIds) {
 
+        List<Utilisateur> changedUsers = new ArrayList<>();
         for (Utilisateur user : roleUsers) {
             boolean selected = selectedIds.contains(user.getId());
             boolean currentlyAssignedHere = Objects.equals(user.getEntrepriseId(), enterprise.getId());
@@ -120,7 +127,6 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
                 changedUsers.add(user);
             }
         }
-
         return changedUsers;
     }
 
@@ -135,58 +141,54 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
     }
 
     private void syncEnterpriseCounters(Long previousEnterpriseId, Entreprise newEnterprise) {
-        if (Objects.equals(previousEnterpriseId, newEnterprise.getId())) {
+        if (Objects.equals(previousEnterpriseId, newEnterprise.getId()))
             return;
-        }
-
         decrementEnterpriseUsers(previousEnterpriseId);
         incrementEnterpriseUsers(newEnterprise);
     }
 
     private void incrementEnterpriseUsers(Entreprise enterprise) {
-        int currentUsers = enterprise.getCurrentUsers() == null ? 0 : enterprise.getCurrentUsers();
-        enterprise.setCurrentUsers(currentUsers + 1);
+        int current = enterprise.getCurrentUsers() == null ? 0 : enterprise.getCurrentUsers();
+        enterprise.setCurrentUsers(current + 1);
         entrepriseRepository.save(enterprise);
     }
 
     private void decrementEnterpriseUsers(Long enterpriseId) {
-        if (enterpriseId == null) {
+        if (enterpriseId == null)
             return;
-        }
-
         entrepriseRepository.findById(enterpriseId).ifPresent(this::decrementEnterpriseUsers);
     }
 
     private void decrementEnterpriseUsers(Entreprise enterprise) {
-        int currentUsers = enterprise.getCurrentUsers() == null ? 0 : enterprise.getCurrentUsers();
-        enterprise.setCurrentUsers(Math.max(currentUsers - 1, 0));
+        int current = enterprise.getCurrentUsers() == null ? 0 : enterprise.getCurrentUsers();
+        enterprise.setCurrentUsers(Math.max(current - 1, 0));
         entrepriseRepository.save(enterprise);
     }
 
     private EnterpriseAccessControlResponse buildResponse(
             Entreprise enterprise,
             List<Utilisateur> rhUsers,
-            List<Utilisateur> managerUsers
-    ) {
+            List<Utilisateur> managerUsers) {
+
         return EnterpriseAccessControlResponse.builder()
                 .enterpriseId(enterprise.getId())
                 .enterpriseName(enterprise.getNom())
-                .rhUsers(mapUsers(rhUsers, RoleNom.ROLE_RH, enterprise.getId()))
-                .managerUsers(mapUsers(managerUsers, RoleNom.ROLE_MANAGER, enterprise.getId()))
+                .rhUsers(mapUsers(rhUsers, "ROLE_RH", enterprise.getId()))
+                .managerUsers(mapUsers(managerUsers, "ROLE_MANAGER", enterprise.getId()))
                 .build();
     }
 
     private List<EnterpriseAccessUserResponse> mapUsers(
             List<Utilisateur> users,
-            RoleNom roleName,
-            Long enterpriseId
-    ) {
+            String roleName, // String au lieu de RoleNom
+            Long enterpriseId) {
+
         return users.stream()
                 .map(user -> EnterpriseAccessUserResponse.builder()
                         .id(user.getId())
                         .fullName(resolveFullName(user))
                         .email(user.getEmail())
-                        .role(roleName.name())
+                        .role(roleName) // String direct, plus de .name()
                         .allowed(Objects.equals(user.getEntrepriseId(), enterpriseId))
                         .build())
                 .toList();
@@ -195,9 +197,7 @@ public class EnterpriseAccessControlServiceImpl implements EnterpriseAccessContr
     private String resolveFullName(Utilisateur user) {
         String fullName = String.join(" ",
                 valueOrEmpty(user.getPrenom()),
-                valueOrEmpty(user.getNom())
-        ).trim();
-
+                valueOrEmpty(user.getNom())).trim();
         return fullName.isBlank() ? user.getEmail() : fullName;
     }
 
