@@ -116,8 +116,17 @@ export class AdminRhOwnerComponent {
     event.stopPropagation();
     this.showMenuId.set(null);
 
-    // Logique factice ou appel service selon ton architecture (ex: toggle de statut via service)
-    this.toast.success('Statut mis à jour avec succès');
+    this.rhOwnerService.toggleRhStatus(id).subscribe({
+      next: (updatedOwner) => {
+        // Met à jour localement le gestionnaire modifié dans la liste
+        this.rhOwners.update(owners =>
+          owners.map(o => o.id === id ? { ...o, statut: updatedOwner.statut ?? (o.statut === 'ACTIF' ? 'INACTIF' : 'ACTIF') } : o)
+        );
+        const newStatut = updatedOwner.statut ?? 'mis à jour';
+        this.toast.success(`Statut modifié vers ${newStatut === 'ACTIF' ? 'Actif' : 'Désactivé'}`);
+      },
+      error: () => this.toast.error('Impossible de modifier le statut')
+    });
   }
 
   // --- Utilitaires de Formatage Visuel (Avatars & Badges) ---

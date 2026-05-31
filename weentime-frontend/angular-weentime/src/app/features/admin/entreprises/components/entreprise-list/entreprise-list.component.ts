@@ -1,8 +1,10 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, Search, Copy, Building } from 'lucide-angular';
-import { Entreprise, StatutEntreprise } from '../../entreprise.service';
+import { Entreprise } from '../../entreprise.service';
+
+export type StatutEntreprise = 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
 
 @Component({
   selector: 'app-entreprise-list',
@@ -15,19 +17,22 @@ import { Entreprise, StatutEntreprise } from '../../entreprise.service';
 export class EntrepriseListComponent {
   @Input() entreprises: Entreprise[] = [];
   @Input() loading = false;
-  @Input() selectedId: number | null = null;
+  @Input() selectedId: string | null = null;  // ← string, pas number
 
   @Output() search = new EventEmitter<string>();
   @Output() filter = new EventEmitter<'ALL' | StatutEntreprise>();
-  @Output() select = new EventEmitter<number>();
+  @Output() select = new EventEmitter<string>();  // ← string
   @Output() edit = new EventEmitter<Entreprise>();
   @Output() delete = new EventEmitter<Entreprise>();
 
   searchTerm = '';
   activeFilter: 'ALL' | StatutEntreprise = 'ALL';
-  StatutEnum = StatutEntreprise;
 
-  // New Icon injections
+  // ✅ Constantes utilisables dans le template
+  readonly ACTIVE = 'ACTIVE' as const;
+  readonly SUSPENDED = 'SUSPENDED' as const;
+  readonly CLOSED = 'CLOSED' as const;
+
   readonly iconSearch = Search;
   readonly iconCopy = Copy;
   readonly iconBuilding = Building;
@@ -51,15 +56,22 @@ export class EntrepriseListComponent {
     if (!name) return colors[0];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
-       hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
   }
 
+  getStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      ACTIVE: 'Active',
+      SUSPENDED: 'Suspendue',
+      CLOSED: 'Fermée',
+    };
+    return labels[status] ?? status;
+  }
+
   copyCode(event: Event, code: string): void {
     event.stopPropagation();
-    if (code) {
-       navigator.clipboard.writeText(code);
-    }
+    if (code) navigator.clipboard.writeText(code);
   }
 }

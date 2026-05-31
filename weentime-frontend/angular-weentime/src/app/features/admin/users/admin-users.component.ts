@@ -289,7 +289,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
       }
 
       @if (showForm()) {
-        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end" (click)="closeForm()">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-[2000] flex justify-end" (click)="closeForm()">
           <div class="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col p-6 animate-slide-in" (click)="$event.stopPropagation()">
             <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div>

@@ -84,32 +84,34 @@ export function getRouteTitle(router: Router): string {
               <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" size="18"></lucide-icon>
             </button>
 
-            <a routerLink="/app/messages" class="action-btn" [class.has-badge]="communicationUnreadTotal() > 0" data-tooltip="Messages">
-              <lucide-icon name="message-square" size="18"></lucide-icon>
-              @if (communicationUnreadTotal() > 0) {
-                <span class="btn-badge">{{ communicationUnreadTotal() > 9 ? '9+' : communicationUnreadTotal() }}</span>
-              }
-            </a>
-
-            <div class="notif-container">
-              <button
-                type="button"
-                (click)="toggleNotifications($event)"
-                class="action-btn"
-                [class.has-badge]="unreadCount() > 0"
-                [class.shake]="shakeBell()"
-                [attr.aria-expanded]="notifOpen()"
-                aria-haspopup="dialog"
-                data-tooltip="Notifications">
-                <lucide-icon name="bell" size="18"></lucide-icon>
-                @if (unreadCount() > 0) {
-                  <span class="btn-badge btn-badge--danger">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+            @if (showMessaging()) {
+              <a routerLink="/app/messages" class="action-btn" [class.has-badge]="communicationUnreadTotal() > 0" data-tooltip="Messages">
+                <lucide-icon name="message-square" size="18"></lucide-icon>
+                @if (communicationUnreadTotal() > 0) {
+                  <span class="btn-badge">{{ communicationUnreadTotal() > 9 ? '9+' : communicationUnreadTotal() }}</span>
                 }
-              </button>
-              @if (notifOpen()) {
-                <app-notification-dropdown (close)="notifOpen.set(false)"></app-notification-dropdown>
-              }
-            </div>
+              </a>
+
+              <div class="notif-container">
+                <button
+                  type="button"
+                  (click)="toggleNotifications($event)"
+                  class="action-btn"
+                  [class.has-badge]="unreadCount() > 0"
+                  [class.shake]="shakeBell()"
+                  [attr.aria-expanded]="notifOpen()"
+                  aria-haspopup="dialog"
+                  data-tooltip="Notifications">
+                  <lucide-icon name="bell" size="18"></lucide-icon>
+                  @if (unreadCount() > 0) {
+                    <span class="btn-badge btn-badge--danger">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+                  }
+                </button>
+                @if (notifOpen()) {
+                  <app-notification-dropdown (close)="notifOpen.set(false)"></app-notification-dropdown>
+                }
+              </div>
+            }
           </div>
 
           <div class="profile-trigger-wrapper user-dropdown-wrapper">
@@ -800,6 +802,11 @@ export class ShellHeaderComponent {
   });
 
   readonly isAdmin = computed(() => this.authService.hasRole('ADMIN'));
+
+  readonly showMessaging = computed(() => {
+    const user = this.authService.currentUser();
+    return user?.entrepriseId != null;
+  });
 
   constructor() {
     this.communicationStore.bootstrapUnreadTracking();

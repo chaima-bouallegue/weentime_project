@@ -279,7 +279,7 @@ export class RhRequestsComponent {
       if (initialRequests.length > 0 && this.requests().length === 0) {
         this.requests.set(initialRequests);
       }
-    }, { allowSignalWrites: true });
+    });
 
     this.assistantSync.events$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -297,7 +297,7 @@ export class RhRequestsComponent {
       this.dateTo();
       this.page.set(0);
       queueMicrotask(() => this.load());
-    }, { allowSignalWrites: true });
+    });
   }
 
   load(): void {
