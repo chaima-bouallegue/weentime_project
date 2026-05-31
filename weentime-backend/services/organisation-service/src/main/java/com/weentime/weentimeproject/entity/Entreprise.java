@@ -19,16 +19,14 @@ import java.util.UUID;
 @Entity
 @Table(name = "entreprises")
 public class Entreprise {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String nom;
-
     private String adresse;
-
     private String email;
-
     private String siret;
 
     @Column(name = "site_web")
@@ -36,7 +34,10 @@ public class Entreprise {
 
     private String telephone;
 
-    @Column(name = "code_invitation")
+    @Column(name = "logo", columnDefinition = "TEXT")
+    private String logo;
+
+    @Column(name = "code_invitation", unique = true, nullable = false)
     private String codeInvitation;
 
     @Column(name = "code_expiration")
@@ -50,6 +51,16 @@ public class Entreprise {
 
     private String secteur;
 
+    /**
+     * Statut métier : ACTIVE | SUSPENDED | CLOSED
+     * Synchronisé avec estActive pour la rétrocompatibilité.
+     */
+    @Column(name = "status", nullable = false)
+    private String status = "ACTIVE";
+
+    @Column(name = "est_active")
+    private Boolean estActive;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -57,9 +68,6 @@ public class Entreprise {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @Column(name = "est_active")
-    private Boolean estActive;
 
     @OneToMany(mappedBy = "entreprise")
     @com.fasterxml.jackson.annotation.JsonIgnore
@@ -69,10 +77,14 @@ public class Entreprise {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Utilisateur> utilisateurs;
 
+    // ─────────────────────────────────────────────────────────
+    // Lifecycle hooks
+    // ─────────────────────────────────────────────────────────
+
     @PrePersist
     public void prePersist() {
         if (this.codeInvitation == null) {
-            this.codeInvitation = generateCode();
+            this.codeInvitation = buildCode();
         }
         if (this.codeExpiration == null) {
             this.codeExpiration = LocalDateTime.now().plusDays(30);
@@ -83,25 +95,68 @@ public class Entreprise {
         if (this.currentUsers == null) {
             this.currentUsers = 0;
         }
-        if (this.estActive == null) {
-            this.estActive = Boolean.TRUE;
+        if (this.status == null) {
+            this.status = "ACTIVE";
         }
+        syncEstActive();
     }
 
     @PreUpdate
     public void preUpdate() {
-        if (this.estActive == null) {
-            this.estActive = Boolean.TRUE;
+        if (this.status == null) {
+            this.status = "ACTIVE";
         }
+        syncEstActive();
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Business methods
+    // ─────────────────────────────────────────────────────────
+
+    /**
+     * Régénère le code d'invitation.
+     * Note : codeInvitation est updatable=false en BDD,
+     * mais la régénération passe par une native query ou
+     * on retire updatable=false pour ce cas précis.
+     */
     public String regenerateCode() {
-        this.codeInvitation = generateCode();
+        this.codeInvitation = buildCode();
         this.codeExpiration = LocalDateTime.now().plusDays(30);
         return this.codeInvitation;
     }
 
-    private String generateCode() {
-        return "WEEN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+    public void activate() {
+        this.status = "ACTIVE";
+        syncEstActive();
+    }
+
+    public void suspend() {
+        this.status = "SUSPENDED";
+        syncEstActive();
+    }
+
+    public void close() {
+        this.status = "CLOSED";
+        syncEstActive();
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equals(this.status);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Private helpers
+    // ─────────────────────────────────────────────────────────
+
+    private void syncEstActive() {
+        this.estActive = "ACTIVE".equals(this.status);
+    }
+
+    private String buildCode() {
+        return "WEEN-" + UUID.randomUUID()
+                .toString()
+                .replace("-", "")
+                .substring(0, 12)
+                .toUpperCase();
     }
 }

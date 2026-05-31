@@ -5,6 +5,11 @@ spring:
   application:
     name: organisation-service
 
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=5m
+
   config:
     import: optional:configserver:http://localhost:8988
 
