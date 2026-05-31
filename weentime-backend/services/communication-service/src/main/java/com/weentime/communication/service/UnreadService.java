@@ -79,6 +79,12 @@ public class UnreadService {
 
     @Transactional(readOnly = true)
     public UnreadSummaryResponse getUnreadSummary(CommunicationUserPrincipal currentUser) {
+        if (isSuperAdmin(currentUser)) {
+            return UnreadSummaryResponse.builder()
+                    .totalUnread(0)
+                    .channels(List.of())
+                    .build();
+        }
         assertTenantContext(currentUser);
         return buildUnreadSummary(currentUser.entrepriseId(), currentUser.userId());
     }
@@ -150,6 +156,14 @@ public class UnreadService {
                             "userId", currentUser == null ? null : currentUser.userId()
                     ));
         }
+    }
+
+    private boolean isSuperAdmin(CommunicationUserPrincipal user) {
+        if (user == null || user.roles() == null) {
+            return false;
+        }
+        return user.roles().stream().anyMatch(role ->
+                "ROLE_SUPER_ADMIN".equalsIgnoreCase(role) || "SUPER_ADMIN".equalsIgnoreCase(role));
     }
 
     private Map<String, Object> payload(Object... keysAndValues) {
