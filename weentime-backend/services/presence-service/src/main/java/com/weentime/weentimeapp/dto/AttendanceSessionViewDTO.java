@@ -30,6 +30,16 @@ public class AttendanceSessionViewDTO {
     private AttendanceSessionStatus status;
     private PresenceSource source;
     private String localisation;
+    private Double checkInLatitude;
+    private Double checkInLongitude;
+    private String checkInAddress;
+    private String checkInLocation;
+    private PointageLocationDTO checkInLocationDetails;
+    private Double checkOutLatitude;
+    private Double checkOutLongitude;
+    private String checkOutAddress;
+    private String checkOutLocation;
+    private PointageLocationDTO checkOutLocationDetails;
     private Boolean lateArrival;
     private AttendanceDayStatus dailyStatus;
     private LocalDateTime createdAt;

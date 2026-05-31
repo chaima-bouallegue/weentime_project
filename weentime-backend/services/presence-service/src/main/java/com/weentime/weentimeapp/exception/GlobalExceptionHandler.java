@@ -27,6 +27,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", details);
     }
 
+    @ExceptionHandler(PresenceBusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePresenceBusiness(PresenceBusinessException exception) {
+        return build(exception.getStatus(), exception.getCode(), exception.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(IllegalArgumentException exception) {
         return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", exception.getMessage());
@@ -41,11 +46,20 @@ public class GlobalExceptionHandler {
         if (message.contains("already open")) {
             return build(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_ALREADY_OPEN", message);
         }
+        if (message.contains("already checked in")) {
+            return build(HttpStatus.CONFLICT, "ATTENDANCE_ALREADY_CHECKED_IN", message);
+        }
         if (message.contains("No open attendance session")) {
             return build(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN", message);
         }
+        if (message.contains("already checked out")) {
+            return build(HttpStatus.CONFLICT, "ATTENDANCE_ALREADY_CHECKED_OUT", message);
+        }
         if (message.contains("leave")) {
             return build(HttpStatus.CONFLICT, "ATTENDANCE_ON_LEAVE_FORBIDDEN", message);
+        }
+        if (message.contains("holiday") || message.contains("jour ferie")) {
+            return build(HttpStatus.CONFLICT, "ATTENDANCE_ON_HOLIDAY_FORBIDDEN", message);
         }
         return build(HttpStatus.CONFLICT, "STATE_CONFLICT", message);
     }

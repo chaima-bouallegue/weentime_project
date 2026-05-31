@@ -17,6 +17,11 @@ public class PresenceProperties {
     private DefaultScheduleProperties defaults = new DefaultScheduleProperties();
     private BigDecimal halfDayThresholdHours = BigDecimal.valueOf(4.0d);
     private String timezone = "UTC";
+    private Integer autoCloseGraceMinutes = 60;
+    private Integer overtimeThresholdMinutes = 15;
+    private boolean gpsRequired = false;
+    private boolean publicHolidayExceptionalWorkAllowed = false;
+    private LocationResolverProperties location = new LocationResolverProperties();
 
     @Data
     public static class DefaultScheduleProperties {
@@ -30,5 +35,15 @@ public class PresenceProperties {
                 DayOfWeek.THURSDAY,
                 DayOfWeek.FRIDAY
         );
+    }
+
+    @Data
+    public static class LocationResolverProperties {
+        private boolean resolverEnabled = true;
+        private String nominatimUrl = "https://nominatim.openstreetmap.org/reverse";
+        private Integer timeoutMillis = 3000;
+        private Integer cacheCoordinateScale = 5;
+        private String acceptLanguage = "fr";
+        private String userAgent = "WeenTime/1.0";
     }
 }

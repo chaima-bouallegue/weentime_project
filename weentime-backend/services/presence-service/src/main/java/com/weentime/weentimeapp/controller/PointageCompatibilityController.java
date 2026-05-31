@@ -113,6 +113,8 @@ public class PointageCompatibilityController {
         payload.put("utilisateurId", summary.getUtilisateurId());
         payload.put("heureEntree", formatDateTime(summary.getHeureEntree()));
         payload.put("heureSortie", formatDateTime(summary.getHeureSortie()));
+        payload.put("checkInLocation", summary.getCheckInLocation());
+        payload.put("checkOutLocation", summary.getCheckOutLocation());
         payload.put("duree", summary.getTotalDuration());
         payload.put("activeSession", summary.getActiveSession() != null ? toPointageEntry(summary.getActiveSession()) : null);
         return payload;
@@ -126,6 +128,13 @@ public class PointageCompatibilityController {
         payload.put("timestamp", formatDateTime(session.getCheckOutTime() != null ? session.getCheckOutTime() : session.getCheckInTime()));
         payload.put("heureEntree", formatDateTime(session.getCheckInTime()));
         payload.put("heureSortie", formatDateTime(session.getCheckOutTime()));
+        payload.put("checkInAddress", session.getCheckInAddress());
+        payload.put("checkInLocation", session.getCheckInLocation());
+        payload.put("checkOutAddress", session.getCheckOutAddress());
+        payload.put("checkOutLocation", session.getCheckOutLocation());
+        payload.put("latitude", session.getCheckOutTime() == null ? session.getCheckInLatitude() : session.getCheckOutLatitude());
+        payload.put("longitude", session.getCheckOutTime() == null ? session.getCheckInLongitude() : session.getCheckOutLongitude());
+        payload.put("accuracy", session.getCheckOutTime() == null ? session.getCheckInAccuracy() : session.getCheckOutAccuracy());
         payload.put("duree", session.getDuration());
         payload.put("dureeMinutes", secondsToMinutes(session.getDuration()));
         payload.put("estEnRetard", Boolean.TRUE.equals(session.getLateArrival()));
@@ -195,7 +204,8 @@ public class PointageCompatibilityController {
         return switch (status) {
             case LATE -> "RETARD";
             case ABSENT -> "ABSENT";
-            case WORKING, IDLE, REMOTE, ON_LEAVE -> "OK";
+            case HOLIDAY -> "OFF";
+            case WORKING, IDLE, REMOTE, ON_LEAVE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE -> "OK";
         };
     }
 

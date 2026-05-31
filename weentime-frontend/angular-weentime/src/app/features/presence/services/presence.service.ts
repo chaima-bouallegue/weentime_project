@@ -128,6 +128,7 @@ export class PresenceService {
       const payload: CheckInRequest = {
         source: PresenceSource.WEB,
         localisation: 'web',
+        ...(await this.captureGeolocation()),
       };
       const response = await firstValueFrom(
         this.http.post<ApiEnvelope<unknown>>(this.api.PRESENCE.CHECK_IN, payload)
@@ -156,7 +157,11 @@ export class PresenceService {
     this.errorSignal.set(null);
 
     try {
-      const payload: CheckOutRequest = { localisation: 'web' };
+      const payload: CheckOutRequest = {
+        source: PresenceSource.WEB,
+        localisation: 'web',
+        ...(await this.captureGeolocation()),
+      };
       const response = await firstValueFrom(
         this.http.post<ApiEnvelope<unknown>>(this.api.PRESENCE.CHECK_OUT, payload)
       );
@@ -286,6 +291,10 @@ export class PresenceService {
       totalDuration: Number(dto?.totalDuration ?? 0),
       heureEntree: dto?.heureEntree ?? null,
       heureSortie: dto?.heureSortie ?? null,
+      checkInLocation: dto?.checkInLocation ?? null,
+      checkInLocationLabel: dto?.checkInLocationLabel ?? null,
+      checkOutLocation: dto?.checkOutLocation ?? null,
+      checkOutLocationLabel: dto?.checkOutLocationLabel ?? null,
       source: (dto?.source as PresenceSource) ?? null,
       activeSession,
       sessions,
@@ -303,6 +312,23 @@ export class PresenceService {
       status: (dto?.status as AttendanceSessionStatus) ?? AttendanceSessionStatus.CLOSED,
       source: (dto?.source as PresenceSource) ?? PresenceSource.WEB,
       localisation: dto?.localisation ?? null,
+      checkInLatitude: dto?.checkInLatitude ?? null,
+      checkInLongitude: dto?.checkInLongitude ?? null,
+      checkInAccuracy: dto?.checkInAccuracy ?? null,
+      checkInAddress: dto?.checkInAddress ?? null,
+      checkInLocation: dto?.checkInLocation ?? null,
+      checkInLocationLabel: dto?.checkInLocationLabel ?? null,
+      checkOutLatitude: dto?.checkOutLatitude ?? null,
+      checkOutLongitude: dto?.checkOutLongitude ?? null,
+      checkOutAccuracy: dto?.checkOutAccuracy ?? null,
+      checkOutAddress: dto?.checkOutAddress ?? null,
+      checkOutLocation: dto?.checkOutLocation ?? null,
+      checkOutLocationLabel: dto?.checkOutLocationLabel ?? null,
+      autoClosed: Boolean(dto?.autoClosed),
+      autoClosedReason: dto?.autoClosedReason ?? null,
+      overtimeMinutes: Number(dto?.overtimeMinutes ?? 0),
+      earlyLeaveMinutes: Number(dto?.earlyLeaveMinutes ?? 0),
+      expectedMinutes: Number(dto?.expectedMinutes ?? 0),
       lateArrival: Boolean(dto?.lateArrival),
       dailyStatus: (dto?.dailyStatus as AttendanceDayStatus) ?? AttendanceDayStatus.IDLE,
       createdAt: dto?.createdAt ?? '',
@@ -336,6 +362,24 @@ export class PresenceService {
       message,
       timestamp: payload?.timestamp,
     };
+  }
+
+  private captureGeolocation(): Promise<Partial<CheckInRequest>> {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      return Promise.resolve({});
+    }
+
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 }
+      );
+    });
   }
 
   private formatShortTime(value: string | null | undefined): string {

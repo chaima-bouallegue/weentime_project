@@ -1,5 +1,6 @@
 package com.weentime.weentimeapp.service;
 
+import com.weentime.weentimeapp.client.HolidayServiceClient;
 import com.weentime.weentimeapp.client.LeaveServiceClient;
 import com.weentime.weentimeapp.client.TeletravailServiceClient;
 import com.weentime.weentimeapp.client.UserServiceClient;
@@ -11,6 +12,7 @@ import com.weentime.weentimeapp.dto.CheckInRequest;
 import com.weentime.weentimeapp.dto.CheckOutRequest;
 import com.weentime.weentimeapp.dto.DailyAttendanceStatusDTO;
 import com.weentime.weentimeapp.dto.GlobalPresenceAnalyticsDTO;
+import com.weentime.weentimeapp.dto.PointageLocationDTO;
 import com.weentime.weentimeapp.dto.PresenceNotificationDTO;
 import com.weentime.weentimeapp.dto.PresenceStatsDTO;
 import com.weentime.weentimeapp.dto.TeamStatusResponse;
@@ -20,8 +22,10 @@ import com.weentime.weentimeapp.entity.Overtime;
 import com.weentime.weentimeapp.entity.WorkSchedule;
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
+import com.weentime.weentimeapp.enums.OvertimeStatus;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import com.weentime.weentimeapp.enums.PresenceStatus;
+import com.weentime.weentimeapp.exception.PresenceBusinessException;
 import com.weentime.weentimeapp.mapper.AttendanceSessionMapper;
 import com.weentime.weentimeapp.repository.AttendanceSessionRepository;
 import com.weentime.weentimeapp.repository.OvertimeRepository;
@@ -30,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,11 +69,13 @@ public class PresenceServiceImpl implements PresenceService {
     private final OvertimeRepository overtimeRepository;
     private final AttendanceSessionMapper attendanceSessionMapper;
     private final LeaveServiceClient leaveServiceClient;
+    private final HolidayServiceClient holidayServiceClient;
     private final TeletravailServiceClient teletravailServiceClient;
     private final UserServiceClient userServiceClient;
     private final NotificationService notificationService;
     private final PresenceProperties presenceProperties;
     private final HoraireManagementService horaireManagementService;
+    private final LocationResolverService locationResolverService;
 
     @Override
     @Transactional
@@ -85,6 +92,14 @@ public class PresenceServiceImpl implements PresenceService {
 
         LocalDate today = currentDate();
         log.info("Starting check-in for user {} on {}", utilisateurId, today);
+        UserSummaryDTO currentUser = requireUserWithEnterprise(utilisateurId);
+        validateGps("check-in", safeRequest.getLatitude(), safeRequest.getLongitude(), safeRequest.getAccuracy());
+        LocationResolverService.ResolvedLocation checkInLocation = resolveLocationForStorage(
+                safeRequest.getLatitude(),
+                safeRequest.getLongitude(),
+                safeRequest.getAccuracy(),
+                safeRequest.getAddress()
+        );
 
         List<AttendanceSession> openSessions = attendanceSessionRepository
                 .findByUtilisateurIdAndStatusOrderByCheckInTimeDesc(utilisateurId, AttendanceSessionStatus.OPEN);
@@ -93,42 +108,73 @@ public class PresenceServiceImpl implements PresenceService {
                 .filter(session -> Objects.equals(resolveSessionDate(session, today), today))
                 .findFirst();
         if (todayOpenSession.isPresent()) {
-            AttendanceSession existingSession = todayOpenSession.get();
-            log.info(
-                    "Idempotent check-in for user {}: returning existing today's open session {}",
-                    utilisateurId,
-                    existingSession.getId()
-            );
-            return buildTodaySummary(
-                    utilisateurId,
-                    today,
-                    attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, today)
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "ATTENDANCE_ALREADY_CHECKED_IN",
+                    "Vous avez deja pointe votre entree aujourd'hui."
             );
         }
 
         closeStaleOpenSessions(utilisateurId, today, openSessions);
 
-        if (hasApprovedLeave(utilisateurId, today)) {
-            log.warn("Check-in rejected for user {} because an approved leave exists on {}", utilisateurId, today);
-            throw new IllegalStateException("Cannot check in while an approved leave is active.");
-        }
-
         List<AttendanceSession> todaySessions = attendanceSessionRepository
                 .findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, today);
+        if (!todaySessions.isEmpty()) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "ATTENDANCE_ALREADY_CHECKED_IN",
+                    "Vous avez deja pointe votre entree aujourd'hui."
+            );
+        }
+
+        if (hasApprovedLeave(utilisateurId, today)) {
+            log.warn("Check-in rejected for user {} because an approved leave exists on {}", utilisateurId, today);
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "ATTENDANCE_ON_LEAVE_FORBIDDEN",
+                    "Vous ne pouvez pas pointer aujourd'hui car vous etes en conge approuve."
+            );
+        }
+
+        if (isPublicHoliday(currentUser.getEntrepriseId(), today)
+                && !presenceProperties.isPublicHolidayExceptionalWorkAllowed()) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "ATTENDANCE_ON_HOLIDAY_FORBIDDEN",
+                    "Vous ne pouvez pas pointer aujourd'hui car c'est un jour ferie."
+            );
+        }
+
         WorkSchedule schedule = resolveSchedule(utilisateurId, today);
         LocalDateTime now = currentDateTime();
         boolean lateArrival = todaySessions.isEmpty() && isLateArrival(schedule, now, today);
+        Integer expectedMinutes = expectedMinutes(schedule, today);
 
         AttendanceSession session = AttendanceSession.builder()
                 .utilisateurId(utilisateurId)
+                .entrepriseId(currentUser.getEntrepriseId())
+                .scheduleId(schedule != null ? schedule.getId() : null)
                 .date(today)
                 .checkInTime(now)
                 .duration(0L)
                 .status(AttendanceSessionStatus.OPEN)
                 .source(safeRequest.getSource())
+                .checkInSource(safeRequest.getSource())
                 .localisation(safeRequest.getLocalisation())
+                .checkInLatitude(safeRequest.getLatitude())
+                .checkInLongitude(safeRequest.getLongitude())
+                .checkInAccuracy(safeRequest.getAccuracy())
+                .checkInAddress(checkInLocation.address())
+                .checkInCity(checkInLocation.city())
+                .checkInRegion(checkInLocation.region())
+                .checkInCountry(checkInLocation.country())
                 .lateArrival(lateArrival)
                 .dailyStatus(lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING)
+                .workedMinutes(0)
+                .expectedMinutes(expectedMinutes)
+                .overtimeMinutes(0)
+                .earlyLeaveMinutes(0)
+                .autoClosed(Boolean.FALSE)
                 .build();
 
         AttendanceSession savedSession = attendanceSessionRepository.saveAndFlush(session);
@@ -155,25 +201,66 @@ public class PresenceServiceImpl implements PresenceService {
         }
         CheckOutRequest safeRequest = request == null ? CheckOutRequest.builder().build() : request;
         log.info("Starting check-out for user {}", utilisateurId);
+        UserSummaryDTO currentUser = requireUserWithEnterprise(utilisateurId);
+        validateGps("check-out", safeRequest.getLatitude(), safeRequest.getLongitude(), safeRequest.getAccuracy());
+        LocationResolverService.ResolvedLocation checkOutLocation = resolveLocationForStorage(
+                safeRequest.getLatitude(),
+                safeRequest.getLongitude(),
+                safeRequest.getAccuracy(),
+                safeRequest.getAddress()
+        );
+        LocalDate today = currentDate();
 
         AttendanceSession openSession = attendanceSessionRepository
-                .findFirstByUtilisateurIdAndStatusOrderByCheckInTimeDesc(utilisateurId, AttendanceSessionStatus.OPEN)
+                .findFirstByUtilisateurIdAndDateAndStatusOrderByCheckInTimeDesc(utilisateurId, today, AttendanceSessionStatus.OPEN)
                 .orElseThrow(() -> {
-                    log.warn("Check-out rejected for user {} because no open session exists", utilisateurId);
-                    return new IllegalStateException("No open attendance session found for checkout.");
+                    if (attendanceSessionRepository.existsByUtilisateurIdAndDateAndCheckOutTimeIsNotNull(utilisateurId, today)) {
+                        return new PresenceBusinessException(
+                                HttpStatus.CONFLICT,
+                                "ATTENDANCE_ALREADY_CHECKED_OUT",
+                                "Vous avez deja pointe votre sortie aujourd'hui."
+                        );
+                    }
+                    log.warn("Check-out rejected for user {} because no open session exists today", utilisateurId);
+                    return new PresenceBusinessException(
+                            HttpStatus.CONFLICT,
+                            "ATTENDANCE_SESSION_NOT_OPEN",
+                            "Vous devez pointer votre entree avant de pointer votre sortie."
+                    );
                 });
 
         LocalDateTime now = currentDateTime();
+        WorkSchedule schedule = resolveSchedule(utilisateurId, openSession.getDate());
         long duration = Duration.between(openSession.getCheckInTime(), now).getSeconds();
         if (duration < 0) {
             throw new IllegalArgumentException("Checkout time cannot be earlier than check-in time.");
         }
+        int workedMinutes = Math.toIntExact(duration / 60L);
+        int expectedMinutes = expectedMinutes(schedule, openSession.getDate());
+        int earlyLeaveMinutes = earlyLeaveMinutes(schedule, openSession.getDate(), now);
+        int overtimeMinutes = overtimeMinutes(schedule, openSession.getDate(), now);
 
         openSession.setCheckOutTime(now);
         openSession.setDuration(duration);
-        openSession.setLocalisation(safeRequest.getLocalisation());
+        if (openSession.getLocalisation() == null) {
+            openSession.setLocalisation(safeRequest.getLocalisation());
+        }
+        openSession.setCheckOutSource(safeRequest.getSource() != null ? safeRequest.getSource() : PresenceSource.WEB);
+        openSession.setCheckOutLatitude(safeRequest.getLatitude());
+        openSession.setCheckOutLongitude(safeRequest.getLongitude());
+        openSession.setCheckOutAccuracy(safeRequest.getAccuracy());
+        openSession.setCheckOutAddress(checkOutLocation.address());
+        openSession.setCheckOutCity(checkOutLocation.city());
+        openSession.setCheckOutRegion(checkOutLocation.region());
+        openSession.setCheckOutCountry(checkOutLocation.country());
+        openSession.setEntrepriseId(openSession.getEntrepriseId() != null ? openSession.getEntrepriseId() : currentUser.getEntrepriseId());
+        openSession.setScheduleId(openSession.getScheduleId() != null || schedule == null ? openSession.getScheduleId() : schedule.getId());
+        openSession.setWorkedMinutes(workedMinutes);
+        openSession.setExpectedMinutes(expectedMinutes);
+        openSession.setOvertimeMinutes(overtimeMinutes);
+        openSession.setEarlyLeaveMinutes(earlyLeaveMinutes);
         openSession.setStatus(AttendanceSessionStatus.CLOSED);
-        openSession.setDailyStatus(Boolean.TRUE.equals(openSession.getLateArrival()) ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE);
+        openSession.setDailyStatus(resolveClosedDailyStatus(openSession, earlyLeaveMinutes));
 
         attendanceSessionRepository.saveAndFlush(openSession);
         log.info(
@@ -336,7 +423,7 @@ public class PresenceServiceImpl implements PresenceService {
         long workedSeconds = 0;
 
         for (UserSummaryDTO user : activeUsers) {
-            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()));
+            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
             if (summary.getStatus() == AttendanceDayStatus.ABSENT) {
                 absentToday++;
             } else {
@@ -511,7 +598,8 @@ public class PresenceServiceImpl implements PresenceService {
                 .filter(user -> buildTodaySummary(
                         user.getId(),
                         today,
-                        sessionsByUser.getOrDefault(user.getId(), List.of())
+                        sessionsByUser.getOrDefault(user.getId(), List.of()),
+                        user
                 ).getStatus() == AttendanceDayStatus.ABSENT)
                 .toList();
 
@@ -594,10 +682,19 @@ public class PresenceServiceImpl implements PresenceService {
 
             staleSession.setCheckOutTime(closeAt);
             staleSession.setDuration(duration);
-            staleSession.setStatus(AttendanceSessionStatus.CLOSED);
-            staleSession.setDailyStatus(Boolean.TRUE.equals(staleSession.getLateArrival()) ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE);
+            staleSession.setStatus(AttendanceSessionStatus.AUTO_CLOSED);
+            staleSession.setDailyStatus(AttendanceDayStatus.MISSING_CHECKOUT);
+            staleSession.setWorkedMinutes(Math.toIntExact(duration / 60L));
+            WorkSchedule schedule = resolveSchedule(utilisateurId, sessionDate);
+            staleSession.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
+            staleSession.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, closeAt));
+            staleSession.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, closeAt));
+            staleSession.setAutoClosed(Boolean.TRUE);
+            staleSession.setAutoClosedReason("MISSING_CHECKOUT");
+            staleSession.setLatestAlert("MISSING_CHECKOUT");
             attendanceSessionRepository.save(staleSession);
             refreshOvertime(utilisateurId, sessionDate);
+            notifyMissingCheckout(utilisateurId, staleSession);
 
             log.warn(
                     "Auto-closed stale open session {} for user {} on {} at {} before creating a new check-in",
@@ -633,10 +730,18 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions) {
+        return buildTodaySummary(utilisateurId, date, rawSessions, null);
+    }
+
+    private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions, UserSummaryDTO user) {
         if (utilisateurId == null) {
             throw new IllegalStateException("Authenticated user not found");
         }
         LocalDate effectiveDate = date != null ? date : currentDate();
+        UserSummaryDTO effectiveUser = user != null ? user : fetchUserSummary(utilisateurId);
+        Long entrepriseId = resolveEnterpriseId(effectiveUser, rawSessions);
+        WorkSchedule schedule = resolveSchedule(utilisateurId, effectiveDate);
+        Integer expectedMinutes = expectedMinutes(schedule, effectiveDate);
         // Drop rows with a null check-in: the natural comparator NPEs on null,
         // and a single dirty row would 500 the whole company/team overview.
         List<AttendanceSession> sessions = (rawSessions == null ? List.<AttendanceSession>of() : rawSessions).stream()
@@ -651,43 +756,73 @@ public class PresenceServiceImpl implements PresenceService {
         boolean hasSessions = !sessions.isEmpty();
         boolean lateArrival = sessions.stream().anyMatch(session -> Boolean.TRUE.equals(session.getLateArrival()));
         long totalDuration = sumSessionDurations(sessions);
+        int workedMinutes = Math.toIntExact(totalDuration / 60L);
+        boolean leaveDay = !hasSessions && hasApprovedLeave(utilisateurId, effectiveDate);
+        boolean holiday = !hasSessions && entrepriseId != null && isPublicHoliday(entrepriseId, effectiveDate);
 
-        LocalDateTime firstCheckIn = sessions.stream()
-                .map(AttendanceSession::getCheckInTime)
-                .filter(Objects::nonNull)
-                .min(LocalDateTime::compareTo)
+        AttendanceSession firstCheckInSession = sessions.stream()
+                .filter(session -> session.getCheckInTime() != null)
+                .min(Comparator.comparing(AttendanceSession::getCheckInTime))
                 .orElse(null);
-        LocalDateTime lastCheckOut = sessions.stream()
-                .map(AttendanceSession::getCheckOutTime)
-                .filter(Objects::nonNull)
-                .max(LocalDateTime::compareTo)
+        AttendanceSession lastCheckOutSession = sessions.stream()
+                .filter(session -> session.getCheckOutTime() != null)
+                .max(Comparator.comparing(AttendanceSession::getCheckOutTime))
                 .orElse(null);
+        LocalDateTime firstCheckIn = firstCheckInSession != null ? firstCheckInSession.getCheckInTime() : null;
+        LocalDateTime lastCheckOut = lastCheckOutSession != null ? lastCheckOutSession.getCheckOutTime() : null;
 
         AttendanceDayStatus status;
         if (activeSession != null) {
             status = lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING;
         } else if (hasSessions) {
-            status = lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE;
+            AttendanceSession lastSession = sessions.get(sessions.size() - 1);
+            status = lastSession.getDailyStatus() != null
+                    ? lastSession.getDailyStatus()
+                    : (lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.IDLE);
         } else {
             // N'appeler les services externes que si aucune session locale n'est trouvée (économie de 200+ appels REST sur les dashboards)
-            if (hasApprovedLeave(utilisateurId, effectiveDate)) {
+            if (leaveDay) {
                 status = AttendanceDayStatus.ON_LEAVE;
+            } else if (holiday) {
+                status = AttendanceDayStatus.HOLIDAY;
             } else if (hasApprovedTelework(utilisateurId, effectiveDate)) {
                 status = AttendanceDayStatus.REMOTE;
             } else {
                 status = AttendanceDayStatus.ABSENT;
             }
         }
+        boolean checkedIn = firstCheckIn != null;
+        boolean checkedOut = lastCheckOut != null;
+        String blockReason = resolveBlockReason(checkedIn, activeSession != null, leaveDay, holiday, entrepriseId);
+        AttendanceSession lastSession = sessions.isEmpty() ? null : sessions.get(sessions.size() - 1);
 
         return AttendanceSummaryDTO.builder()
                 .utilisateurId(utilisateurId)
+                .entrepriseId(entrepriseId)
                 .date(effectiveDate)
                 .status(status)
                 .lateArrival(lateArrival)
                 .hasOpenSession(activeSession != null)
+                .checkedIn(checkedIn)
+                .checkedOut(checkedOut)
+                .canCheckIn(!checkedIn && blockReason == null)
+                .canCheckOut(activeSession != null)
+                .reasonIfBlocked(blockReason)
                 .totalDuration(totalDuration)
+                .currentSessionDuration(activeSession != null ? Math.toIntExact(calculateSessionDuration(activeSession) / 60L) : 0)
+                .scheduledStart(schedule != null && schedule.getHeureDebut() != null ? schedule.getHeureDebut().toString() : null)
+                .scheduledEnd(schedule != null && schedule.getHeureFin() != null ? schedule.getHeureFin().toString() : null)
+                .expectedMinutes(expectedMinutes)
+                .workedMinutes(workedMinutes)
+                .overtimePreview(Math.max(workedMinutes - expectedMinutes, 0))
+                .leaveOrHolidayInfo(resolveLeaveOrHolidayInfo(leaveDay, holiday))
+                .latestAlert(lastSession != null ? lastSession.getLatestAlert() : null)
                 .heureEntree(firstCheckIn)
                 .heureSortie(lastCheckOut)
+                .checkInLocation(firstCheckInSession != null ? checkInLocation(firstCheckInSession) : null)
+                .checkInLocationDetails(firstCheckInSession != null ? checkInLocationDetails(firstCheckInSession) : null)
+                .checkOutLocation(lastCheckOutSession != null ? checkOutLocation(lastCheckOutSession) : null)
+                .checkOutLocationDetails(lastCheckOutSession != null ? checkOutLocationDetails(lastCheckOutSession) : null)
                 .source(activeSession != null ? activeSession.getSource() : (hasSessions ? sessions.get(0).getSource() : null))
                 .activeSession(activeSession != null ? toSessionDto(activeSession) : null)
                 .sessions(sessions.stream().map(this::toSessionDto).toList())
@@ -707,7 +842,7 @@ public class PresenceServiceImpl implements PresenceService {
 
         List<TeamStatusResponse.MemberStatus> members = users.stream()
                 .map(user -> {
-                    AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()));
+                    AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
                     return toMemberStatus(user, summary);
                 })
                 .toList();
@@ -769,7 +904,14 @@ public class PresenceServiceImpl implements PresenceService {
                 .status(mapTeamStatus(summary.getStatus()))
                 .heureEntree(summary.getHeureEntree() != null ? summary.getHeureEntree().toLocalTime().toString() : null)
                 .heureSortie(summary.getHeureSortie() != null ? summary.getHeureSortie().toLocalTime().toString() : null)
+                .checkInLocation(summary.getCheckInLocation())
+                .checkInLocationDetails(summary.getCheckInLocationDetails())
+                .checkOutLocation(summary.getCheckOutLocation())
+                .checkOutLocationDetails(summary.getCheckOutLocationDetails())
                 .durationSeconds(summary.getTotalDuration())
+                .overtimeMinutes(summary.getOvertimePreview())
+                .latestAlert(summary.getLatestAlert())
+                .autoClosed(summary.getSessions() != null && summary.getSessions().stream().anyMatch(session -> Boolean.TRUE.equals(session.getAutoClosed())))
                 .lateArrival(summary.getLateArrival())
                 .equipeId(user.getEquipeId())
                 .equipe(user.getEquipe())
@@ -795,6 +937,16 @@ public class PresenceServiceImpl implements PresenceService {
                 .status(dto.getStatus())
                 .source(dto.getSource())
                 .localisation(dto.getLocalisation())
+                .checkInLatitude(dto.getCheckInLatitude())
+                .checkInLongitude(dto.getCheckInLongitude())
+                .checkInAddress(dto.getCheckInAddress())
+                .checkInLocation(dto.getCheckInLocation())
+                .checkInLocationDetails(dto.getCheckInLocationDetails())
+                .checkOutLatitude(dto.getCheckOutLatitude())
+                .checkOutLongitude(dto.getCheckOutLongitude())
+                .checkOutAddress(dto.getCheckOutAddress())
+                .checkOutLocation(dto.getCheckOutLocation())
+                .checkOutLocationDetails(dto.getCheckOutLocationDetails())
                 .lateArrival(dto.getLateArrival())
                 .dailyStatus(dto.getDailyStatus())
                 .createdAt(dto.getCreatedAt())
@@ -818,7 +970,7 @@ public class PresenceServiceImpl implements PresenceService {
         long workedSeconds = 0;
 
         for (UserSummaryDTO user : users) {
-            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), dateTo, sessionsByUser.getOrDefault(user.getId(), List.of()));
+            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), dateTo, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
             AttendanceDayStatus status = summary.getStatus();
 
             if (status == AttendanceDayStatus.ABSENT) {
@@ -865,6 +1017,197 @@ public class PresenceServiceImpl implements PresenceService {
         return (users == null ? List.<UserSummaryDTO>of() : users).stream()
                 .filter(user -> Objects.equals(user.getEntrepriseId(), entrepriseId))
                 .toList();
+    }
+
+    private UserSummaryDTO requireUserWithEnterprise(Long userId) {
+        UserSummaryDTO user = fetchUserSummary(userId);
+        if (user == null || user.getEntrepriseId() == null) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "USER_ENTERPRISE_REQUIRED",
+                    "Votre entreprise n'est pas configuree. Contactez votre administrateur."
+            );
+        }
+        return user;
+    }
+
+    private Long resolveEnterpriseId(UserSummaryDTO user, List<AttendanceSession> sessions) {
+        if (user != null && user.getEntrepriseId() != null) {
+            return user.getEntrepriseId();
+        }
+        return (sessions == null ? List.<AttendanceSession>of() : sessions).stream()
+                .map(AttendanceSession::getEntrepriseId)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void validateGps(String action, Double latitude, Double longitude, Double accuracy) {
+        boolean anyLocationProvided = latitude != null || longitude != null || accuracy != null;
+        if (presenceProperties.isGpsRequired() && !anyLocationProvided) {
+            throw new PresenceBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "GPS_REQUIRED",
+                    "La localisation GPS est requise pour le pointage."
+            );
+        }
+        if (!anyLocationProvided) {
+            return;
+        }
+        if (latitude == null || longitude == null) {
+            throw new PresenceBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "GPS_INVALID",
+                    "Coordonnees GPS incompletes pour " + action + "."
+            );
+        }
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new PresenceBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "GPS_INVALID",
+                    "Coordonnees GPS invalides."
+            );
+        }
+        if (accuracy != null && accuracy < 0) {
+            throw new PresenceBusinessException(
+                    HttpStatus.BAD_REQUEST,
+                    "GPS_INVALID",
+                    "Precision GPS invalide."
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void autoCloseOpenSessions() {
+        LocalDate today = currentDate();
+        LocalDateTime now = currentDateTime();
+        List<AttendanceSession> openSessions = attendanceSessionRepository.findByDateLessThanEqualAndStatus(today, AttendanceSessionStatus.OPEN);
+        int graceMinutes = Math.max(Optional.ofNullable(presenceProperties.getAutoCloseGraceMinutes()).orElse(60), 0);
+
+        for (AttendanceSession session : openSessions) {
+            LocalDate sessionDate = resolveSessionDate(session, today);
+            WorkSchedule schedule = resolveSchedule(session.getUtilisateurId(), sessionDate);
+            LocalDateTime scheduledEnd = computeStaleSessionCloseTime(session.getUtilisateurId(), session, sessionDate);
+            if (scheduledEnd == null || !now.isAfter(scheduledEnd.plusMinutes(graceMinutes))) {
+                continue;
+            }
+            long duration = Math.max(Duration.between(session.getCheckInTime(), scheduledEnd).getSeconds(), 0L);
+            session.setCheckOutTime(scheduledEnd);
+            session.setDuration(duration);
+            session.setStatus(AttendanceSessionStatus.AUTO_CLOSED);
+            session.setDailyStatus(AttendanceDayStatus.MISSING_CHECKOUT);
+            session.setWorkedMinutes(Math.toIntExact(duration / 60L));
+            session.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
+            session.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, scheduledEnd));
+            session.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, scheduledEnd));
+            session.setAutoClosed(Boolean.TRUE);
+            session.setAutoClosedReason("MISSING_CHECKOUT");
+            session.setLatestAlert("MISSING_CHECKOUT");
+            attendanceSessionRepository.save(session);
+            refreshOvertime(session.getUtilisateurId(), sessionDate);
+            notifyMissingCheckout(session.getUtilisateurId(), session);
+        }
+    }
+
+    @Override
+    public void detectMissingCheckIns() {
+        List<UserSummaryDTO> activeUsers = fetchActiveUsers();
+        if (activeUsers.isEmpty()) {
+            return;
+        }
+        LocalDate today = currentDate();
+        LocalDateTime now = currentDateTime();
+
+        for (UserSummaryDTO user : activeUsers) {
+            if (user.getId() == null || user.getEntrepriseId() == null) {
+                continue;
+            }
+            WorkSchedule schedule = resolveSchedule(user.getId(), today);
+            if (!isWorkingDay(schedule, today) || hasApprovedLeave(user.getId(), today)
+                    || hasApprovedTelework(user.getId(), today) || isPublicHoliday(user.getEntrepriseId(), today)) {
+                continue;
+            }
+            LocalDateTime alertAt = LocalDateTime.of(today, schedule.getHeureDebut())
+                    .plusMinutes(schedule.getToleranceRetardMinutes());
+            if (now.isBefore(alertAt) || !now.isBefore(alertAt.plusMinutes(15))) {
+                continue;
+            }
+            if (attendanceSessionRepository.existsByUtilisateurIdAndDate(user.getId(), today)) {
+                continue;
+            }
+            notifyMissingCheckIn(user, today);
+        }
+    }
+
+    private Integer expectedMinutes(WorkSchedule schedule, LocalDate date) {
+        if (schedule == null || !isWorkingDay(schedule, date)
+                || schedule.getHeureDebut() == null || schedule.getHeureFin() == null) {
+            return 0;
+        }
+        long minutes = Duration.between(schedule.getHeureDebut(), schedule.getHeureFin()).toMinutes();
+        return Math.toIntExact(Math.max(minutes, 0L));
+    }
+
+    private Integer earlyLeaveMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
+        if (schedule == null || !isWorkingDay(schedule, date)
+                || schedule.getHeureFin() == null || checkOutTime == null) {
+            return 0;
+        }
+        LocalDateTime scheduledEnd = LocalDateTime.of(date, schedule.getHeureFin());
+        return Math.toIntExact(Math.max(Duration.between(checkOutTime, scheduledEnd).toMinutes(), 0L));
+    }
+
+    private Integer overtimeMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
+        if (schedule == null || schedule.getHeureFin() == null || checkOutTime == null) {
+            return 0;
+        }
+        LocalDateTime scheduledEnd = LocalDateTime.of(date, schedule.getHeureFin());
+        long rawMinutes = Duration.between(scheduledEnd, checkOutTime).toMinutes();
+        int threshold = Math.max(Optional.ofNullable(presenceProperties.getOvertimeThresholdMinutes()).orElse(0), 0);
+        return rawMinutes > threshold ? Math.toIntExact(rawMinutes) : 0;
+    }
+
+    private AttendanceDayStatus resolveClosedDailyStatus(AttendanceSession session, int earlyLeaveMinutes) {
+        if (Boolean.TRUE.equals(session.getAutoClosed())) {
+            return AttendanceDayStatus.AUTO_CLOSED;
+        }
+        if (earlyLeaveMinutes > 0) {
+            return AttendanceDayStatus.EARLY_LEAVE;
+        }
+        if (Boolean.TRUE.equals(session.getLateArrival())) {
+            return AttendanceDayStatus.LATE;
+        }
+        return AttendanceDayStatus.IDLE;
+    }
+
+    private String resolveBlockReason(boolean checkedIn, boolean activeSession, boolean leaveDay, boolean holiday, Long entrepriseId) {
+        if (checkedIn && activeSession) {
+            return "Vous avez deja pointe votre entree aujourd'hui.";
+        }
+        if (checkedIn) {
+            return "Votre journee est deja cloturee.";
+        }
+        if (leaveDay) {
+            return "Vous ne pouvez pas pointer aujourd'hui car vous etes en conge approuve.";
+        }
+        if (holiday) {
+            return "Vous ne pouvez pas pointer aujourd'hui car c'est un jour ferie.";
+        }
+        if (entrepriseId == null) {
+            return "Votre entreprise n'est pas configuree.";
+        }
+        return null;
+    }
+
+    private String resolveLeaveOrHolidayInfo(boolean leaveDay, boolean holiday) {
+        if (leaveDay) {
+            return "Conge approuve";
+        }
+        if (holiday) {
+            return "Jour ferie";
+        }
+        return null;
     }
 
     private UserSummaryDTO fetchUserSummary(Long userId) {
@@ -955,7 +1298,122 @@ public class PresenceServiceImpl implements PresenceService {
     private AttendanceSessionDTO toSessionDto(AttendanceSession session) {
         AttendanceSessionDTO dto = attendanceSessionMapper.toDto(session);
         dto.setDuration(calculateSessionDuration(session));
+        dto.setCheckInLocation(checkInLocation(session));
+        dto.setCheckOutLocation(checkOutLocation(session));
+        dto.setCheckInLocationDetails(checkInLocationDetails(session));
+        dto.setCheckOutLocationDetails(checkOutLocationDetails(session));
         return dto;
+    }
+
+    private String checkInLocation(AttendanceSession session) {
+        if (session == null) {
+            return null;
+        }
+        return locationResolverService.displayLocation(
+                session.getCheckInAddress(),
+                session.getCheckInCity(),
+                session.getCheckInRegion(),
+                session.getCheckInCountry(),
+                session.getCheckInLatitude(),
+                session.getCheckInLongitude()
+        );
+    }
+
+    private String checkOutLocation(AttendanceSession session) {
+        if (session == null) {
+            return null;
+        }
+        return locationResolverService.displayLocation(
+                session.getCheckOutAddress(),
+                session.getCheckOutCity(),
+                session.getCheckOutRegion(),
+                session.getCheckOutCountry(),
+                session.getCheckOutLatitude(),
+                session.getCheckOutLongitude()
+        );
+    }
+
+    private PointageLocationDTO checkInLocationDetails(AttendanceSession session) {
+        if (session == null) {
+            return null;
+        }
+        return toLocationDetails(
+                session.getCheckInLatitude(),
+                session.getCheckInLongitude(),
+                session.getCheckInAccuracy(),
+                session.getCheckInAddress(),
+                session.getCheckInCity(),
+                session.getCheckInRegion(),
+                session.getCheckInCountry()
+        );
+    }
+
+    private PointageLocationDTO checkOutLocationDetails(AttendanceSession session) {
+        if (session == null) {
+            return null;
+        }
+        return toLocationDetails(
+                session.getCheckOutLatitude(),
+                session.getCheckOutLongitude(),
+                session.getCheckOutAccuracy(),
+                session.getCheckOutAddress(),
+                session.getCheckOutCity(),
+                session.getCheckOutRegion(),
+                session.getCheckOutCountry()
+        );
+    }
+
+    private PointageLocationDTO toLocationDetails(
+            Double latitude,
+            Double longitude,
+            Double accuracy,
+            String address,
+            String city,
+            String region,
+            String country
+    ) {
+        boolean hasCoordinates = latitude != null && longitude != null;
+        boolean hasReadableDetails = Stream.of(address, city, region, country)
+                .filter(Objects::nonNull)
+                .anyMatch(value -> !value.isBlank());
+        if (!hasCoordinates && !hasReadableDetails) {
+            return null;
+        }
+        return PointageLocationDTO.builder()
+                .latitude(latitude)
+                .longitude(longitude)
+                .accuracy(accuracy)
+                .address(address)
+                .city(city)
+                .region(region)
+                .country(country)
+                .build();
+    }
+
+    private LocationResolverService.ResolvedLocation resolveLocationForStorage(
+            Double latitude,
+            Double longitude,
+            Double accuracy,
+            String providedAddress
+    ) {
+        LocationResolverService.ResolvedLocation resolved = locationResolverService.resolveLocationForStorage(
+                latitude,
+                longitude,
+                accuracy,
+                providedAddress
+        );
+        if (resolved != null) {
+            return resolved;
+        }
+        return new LocationResolverService.ResolvedLocation(
+                latitude,
+                longitude,
+                accuracy,
+                locationResolverService.formatCoordinates(latitude, longitude),
+                null,
+                null,
+                null
+        );
     }
 
     private WorkSchedule resolveSchedule(Long utilisateurId, LocalDate date) {
@@ -1015,7 +1473,13 @@ public class PresenceServiceImpl implements PresenceService {
         long expectedSeconds = isWorkingDay(schedule, date)
                 ? Duration.between(schedule.getHeureDebut(), schedule.getHeureFin()).getSeconds()
                 : 0L;
-        long overtimeSeconds = Math.max(actualSeconds - expectedSeconds, 0L);
+        AttendanceSession lastClosedSession = sessions.stream()
+                .filter(session -> session.getCheckOutTime() != null)
+                .max(Comparator.comparing(AttendanceSession::getCheckOutTime))
+                .orElse(null);
+        long overtimeSeconds = lastClosedSession != null && lastClosedSession.getOvertimeMinutes() != null
+                ? Math.max(lastClosedSession.getOvertimeMinutes() * 60L, 0L)
+                : Math.max(actualSeconds - expectedSeconds, 0L);
 
         if (overtimeSeconds <= 0) {
             overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
@@ -1030,9 +1494,20 @@ public class PresenceServiceImpl implements PresenceService {
                         .utilisateurId(utilisateurId)
                         .date(date)
                         .approuvee(Boolean.FALSE)
+                        .status(OvertimeStatus.PENDING_APPROVAL)
                         .build());
 
         overtime.setHeuresSupplementaires(overtimeHours);
+        overtime.setEntrepriseId(lastClosedSession != null ? lastClosedSession.getEntrepriseId() : overtime.getEntrepriseId());
+        overtime.setAttendanceId(lastClosedSession != null ? lastClosedSession.getId() : overtime.getAttendanceId());
+        overtime.setScheduledEnd(schedule != null && schedule.getHeureFin() != null ? LocalDateTime.of(date, schedule.getHeureFin()) : null);
+        overtime.setActualCheckOut(lastClosedSession != null ? lastClosedSession.getCheckOutTime() : null);
+        overtime.setOvertimeMinutes(Math.toIntExact(overtimeSeconds / 60L));
+        overtime.setReason("Travail au-dela de l'horaire planifie");
+        if (overtime.getStatus() == null || overtime.getStatus() == OvertimeStatus.NO_OVERTIME) {
+            overtime.setStatus(OvertimeStatus.PENDING_APPROVAL);
+        }
+        overtime.setApprouvee(overtime.getStatus() == OvertimeStatus.APPROVED);
         overtimeRepository.save(overtime);
     }
 
@@ -1097,6 +1572,108 @@ public class PresenceServiceImpl implements PresenceService {
         }
     }
 
+    private void notifyMissingCheckout(Long utilisateurId, AttendanceSession session) {
+        try {
+            UserSummaryDTO user = userServiceClient.getUserById(utilisateurId);
+            if (user == null) {
+                return;
+            }
+            String fullName = resolveFullName(user);
+            PresenceNotificationDTO base = PresenceNotificationDTO.builder()
+                    .title("Sortie de pointage manquante")
+                    .actor("Attendance automation")
+                    .category("presence")
+                    .priority("high")
+                    .channel("push")
+                    .userId(user.getId())
+                    .entrepriseId(user.getEntrepriseId())
+                    .fullName(fullName)
+                    .departement(user.getDepartement())
+                    .equipe(user.getEquipe())
+                    .date(session.getDate())
+                    .eventTime(session.getCheckOutTime())
+                    .status(PresenceStatus.PRESENT)
+                    .message("Votre session de pointage a ete cloturee automatiquement car la sortie etait manquante.")
+                    .build();
+            base.setAudience("EMPLOYEE");
+            notificationService.notifyUser(user.getId(), base);
+
+            if (user.getManagerId() != null) {
+                PresenceNotificationDTO managerNotification = PresenceNotificationDTO.builder()
+                        .title("Sortie manquante")
+                        .actor("Attendance automation")
+                        .audience("MANAGER")
+                        .category("presence")
+                        .priority("high")
+                        .channel("push")
+                        .managerId(user.getManagerId())
+                        .userId(user.getId())
+                        .entrepriseId(user.getEntrepriseId())
+                        .fullName(fullName)
+                        .departement(user.getDepartement())
+                        .equipe(user.getEquipe())
+                        .date(session.getDate())
+                        .eventTime(session.getCheckOutTime())
+                        .status(PresenceStatus.PRESENT)
+                        .message("Sortie manquante auto-cloturee pour " + fullName + ".")
+                        .build();
+                notificationService.notifyManager(user.getManagerId(), managerNotification);
+            }
+        } catch (Exception exception) {
+            log.warn("Could not dispatch missing-checkout notification: {}", exception.getMessage());
+        }
+    }
+
+    private void notifyMissingCheckIn(UserSummaryDTO user, LocalDate date) {
+        try {
+            String fullName = resolveFullName(user);
+            PresenceNotificationDTO employeeNotification = PresenceNotificationDTO.builder()
+                    .title("Pointage d'entree manquant")
+                    .actor("Attendance automation")
+                    .audience("EMPLOYEE")
+                    .category("presence")
+                    .priority("high")
+                    .channel("push")
+                    .userId(user.getId())
+                    .entrepriseId(user.getEntrepriseId())
+                    .fullName(fullName)
+                    .departement(user.getDepartement())
+                    .equipe(user.getEquipe())
+                    .date(date)
+                    .eventTime(currentDateTime())
+                    .status(PresenceStatus.ABSENT)
+                    .message("Aucun pointage d'entree n'a ete detecte apres votre heure planifiee.")
+                    .build();
+            notificationService.notifyUser(user.getId(), employeeNotification);
+
+            if (user.getManagerId() != null) {
+                notificationService.notifyManager(
+                        user.getManagerId(),
+                        PresenceNotificationDTO.builder()
+                                .title("Pointage d'entree manquant")
+                                .actor("Attendance automation")
+                                .audience("MANAGER")
+                                .category("presence")
+                                .priority("high")
+                                .channel("push")
+                                .managerId(user.getManagerId())
+                                .userId(user.getId())
+                                .entrepriseId(user.getEntrepriseId())
+                                .fullName(fullName)
+                                .departement(user.getDepartement())
+                                .equipe(user.getEquipe())
+                                .date(date)
+                                .eventTime(currentDateTime())
+                                .status(PresenceStatus.ABSENT)
+                                .message("Aucun pointage d'entree detecte pour " + fullName + ".")
+                                .build()
+                );
+            }
+        } catch (Exception exception) {
+            log.warn("Could not dispatch missing-checkin notification: {}", exception.getMessage());
+        }
+    }
+
     private List<String> buildImpactedUsers(List<UserSummaryDTO> users) {
         return (users == null ? List.<UserSummaryDTO>of() : users).stream()
                 .map(this::resolveFullName)
@@ -1124,12 +1701,24 @@ public class PresenceServiceImpl implements PresenceService {
         }
     }
 
+    private boolean isPublicHoliday(Long entrepriseId, LocalDate date) {
+        if (entrepriseId == null || date == null) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(holidayServiceClient.isPublicHoliday(entrepriseId, date));
+        } catch (Exception exception) {
+            log.warn("Holiday service unavailable for enterprise {} on {}: {}", entrepriseId, date, exception.getMessage());
+            return false;
+        }
+    }
+
     private PresenceStatus mapTeamStatus(AttendanceDayStatus status) {
         return switch (status) {
-            case WORKING, IDLE -> PresenceStatus.PRESENT;
+            case WORKING, IDLE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE -> PresenceStatus.PRESENT;
             case LATE -> PresenceStatus.LATE;
             case REMOTE -> PresenceStatus.REMOTE;
-            case ON_LEAVE -> PresenceStatus.ON_LEAVE;
+            case ON_LEAVE, HOLIDAY -> PresenceStatus.ON_LEAVE;
             case ABSENT -> PresenceStatus.ABSENT;
         };
     }
@@ -1181,7 +1770,7 @@ public class PresenceServiceImpl implements PresenceService {
             
             List<TeamStatusResponse.MemberStatus> members = users.stream()
                     .map(user -> {
-                        AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()));
+                        AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()), user);
                         return toMemberStatus(user, summary);
                     })
                     .toList();

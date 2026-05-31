@@ -4,5 +4,7 @@ public enum PresenceSource {
     WEB,
     MOBILE,
     GPS,
-    MANUAL
+    MANUAL,
+    AI,
+    AI_CHATBOT
 }

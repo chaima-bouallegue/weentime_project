@@ -6,5 +6,11 @@ public enum AttendanceDayStatus {
     LATE,
     ABSENT,
     REMOTE,
-    ON_LEAVE
+    ON_LEAVE,
+    HOLIDAY,
+    PARTIAL,
+    EARLY_LEAVE,
+    AUTO_CLOSED,
+    MISSING_CHECKOUT,
+    OUT_OF_ZONE
 }
