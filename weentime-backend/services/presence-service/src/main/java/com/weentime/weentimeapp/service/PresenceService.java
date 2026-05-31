@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 public interface PresenceService {
     AttendanceSummaryDTO checkIn(Long utilisateurId, CheckInRequest request);
     AttendanceSummaryDTO checkOut(Long utilisateurId, CheckOutRequest request);
+    AttendanceSummaryDTO continueOvertime(Long utilisateurId);
     AttendanceSummaryDTO getTodayAttendance(Long utilisateurId);
     Page<AttendanceSessionDTO> getAttendanceHistory(Long utilisateurId, Pageable pageable);
     TeamStatusResponse getTeamTodayStatus(Long managerId, Long teamId);

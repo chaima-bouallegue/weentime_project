@@ -45,11 +45,26 @@ public class Overtime {
     @Column(nullable = false)
     private Boolean approuvee;
 
+    @Column(name = "scheduled_start")
+    private LocalDateTime scheduledStart;
+
     @Column(name = "scheduled_end")
     private LocalDateTime scheduledEnd;
 
+    @Column(name = "check_in_time")
+    private LocalDateTime checkInTime;
+
+    @Column(name = "check_out_time")
+    private LocalDateTime checkOutTime;
+
     @Column(name = "actual_check_out")
     private LocalDateTime actualCheckOut;
+
+    @Column(name = "worked_minutes")
+    private Integer workedMinutes;
+
+    @Column(name = "expected_minutes")
+    private Integer expectedMinutes;
 
     @Column(name = "overtime_minutes")
     private Integer overtimeMinutes;
@@ -66,6 +81,12 @@ public class Overtime {
 
     @Column(name = "rh_decision_by")
     private Long rhDecisionBy;
+
+    @Column(name = "reviewed_by")
+    private Long reviewedBy;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -85,8 +106,8 @@ public class Overtime {
         }
         if (this.status == null) {
             this.status = Boolean.TRUE.equals(this.approuvee)
-                    ? OvertimeStatus.APPROVED
-                    : OvertimeStatus.PENDING_APPROVAL;
+                    ? OvertimeStatus.APPROUVEE_MANAGER
+                    : OvertimeStatus.EN_ATTENTE_MANAGER;
         }
     }
 

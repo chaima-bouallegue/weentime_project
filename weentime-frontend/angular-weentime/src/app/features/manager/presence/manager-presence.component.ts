@@ -7,6 +7,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { TeamMemberStatus, PresenceKPIs, PresenceStatus } from './presence.models';
 import { animate, style, transition, trigger, query, stagger } from '@angular/animations';
+import { OvertimeRequestDto, OvertimeService } from '../../presence/services/overtime.service';
 
 @Component({
   selector: 'app-manager-presence',
@@ -35,6 +36,7 @@ export class ManagerPresenceComponent implements OnInit {
   private presenceService = inject(ManagerPresenceService);
   private exportService = inject(ExportService);
   private toastService = inject(ToastService);
+  private overtimeService = inject(OvertimeService);
   public authService = inject(AuthService);
 
   // Icons
@@ -56,6 +58,9 @@ export class ManagerPresenceComponent implements OnInit {
   teamStatus = signal<TeamMemberStatus[]>([]);
   kpis = signal<PresenceKPIs | null>(null);
   isLoading = signal(true);
+  overtimeLoading = signal(false);
+  pendingOvertime = signal<OvertimeRequestDto[]>([]);
+  reviewingOvertimeId = signal<number | null>(null);
   searchQuery = signal('');
   viewMode = signal<'table' | 'kanban'>('table');
   readonly statuses: PresenceStatus[] = ['ACTIVE', 'LATE', 'ABSENT', 'OFF'];
@@ -74,6 +79,7 @@ export class ManagerPresenceComponent implements OnInit {
   ngOnInit(): void {
     // We avoid calling loadData if it was somehow already triggered
     this.loadData();
+    this.loadPendingOvertime();
   }
 
   loadData(): void {
@@ -106,6 +112,69 @@ export class ManagerPresenceComponent implements OnInit {
 
   today(): void {
     this.loadData();
+    this.loadPendingOvertime();
+  }
+
+  loadPendingOvertime(): void {
+    this.overtimeLoading.set(true);
+    this.overtimeService.getManagerPending(0, 10).subscribe({
+      next: page => {
+        this.pendingOvertime.set(page.content ?? []);
+        this.overtimeLoading.set(false);
+      },
+      error: () => {
+        this.pendingOvertime.set([]);
+        this.overtimeLoading.set(false);
+      }
+    });
+  }
+
+  approveOvertime(request: OvertimeRequestDto): void {
+    this.reviewOvertime(request, 'approve');
+  }
+
+  rejectOvertime(request: OvertimeRequestDto): void {
+    this.reviewOvertime(request, 'reject');
+  }
+
+  requestOvertimeJustification(request: OvertimeRequestDto): void {
+    this.reviewingOvertimeId.set(request.id);
+    this.overtimeService.requestJustification(request.id, 'Merci de justifier ces heures supplementaires.').subscribe({
+      next: () => {
+        this.toastService.info('Justification demandee.');
+        this.reviewingOvertimeId.set(null);
+        this.loadPendingOvertime();
+      },
+      error: () => {
+        this.toastService.error('Impossible de demander une justification.');
+        this.reviewingOvertimeId.set(null);
+      }
+    });
+  }
+
+  formatOvertimeDuration(minutes?: number | null): string {
+    const total = Math.max(Number(minutes ?? 0), 0);
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    return hours > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${mins} min`;
+  }
+
+  private reviewOvertime(request: OvertimeRequestDto, action: 'approve' | 'reject'): void {
+    this.reviewingOvertimeId.set(request.id);
+    const call$ = action === 'approve'
+      ? this.overtimeService.approve(request.id)
+      : this.overtimeService.reject(request.id, 'Refuse par le manager');
+    call$.subscribe({
+      next: () => {
+        this.toastService.success(action === 'approve' ? 'Heures supplementaires approuvees.' : 'Heures supplementaires refusees.');
+        this.reviewingOvertimeId.set(null);
+        this.loadPendingOvertime();
+      },
+      error: () => {
+        this.toastService.error("Impossible de mettre a jour la demande d'heures supplementaires.");
+        this.reviewingOvertimeId.set(null);
+      }
+    });
   }
 
   onSearch(event: Event): void {

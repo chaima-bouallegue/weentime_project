@@ -67,7 +67,7 @@ export class ManagerPresenceService {
       checkInLocation: this.extractText(member.checkInLocation),
       checkOutLocation: this.extractText(member.checkOutLocation),
       totalMinutes: durationMinutes,
-      overtimeMinutes: Number(member.overtimeMinutes ?? Math.max(durationMinutes - 8 * 60, 0)),
+      overtimeMinutes: Math.max(Number(member.overtimeMinutes ?? 0), 0),
       lastActivity: this.resolveLastActivity(member.heureSortie ?? member.heureEntree)
     };
   }

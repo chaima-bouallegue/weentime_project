@@ -55,29 +55,71 @@
     <span>{{ serviceError() }}</span>
   </div>
 
+  <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="overtime-modal-title">
+    <section class="overtime-modal">
+      <div class="overtime-modal-icon">
+        <lucide-angular [img]="iconClock" size="22"></lucide-angular>
+      </div>
+      <div class="overtime-modal-copy">
+        <h2 id="overtime-modal-title">Horaire terminé</h2>
+        <p>Votre horaire prévu est terminé. Souhaitez-vous clôturer votre journée ou continuer à travailler ?</p>
+      </div>
+      <div class="overtime-modal-actions">
+        <button type="button" class="secondary-action" (click)="onCheckoutFromOvertimeModal()" [disabled]="isLoading()">
+          Pointer ma sortie
+        </button>
+        <button type="button" class="primary-action" (click)="onContinueOvertime()" [disabled]="isLoading()">
+          Continuer à travailler
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <section *ngIf="latestOvertimeRequest() as overtime" class="surface-card overtime-card">
+    <div class="card-head">
+      <div>
+        <h2>Heures supplementaires</h2>
+        <p>Suivi automatique apres pointage sortie</p>
+      </div>
+      <span class="overtime-status">{{ latestOvertimeStatusLabel() }}</span>
+    </div>
+
+    <div class="overtime-grid">
+      <div>
+        <span>Date</span>
+        <strong>{{ overtime.date }}</strong>
+      </div>
+      <div>
+        <span>Temps declare</span>
+        <strong>{{ overtime.overtimeMinutes || 0 }} min</strong>
+      </div>
+      <div>
+        <span>Sortie</span>
+        <strong>{{ formatTime(overtime.checkOutTime || overtime.actualCheckOut || null) }}</strong>
+      </div>
+    </div>
+
+    <p *ngIf="overtime.reason" class="overtime-reason">
+      {{ overtime.reason }}
+    </p>
+
+    <div class="overtime-reason-form">
+      <textarea
+        [value]="overtimeReasonDraft()"
+        (input)="onOvertimeReasonInput($event)"
+        rows="2"
+        placeholder="Ajouter une justification pour le manager"></textarea>
+      <button type="button"
+              (click)="submitOvertimeReason(overtime)"
+              [disabled]="isSavingOvertimeReason()">
+        Envoyer
+      </button>
+    </div>
+  </section>
+
   <ng-container *ngIf="isEmployeeOrManager(); else adminRhSections">
     <section class="content-grid">
-      <article class="surface-card map-card">
-        <div class="card-head">
-          <h2>Carte de pointage</h2>
-          <span class="map-provider">OpenStreetMap</span>
-        </div>
-
-        <ng-container *ngIf="hasGpsLocation(); else noGpsLocation">
-          <div #pointageMap class="pointage-map" aria-label="Carte des positions de pointage"></div>
-          <div class="map-legend">
-            <span><i class="legend-dot legend-dot-in"></i> Entrée</span>
-            <span><i class="legend-dot legend-dot-out"></i> Sortie</span>
-          </div>
-        </ng-container>
-
-        <ng-template #noGpsLocation>
-          <div class="map-empty">
-            <lucide-angular [img]="iconAlert" size="22"></lucide-angular>
-            <p>Aucune position GPS disponible.</p>
-          </div>
-        </ng-template>
-      </article>
+      <app-attendance-map-card [points]="mapPoints()"></app-attendance-map-card>
 
       <article class="surface-card">
         <div class="card-head">
@@ -230,6 +272,8 @@
         </div>
       </article>
     </section>
+
+    <app-attendance-map-card class="rh-pointage-map" [points]="mapPoints()"></app-attendance-map-card>
   </ng-template>
 </div>
 

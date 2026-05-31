@@ -22,6 +22,7 @@ import com.weentime.weentimeapp.entity.Overtime;
 import com.weentime.weentimeapp.entity.WorkSchedule;
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
+import com.weentime.weentimeapp.enums.OvertimeMode;
 import com.weentime.weentimeapp.enums.OvertimeStatus;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import com.weentime.weentimeapp.enums.PresenceStatus;
@@ -40,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -76,6 +78,7 @@ public class PresenceServiceImpl implements PresenceService {
     private final PresenceProperties presenceProperties;
     private final HoraireManagementService horaireManagementService;
     private final LocationResolverService locationResolverService;
+    private Clock clock = Clock.systemUTC();
 
     @Override
     @Transactional
@@ -173,6 +176,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .workedMinutes(0)
                 .expectedMinutes(expectedMinutes)
                 .overtimeMinutes(0)
+                .overtimeMode(OvertimeMode.NONE)
                 .earlyLeaveMinutes(0)
                 .autoClosed(Boolean.FALSE)
                 .build();
@@ -238,7 +242,10 @@ public class PresenceServiceImpl implements PresenceService {
         int workedMinutes = Math.toIntExact(duration / 60L);
         int expectedMinutes = expectedMinutes(schedule, openSession.getDate());
         int earlyLeaveMinutes = earlyLeaveMinutes(schedule, openSession.getDate(), now);
-        int overtimeMinutes = overtimeMinutes(schedule, openSession.getDate(), now);
+        OvertimeMode previousOvertimeMode = normalizeOvertimeMode(openSession.getOvertimeMode());
+        int overtimeMinutes = previousOvertimeMode == OvertimeMode.ACTIVE
+                ? rawOvertimeMinutes(schedule, openSession.getDate(), now)
+                : 0;
 
         openSession.setCheckOutTime(now);
         openSession.setDuration(duration);
@@ -258,6 +265,10 @@ public class PresenceServiceImpl implements PresenceService {
         openSession.setWorkedMinutes(workedMinutes);
         openSession.setExpectedMinutes(expectedMinutes);
         openSession.setOvertimeMinutes(overtimeMinutes);
+        openSession.setOvertimeMode(OvertimeMode.FINISHED);
+        if (previousOvertimeMode == OvertimeMode.ACTIVE && openSession.getOvertimeStartedAt() == null) {
+            openSession.setOvertimeStartedAt(scheduledEndDateTime(schedule, openSession.getDate()));
+        }
         openSession.setEarlyLeaveMinutes(earlyLeaveMinutes);
         openSession.setStatus(AttendanceSessionStatus.CLOSED);
         openSession.setDailyStatus(resolveClosedDailyStatus(openSession, earlyLeaveMinutes));
@@ -271,6 +282,67 @@ public class PresenceServiceImpl implements PresenceService {
                 duration
         );
         refreshOvertime(utilisateurId, openSession.getDate());
+
+        return buildTodaySummary(
+                utilisateurId,
+                openSession.getDate(),
+                attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, openSession.getDate())
+        );
+    }
+
+    @Override
+    @Transactional
+    public AttendanceSummaryDTO continueOvertime(Long utilisateurId) {
+        if (utilisateurId == null) {
+            throw new IllegalStateException("Authenticated user not found");
+        }
+
+        LocalDate today = currentDate();
+        AttendanceSession openSession = attendanceSessionRepository
+                .findFirstByUtilisateurIdAndDateAndStatusOrderByCheckInTimeDesc(utilisateurId, today, AttendanceSessionStatus.OPEN)
+                .orElseThrow(() -> new PresenceBusinessException(
+                        HttpStatus.CONFLICT,
+                        "ATTENDANCE_SESSION_NOT_OPEN",
+                        "Vous devez pointer votre entree avant de continuer en heures supplementaires."
+                ));
+
+        if (openSession.getCheckOutTime() != null) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "ATTENDANCE_ALREADY_CHECKED_OUT",
+                    "Votre journee est deja cloturee."
+            );
+        }
+
+        WorkSchedule schedule = resolveSchedule(utilisateurId, openSession.getDate());
+        LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, openSession.getDate());
+        if (scheduledEnd == null) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "OVERTIME_SCHEDULE_END_REQUIRED",
+                    "Aucun horaire de fin n'est configure pour activer les heures supplementaires."
+            );
+        }
+
+        LocalDateTime now = currentDateTime();
+        if (now.isBefore(scheduledEnd)) {
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "OVERTIME_NOT_STARTED",
+                    "Les heures supplementaires ne peuvent commencer qu'apres la fin de l'horaire prevu."
+            );
+        }
+
+        OvertimeMode currentMode = normalizeOvertimeMode(openSession.getOvertimeMode());
+        if (currentMode != OvertimeMode.ACTIVE) {
+            openSession.setOvertimeMode(OvertimeMode.ACTIVE);
+            openSession.setOvertimeStartedAt(scheduledEnd);
+            openSession.setOvertimeConfirmedAt(now);
+            if (openSession.getOvertimeConfirmationShownAt() == null) {
+                openSession.setOvertimeConfirmationShownAt(now);
+            }
+            attendanceSessionRepository.saveAndFlush(openSession);
+        }
 
         return buildTodaySummary(
                 utilisateurId,
@@ -688,6 +760,7 @@ public class PresenceServiceImpl implements PresenceService {
             WorkSchedule schedule = resolveSchedule(utilisateurId, sessionDate);
             staleSession.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
             staleSession.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, closeAt));
+            staleSession.setOvertimeMode(OvertimeMode.FINISHED);
             staleSession.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, closeAt));
             staleSession.setAutoClosed(Boolean.TRUE);
             staleSession.setAutoClosedReason("MISSING_CHECKOUT");
@@ -795,6 +868,7 @@ public class PresenceServiceImpl implements PresenceService {
         boolean checkedOut = lastCheckOut != null;
         String blockReason = resolveBlockReason(checkedIn, activeSession != null, leaveDay, holiday, entrepriseId);
         AttendanceSession lastSession = sessions.isEmpty() ? null : sessions.get(sessions.size() - 1);
+        OvertimeSummaryState overtimeState = resolveOvertimeSummaryState(activeSession, lastCheckOutSession, schedule, effectiveDate);
 
         return AttendanceSummaryDTO.builder()
                 .utilisateurId(utilisateurId)
@@ -814,7 +888,12 @@ public class PresenceServiceImpl implements PresenceService {
                 .scheduledEnd(schedule != null && schedule.getHeureFin() != null ? schedule.getHeureFin().toString() : null)
                 .expectedMinutes(expectedMinutes)
                 .workedMinutes(workedMinutes)
-                .overtimePreview(Math.max(workedMinutes - expectedMinutes, 0))
+                .overtimePreview(overtimeState.overtimeMinutes())
+                .overtimeMinutes(overtimeState.overtimeMinutes())
+                .overtimeMode(overtimeState.mode())
+                .showCheckoutAlert(overtimeState.showCheckoutAlert())
+                .overtimeStartedAt(overtimeState.overtimeStartedAt())
+                .overtimeLabel(overtimeState.label())
                 .leaveOrHolidayInfo(resolveLeaveOrHolidayInfo(leaveDay, holiday))
                 .latestAlert(lastSession != null ? lastSession.getLatestAlert() : null)
                 .heureEntree(firstCheckIn)
@@ -827,6 +906,76 @@ public class PresenceServiceImpl implements PresenceService {
                 .activeSession(activeSession != null ? toSessionDto(activeSession) : null)
                 .sessions(sessions.stream().map(this::toSessionDto).toList())
                 .build();
+    }
+
+    private OvertimeSummaryState resolveOvertimeSummaryState(
+            AttendanceSession activeSession,
+            AttendanceSession lastClosedSession,
+            WorkSchedule schedule,
+            LocalDate date
+    ) {
+        if (activeSession != null) {
+            LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, date);
+            LocalDateTime now = currentDateTime();
+            if (scheduledEnd == null || now.isBefore(scheduledEnd)) {
+                return new OvertimeSummaryState(OvertimeMode.NONE, false, 0, null, "0 min");
+            }
+
+            OvertimeMode mode = normalizeOvertimeMode(activeSession.getOvertimeMode());
+            if (mode == OvertimeMode.ACTIVE) {
+                LocalDateTime startedAt = activeSession.getOvertimeStartedAt() != null
+                        ? activeSession.getOvertimeStartedAt()
+                        : scheduledEnd;
+                if (activeSession.getOvertimeStartedAt() == null) {
+                    activeSession.setOvertimeStartedAt(scheduledEnd);
+                    attendanceSessionRepository.save(activeSession);
+                }
+                int minutes = Math.toIntExact(Math.max(Duration.between(scheduledEnd, now).toMinutes(), 0L));
+                return new OvertimeSummaryState(OvertimeMode.ACTIVE, false, minutes, startedAt, minutes + " min");
+            }
+
+            boolean changed = false;
+            if (mode != OvertimeMode.WAITING_CONFIRMATION) {
+                activeSession.setOvertimeMode(OvertimeMode.WAITING_CONFIRMATION);
+                changed = true;
+            }
+            if (activeSession.getOvertimeConfirmationShownAt() == null) {
+                activeSession.setOvertimeConfirmationShownAt(now);
+                changed = true;
+            }
+            if (changed) {
+                attendanceSessionRepository.save(activeSession);
+            }
+            return new OvertimeSummaryState(
+                    OvertimeMode.WAITING_CONFIRMATION,
+                    true,
+                    0,
+                    null,
+                    "En attente de confirmation"
+            );
+        }
+
+        if (lastClosedSession != null) {
+            int minutes = Math.max(Optional.ofNullable(lastClosedSession.getOvertimeMinutes()).orElse(0), 0);
+            return new OvertimeSummaryState(
+                    OvertimeMode.FINISHED,
+                    false,
+                    minutes,
+                    lastClosedSession.getOvertimeStartedAt(),
+                    minutes + " min"
+            );
+        }
+
+        return new OvertimeSummaryState(OvertimeMode.NONE, false, 0, null, "0 min");
+    }
+
+    private record OvertimeSummaryState(
+            OvertimeMode mode,
+            boolean showCheckoutAlert,
+            int overtimeMinutes,
+            LocalDateTime overtimeStartedAt,
+            String label
+    ) {
     }
 
     private TeamStatusResponse buildOverview(String scope, Long teamId, List<UserSummaryDTO> users) {
@@ -909,7 +1058,9 @@ public class PresenceServiceImpl implements PresenceService {
                 .checkOutLocation(summary.getCheckOutLocation())
                 .checkOutLocationDetails(summary.getCheckOutLocationDetails())
                 .durationSeconds(summary.getTotalDuration())
-                .overtimeMinutes(summary.getOvertimePreview())
+                .overtimeMinutes(summary.getOvertimeMode() == OvertimeMode.FINISHED
+                        ? Math.max(Optional.ofNullable(summary.getOvertimeMinutes()).orElse(0), 0)
+                        : 0)
                 .latestAlert(summary.getLatestAlert())
                 .autoClosed(summary.getSessions() != null && summary.getSessions().stream().anyMatch(session -> Boolean.TRUE.equals(session.getAutoClosed())))
                 .lateArrival(summary.getLateArrival())
@@ -1100,6 +1251,7 @@ public class PresenceServiceImpl implements PresenceService {
             session.setWorkedMinutes(Math.toIntExact(duration / 60L));
             session.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
             session.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, scheduledEnd));
+            session.setOvertimeMode(OvertimeMode.FINISHED);
             session.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, scheduledEnd));
             session.setAutoClosed(Boolean.TRUE);
             session.setAutoClosedReason("MISSING_CHECKOUT");
@@ -1159,13 +1311,33 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private Integer overtimeMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
-        if (schedule == null || schedule.getHeureFin() == null || checkOutTime == null) {
+        int rawMinutes = rawOvertimeMinutes(schedule, date, checkOutTime);
+        int threshold = overtimeThresholdMinutes();
+        return rawMinutes >= threshold ? rawMinutes : 0;
+    }
+
+    private int rawOvertimeMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
+        if (schedule == null || !isWorkingDay(schedule, date) || schedule.getHeureFin() == null || checkOutTime == null) {
             return 0;
         }
         LocalDateTime scheduledEnd = LocalDateTime.of(date, schedule.getHeureFin());
         long rawMinutes = Duration.between(scheduledEnd, checkOutTime).toMinutes();
-        int threshold = Math.max(Optional.ofNullable(presenceProperties.getOvertimeThresholdMinutes()).orElse(0), 0);
-        return rawMinutes > threshold ? Math.toIntExact(rawMinutes) : 0;
+        return Math.toIntExact(Math.max(rawMinutes, 0L));
+    }
+
+    private LocalDateTime scheduledEndDateTime(WorkSchedule schedule, LocalDate date) {
+        if (schedule == null || date == null || !isWorkingDay(schedule, date) || schedule.getHeureFin() == null) {
+            return null;
+        }
+        return LocalDateTime.of(date, schedule.getHeureFin());
+    }
+
+    private int overtimeThresholdMinutes() {
+        return Math.max(Optional.ofNullable(presenceProperties.resolveOvertimeThresholdMinutes()).orElse(30), 0);
+    }
+
+    private OvertimeMode normalizeOvertimeMode(OvertimeMode mode) {
+        return mode == null ? OvertimeMode.NONE : mode;
     }
 
     private AttendanceDayStatus resolveClosedDailyStatus(AttendanceSession session, int earlyLeaveMinutes) {
@@ -1469,7 +1641,6 @@ public class PresenceServiceImpl implements PresenceService {
     private void refreshOvertime(Long utilisateurId, LocalDate date) {
         WorkSchedule schedule = resolveSchedule(utilisateurId, date);
         List<AttendanceSession> sessions = attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, date);
-        long actualSeconds = sumSessionDurations(sessions);
         long expectedSeconds = isWorkingDay(schedule, date)
                 ? Duration.between(schedule.getHeureDebut(), schedule.getHeureFin()).getSeconds()
                 : 0L;
@@ -1477,9 +1648,18 @@ public class PresenceServiceImpl implements PresenceService {
                 .filter(session -> session.getCheckOutTime() != null)
                 .max(Comparator.comparing(AttendanceSession::getCheckOutTime))
                 .orElse(null);
-        long overtimeSeconds = lastClosedSession != null && lastClosedSession.getOvertimeMinutes() != null
-                ? Math.max(lastClosedSession.getOvertimeMinutes() * 60L, 0L)
-                : Math.max(actualSeconds - expectedSeconds, 0L);
+        if (lastClosedSession == null) {
+            overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
+            return;
+        }
+
+        int overtimeMinutes = Math.max(Optional.ofNullable(lastClosedSession.getOvertimeMinutes()).orElse(0), 0);
+        if (overtimeMinutes < overtimeThresholdMinutes()) {
+            overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
+            return;
+        }
+
+        long overtimeSeconds = overtimeMinutes * 60L;
 
         if (overtimeSeconds <= 0) {
             overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
@@ -1489,26 +1669,42 @@ public class PresenceServiceImpl implements PresenceService {
         BigDecimal overtimeHours = BigDecimal.valueOf(overtimeSeconds)
                 .divide(BigDecimal.valueOf(3600L), 2, RoundingMode.HALF_UP);
 
-        Overtime overtime = overtimeRepository.findByUtilisateurIdAndDate(utilisateurId, date)
+        Overtime overtime = overtimeRepository.findByAttendanceId(lastClosedSession.getId())
+                .or(() -> overtimeRepository.findByUtilisateurIdAndDate(utilisateurId, date))
                 .orElseGet(() -> Overtime.builder()
                         .utilisateurId(utilisateurId)
                         .date(date)
                         .approuvee(Boolean.FALSE)
-                        .status(OvertimeStatus.PENDING_APPROVAL)
+                        .status(OvertimeStatus.EN_ATTENTE_MANAGER)
                         .build());
+        UserSummaryDTO user = fetchUserSummary(utilisateurId);
 
         overtime.setHeuresSupplementaires(overtimeHours);
-        overtime.setEntrepriseId(lastClosedSession != null ? lastClosedSession.getEntrepriseId() : overtime.getEntrepriseId());
-        overtime.setAttendanceId(lastClosedSession != null ? lastClosedSession.getId() : overtime.getAttendanceId());
+        overtime.setEntrepriseId(lastClosedSession.getEntrepriseId());
+        overtime.setAttendanceId(lastClosedSession.getId());
+        overtime.setScheduledStart(schedule != null && schedule.getHeureDebut() != null ? LocalDateTime.of(date, schedule.getHeureDebut()) : null);
         overtime.setScheduledEnd(schedule != null && schedule.getHeureFin() != null ? LocalDateTime.of(date, schedule.getHeureFin()) : null);
-        overtime.setActualCheckOut(lastClosedSession != null ? lastClosedSession.getCheckOutTime() : null);
-        overtime.setOvertimeMinutes(Math.toIntExact(overtimeSeconds / 60L));
-        overtime.setReason("Travail au-dela de l'horaire planifie");
-        if (overtime.getStatus() == null || overtime.getStatus() == OvertimeStatus.NO_OVERTIME) {
-            overtime.setStatus(OvertimeStatus.PENDING_APPROVAL);
+        overtime.setCheckInTime(lastClosedSession.getCheckInTime());
+        overtime.setCheckOutTime(lastClosedSession.getCheckOutTime());
+        overtime.setActualCheckOut(lastClosedSession.getCheckOutTime());
+        overtime.setWorkedMinutes(lastClosedSession.getWorkedMinutes());
+        overtime.setExpectedMinutes(lastClosedSession.getExpectedMinutes() != null ? lastClosedSession.getExpectedMinutes() : Math.toIntExact(expectedSeconds / 60L));
+        overtime.setOvertimeMinutes(overtimeMinutes);
+        overtime.setManagerId(user != null ? user.getManagerId() : overtime.getManagerId());
+        if (overtime.getReason() == null || overtime.getReason().isBlank()) {
+            overtime.setReason("Travail au-dela de l'horaire planifie");
         }
-        overtime.setApprouvee(overtime.getStatus() == OvertimeStatus.APPROVED);
+        if (overtime.getStatus() == null || overtime.getStatus() == OvertimeStatus.NO_OVERTIME) {
+            overtime.setStatus(OvertimeStatus.EN_ATTENTE_MANAGER);
+        }
+        overtime.setApprouvee(isApprovedOvertimeStatus(overtime.getStatus()));
         overtimeRepository.save(overtime);
+    }
+
+    private boolean isApprovedOvertimeStatus(OvertimeStatus status) {
+        return status == OvertimeStatus.APPROUVEE_MANAGER
+                || status == OvertimeStatus.APPROUVEE_RH
+                || status == OvertimeStatus.APPROVED;
     }
 
     private void maybeNotifyLateArrival(Long utilisateurId, AttendanceSession session, boolean lateArrival) {
@@ -1733,15 +1929,19 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private LocalDate currentDate() {
-        return LocalDate.now(zoneId());
+        return LocalDate.now(clock.withZone(zoneId()));
     }
 
     private LocalDateTime currentDateTime() {
-        return LocalDateTime.now(zoneId());
+        return LocalDateTime.now(clock.withZone(zoneId()));
     }
 
     private ZoneId zoneId() {
         return ZoneId.of(presenceProperties.getTimezone());
+    }
+
+    void setClock(Clock clock) {
+        this.clock = clock == null ? Clock.systemUTC() : clock;
     }
 
     @Override

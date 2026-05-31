@@ -65,9 +65,9 @@ class Settings(BaseSettings):
     random_state: int = 42
 
     # Score -> risk level thresholds
-    critical_threshold: float = 0.85
+    critical_threshold: float = 0.90
     high_threshold: float = 0.70
-    medium_threshold: float = 0.50
+    medium_threshold: float = 0.40
 
     @property
     def cors_origins(self) -> list[str]:

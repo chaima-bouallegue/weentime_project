@@ -78,12 +78,55 @@
         <div class="stat-content">
           <span class="stat-label">Stock de requêtes</span>
           <div class="stat-value-line">
-            <span class="value">{{ pendingRequestsCount() }}</span>
+            <span class="value">{{ pendingOvertime() }}</span>
             <span class="delta info">En attente RH/Mngr</span>
           </div>
         </div>
         <div class="stat-visual-glow"></div>
       </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div class="bento-card p-6">
+        <span class="text-xs font-black uppercase text-slate-400">Heures supp. approuvees</span>
+        <p class="text-3xl font-black text-emerald-600 mt-2">{{ approvedOvertime() }}</p>
+      </div>
+      <div class="bento-card p-6">
+        <span class="text-xs font-black uppercase text-slate-400">Heures supp. refusees</span>
+        <p class="text-3xl font-black text-rose-600 mt-2">{{ rejectedOvertime() }}</p>
+      </div>
+      <div class="bento-card p-6">
+        <span class="text-xs font-black uppercase text-slate-400">Demandes heures supp.</span>
+        <p class="text-3xl font-black text-indigo-600 mt-2">{{ overtimeStats()?.totalRequests || 0 }}</p>
+      </div>
+    </section>
+
+    <section class="bento-card p-8 mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 class="text-2xl font-black text-slate-900 dark:text-white">Top departements heures supplementaires</h3>
+          <p class="text-xs font-black uppercase text-amber-500 tracking-widest mt-1">Minutes validees ou en attente ce mois</p>
+        </div>
+        <lucide-angular [img]="iconTimer" size="20" class="text-amber-500"></lucide-angular>
+      </div>
+
+      @if (overtimeDepartmentBars().length === 0) {
+        <p class="text-center text-slate-400 py-8 italic">Aucune heure supplementaire par departement pour le moment.</p>
+      } @else {
+        <div class="space-y-4">
+          @for (item of overtimeDepartmentBars(); track item.label) {
+            <div>
+              <div class="flex items-center justify-between text-xs font-black uppercase text-slate-500 mb-2">
+                <span>{{ item.label }}</span>
+                <span>{{ item.hours }}h</span>
+              </div>
+              <div class="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500" [style.width]="item.percent + '%'"></div>
+              </div>
+            </div>
+          }
+        </div>
+      }
     </section>
 
     <!-- Complex Visualizations Grid -->

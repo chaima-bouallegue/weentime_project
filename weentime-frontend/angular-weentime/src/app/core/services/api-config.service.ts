@@ -303,6 +303,7 @@ export class ApiConfigService {
   readonly PRESENCE = {
     CHECK_IN: `${this.API_BASE}/presence/me/check-in`,
     CHECK_OUT: `${this.API_BASE}/presence/me/check-out`,
+    CONTINUE_OVERTIME: `${this.API_BASE}/presence/me/overtime/continue`,
     GET_ACTIVE_SESSION: `${this.API_BASE}/presence/active-session`,
     GET_TODAY_PRESENCE: `${this.API_BASE}/presence/today`,
     GET_MY_TODAY: `${this.API_BASE}/presence/me/today`,
@@ -316,6 +317,21 @@ export class ApiConfigService {
     GET_PRESENCE_STATS: `${this.API_BASE}/presence/stats`,
     GET_MY_STATS: `${this.API_BASE}/presence/me/stats`,
     GET_GLOBAL_ANALYTICS: `${this.API_BASE}/presence/global/analytics`
+  };
+
+  readonly OVERTIME = {
+    GET_MY: `${this.API_BASE}/overtime/me`,
+    GET_MY_MONTHLY_SUMMARY: `${this.API_BASE}/overtime/me/monthly-summary`,
+    ADD_REASON: (id: number) => `${this.API_BASE}/overtime/${id}/reason`,
+    GET_MANAGER_PENDING: `${this.API_BASE}/overtime/manager/pending`,
+    APPROVE: (id: number) => `${this.API_BASE}/overtime/${id}/approve`,
+    REJECT: (id: number) => `${this.API_BASE}/overtime/${id}/reject`,
+    REQUEST_JUSTIFICATION: (id: number) => `${this.API_BASE}/overtime/${id}/request-justification`,
+    GET_RH_ALL: `${this.API_BASE}/overtime/rh/all`,
+    GET_RH_STATS: `${this.API_BASE}/overtime/rh/stats`,
+    GET_RH_BY_DEPARTMENT: `${this.API_BASE}/overtime/rh/by-department`,
+    RH_APPROVE: (id: number) => `${this.API_BASE}/overtime/${id}/rh-approve`,
+    RH_REJECT: (id: number) => `${this.API_BASE}/overtime/${id}/rh-reject`
   };
 
   readonly NOTIFICATIONS = {

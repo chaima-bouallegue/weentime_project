@@ -194,6 +194,26 @@ export class PointageService {
     );
   }
 
+  continueOvertime(): Observable<TodayPointageSummary> {
+    const user = this.authService.currentUser();
+    if (!user) {
+      return throwError(() => new Error('Utilisateur non connecte.'));
+    }
+
+    return this.http.post<any>(this.apiConfig.PRESENCE.CONTINUE_OVERTIME, {}).pipe(
+      map(response => this.unwrap(response) as TodayPointageSummary),
+      tap(summary => {
+        this.applyTodayState(summary);
+        this.invalidateDashboards();
+      }),
+      switchMap(summary => this.refreshTodayAfterMutation(summary)),
+      catchError(error => {
+        this._lastError.set(this.toFrenchError(error));
+        return throwError(() => error);
+      })
+    );
+  }
+
   isSessionAlreadyOpenError(error: any): boolean {
     const code = String(error?.error?.code ?? error?.error?.error ?? '').toUpperCase();
     const details = String(error?.error?.details ?? error?.error?.message ?? '').toLowerCase();

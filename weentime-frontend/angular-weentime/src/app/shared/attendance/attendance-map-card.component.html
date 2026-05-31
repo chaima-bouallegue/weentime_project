@@ -1,0 +1,21 @@
+<article class="attendance-map-card">
+  <div class="card-head">
+    <h2>Carte de pointage</h2>
+    <span class="map-provider">OpenStreetMap</span>
+  </div>
+
+  <ng-container *ngIf="hasPoints(); else noGpsLocation">
+    <div #mapCanvas class="attendance-map" aria-label="Carte des positions de pointage"></div>
+    <div class="map-legend">
+      <span><i class="legend-dot legend-dot-in"></i> Entrée</span>
+      <span><i class="legend-dot legend-dot-out"></i> Sortie</span>
+    </div>
+  </ng-container>
+
+  <ng-template #noGpsLocation>
+    <div class="map-empty">
+      <lucide-angular [img]="iconAlert" size="22"></lucide-angular>
+      <p>{{ emptyMessage }}</p>
+    </div>
+  </ng-template>
+</article>

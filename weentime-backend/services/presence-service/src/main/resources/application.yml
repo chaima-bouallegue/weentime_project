@@ -70,7 +70,8 @@ presence:
   half-day-threshold-hours: 4.0
   timezone: "Africa/Tunis"
   auto-close-grace-minutes: 60
-  overtime-threshold-minutes: 15
+  overtime:
+    threshold-minutes: 30
   gps-required: false
   public-holiday-exceptional-work-allowed: false
   location:

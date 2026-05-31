@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LucideAngularModule, Activity, UserX, Timer, Inbox, Network, BarChart2, Briefcase } from 'lucide-angular';
 import { RhAnalyticsStore } from '../../../core/services/rh-analytics.store';
 import { RhStructureStore } from '../../../core/services/rh-structure.store';
 import { RhLeaveStore } from '../../../core/services/rh-leave.store';
+import { OvertimeDepartmentStat, OvertimeRhStats, OvertimeService } from '../../presence/services/overtime.service';
 
 @Component({
   selector: 'app-rh-analytics',
@@ -15,10 +16,11 @@ import { RhLeaveStore } from '../../../core/services/rh-leave.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class RhAnalyticsComponent {
+export class RhAnalyticsComponent implements OnInit {
   private readonly store = inject(RhAnalyticsStore);
   private readonly structureStore = inject(RhStructureStore);
   private readonly leaveStore = inject(RhLeaveStore);
+  private readonly overtimeService = inject(OvertimeService);
 
   // Icons
   readonly iconActivity = Activity;
@@ -31,11 +33,16 @@ export class RhAnalyticsComponent {
 
   readonly isLoading = this.store.isLoading;
   readonly error = this.store.error;
+  readonly overtimeStats = signal<OvertimeRhStats | null>(null);
+  readonly overtimeDepartments = signal<OvertimeDepartmentStat[]>([]);
 
   // KPIs from Store
   readonly attendanceRate = this.store.attendanceRate;
   readonly absenceRate = computed(() => 100 - this.attendanceRate());
-  readonly overtimeHours = computed(() => Math.floor(this.store.activeEmployees() * 1.2)); // approximation
+  readonly overtimeHours = computed(() => Number(this.overtimeStats()?.totalOvertimeHours ?? 0));
+  readonly pendingOvertime = computed(() => this.overtimeStats()?.pendingOvertime ?? 0);
+  readonly approvedOvertime = computed(() => this.overtimeStats()?.approvedOvertime ?? 0);
+  readonly rejectedOvertime = computed(() => this.overtimeStats()?.rejectedOvertime ?? 0);
   readonly pendingRequestsCount = this.store.pendingRequestsCount;
 
   // Chart Data: Department Distribution
@@ -56,6 +63,23 @@ export class RhAnalyticsComponent {
         reqCounts[type] = (reqCounts[type] || 0) + 1;
     });
     return this.toMetricEntries(reqCounts);
+  });
+
+  readonly overtimeDepartmentBars = computed(() => {
+    const entries = this.overtimeDepartments()
+      .map(item => ({
+        label: item.department,
+        value: Number(item.overtimeMinutes ?? 0),
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+    const max = Math.max(...entries.map(item => item.value), 1);
+    return entries.map(item => ({
+      ...item,
+      hours: Number((item.value / 60).toFixed(1)),
+      percent: (item.value / max) * 100,
+    }));
   });
 
   // Chart Data: Monthly Trends
@@ -113,8 +137,24 @@ export class RhAnalyticsComponent {
     return `M ${first.x} 240 L ${points.map(point => `${point.x} ${point.y}`).join(' L ')} L ${last.x} 240 Z`;
   });
 
+  ngOnInit(): void {
+    this.loadOvertimeAnalytics();
+  }
+
   refreshData() {
     this.store.refresh();
+    this.loadOvertimeAnalytics();
+  }
+
+  private loadOvertimeAnalytics(): void {
+    this.overtimeService.getRhStats().subscribe({
+      next: stats => this.overtimeStats.set(stats),
+      error: () => this.overtimeStats.set(null)
+    });
+    this.overtimeService.getRhByDepartment().subscribe({
+      next: departments => this.overtimeDepartments.set(departments ?? []),
+      error: () => this.overtimeDepartments.set([])
+    });
   }
 
   private toMetricEntries(source: Record<string, number>, limit = Number.MAX_SAFE_INTEGER) {

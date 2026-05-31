@@ -1,6 +1,7 @@
 export type PointageType = 'ENTREE' | 'SORTIE';
 export type AttendanceUiState = 'NOT_STARTED' | 'ACTIVE' | 'CLOSED' | 'ON_LEAVE' | 'HOLIDAY' | 'AUTO_CLOSED' | 'ERROR';
 export type GpsCaptureStatus = 'idle' | 'requesting' | 'captured' | 'denied' | 'unavailable';
+export type OvertimeMode = 'NONE' | 'WAITING_CONFIRMATION' | 'ACTIVE' | 'FINISHED';
 
 export interface PointageLocation {
   latitude?: number | null;
@@ -64,6 +65,11 @@ export interface TodayPointageSummary {
   expectedMinutes?: number;
   workedMinutes?: number;
   overtimePreview?: number;
+  overtimeMinutes?: number;
+  overtimeMode?: OvertimeMode | string | null;
+  showCheckoutAlert?: boolean;
+  overtimeStartedAt?: string | null;
+  overtimeLabel?: string | null;
   checkInLocation?: string | PointageLocation | null;
   checkInLocationLabel?: string | null;
   checkOutLocation?: string | PointageLocation | null;

@@ -116,6 +116,11 @@ public class PointageCompatibilityController {
         payload.put("checkInLocation", summary.getCheckInLocation());
         payload.put("checkOutLocation", summary.getCheckOutLocation());
         payload.put("duree", summary.getTotalDuration());
+        payload.put("overtimeMode", summary.getOvertimeMode() != null ? summary.getOvertimeMode().name() : null);
+        payload.put("showCheckoutAlert", Boolean.TRUE.equals(summary.getShowCheckoutAlert()));
+        payload.put("overtimeStartedAt", formatDateTime(summary.getOvertimeStartedAt()));
+        payload.put("overtimeMinutes", summary.getOvertimeMinutes());
+        payload.put("overtimeLabel", summary.getOvertimeLabel());
         payload.put("activeSession", summary.getActiveSession() != null ? toPointageEntry(summary.getActiveSession()) : null);
         return payload;
     }
@@ -140,7 +145,9 @@ public class PointageCompatibilityController {
         payload.put("estEnRetard", Boolean.TRUE.equals(session.getLateArrival()));
         payload.put("minutesRetard", Boolean.TRUE.equals(session.getLateArrival()) ? 1 : 0);
         payload.put("isAutoClosed", false);
-        payload.put("overtimeMinutes", 0);
+        payload.put("overtimeMinutes", session.getOvertimeMinutes() == null ? 0 : session.getOvertimeMinutes());
+        payload.put("overtimeMode", session.getOvertimeMode() != null ? session.getOvertimeMode().name() : null);
+        payload.put("overtimeStartedAt", formatDateTime(session.getOvertimeStartedAt()));
         return payload;
     }
 

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { DestroyRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewEncapsulation, Component, computed, inject, signal } from '@angular/core';
+import { DestroyRef, OnDestroy, OnInit, ViewEncapsulation, Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterModule } from '@angular/router';
 import {
@@ -19,47 +20,27 @@ import { AuthService } from '../../../core/services/auth.service';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AttendanceCardComponent } from '../../../shared/attendance/attendance-card.component';
-import { formatLocalTime } from '../../../core/utils/date-time.util';
-import { PointageEntry, PointageLocation, PointageStats, PointageType } from './pointage.models';
+import { AttendanceMapCardComponent, AttendanceMapPoint, AttendanceMapPointType } from '../../../shared/attendance/attendance-map-card.component';
+import { formatLocalTime, parseApiDate } from '../../../core/utils/date-time.util';
+import { OvertimeMode, PointageEntry, PointageLocation, PointageStats, TodayPointageSummary } from './pointage.models';
 import { PointageService } from './pointage.service';
-
-interface PointageMapPoint {
-  type: PointageType;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  label: string;
-  location: PointageLocation | null;
-}
+import { OvertimeRequestDto, OvertimeService } from '../../presence/services/overtime.service';
 
 @Component({
   selector: 'app-employee-pointage',
   standalone: true,
-  imports: [CommonModule, RouterModule, LucideAngularModule, AttendanceCardComponent],
+  imports: [CommonModule, FormsModule, RouterModule, LucideAngularModule, AttendanceCardComponent, AttendanceMapCardComponent],
   templateUrl: './employee-pointage.component.html',
   styleUrls: ['./employee-pointage.component.scss'],
   encapsulation: ViewEncapsulation.None,
 })
 export class EmployeePointageComponent implements OnInit, OnDestroy {
   private readonly pointageService = inject(PointageService);
+  private readonly overtimeService = inject(OvertimeService);
   private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly assistantSync = inject(AssistantSyncService);
   private readonly destroyRef = inject(DestroyRef);
-  private pointageMap?: ElementRef<HTMLDivElement>;
-  private leaflet?: typeof import('leaflet');
-  private map?: import('leaflet').Map;
-  private markerLayer?: import('leaflet').LayerGroup;
-
-  @ViewChild('pointageMap')
-  set pointageMapElement(element: ElementRef<HTMLDivElement> | undefined) {
-    this.pointageMap = element;
-    if (element) {
-      setTimeout(() => void this.renderMap(), 0);
-    } else {
-      this.destroyMap();
-    }
-  }
 
   readonly iconClock = Clock;
   readonly iconCalendar = Calendar;
@@ -75,6 +56,9 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly currentDate = signal<string>('');
   readonly stats = signal<PointageStats | null>(null);
   readonly history = signal<PointageEntry[]>([]);
+  readonly overtimeRequests = signal<OvertimeRequestDto[]>([]);
+  readonly overtimeReasonDraft = signal('');
+  readonly isSavingOvertimeReason = signal(false);
   readonly statusMessage = signal<string | null>(null);
   readonly isLoading = signal(false);
   readonly isDayOff = signal(false);
@@ -121,7 +105,29 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     const end = this.todaySummary()?.scheduledEnd;
     return start && end ? `${start.slice(0, 5)} - ${end.slice(0, 5)}` : 'Horaire non defini';
   });
-  readonly overtimePreviewLabel = computed(() => `${Math.max(Number(this.todaySummary()?.overtimePreview ?? 0), 0)} min`);
+  readonly overtimeMode = computed(() => this.normalizeOvertimeMode(this.todaySummary()?.overtimeMode));
+  readonly overtimePreviewLabel = computed(() => {
+    const summary = this.todaySummary();
+    const mode = this.overtimeMode();
+    if (mode === 'WAITING_CONFIRMATION') {
+      return this.asText(summary?.overtimeLabel) ?? 'En attente de confirmation';
+    }
+    if (mode === 'ACTIVE') {
+      this.currentTime();
+      return `${this.resolveLiveOvertimeMinutes(summary)} min`;
+    }
+    if (mode === 'FINISHED') {
+      return `${this.resolveFrozenOvertimeMinutes(summary)} min`;
+    }
+    return '0 min';
+  });
+  readonly showOvertimeConfirmationModal = computed(() =>
+    this.overtimeMode() === 'WAITING_CONFIRMATION'
+    && this.todaySummary()?.showCheckoutAlert === true
+    && this.attendanceState() === 'ACTIVE'
+  );
+  readonly latestOvertimeRequest = computed(() => this.overtimeRequests()[0] ?? null);
+  readonly latestOvertimeStatusLabel = computed(() => this.formatOvertimeStatus(this.latestOvertimeRequest()?.status));
   readonly locationStatusLabel = computed(() => {
     const summary = this.todaySummary();
     const location = this.formatLocationLabel(this.resolveLatestLocation())
@@ -161,7 +167,6 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     return latestLog ? (this.asText(latestLog.location) ?? this.asText(latestLog.address)) : null;
   });
   readonly latestCoordinatesLabel = computed(() => this.formatLocationCoordinates(this.latestLocation()));
-  readonly hasGpsLocation = computed(() => this.mapPoints().length > 0);
 
   private clockSub?: Subscription;
   private statsSub?: Subscription;
@@ -171,6 +176,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     this.startClock();
     this.startStatsPolling();
     this.refreshOverview();
+    this.loadOvertimeRequests();
 
     this.assistantSync.events$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -182,13 +188,13 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
 
         this.statusMessage.set(null);
         this.refreshOverview();
+        this.loadOvertimeRequests();
       });
   }
 
   ngOnDestroy(): void {
     this.clockSub?.unsubscribe();
     this.statsSub?.unsubscribe();
-    this.destroyMap();
   }
 
   onCheckIn(): void {
@@ -214,6 +220,34 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     this.performPointageAction(false);
   }
 
+  onCheckoutFromOvertimeModal(): void {
+    if (this.isLoading()) {
+      return;
+    }
+    this.performPointageAction(false);
+  }
+
+  onContinueOvertime(): void {
+    if (this.isLoading()) {
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.statusMessage.set(null);
+    this.pointageService.continueOvertime().subscribe({
+      next: () => {
+        this.toast.success('Heures supplementaires activees.');
+        this.refreshOverview(() => this.isLoading.set(false));
+      },
+      error: err => {
+        const msg = this.pointageService.toFrenchError(err);
+        this.statusMessage.set(msg);
+        this.toast.error(msg);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
   onRefresh(): void {
     if (this.isLoading()) {
       return;
@@ -226,6 +260,28 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
 
   formatTime(value: string | null): string {
     return formatLocalTime(value);
+  }
+
+  private normalizeOvertimeMode(value: unknown): OvertimeMode {
+    const mode = String(value ?? 'NONE').trim().toUpperCase();
+    if (mode === 'WAITING_CONFIRMATION' || mode === 'ACTIVE' || mode === 'FINISHED') {
+      return mode as OvertimeMode;
+    }
+    return 'NONE';
+  }
+
+  private resolveLiveOvertimeMinutes(summary: TodayPointageSummary | null): number {
+    const startedAt = parseApiDate(summary?.overtimeStartedAt);
+    const backendMinutes = this.resolveFrozenOvertimeMinutes(summary);
+    if (!startedAt) {
+      return backendMinutes;
+    }
+    const liveMinutes = Math.floor(Math.max(Date.now() - startedAt.getTime(), 0) / 60_000);
+    return Math.max(liveMinutes, backendMinutes, 0);
+  }
+
+  private resolveFrozenOvertimeMinutes(summary: TodayPointageSummary | null): number {
+    return Math.max(Number(summary?.overtimeMinutes ?? summary?.overtimePreview ?? 0), 0);
   }
 
   statusLabel(): string {
@@ -332,7 +388,6 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
       this.history.set(history);
       this.stats.set(stats);
       this.evaluateDayOff(stats);
-      setTimeout(() => void this.renderMap(), 0);
       onSettled?.();
     });
   }
@@ -352,6 +407,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
           this.statusMessage.set(gpsWarning);
           this.toast.warning(gpsWarning);
         }
+        this.loadOvertimeRequests();
         this.refreshOverview(() => this.isLoading.set(false));
       },
       error: err => {
@@ -374,6 +430,61 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
         this.toast.error(msg);
         this.isLoading.set(false);
       },
+    });
+  }
+
+  onOvertimeReasonInput(event: Event): void {
+    this.overtimeReasonDraft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  submitOvertimeReason(request: OvertimeRequestDto): void {
+    const reason = this.overtimeReasonDraft().trim();
+    if (!reason) {
+      this.toast.warning('Justification requise.');
+      return;
+    }
+
+    this.isSavingOvertimeReason.set(true);
+    this.overtimeService.addReason(request.id, reason).subscribe({
+      next: updated => {
+        this.overtimeRequests.update(items => items.map(item => item.id === updated.id ? updated : item));
+        this.overtimeReasonDraft.set('');
+        this.isSavingOvertimeReason.set(false);
+        this.toast.success('Justification envoyee.');
+      },
+      error: () => {
+        this.isSavingOvertimeReason.set(false);
+        this.toast.error("Impossible d'envoyer la justification.");
+      }
+    });
+  }
+
+  formatOvertimeStatus(status?: string | null): string {
+    switch (status) {
+      case 'EN_ATTENTE_MANAGER':
+      case 'PENDING_APPROVAL':
+        return 'En attente manager';
+      case 'APPROUVEE_MANAGER':
+      case 'APPROVED':
+        return 'Approuvee manager';
+      case 'REFUSEE_MANAGER':
+      case 'REJECTED':
+        return 'Refusee manager';
+      case 'EN_ATTENTE_RH':
+        return 'En attente RH';
+      case 'APPROUVEE_RH':
+        return 'Approuvee RH';
+      case 'REFUSEE_RH':
+        return 'Refusee RH';
+      default:
+        return 'Aucune demande';
+    }
+  }
+
+  private loadOvertimeRequests(): void {
+    this.overtimeService.getMy(0, 10).subscribe({
+      next: page => this.overtimeRequests.set(page.content ?? []),
+      error: () => this.overtimeRequests.set([])
     });
   }
 
@@ -425,8 +536,8 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
   }
 
-  mapPoints(): PointageMapPoint[] {
-    const points: PointageMapPoint[] = [];
+  mapPoints(): AttendanceMapPoint[] {
+    const points: AttendanceMapPoint[] = [];
     const checkIn = this.findPointForType('ENTREE');
     const checkOut = this.findPointForType('SORTIE');
 
@@ -493,16 +604,18 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private findPointForType(type: PointageType): PointageMapPoint | null {
-    const log = this.history().find(item => item.type === type && this.hasCoordinates(item.locationDetails));
-    if (log?.locationDetails?.latitude != null && log.locationDetails.longitude != null) {
+  private findPointForType(type: AttendanceMapPointType): AttendanceMapPoint | null {
+    const log = this.history().find(item => {
+      const fallback = this.entryLocationFallback(item);
+      return item.type === type && (this.hasCoordinates(item.locationDetails) || this.hasCoordinates(fallback));
+    });
+    const logLocation = log?.locationDetails ?? (log ? this.entryLocationFallback(log) : null);
+    if (this.hasCoordinates(logLocation)) {
       return {
         type,
-        latitude: Number(log.locationDetails.latitude),
-        longitude: Number(log.locationDetails.longitude),
-        timestamp: log.timestamp,
+        timestamp: log?.timestamp,
         label: type === 'ENTREE' ? 'Pointage entrée' : 'Pointage sortie',
-        location: log.locationDetails,
+        location: logLocation,
       };
     }
 
@@ -513,8 +626,6 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     if (summaryLocation?.latitude != null && summaryLocation.longitude != null) {
       return {
         type,
-        latitude: Number(summaryLocation.latitude),
-        longitude: Number(summaryLocation.longitude),
         timestamp: type === 'ENTREE'
           ? String(summary?.['checkIn'] ?? summary?.['heureEntree'] ?? '')
           : String(summary?.['checkOut'] ?? summary?.['heureSortie'] ?? ''),
@@ -563,92 +674,6 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
       return null;
     }
     return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-  }
-
-  private async renderMap(): Promise<void> {
-    if (typeof window === 'undefined' || !this.pointageMap?.nativeElement) {
-      return;
-    }
-
-    const points = this.mapPoints();
-    if (points.length === 0) {
-      this.destroyMap();
-      return;
-    }
-
-    const L = this.leaflet ?? await import('leaflet');
-    this.leaflet = L;
-
-    if (!this.map) {
-      this.map = L.map(this.pointageMap.nativeElement, {
-        zoomControl: false,
-        attributionControl: true,
-      });
-      L.control.zoom({ position: 'bottomright' }).addTo(this.map);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(this.map);
-      this.markerLayer = L.layerGroup().addTo(this.map);
-    }
-
-    this.markerLayer?.clearLayers();
-    const bounds = L.latLngBounds([]);
-
-    points.forEach(point => {
-      const latLng = L.latLng(point.latitude, point.longitude);
-      bounds.extend(latLng);
-      L.marker(latLng, { icon: this.markerIcon(point.type) })
-        .bindPopup(this.popupHtml(point))
-        .addTo(this.markerLayer!);
-    });
-
-    if (points.length > 1) {
-      this.map.fitBounds(bounds, { padding: [28, 28], maxZoom: 16 });
-    } else {
-      this.map.setView([points[0].latitude, points[0].longitude], 16);
-    }
-
-    setTimeout(() => this.map?.invalidateSize(), 0);
-  }
-
-  private markerIcon(type: PointageType): import('leaflet').DivIcon {
-    const L = this.leaflet!;
-    return L.divIcon({
-      className: `pointage-map-marker pointage-map-marker--${type === 'ENTREE' ? 'in' : 'out'}`,
-      html: '<span></span>',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
-    });
-  }
-
-  private popupHtml(point: PointageMapPoint): string {
-    const location = this.formatLocationLabel(point.location);
-    const coordinates = this.formatCoordinates(point.latitude, point.longitude);
-    const address = this.asText(point.location?.address);
-    const time = this.formatTime(point.timestamp);
-    return [
-      `<strong>${this.escapeHtml(point.label)} — ${this.escapeHtml(time)}</strong>`,
-      location ? `<div>${this.escapeHtml(location)}</div>` : '',
-      address && address !== location ? `<small>${this.escapeHtml(address)}</small>` : '',
-      coordinates ? `<small>${this.escapeHtml(coordinates)}</small>` : '',
-    ].filter(Boolean).join('');
-  }
-
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  private destroyMap(): void {
-    this.markerLayer?.clearLayers();
-    this.markerLayer = undefined;
-    this.map?.remove();
-    this.map = undefined;
   }
 }
 

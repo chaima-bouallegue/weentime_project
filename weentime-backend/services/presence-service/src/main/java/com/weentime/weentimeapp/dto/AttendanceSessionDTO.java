@@ -2,6 +2,7 @@ package com.weentime.weentimeapp.dto;
 
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
+import com.weentime.weentimeapp.enums.OvertimeMode;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -52,6 +53,10 @@ public class AttendanceSessionDTO {
     private Integer workedMinutes;
     private Integer expectedMinutes;
     private Integer overtimeMinutes;
+    private OvertimeMode overtimeMode;
+    private LocalDateTime overtimeStartedAt;
+    private LocalDateTime overtimeConfirmedAt;
+    private LocalDateTime overtimeConfirmationShownAt;
     private Integer earlyLeaveMinutes;
     private Boolean autoClosed;
     private String autoClosedReason;

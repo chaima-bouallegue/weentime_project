@@ -38,6 +38,15 @@ class AttendanceAgent(DomainAgent):
         if intent == "attendance.week_hours":
             result = await self.executor.execute("get_week_hours", {}, context)
             return self._week_hours_response(result, confidence)
+        if intent == "overtime.my_summary":
+            result = await self.executor.execute("overtime.my_summary", {}, context)
+            return self._overtime_summary_response(result, confidence, intent)
+        if intent == "overtime.pending":
+            result = await self.executor.execute("overtime.pending", {}, context)
+            return self._overtime_summary_response(result, confidence, intent)
+        if intent == "overtime.stats":
+            result = await self.executor.execute("overtime.stats", {}, context)
+            return self._overtime_summary_response(result, confidence, intent)
         if intent == "attendance.team_presence":
             result = await self.executor.execute("get_team_presence", {}, context)
             return self._team_presence_response(result, confidence)
@@ -105,6 +114,17 @@ class AttendanceAgent(DomainAgent):
             return "attendance.check_out", 0.94
         if any(term in text for term in ("semaine", "week")) and any(term in text for term in ("heure", "heures", "hours", "temps")):
             return "attendance.week_hours", 0.88
+        role = ((context.role if context is not None else "EMPLOYEE") or "EMPLOYEE").upper().replace("ROLE_", "")
+        has_overtime = any(term in text for term in (
+            "heures supp", "heure supp", "heures supplementaires", "supplementaire",
+            "overtime", "over time", "andi heures supp", "heures supplémentaires",
+        ))
+        if has_overtime and role in {"MANAGER", "RH", "ADMIN"} and any(term in text for term in ("attente", "pending", "en attente")):
+            return "overtime.pending", 0.9
+        if has_overtime and role in {"RH", "ADMIN"} and any(term in text for term in ("stats", "stat", "analytics", "analyse")):
+            return "overtime.stats", 0.9
+        if has_overtime:
+            return "overtime.my_summary", 0.86
         if any(term in text for term in ("equipe", "team")) and any(
             term in text for term in ("retard", "present", "absent", "presence", "pointage", "attendance", "anomalie", "anomaly")
         ):
@@ -113,7 +133,6 @@ class AttendanceAgent(DomainAgent):
         # only make sense for roles with team/company visibility. Without a role
         # check we'd route an Employee's "presence aujourd'hui" here and the
         # tool would 403; keep it role-aware.
-        role = ((context.role if context is not None else "EMPLOYEE") or "EMPLOYEE").upper().replace("ROLE_", "")
         if role in {"MANAGER", "RH", "ADMIN"} and any(
             phrase in text for phrase in (
                 "presence aujourd",
@@ -352,6 +371,34 @@ class AttendanceAgent(DomainAgent):
             intent="attendance.team_presence",
             confidence=confidence,
             toolCalls=[ToolCallRecord(name="get_team_presence", status="success")],
+            actionResult=result.model_dump(mode="json"),
+        )
+
+    def _overtime_summary_response(self, result: ToolResult, confidence: float, intent: str) -> AgentResponse:
+        if not result.success:
+            return compose_tool_error(intent, result)
+        data = result.data if isinstance(result.data, dict) else {}
+        if intent == "overtime.my_summary":
+            minutes = data.get("totalMinutes") or data.get("totalOvertimeMinutes") or 0
+            hours = data.get("totalHours") or data.get("totalOvertimeHours") or 0
+            text = f"Heures supplementaires ce mois: {compact_value(hours)}h ({compact_value(minutes)} minutes)."
+        elif intent == "overtime.stats":
+            text = (
+                f"Stats heures supplementaires: total {compact_value(data.get('totalOvertimeHours'))}h, "
+                f"en attente {compact_value(data.get('pendingOvertime'))}, "
+                f"approuvees {compact_value(data.get('approvedOvertime'))}, "
+                f"refusees {compact_value(data.get('rejectedOvertime'))}."
+            )
+        else:
+            page = data.get("content") if isinstance(data, dict) else None
+            count = len(page) if isinstance(page, list) else data.get("totalElements")
+            text = f"Heures supplementaires en attente: {compact_value(count)} demande(s)."
+        return AgentResponse(
+            type="answer",
+            text=text,
+            intent=intent,
+            confidence=confidence,
+            toolCalls=[ToolCallRecord(name=intent, status="success")],
             actionResult=result.model_dump(mode="json"),
         )
 

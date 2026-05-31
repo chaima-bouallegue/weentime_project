@@ -61,10 +61,20 @@ class AttendanceRecord:
     check_in: datetime | None
     check_out: datetime | None
     duration_seconds: int | None = None
+    expected_minutes: int | None = None
+    worked_minutes: int | None = None
+    overtime_minutes: int | None = None
+    scheduled_start: time | None = None
+    scheduled_end: time | None = None
+    scheduled_workday: bool | None = None
+    approved_leave: bool | None = None
+    holiday: bool | None = None
+    exceptional_work_allowed: bool | None = None
     daily_status: str | None = None  # WORKING, REMOTE, ON_LEAVE, ...
     late_arrival: bool | None = None
     source: str | None = None
     localisation: str | None = None
+    missing_data_warnings: list[str] = field(default_factory=list)
 
     @property
     def status_upper(self) -> str:
@@ -85,7 +95,7 @@ class AttendanceRecord:
     @property
     def is_absent(self) -> bool:
         # ABSENT either by explicit status or by simply never having checked in.
-        if self.status_upper in {"ABSENT", "ON_LEAVE"}:
+        if self.status_upper in {"ABSENT", "ON_LEAVE", "CONGE", "LEAVE"}:
             return True
         return self.check_in is None
 
@@ -157,6 +167,8 @@ def _hour_of(dt: datetime | None) -> float:
 
 
 def _worked_hours(record: AttendanceRecord) -> float:
+    if record.worked_minutes is not None and record.worked_minutes > 0:
+        return record.worked_minutes / 60.0
     if record.duration_seconds and record.duration_seconds > 0:
         return record.duration_seconds / 3600.0
     if record.check_in and record.check_out and record.check_out > record.check_in:
@@ -167,9 +179,9 @@ def _worked_hours(record: AttendanceRecord) -> float:
 def _late_minutes(record: AttendanceRecord) -> float:
     if not record.check_in:
         return 0.0
-    threshold_dt = datetime.combine(
-        record.check_in.date(),
-        time(WORK_START.hour, WORK_START.minute + LATE_TOLERANCE_MINUTES),
+    scheduled_start = record.scheduled_start or WORK_START
+    threshold_dt = datetime.combine(record.check_in.date(), scheduled_start) + timedelta(
+        minutes=LATE_TOLERANCE_MINUTES
     )
     delta = (record.check_in - threshold_dt).total_seconds() / 60.0
     return max(0.0, delta)
@@ -207,7 +219,11 @@ class FeatureEngineer:
 
         night = 1 if (arrival > 0 and (arrival < 6 or arrival > 22)) else 0
         rapid = 1 if 0 < worked < 0.5 and missing_checkout == 0 else 0
-        overtime = 1 if worked > 10 else 0
+        expected_minutes = record.expected_minutes
+        overtime_minutes = record.overtime_minutes
+        if overtime_minutes is None and expected_minutes is not None:
+            overtime_minutes = max(int(worked * 60) - expected_minutes, 0)
+        overtime = 1 if (overtime_minutes is not None and overtime_minutes >= 30) or worked > 10 else 0
 
         # Presence-state indicators.
         has_checkin = 1 if record.has_checkin else 0

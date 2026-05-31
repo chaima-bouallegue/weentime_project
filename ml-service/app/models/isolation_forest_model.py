@@ -45,9 +45,9 @@ class AttendanceAnomalyModel:
         contamination: float = 0.05,
         n_estimators: int = 200,
         random_state: int = 42,
-        critical_threshold: float = 0.85,
+        critical_threshold: float = 0.90,
         high_threshold: float = 0.70,
-        medium_threshold: float = 0.50,
+        medium_threshold: float = 0.40,
     ) -> None:
         self.contamination = contamination
         self.n_estimators = n_estimators

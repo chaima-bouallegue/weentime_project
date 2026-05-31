@@ -321,6 +321,28 @@ class AttendanceTools:
         )
         registry.register(
             ToolDefinition(
+                name="overtime.my_summary",
+                description="Retourne le resume mensuel des heures supplementaires de l'utilisateur.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles={"EMPLOYEE", "MANAGER", "RH", "ADMIN"},
+            ),
+            self.overtime_my_summary,
+        )
+        registry.register(
+            ToolDefinition(
+                name="overtime.stats",
+                description="Retourne les statistiques RH des heures supplementaires.",
+                input_model=EmptyToolInput,
+                output_model=None,
+                type="read",
+                allowed_roles={"RH", "ADMIN"},
+            ),
+            self.overtime_stats,
+        )
+        registry.register(
+            ToolDefinition(
                 name="overtime.approve",
                 description="Approuve une demande d'heures supplementaires.",
                 input_model=OvertimeDecisionInput,
@@ -427,9 +449,25 @@ class AttendanceTools:
 
     async def overtime_pending(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
         return await self._backend_get(
-            "/overtime/pending",
+            "/overtime/manager/pending",
             context=context,
             tool_name="overtime.pending",
+            success_status_codes=ATTENDANCE_READ_SUCCESS_CODES,
+        )
+
+    async def overtime_my_summary(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        return await self._backend_get(
+            "/overtime/me/monthly-summary",
+            context=context,
+            tool_name="overtime.my_summary",
+            success_status_codes=ATTENDANCE_READ_SUCCESS_CODES,
+        )
+
+    async def overtime_stats(self, _: BaseModel, context: CurrentUserContext) -> ToolResult:
+        return await self._backend_get(
+            "/overtime/rh/stats",
+            context=context,
+            tool_name="overtime.stats",
             success_status_codes=ATTENDANCE_READ_SUCCESS_CODES,
         )
 

@@ -34,3 +34,27 @@ def test_dashboard_endpoint_returns_envelope(client: TestClient):
     assert body["success"] is True
     assert "total_anomalies" in body
     assert isinstance(body["anomalies"], list)
+
+
+def test_manager_and_rh_endpoints_return_dashboard_envelope(client: TestClient):
+    for path in ("/api/ml/anomalies/manager", "/api/ml/anomalies/rh"):
+        response = client.get(path)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert "groupedBySeverity" in body
+        assert "groupedByCategory" in body
+
+
+def test_anomaly_action_endpoints_are_stable(client: TestClient):
+    response = client.post("/api/ml/anomalies/24:2026-05-31:RAPID_SESSION/ignore")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["action"] == "IGNORE"
+
+    response = client.post("/api/ml/anomalies/24:2026-05-31:RAPID_SESSION/contact")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["action"] == "CONTACT_EMPLOYEE"

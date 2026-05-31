@@ -18,7 +18,8 @@ public class PresenceProperties {
     private BigDecimal halfDayThresholdHours = BigDecimal.valueOf(4.0d);
     private String timezone = "UTC";
     private Integer autoCloseGraceMinutes = 60;
-    private Integer overtimeThresholdMinutes = 15;
+    private Integer overtimeThresholdMinutes;
+    private OvertimeProperties overtime = new OvertimeProperties();
     private boolean gpsRequired = false;
     private boolean publicHolidayExceptionalWorkAllowed = false;
     private LocationResolverProperties location = new LocationResolverProperties();
@@ -35,6 +36,18 @@ public class PresenceProperties {
                 DayOfWeek.THURSDAY,
                 DayOfWeek.FRIDAY
         );
+    }
+
+    @Data
+    public static class OvertimeProperties {
+        private Integer thresholdMinutes;
+    }
+
+    public Integer resolveOvertimeThresholdMinutes() {
+        if (overtime != null && overtime.getThresholdMinutes() != null) {
+            return overtime.getThresholdMinutes();
+        }
+        return overtimeThresholdMinutes != null ? overtimeThresholdMinutes : 30;
     }
 
     @Data

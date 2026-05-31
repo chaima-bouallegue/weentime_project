@@ -2,6 +2,7 @@ package com.weentime.weentimeapp.entity;
 
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
+import com.weentime.weentimeapp.enums.OvertimeMode;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -140,6 +141,19 @@ public class AttendanceSession {
     @Column(name = "overtime_minutes")
     private Integer overtimeMinutes;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "overtime_mode", nullable = false, length = 32)
+    private OvertimeMode overtimeMode;
+
+    @Column(name = "overtime_started_at")
+    private LocalDateTime overtimeStartedAt;
+
+    @Column(name = "overtime_confirmed_at")
+    private LocalDateTime overtimeConfirmedAt;
+
+    @Column(name = "overtime_confirmation_shown_at")
+    private LocalDateTime overtimeConfirmationShownAt;
+
     @Column(name = "early_leave_minutes")
     private Integer earlyLeaveMinutes;
 
@@ -180,10 +194,16 @@ public class AttendanceSession {
         if (this.autoClosed == null) {
             this.autoClosed = Boolean.FALSE;
         }
+        if (this.overtimeMode == null) {
+            this.overtimeMode = OvertimeMode.NONE;
+        }
     }
 
     @PreUpdate
     void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+        if (this.overtimeMode == null) {
+            this.overtimeMode = OvertimeMode.NONE;
+        }
     }
 }

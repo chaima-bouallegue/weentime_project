@@ -70,6 +70,15 @@ public class PresenceController {
         return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
     }
 
+    @PostMapping("/me/overtime/continue")
+    @PreAuthorize(PERSONAL_POINTAGE_ROLES)
+    public ResponseEntity<ApiResponse<TodayPresenceResponse>> continueOvertime() {
+        Long userId = securityUtils.getCurrentUserId();
+        log.info("Received overtime continue request for user {}", userId);
+        AttendanceSummaryDTO summary = presenceService.continueOvertime(userId);
+        return ResponseEntity.ok(ApiResponse.success(buildPersonalTodayResponse(userId, summary)));
+    }
+
     @GetMapping({"/today", "/me/today", "/status/today"})
     @PreAuthorize(PERSONAL_POINTAGE_ROLES)
     public ResponseEntity<ApiResponse<TodayPresenceResponse>> getTodayAttendance() {
