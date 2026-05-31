@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import com.weentime.weentimeproject.entity.Role;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -41,7 +42,9 @@ public class UserIntegrationController {
     public ResponseEntity<List<String>> getRoles(@PathVariable Long id) {
         Utilisateur user = findUser(id);
         List<String> roles = user.getRoles() != null
-                ? user.getRoles().stream().map(r -> r.getNom().name()).collect(Collectors.toList())
+                ? user.getRoles().stream()
+                        .map(Role::getNom) // getNom() retourne déjà un String
+                        .collect(Collectors.toList())
                 : List.of();
         return ResponseEntity.ok(roles);
     }
@@ -59,9 +62,11 @@ public class UserIntegrationController {
                         : null)
                 .equipeId(user.getEquipe() != null ? user.getEquipe().getId() : null)
                 .entrepriseId(user.getEntreprise() != null ? user.getEntreprise().getId() : null)
-                .fullName(user.getPrenom() + " \\" + user.getNom())
+                .fullName(user.getPrenom() + " " + user.getNom()) // supprimé le \ parasite
                 .roles(user.getRoles() != null
-                        ? user.getRoles().stream().map(r -> r.getNom().name()).collect(Collectors.toList())
+                        ? user.getRoles().stream()
+                                .map(Role::getNom) // pareil ici
+                                .collect(Collectors.toList())
                         : List.of())
                 .build();
     }

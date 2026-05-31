@@ -14,7 +14,6 @@ import com.weentime.weentimeproject.dto.response.UtilisateurResponse;
 import com.weentime.weentimeproject.entity.Departement;
 import com.weentime.weentimeproject.entity.Equipe;
 import com.weentime.weentimeproject.entity.Entreprise;
-import com.weentime.weentimeproject.enums.RoleNom;
 import com.weentime.weentimeproject.enums.StatutUtilisateurEnum;
 import com.weentime.weentimeproject.repository.DepartementRepository;
 import com.weentime.weentimeproject.pagination.PageParams;
@@ -52,12 +51,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UtilisateurService utilisateurService;
-    private final AvatarStorageService avatarStorageService;
-    private final EntrepriseRepository entrepriseRepository;
+    private final UtilisateurService    utilisateurService;
+    private final AvatarStorageService  avatarStorageService;
+    private final EntrepriseRepository  entrepriseRepository;
     private final DepartementRepository departementRepository;
-    private final EquipeRepository equipeRepository;
-    private final RoleRepository roleRepository;
+    private final EquipeRepository      equipeRepository;
+    private final RoleRepository        roleRepository;
+
+    // -------------------------------------------------------------------------
+    // CRUD
+    // -------------------------------------------------------------------------
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
@@ -67,10 +70,12 @@ public class UserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search) {
+
         Page<UtilisateurResponse> page = utilisateurService.getAllUtilisateurs(params.toPageable(), companyId);
-        List<UtilisateurResponse> source = page.getContent();
+        List<UtilisateurResponse> source   = page.getContent();
         List<UtilisateurResponse> filtered = applyFilters(source, role, status, search);
         Map<Long, UserSummaryResponse> managersById = loadManagers(filtered);
+
         List<UserManagementResponse> content = filtered.stream()
                 .map(user -> toManagementResponse(user, managersById))
                 .toList();
@@ -78,7 +83,6 @@ public class UserController {
         if (hasFilter(role, status, search)) {
             return ResponseEntity.ok(new PageImpl<>(content, page.getPageable(), content.size()));
         }
-
         return ResponseEntity.ok(new PageImpl<>(content, page.getPageable(), page.getTotalElements()));
     }
 
@@ -108,6 +112,7 @@ public class UserController {
     public ResponseEntity<UserManagementResponse> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UserManagementRequest request) {
+
         UtilisateurRequest payload = toUtilisateurRequest(request, true);
         UtilisateurResponse updated = utilisateurService.updateUtilisateur(id, payload);
         if (request.getManagerId() != null) {
@@ -127,12 +132,21 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    // -------------------------------------------------------------------------
+    // Lookups
+    // -------------------------------------------------------------------------
+
     @GetMapping("/roles")
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<List<String>> getRoles() {
-        List<String> roles = List.of(RoleNom.ROLE_ADMIN, RoleNom.ROLE_RH, RoleNom.ROLE_MANAGER, RoleNom.ROLE_EMPLOYEE)
+        // On lit les rôles depuis la base — plus dépendant de l'enum
+        List<String> roles = roleRepository.findAll()
                 .stream()
-                .map(this::toExternalRole)
+                .map(role -> {
+                    String nom = role.getNom();
+                    return nom.startsWith("ROLE_") ? nom.substring("ROLE_".length()) : nom;
+                })
+                .sorted()
                 .toList();
         return ResponseEntity.ok(roles);
     }
@@ -141,10 +155,9 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<List<String>> getStatuses() {
         List<String> statuses = List.of(
-                        StatutUtilisateurEnum.ACTIF,
-                        StatutUtilisateurEnum.INACTIF,
-                        StatutUtilisateurEnum.SUSPENDU
-                )
+                StatutUtilisateurEnum.ACTIF,
+                StatutUtilisateurEnum.INACTIF,
+                StatutUtilisateurEnum.SUSPENDU)
                 .stream()
                 .map(this::toExternalStatus)
                 .toList();
@@ -169,10 +182,11 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<List<LookupOptionResponse>> getDepartments(
             @RequestParam(required = false) Long companyId) {
+
         List<Departement> departments = companyId == null
                 ? departementRepository.findAll().stream()
-                .sorted(Comparator.comparing(Departement::getNom, String.CASE_INSENSITIVE_ORDER))
-                .toList()
+                        .sorted(Comparator.comparing(Departement::getNom, String.CASE_INSENSITIVE_ORDER))
+                        .toList()
                 : departementRepository.findByEntreprise_IdOrderByNomAsc(companyId);
 
         List<LookupOptionResponse> options = departments.stream()
@@ -188,10 +202,11 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<List<LookupOptionResponse>> getTeams(
             @RequestParam(required = false) Long departmentId) {
+
         List<Equipe> teams = departmentId == null
                 ? equipeRepository.findAll().stream()
-                .sorted(Comparator.comparing(Equipe::getNom, String.CASE_INSENSITIVE_ORDER))
-                .toList()
+                        .sorted(Comparator.comparing(Equipe::getNom, String.CASE_INSENSITIVE_ORDER))
+                        .toList()
                 : equipeRepository.findByDepartement_IdOrderByNomAsc(departmentId);
 
         List<LookupOptionResponse> options = teams.stream()
@@ -207,13 +222,15 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<List<LookupOptionResponse>> getManagers(
             @RequestParam(required = false) Long companyId) {
-        List<LookupOptionResponse> managers = utilisateurService.getAllUtilisateurs(Pageable.unpaged(), companyId)
+
+        List<LookupOptionResponse> managers = utilisateurService
+                .getAllUtilisateurs(Pageable.unpaged(), companyId)
                 .getContent()
                 .stream()
                 .filter(user -> user.getStatut() == StatutUtilisateurEnum.ACTIF)
                 .filter(user -> {
-                    String role = resolvePrimaryRole(user);
-                    return "MANAGER".equals(role) || "RH".equals(role);
+                    String r = resolvePrimaryRole(user);
+                    return "MANAGER".equals(r) || "RH".equals(r);
                 })
                 .map(user -> LookupOptionResponse.builder()
                         .id(user.getId())
@@ -224,13 +241,18 @@ public class UserController {
         return ResponseEntity.ok(managers);
     }
 
+    // -------------------------------------------------------------------------
+    // Profile / Avatar / Password
+    // -------------------------------------------------------------------------
+
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getCurrentUser() {
         return ResponseEntity.ok(utilisateurService.getCurrentUserProfile());
     }
 
     @PutMapping("/me")
-    public ResponseEntity<UserProfileResponse> updateCurrentUser(@Valid @RequestBody UserProfileUpdateRequest request) {
+    public ResponseEntity<UserProfileResponse> updateCurrentUser(
+            @Valid @RequestBody UserProfileUpdateRequest request) {
         return ResponseEntity.ok(utilisateurService.updateCurrentUserProfile(request));
     }
 
@@ -255,15 +277,20 @@ public class UserController {
     }
 
     @GetMapping({"/me/activity", "/me/activity-log", "/me/user-activity", "/activity-log", "/user-activity"})
-    public ResponseEntity<java.util.List<ActivityItemResponse>> getActivityHistory() {
+    public ResponseEntity<List<ActivityItemResponse>> getActivityHistory() {
         return ResponseEntity.ok(utilisateurService.getActivityHistory());
     }
 
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
     private UtilisateurRequest toUtilisateurRequest(UserManagementRequest request, boolean update) {
-        String firstName = defaultString(request.getFirstName(), "").trim();
-        String lastName = defaultString(request.getLastName(), "").trim();
-        RoleNom roleNom = toInternalRole(request.getRole());
+        String firstName  = defaultString(request.getFirstName(), "").trim();
+        String lastName   = defaultString(request.getLastName(), "").trim();
+        String roleNom    = toInternalRole(request.getRole());   // retourne String "ROLE_X"
         StatutUtilisateurEnum statut = toInternalStatus(request.getStatus());
+
         Long roleId = roleRepository.findByNom(roleNom)
                 .orElseThrow(() -> new IllegalArgumentException("Role invalide: " + request.getRole()))
                 .getId();
@@ -283,7 +310,7 @@ public class UserController {
                 .entrepriseId(request.getCompanyId())
                 .departementId(request.getDepartmentId())
                 .equipeId(request.getTeamId())
-                .role(toExternalRole(roleNom))
+                .role(toExternalRole(roleNom))   // "ROLE_X" → "X"
                 .roleIds(Set.of(roleId))
                 .build();
     }
@@ -293,27 +320,18 @@ public class UserController {
             String role,
             String status,
             String search) {
-        String normalizedRole = normalize(role);
+
+        String normalizedRole   = normalize(role);
         String normalizedStatus = normalize(status);
         String normalizedSearch = normalize(search);
 
         return source.stream()
+                .filter(user -> normalizedRole.isEmpty()
+                        || normalize(resolvePrimaryRole(user)).equals(normalizedRole))
+                .filter(user -> normalizedStatus.isEmpty()
+                        || normalize(toExternalStatus(user.getStatut())).equals(normalizedStatus))
                 .filter(user -> {
-                    if (normalizedRole.isEmpty()) {
-                        return true;
-                    }
-                    return normalize(resolvePrimaryRole(user)).equals(normalizedRole);
-                })
-                .filter(user -> {
-                    if (normalizedStatus.isEmpty()) {
-                        return true;
-                    }
-                    return normalize(toExternalStatus(user.getStatut())).equals(normalizedStatus);
-                })
-                .filter(user -> {
-                    if (normalizedSearch.isEmpty()) {
-                        return true;
-                    }
+                    if (normalizedSearch.isEmpty()) return true;
                     String fullName = buildDisplayName(user.getPrenom(), user.getNom(), user.getEmail());
                     return normalize(fullName).contains(normalizedSearch)
                             || normalize(user.getEmail()).contains(normalizedSearch);
@@ -331,23 +349,23 @@ public class UserController {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        if (managerIds.isEmpty()) {
-            return Map.of();
-        }
+        if (managerIds.isEmpty()) return Map.of();
 
         return utilisateurService.getUserSummaries(managerIds)
                 .stream()
-                .collect(Collectors.toMap(UserSummaryResponse::getId, manager -> manager));
+                .collect(Collectors.toMap(UserSummaryResponse::getId, m -> m));
     }
 
     private UserManagementResponse toManagementResponse(
             UtilisateurResponse user,
             Map<Long, UserSummaryResponse> managersById) {
+
         LookupOptionResponse manager = null;
         if (user.getManagerId() != null) {
-            UserSummaryResponse managerSummary = managersById.get(user.getManagerId());
-            String managerName = managerSummary != null
-                    ? defaultString(managerSummary.getFullName(), buildDisplayName(managerSummary.getPrenom(), managerSummary.getNom(), managerSummary.getEmail()))
+            UserSummaryResponse ms = managersById.get(user.getManagerId());
+            String managerName = ms != null
+                    ? defaultString(ms.getFullName(),
+                            buildDisplayName(ms.getPrenom(), ms.getNom(), ms.getEmail()))
                     : null;
             manager = LookupOptionResponse.builder()
                     .id(user.getManagerId())
@@ -378,7 +396,7 @@ public class UserController {
         UtilisateurResponse manager = utilisateurService.getUtilisateurById(managerId);
         boolean isEligible = manager.getRoles() != null && manager.getRoles().stream()
                 .map(RoleResponse::getNom)
-                .anyMatch(role -> role == RoleNom.ROLE_MANAGER || role == RoleNom.ROLE_RH);
+                .anyMatch(r -> "ROLE_MANAGER".equals(r) || "ROLE_RH".equals(r));
         if (!isEligible) {
             throw new IllegalArgumentException("Le manager doit avoir le role MANAGER ou RH.");
         }
@@ -388,44 +406,50 @@ public class UserController {
         }
     }
 
-    private RoleNom toInternalRole(String role) {
-        String normalized = normalize(role).toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "ADMIN" -> RoleNom.ROLE_ADMIN;
-            case "RH" -> RoleNom.ROLE_RH;
-            case "MANAGER" -> RoleNom.ROLE_MANAGER;
-            case "EMPLOYEE" -> RoleNom.ROLE_EMPLOYEE;
-            default -> throw new IllegalArgumentException("Role invalide: " + role);
+    /**
+     * Convertit le nom externe ("ADMIN", "RH"…) en nom interne complet ("ROLE_ADMIN", "ROLE_RH"…).
+     * Accepte aussi les noms déjà préfixés ("ROLE_ADMIN").
+     */
+    private String toInternalRole(String role) {
+        if (role == null) throw new IllegalArgumentException("Role invalide: null");
+        String upper = role.trim().toUpperCase(Locale.ROOT);
+        // Accepte "ROLE_ADMIN" ou "ADMIN"
+        String key = upper.startsWith("ROLE_") ? upper.substring("ROLE_".length()) : upper;
+        return switch (key) {
+            case "ADMIN"    -> "ROLE_ADMIN";
+            case "RH"       -> "ROLE_RH";
+            case "MANAGER"  -> "ROLE_MANAGER";
+            case "EMPLOYEE" -> "ROLE_EMPLOYEE";
+            // Rôles personnalisés (PHARMACIE, CLINIQUE…) : on accepte tout avec le préfixe
+            default -> "ROLE_" + key;
         };
     }
 
-    private String toExternalRole(RoleNom role) {
-        if (role == null) {
-            return "EMPLOYEE";
-        }
-        String raw = role.name();
-        return raw.startsWith("ROLE_") ? raw.substring("ROLE_".length()) : raw;
+    /**
+     * Convertit le nom interne ("ROLE_ADMIN") en nom externe ("ADMIN").
+     */
+    private String toExternalRole(String role) {
+        if (role == null) return "EMPLOYEE";
+        return role.startsWith("ROLE_") ? role.substring("ROLE_".length()) : role;
     }
 
     private StatutUtilisateurEnum toInternalStatus(String status) {
         String normalized = normalize(status).toUpperCase(Locale.ROOT);
         return switch (normalized) {
-            case "ACTIVE", "ACTIF" -> StatutUtilisateurEnum.ACTIF;
-            case "INACTIVE", "INACTIF" -> StatutUtilisateurEnum.INACTIF;
+            case "ACTIVE",    "ACTIF"    -> StatutUtilisateurEnum.ACTIF;
+            case "INACTIVE",  "INACTIF"  -> StatutUtilisateurEnum.INACTIF;
             case "SUSPENDED", "SUSPENDU" -> StatutUtilisateurEnum.SUSPENDU;
             default -> throw new IllegalArgumentException("Statut invalide: " + status);
         };
     }
 
     private String toExternalStatus(StatutUtilisateurEnum status) {
-        if (status == null) {
-            return "INACTIVE";
-        }
+        if (status == null) return "INACTIVE";
         return switch (status) {
-            case ACTIF -> "ACTIVE";
-            case INACTIF -> "INACTIVE";
+            case ACTIF    -> "ACTIVE";
+            case INACTIF  -> "INACTIVE";
             case SUSPENDU -> "SUSPENDED";
-            default -> status.name();
+            default       -> status.name();
         };
     }
 
@@ -433,19 +457,14 @@ public class UserController {
         if (user == null || user.getRoles() == null || user.getRoles().isEmpty()) {
             return "EMPLOYEE";
         }
-        Set<RoleNom> roles = user.getRoles().stream()
+        Set<String> roles = user.getRoles().stream()
                 .map(RoleResponse::getNom)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        if (roles.contains(RoleNom.ROLE_ADMIN)) {
-            return "ADMIN";
-        }
-        if (roles.contains(RoleNom.ROLE_RH)) {
-            return "RH";
-        }
-        if (roles.contains(RoleNom.ROLE_MANAGER)) {
-            return "MANAGER";
-        }
+
+        if (roles.contains("ROLE_ADMIN"))   return "ADMIN";
+        if (roles.contains("ROLE_RH"))      return "RH";
+        if (roles.contains("ROLE_MANAGER")) return "MANAGER";
         return "EMPLOYEE";
     }
 
