@@ -1,5 +1,9 @@
 {
   "dependencies": {
+    "leaflet": "^1.9.4",
     "lucide-angular": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.21"
   }
 }

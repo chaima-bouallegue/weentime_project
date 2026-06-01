@@ -1,4 +1,4 @@
-﻿<div class="pointage-page">
+<div class="pointage-page">
   <header class="pointage-header">
     <div>
       <h1>{{ isAdminOrRh() ? 'Pointage' : 'Mon pointage' }}</h1>
@@ -6,18 +6,9 @@
     </div>
   </header>
 
-  <app-attendance-card
-    [currentTime]="currentTime()"
-    [dailyDuration]="dailyDuration()"
-    [checkInTime]="checkInTime()"
-    [checkOutTime]="checkOutTime()"
-    [state]="attendanceState()"
-    [roleLabel]="roleLabel()"
-    [weeklyStats]="stats()"
-    [activityLogs]="history()"
-    [isLoading]="isLoading()"
-    (checkIn)="onCheckIn()"
-    (checkOut)="onCheckOut()"
+  <app-attendance-card [currentTime]="currentTime()" [dailyDuration]="dailyDuration()" [checkInTime]="checkInTime()"
+    [checkOutTime]="checkOutTime()" [state]="attendanceState()" [roleLabel]="roleLabel()" [weeklyStats]="stats()"
+    [activityLogs]="history()" [isLoading]="isLoading()" (checkIn)="onCheckIn()" (checkOut)="onCheckOut()"
     (refresh)="onRefresh()">
   </app-attendance-card>
 
@@ -39,7 +30,8 @@
       <small *ngIf="latestCoordinatesLabel()">{{ latestCoordinatesLabel() }}</small>
       <small *ngIf="gpsError()">{{ gpsError() }}</small>
     </div>
-    <div class="context-item context-wide" *ngIf="blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert">
+    <div class="context-item context-wide"
+      *ngIf="blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert">
       <span>Statut</span>
       <strong>{{ blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert }}</strong>
     </div>
@@ -55,7 +47,8 @@
     <span>{{ serviceError() }}</span>
   </div>
 
-  <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="overtime-modal-title">
+  <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
+    aria-labelledby="overtime-modal-title">
     <section class="overtime-modal">
       <div class="overtime-modal-icon">
         <lucide-angular [img]="iconClock" size="22"></lucide-angular>
@@ -104,14 +97,9 @@
     </p>
 
     <div class="overtime-reason-form">
-      <textarea
-        [value]="overtimeReasonDraft()"
-        (input)="onOvertimeReasonInput($event)"
-        rows="2"
+      <textarea [value]="overtimeReasonDraft()" (input)="onOvertimeReasonInput($event)" rows="2"
         placeholder="Ajouter une justification pour le manager"></textarea>
-      <button type="button"
-              (click)="submitOvertimeReason(overtime)"
-              [disabled]="isSavingOvertimeReason()">
+      <button type="button" (click)="submitOvertimeReason(overtime)" [disabled]="isSavingOvertimeReason()">
         Envoyer
       </button>
     </div>
@@ -163,7 +151,8 @@
 
         <div *ngIf="history().length > 0" class="timeline">
           <article *ngFor="let log of history(); let last = last" class="timeline-item">
-            <div class="timeline-dot" [class.dot-in]="log.type === 'ENTREE'" [class.dot-out]="log.type === 'SORTIE'"></div>
+            <div class="timeline-dot" [class.dot-in]="log.type === 'ENTREE'" [class.dot-out]="log.type === 'SORTIE'">
+            </div>
             <div class="timeline-body">
               <div class="timeline-head">
                 <strong>{{ log.type === 'ENTREE' ? 'Pointage entrée' : 'Pointage sortie' }}</strong>
@@ -174,8 +163,10 @@
                   Retard{{ log.minutesRetard ? ': ' + log.minutesRetard + ' min' : '' }}
                 </span>
                 <span *ngIf="log.isAutoClosed" class="tag tag-warn">Fermeture auto</span>
-                <span *ngIf="log.overtimeMinutes && log.overtimeMinutes > 0" class="tag tag-info">+{{ log.overtimeMinutes }} min supp.</span>
-                <span *ngIf="!log.estEnRetard && !log.isAutoClosed && !(log.overtimeMinutes && log.overtimeMinutes > 0)" class="tag tag-ok">Ponctuel</span>
+                <span *ngIf="log.overtimeMinutes && log.overtimeMinutes > 0" class="tag tag-info">+{{
+                  log.overtimeMinutes }} min supp.</span>
+                <span *ngIf="!log.estEnRetard && !log.isAutoClosed && !(log.overtimeMinutes && log.overtimeMinutes > 0)"
+                  class="tag tag-ok">Ponctuel</span>
               </div>
               <div *ngIf="timelineLocationLabel(log) || timelineCoordinateLabel(log)" class="timeline-location">
                 <p *ngIf="timelineLocationLabel(log)">📍 {{ timelineLocationLabel(log) }}</p>
@@ -276,5 +267,3 @@
     <app-attendance-map-card class="rh-pointage-map" [points]="mapPoints()"></app-attendance-map-card>
   </ng-template>
 </div>
-
-

@@ -151,6 +151,8 @@ export class PointageService {
       tap(summary => {
         this.applyTodayState(summary);
         this.invalidateDashboards();
+        // Relire après 4s pour récupérer le géocodage Nominatim async
+        setTimeout(() => this.refreshStatus(), 4000);
       }),
       switchMap(summary => this.refreshTodayAfterMutation(summary)),
       map(summary => this.mapSummaryToEntry(summary, 'ENTREE')),
@@ -183,6 +185,8 @@ export class PointageService {
       tap(summary => {
         this.applyTodayState(summary);
         this.invalidateDashboards();
+        // Relire après 4s pour récupérer le géocodage Nominatim async
+        setTimeout(() => this.refreshStatus(), 4000);
       }),
       switchMap(summary => this.refreshTodayAfterMutation(summary)),
       map(summary => this.mapSummaryToEntry(summary, 'SORTIE')),

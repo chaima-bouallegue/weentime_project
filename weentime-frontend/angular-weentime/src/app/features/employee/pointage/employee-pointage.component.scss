@@ -372,7 +372,7 @@
 }
 
 .kpi-tile,
-.summary-grid > div {
+.summary-grid>div {
   border-radius: 14px;
   padding: 0.75rem;
   background: linear-gradient(145deg, #f8fafc, #f1f5f9);
@@ -382,7 +382,7 @@
 }
 
 :host-context(.dark) .kpi-tile,
-:host-context(.dark) .summary-grid > div {
+:host-context(.dark) .summary-grid>div {
   background: rgba(30, 41, 59, 0.65);
   border-color: #334155;
 }
@@ -661,6 +661,7 @@
 }
 
 @media (max-width: 900px) {
+
   .pointage-context,
   .content-grid,
   .admin-grid {
@@ -678,4 +679,3 @@
     grid-template-columns: 1fr;
   }
 }
-

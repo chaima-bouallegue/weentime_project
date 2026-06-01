@@ -676,5 +676,3 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
   }
 }
-
-
