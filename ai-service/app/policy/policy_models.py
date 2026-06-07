@@ -45,6 +45,12 @@ class PolicySearchResult:
     query: str
     tenant_id: int | None
     citations: list[PolicyCitation]
+    provider: str = "local_keyword"
+    fallback_used: bool = False
+    top_k: int | None = None
+    tenant_filter_applied: bool = False
+    error_type: str | None = None
+    error_message: str | None = None
     generated_at: datetime = field(default_factory=datetime.utcnow)
 
     @property

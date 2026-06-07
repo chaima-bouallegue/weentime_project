@@ -28,6 +28,44 @@ export class AnomalyAlertCardComponent {
     return `anomaly-card--${risk}`;
   }
 
+  get employeeName(): string {
+    return this.anomaly?.employeeName?.trim() || 'Employé inconnu';
+  }
+
+  get title(): string {
+    return this.anomaly?.title?.trim() || String(this.anomaly?.category || 'Anomalie de présence');
+  }
+
+  get summary(): string {
+    return this.anomaly?.summary?.trim()
+      || this.anomaly?.explanation?.trim()
+      || 'Une anomalie de présence nécessite une vérification.';
+  }
+
+  get primaryReason(): string {
+    const detected = this.anomaly?.detectedReasons?.[0];
+    if (detected) {
+      const main = detected.label || detected.code || 'Raison détectée';
+      if (detected.value && detected.expected) {
+        return `${main} - ${detected.value} / attendu ${detected.expected}`;
+      }
+      if (detected.value) {
+        return `${main} - ${detected.value}`;
+      }
+      return detected.description ? `${main} - ${detected.description}` : main;
+    }
+    return this.anomaly?.reasons?.[0] || this.title;
+  }
+
+  get reasonCount(): number {
+    const detectedCount = this.anomaly?.detectedReasons?.length ?? 0;
+    return detectedCount > 0 ? detectedCount : (this.anomaly?.reasons?.length ?? 0);
+  }
+
+  get extraReasonCount(): number {
+    return Math.max(0, this.reasonCount - 1);
+  }
+
   get formattedDate(): string {
     if (!this.anomaly?.date) return '';
     const d = new Date(this.anomaly.date);

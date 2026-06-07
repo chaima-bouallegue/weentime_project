@@ -235,3 +235,139 @@ def test_global_member_payload_parses_camel_case_attendance_fields():
     assert records[0].check_out.hour == 17
     assert records[0].duration_seconds == 30600
     assert records[0].daily_status == "PRESENT"
+
+
+def test_parser_handles_nested_data_items_and_payload_date():
+    records = _team_status_to_records(
+        {
+            "success": True,
+            "data": {
+                "items": [
+                    {
+                        "employeeId": 51,
+                        "employeeName": "Nested User",
+                        "attendanceDate": "2026-05-31",
+                        "presenceStatus": "PRESENT",
+                        "checkIn": "09:00",
+                        "checkOut": "09:12",
+                        "durationMinutes": 12,
+                    }
+                ]
+            },
+            "error": None,
+        },
+        today=date(2026, 5, 30),
+    )
+
+    assert len(records) == 1
+    assert records[0].employee_id == 51
+    assert records[0].employee_name == "Nested User"
+    assert records[0].date == date(2026, 5, 31)
+    assert records[0].worked_minutes == 12
+
+
+def test_parser_normalizes_schedule_scope_and_approval_fields():
+    records = _team_status_to_records(
+        {
+            "success": True,
+            "data": {
+                "members": [
+                    {
+                        "utilisateurId": 88,
+                        "nomComplet": "Scoped User",
+                        "date": "2026-05-31",
+                        "status": "REMOTE",
+                        "heureEntree": None,
+                        "heureSortie": None,
+                        "scheduledStart": "09:00",
+                        "scheduledEnd": "18:00",
+                        "expectedMinutes": 540,
+                        "workedMinutes": 0,
+                        "scheduledWorkday": True,
+                        "approvedLeave": False,
+                        "approvedTelework": True,
+                        "holiday": False,
+                        "managerId": 12,
+                        "equipeId": 5,
+                        "entrepriseId": 42,
+                    }
+                ]
+            },
+            "error": None,
+        },
+        today=date(2026, 5, 30),
+    )
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.employee_id == 88
+    assert record.scheduled_workday is True
+    assert record.approved_leave is False
+    assert record.approved_telework is True
+    assert record.holiday is False
+    assert record.expected_minutes == 540
+    assert record.scheduled_start is not None
+    assert record.scheduled_end is not None
+    assert record.manager_id == 12
+    assert record.team_id == 5
+    assert record.entreprise_id == 42
+
+
+def test_parser_preserves_company_and_team_labels():
+    records = _team_status_to_records(
+        {
+            "success": True,
+            "data": {
+                "members": [
+                    {
+                        "utilisateurId": 42,
+                        "nomComplet": "Global User",
+                        "status": "PRESENT",
+                        "heureEntree": "09:00",
+                        "heureSortie": "17:30",
+                        "equipeId": 7,
+                        "equipe": "Produit",
+                        "entrepriseId": 3,
+                        "entreprise": "Weentime SARL",
+                    }
+                ]
+            },
+            "error": None,
+        },
+        today=date(2026, 5, 20),
+    )
+
+    assert records[0].team_id == 7
+    assert records[0].team_name == "Produit"
+    assert records[0].department_id == 7
+    assert records[0].department_name == "Produit"
+    assert records[0].entreprise_id == 3
+    assert records[0].entreprise_name == "Weentime SARL"
+
+
+def test_parser_preserves_missing_checkout_from_auto_closed_summary():
+    records = _team_status_to_records(
+        {
+            "success": True,
+            "data": {
+                "members": [
+                    {
+                        "utilisateurId": 24,
+                        "nomComplet": "Auto Closed",
+                        "date": "2026-06-01",
+                        "status": "PRESENT",
+                        "heureEntree": "08:56",
+                        "heureSortie": "18:00",
+                        "workedMinutes": 543,
+                        "latestAlert": "MISSING_CHECKOUT",
+                        "autoClosed": True,
+                    }
+                ]
+            },
+        },
+        today=date(2026, 6, 1),
+    )
+
+    assert len(records) == 1
+    assert records[0].daily_status == "MISSING_CHECKOUT"
+    assert "Session auto-closed after missing checkout" in records[0].missing_data_warnings

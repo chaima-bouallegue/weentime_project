@@ -265,9 +265,8 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
     this.anomalySub = this.mlAnomaly.getTeamAnomalies().subscribe({
       next: (response) => {
         const significant = (response.anomalies || [])
-          .filter(a => a && ['MEDIUM', 'HIGH', 'CRITICAL'].includes(a.risk))
-          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-          .slice(0, 5);
+          .filter(a => !!a)
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
         this.anomalies.set(significant);
         this.anomaliesError.set(!response.success);
         this.anomaliesDemo.set(Boolean(response.isDemo));

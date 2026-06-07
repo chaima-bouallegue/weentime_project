@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { map, Observable, OperatorFunction } from 'rxjs';
+import { map, Observable, OperatorFunction, throwError } from 'rxjs';
 import { ApiConfigService } from '@app/core/services/api-config.service';
 import {
   ApiEnvelope,
@@ -144,9 +144,10 @@ export class CommunicationApiService {
   }
 
   syncCommunication(entrepriseId?: number): Observable<ProvisioningSyncResponse> {
-    const endpoint = Number.isFinite(entrepriseId)
-      ? `/communication/admin/sync/enterprise/${entrepriseId}`
-      : '/communication/admin/sync';
+    if (!Number.isFinite(entrepriseId) || (entrepriseId ?? 0) <= 0) {
+      return throwError(() => new Error('Communication sync requires a valid entreprise context.'));
+    }
+    const endpoint = `/communication/admin/sync/enterprise/${entrepriseId}`;
     const url = this.apiConfig.buildUrl(endpoint);
     return this.http.post<ApiEnvelope<ProvisioningSyncResponse>>(url, {}).pipe(this.unwrapResponse('POST', url));
   }

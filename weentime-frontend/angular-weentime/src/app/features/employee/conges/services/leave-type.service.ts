@@ -1,9 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpContext } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ApiConfigService } from '@app/core/services/api-config.service';
-import { SKIP_ERROR_TOAST } from '@app/core/http/request-context.tokens';
 import { LeaveTypeUI, TypeConge } from '../models/leave-type.model';
 
 interface SoldeCongeApi {
@@ -17,22 +16,18 @@ interface SoldeCongeApi {
 export class LeaveTypeService {
   private httpClient = inject(HttpClient);
   private apiConfig = inject(ApiConfigService);
-  private readonly optionalRequestContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
   getLeaveTypes(): Observable<LeaveTypeUI[]> {
     const year = new Date().getFullYear();
 
     return this.httpClient
-      .get<any>(this.apiConfig.RH.GET_LEAVE_BALANCE(year), {
-        context: this.optionalRequestContext
-      })
+      .get<any>(this.apiConfig.RH.GET_LEAVE_BALANCE(year))
       .pipe(
         map(response => {
           const data = response?.data || response;
           const items = Array.isArray(data) ? data : [];
           return this.mapSoldesToLeaveTypes(items);
-        }),
-        catchError(() => of(this.mapSoldesToLeaveTypes([])))
+        })
       );
   }
 

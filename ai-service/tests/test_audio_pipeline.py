@@ -38,7 +38,7 @@ def test_vad_negative_with_real_signal_continues_to_stt(monkeypatch, tmp_path: P
     settings = build_settings(tmp_path)
     service = SpeechToTextService(settings)
 
-    def fake_convert_to_wav(_source, target, *, ffmpeg_binary="ffmpeg"):
+    def fake_convert_to_wav(_source, target, **_kwargs):
         write_wav(Path(target), seconds=1.8, amplitude=2500)
 
     monkeypatch.setattr("voice.stt.convert_to_wav", fake_convert_to_wav)
@@ -74,21 +74,21 @@ def test_valid_short_hr_command_can_continue_to_stt(monkeypatch, tmp_path: Path)
     source.write_bytes(b"audio" * 100)
     settings = build_settings(tmp_path)
     settings.voice_min_duration_seconds = 1.5
-    settings.voice_short_command_min_duration_seconds = 0.45
+    settings.voice_short_command_min_duration_seconds = 1.0
     service = SpeechToTextService(settings)
 
-    def fake_convert_to_wav(_source, target, *, ffmpeg_binary="ffmpeg"):
-        write_wav(Path(target), seconds=0.7, amplitude=2500)
+    def fake_convert_to_wav(_source, target, **_kwargs):
+        write_wav(Path(target), seconds=1.1, amplitude=2500)
 
     monkeypatch.setattr("voice.stt.convert_to_wav", fake_convert_to_wav)
     monkeypatch.setattr(
         "voice.stt.analyze_voice",
         lambda *args, **kwargs: VadAnalysis(
             used_vad=True,
-            total_duration_ms=690,
-            voiced_duration_ms=210,
-            total_frames=23,
-            voiced_frames=7,
+            total_duration_ms=1080,
+            voiced_duration_ms=330,
+            total_frames=36,
+            voiced_frames=11,
         ),
     )
     monkeypatch.setattr(

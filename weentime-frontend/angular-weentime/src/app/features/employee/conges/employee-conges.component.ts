@@ -12,6 +12,7 @@ import { AnnulationModalComponent } from './components/annulation-modal/annulati
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-employee-conges',
@@ -82,13 +83,24 @@ export class EmployeeCongesComponent implements OnInit {
 
   loadData() {
     this.isLoading.set(true);
-    // Load everything in parallel
-    this.congeService.getSoldes().subscribe(res => this.soldes.set(res));
-    this.congeService.getHistorique().subscribe(res => {
-      this.historique.set(res);
-      this.isLoading.set(false);
+    forkJoin({
+      soldes: this.congeService.getSoldes(),
+      historique: this.congeService.getHistorique()
+    }).subscribe({
+      next: ({ soldes, historique }) => {
+        this.soldes.set(soldes);
+        this.historique.set(historique);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        this.toastService.error(this.extractErrorMessage(error, 'Impossible de charger vos conges.'));
+        this.isLoading.set(false);
+      }
     });
-    this.congeService.getJoursFeries().subscribe(res => this.joursFeries.set(res));
+    this.congeService.getJoursFeries().subscribe({
+      next: res => this.joursFeries.set(res),
+      error: (error) => this.toastService.error(this.extractErrorMessage(error, 'Impossible de charger les jours feries.'))
+    });
   }
 
   onFilterChange(filter: StatutDemande | 'TOUS') {
@@ -108,7 +120,10 @@ export class EmployeeCongesComponent implements OnInit {
         this.toastService.success('Demande annulée avec succès');
         this.refreshState();
       },
-      error: () => this.isAnnulating.set(false)
+      error: (error) => {
+        this.toastService.error(this.extractErrorMessage(error, 'Impossible d annuler la demande.'));
+        this.isAnnulating.set(false);
+      }
     });
   }
 
@@ -121,15 +136,28 @@ export class EmployeeCongesComponent implements OnInit {
         this.toastService.success('Votre demande a été soumise avec succès');
         this.refreshState();
       },
-      error: () => {
+      error: (error) => {
+        this.toastService.error(this.extractErrorMessage(error, 'Impossible de soumettre la demande.'));
         this.isSubmittingRequest.set(false);
       }
     });
   }
 
   private refreshState() {
-    // Reload both to ensure balances are updated
-    this.congeService.getSoldes().subscribe(res => this.soldes.set(res));
-    this.congeService.getHistorique().subscribe(res => this.historique.set(res));
+    forkJoin({
+      soldes: this.congeService.getSoldes(),
+      historique: this.congeService.getHistorique()
+    }).subscribe({
+      next: ({ soldes, historique }) => {
+        this.soldes.set(soldes);
+        this.historique.set(historique);
+      },
+      error: (error) => this.toastService.error(this.extractErrorMessage(error, 'Impossible de rafraichir les conges.'))
+    });
+  }
+
+  private extractErrorMessage(error: unknown, fallback: string): string {
+    const source = (error ?? {}) as Record<string, any>;
+    return source?.['error']?.['message'] || source?.['message'] || fallback;
   }
 }

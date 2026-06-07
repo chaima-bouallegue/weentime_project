@@ -48,6 +48,12 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.equals("/api/v1/auth/validate");
     }
 
+    private boolean isInternalRecruitmentCallback(String path, HttpMethod method) {
+        return HttpMethod.POST.equals(method)
+                && path != null
+                && path.matches("/api/v1/internal/recruitment/applications/\\d+/ai-result");
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
@@ -68,6 +74,8 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.startsWith("/api/v1/organisations/users/by-email")
                 || path.startsWith("/api/v1/organisations/entreprises/validate-code/")
                 || path.startsWith("/api/v1/organisations/by-code/")
+                || path.equals("/api/ml/forecast/health")
+                || isInternalRecruitmentCallback(path, method)
                 || isPublicChatbotPath(path)
                 || path.startsWith("/api/v1/public/")) {
             return chain.filter(exchange);

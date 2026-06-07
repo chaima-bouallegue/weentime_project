@@ -27,28 +27,31 @@ app-root {
    ═══════════════════════════════════════════════════ */
 
 :root {
-  /* ─── colors ─────────────────────────────────────── */
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* ─── colors (WeenTime brand) ────────────────────── */
+  --background: #F5F5F8;
+  --foreground: #1A1A2E;
   --surface: #FFFFFF;
-  --surface-alt: #f1f5f9;
+  --surface-alt: #F5F5F8;
 
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-dark: #4f46e5;
+  --primary: #6B5DD3;
+  --primary-light: #8579DD;
+  --primary-dark: #5A4FC0;
 
-  --secondary: #8b5cf6;
-  --secondary-light: #a78bfa;
-  --secondary-dark: #7c3aed;
+  --secondary: #6B5DD3;
+  --secondary-light: #8579DD;
+  --secondary-dark: #5A4FC0;
 
-  --accent: #10b981;
-  --accent-light: #34d399;
+  /* --accent stays green: it backs the online/active status indicator. */
+  --accent: #10B981;
+  --accent-light: #34D399;
   --accent-dark: #059669;
+  /* WeenTime brand accent (fuchsia) — use sparingly via var(--brand-accent). */
+  --brand-accent: #E040A0;
 
-  --info: #0ea5e9;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --info: #3B82F6;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
 
   --muted: #64748b;
   --muted-light: #94a3b8;
@@ -90,7 +93,7 @@ app-root {
   --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.08), 0 20px 48px rgba(0, 0, 0, 0.06);
   --shadow-2xl: 0 16px 40px rgba(0, 0, 0, 0.10), 0 32px 64px rgba(0, 0, 0, 0.08);
 
-  --shadow-glow-primary: 0 0 24px rgba(99, 102, 241, 0.3);
+  --shadow-glow-primary: 0 0 24px rgba(107, 93, 211, 0.3);
   --shadow-glow-success: 0 0 24px rgba(16, 185, 129, 0.3);
   --shadow-glow-warning: 0 0 24px rgba(245, 158, 11, 0.3);
   --shadow-glow-danger: 0 0 24px rgba(239, 68, 68, 0.3);
@@ -117,13 +120,13 @@ app-root {
      ─ Scoped to the AI surface so the rest of the app keeps using
        --primary / --surface / --radius-* unchanged.
      ═══════════════════════════════════════════════════ */
-  --wt-primary: #6C63FF;
-  --wt-primary-dark: #5A52D5;
-  --wt-primary-light: #EEF0FF;
-  --wt-secondary: #FF4FD8;
-  --wt-accent: #5B8CFF;
+  --wt-primary: #6B5DD3;
+  --wt-primary-dark: #5A4FC0;
+  --wt-primary-light: #EDEBFA;
+  --wt-secondary: #E040A0;
+  --wt-accent: #3B82F6;
 
-  --wt-success: #22C55E;
+  --wt-success: #10B981;
   --wt-warning: #F59E0B;
   --wt-danger: #EF4444;
   --wt-danger-dark: #DC2626;
@@ -133,7 +136,7 @@ app-root {
   --wt-risk-medium: #F59E0B;
   --wt-risk-low: #22C55E;
 
-  --wt-bg: #F5F7FB;
+  --wt-bg: #F5F5F8;
   --wt-card-bg: #FFFFFF;
   --wt-card-border: transparent;
   --wt-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
@@ -318,12 +321,12 @@ app-root {
 
   /* ─── selection ──────────────────────────────────── */
   ::selection {
-    background: rgba(99, 102, 241, 0.2);
+    background: rgba(107, 93, 211, 0.2);
     color: var(--foreground);
   }
 
   ::-moz-selection {
-    background: rgba(99, 102, 241, 0.2);
+    background: rgba(107, 93, 211, 0.2);
     color: var(--foreground);
   }
 

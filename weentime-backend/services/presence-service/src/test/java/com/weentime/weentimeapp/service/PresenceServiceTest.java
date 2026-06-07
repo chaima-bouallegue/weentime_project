@@ -297,8 +297,8 @@ class PresenceServiceTest {
         storedSessions.add(AttendanceSession.builder()
                 .id(1L)
                 .utilisateurId(1L)
-                .date(LocalDate.now())
-                .checkInTime(LocalDateTime.now().minusHours(1))
+                .date(fixedDate)
+                .checkInTime(fixedNow.minusHours(1))
                 .status(AttendanceSessionStatus.OPEN)
                 .source(PresenceSource.WEB)
                 .lateArrival(false)
@@ -374,7 +374,7 @@ class PresenceServiceTest {
     }
 
     @Test
-    void continueOvertime_setsActiveModeFromScheduledEnd() {
+    void continueOvertime_setsActiveModeFromConfirmationTime() {
         LocalDateTime scheduledEnd = LocalDateTime.of(fixedDate, LocalTime.of(18, 0));
         workSchedule.setHeureFin(scheduledEnd.toLocalTime());
         AttendanceSession session = addOpenSession(13L, OvertimeMode.WAITING_CONFIRMATION, null);
@@ -382,15 +382,15 @@ class PresenceServiceTest {
         AttendanceSummaryDTO result = presenceService.continueOvertime(1L);
 
         assertEquals(OvertimeMode.ACTIVE, result.getOvertimeMode());
-        assertEquals(scheduledEnd, result.getOvertimeStartedAt());
-        assertEquals(45, result.getOvertimeMinutes());
+        assertEquals(fixedNow, result.getOvertimeStartedAt());
+        assertEquals(0, result.getOvertimeMinutes());
         assertEquals(OvertimeMode.ACTIVE, session.getOvertimeMode());
-        assertEquals(scheduledEnd, session.getOvertimeStartedAt());
+        assertEquals(fixedNow, session.getOvertimeStartedAt());
         assertEquals(fixedNow, session.getOvertimeConfirmedAt());
     }
 
     @Test
-    void checkOutAfterActiveOvertimeBelowThreshold_doesNotCreateRequest() {
+    void checkOutAfterActiveOvertimeBelowOldThreshold_createsRequest() {
         LocalDateTime scheduledEnd = LocalDateTime.of(fixedDate, LocalTime.of(18, 25));
         workSchedule.setHeureFin(scheduledEnd.toLocalTime());
         addOpenSession(14L, OvertimeMode.ACTIVE, scheduledEnd);
@@ -399,8 +399,11 @@ class PresenceServiceTest {
 
         assertEquals(OvertimeMode.FINISHED, result.getOvertimeMode());
         assertEquals(20, result.getOvertimeMinutes());
-        verify(overtimeRepository).deleteByUtilisateurIdAndDate(eq(1L), eq(fixedDate));
-        verify(overtimeRepository, never()).save(any(Overtime.class));
+        ArgumentCaptor<Overtime> overtimeCaptor = ArgumentCaptor.forClass(Overtime.class);
+        verify(overtimeRepository).save(overtimeCaptor.capture());
+        assertEquals(20, overtimeCaptor.getValue().getOvertimeMinutes());
+        assertEquals(scheduledEnd, overtimeCaptor.getValue().getOvertimeStart());
+        assertEquals(fixedNow, overtimeCaptor.getValue().getOvertimeEnd());
     }
 
     @Test
@@ -418,7 +421,22 @@ class PresenceServiceTest {
         Overtime saved = overtimeCaptor.getValue();
         assertEquals(15L, saved.getAttendanceId());
         assertEquals(45, saved.getOvertimeMinutes());
+        assertEquals(scheduledEnd, saved.getOvertimeStart());
+        assertEquals(fixedNow, saved.getOvertimeEnd());
         assertEquals(OvertimeMode.FINISHED, storedSessions.get(0).getOvertimeMode());
+    }
+
+    @Test
+    void checkInAfterScheduleEnd_isOutOfScheduleAndDoesNotShowOvertime() {
+        workSchedule.setHeureFin(LocalTime.of(18, 0));
+
+        AttendanceSummaryDTO result = presenceService.checkIn(1L, checkInRequest);
+
+        assertEquals(OvertimeMode.NONE, result.getOvertimeMode());
+        assertEquals(0, result.getOvertimeMinutes());
+        assertFalse(Boolean.TRUE.equals(result.getShowCheckoutAlert()));
+        assertEquals("Pointage hors horaire detecte", result.getOvertimeLabel());
+        assertEquals("Pointage hors horaire detecte", storedSessions.get(0).getLatestAlert());
     }
 
     @Test

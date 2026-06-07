@@ -257,6 +257,14 @@ export class PointageService {
       return 'Vous devez pointer votre entree avant de pointer votre sortie.';
     }
 
+    if (code.includes('OVERTIME_OUT_OF_SCHEDULE_CHECK_IN')) {
+      return 'Pointage hors horaire detecte. Aucune heure supplementaire automatique.';
+    }
+
+    if (code.includes('OVERTIME_NOT_STARTED')) {
+      return 'Les heures supplementaires ne sont pas encore disponibles.';
+    }
+
     if (details.includes('leave') || details.includes('congé') || details.includes('conge')) {
       return 'Vous avez un congé approuvé aujourd’hui.';
     }

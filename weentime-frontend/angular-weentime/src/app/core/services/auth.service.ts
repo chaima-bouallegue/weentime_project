@@ -349,7 +349,22 @@ export class AuthService {
     const userData = this.safeGetStorage('user');
     if (token && userData) {
       try {
-        this.currentUser.set(JSON.parse(userData));
+        const stored = JSON.parse(userData) as User;
+        const normalized = this.sanitizeProfile(stored);
+        const roles = this.normalizeRoles([normalized.role, normalized.roles, stored.role, stored.roles]);
+        const entrepriseId = normalized.entrepriseId ?? normalized.entreprise?.id;
+        this.currentUser.set({
+          ...stored,
+          ...normalized,
+          id: normalized.id ?? 0,
+          email: normalized.email ?? '',
+          roles,
+          role: this.resolvePrimaryRole(roles),
+          entrepriseId,
+          entreprise: entrepriseId
+            ? (normalized.entreprise ?? { id: entrepriseId, nom: stored.entreprise?.nom ?? '' })
+            : undefined
+        });
         this.isAuthenticated.set(true);
       } catch {
         this.clearStorage();
@@ -523,8 +538,11 @@ export class AuthService {
   }
 
   private toOptionalNumber(value: unknown): number | undefined {
+    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+      return undefined;
+    }
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
 
   private toOptionalString(value: unknown): string | undefined {

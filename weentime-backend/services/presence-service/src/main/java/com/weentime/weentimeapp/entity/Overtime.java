@@ -60,6 +60,12 @@ public class Overtime {
     @Column(name = "actual_check_out")
     private LocalDateTime actualCheckOut;
 
+    @Column(name = "overtime_start")
+    private LocalDateTime overtimeStart;
+
+    @Column(name = "overtime_end")
+    private LocalDateTime overtimeEnd;
+
     @Column(name = "worked_minutes")
     private Integer workedMinutes;
 
@@ -78,6 +84,18 @@ public class Overtime {
 
     @Column(name = "manager_id")
     private Long managerId;
+
+    @Column(name = "manager_decision", length = 32)
+    private String managerDecision;
+
+    @Column(name = "manager_comment", length = 500)
+    private String managerComment;
+
+    @Column(name = "rh_decision", length = 32)
+    private String rhDecision;
+
+    @Column(name = "rh_comment", length = 500)
+    private String rhComment;
 
     @Column(name = "rh_decision_by")
     private Long rhDecisionBy;
@@ -106,8 +124,8 @@ public class Overtime {
         }
         if (this.status == null) {
             this.status = Boolean.TRUE.equals(this.approuvee)
-                    ? OvertimeStatus.APPROUVEE_MANAGER
-                    : OvertimeStatus.EN_ATTENTE_MANAGER;
+                    ? OvertimeStatus.APPROVED_RH
+                    : OvertimeStatus.PENDING_MANAGER;
         }
     }
 

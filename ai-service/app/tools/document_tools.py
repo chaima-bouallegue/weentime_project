@@ -5,14 +5,22 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.context.current_user import CurrentUserContext
+from app.agents.document_request_flow import (
+    document_label,
+    is_payslip_type,
+    localized_month_question,
+    localized_success_summary,
+    normalize_document_type,
+    parse_month_reference,
+)
 from app.models.tool_models import ToolDefinition
 
 from .backend_client import BackendClient
 from .registry import ToolRegistry
 from .result import ToolResult, build_read_result
 
-DOCUMENT_READ_ROLES = {"EMPLOYEE", "RH"}
-DOCUMENT_CREATE_ROLES = {"EMPLOYEE"}
+DOCUMENT_READ_ROLES = {"EMPLOYEE", "MANAGER", "RH"}
+DOCUMENT_CREATE_ROLES = {"EMPLOYEE", "MANAGER"}
 DOCUMENT_RH_ROLES = {"RH"}
 DOCUMENT_CREATE_UNAVAILABLE = "Le type de document est obligatoire pour creer la demande."
 
@@ -206,17 +214,39 @@ class DocumentTools:
         if not document_type and type_document_id is None:
             return ToolResult.fail("document_type_required", DOCUMENT_CREATE_UNAVAILABLE, status_code=400)
 
+        reason = _clean_optional(getattr(payload, "reason", None))
+        raw_month = _clean_optional(getattr(payload, "month", None))
+        month = parse_month_reference(raw_month) if raw_month else None
+        if is_payslip_type(document_type) and not month:
+            message = localized_month_question(context.language)
+            return ToolResult.fail(
+                "document_month_required",
+                message,
+                status_code=400,
+                data={
+                    "kind": "write_result",
+                    "toolName": "document.create_request",
+                    "summary": message,
+                    "data": {
+                        "type": document_type,
+                        "label": document_label(document_type),
+                        "moisConcerne": None,
+                    },
+                    "error": {"code": "document_month_required", "message": message},
+                    "backendStatus": None,
+                },
+            )
+
         body: dict[str, Any] = {}
         if type_document_id is not None:
             body["typeDocumentId"] = type_document_id
         if document_type:
             body["type"] = document_type
-        reason = _clean_optional(getattr(payload, "reason", None))
-        month = _clean_optional(getattr(payload, "month", None))
-        if reason:
-            body["motif"] = reason
         if month:
             body["moisConcerne"] = month
+        motif = reason or month or document_type
+        if motif:
+            body["motif"] = motif
 
         result = await self.backend_client.post("/documents", context=context, json=body)
         if not result.success:
@@ -225,7 +255,7 @@ class DocumentTools:
             {
                 "kind": "write_result",
                 "toolName": "document.create_request",
-                "summary": "Votre demande de document a ete creee.",
+                "summary": localized_success_summary(document_type, month, context.language),
                 "data": _sanitize_document_item(result.data),
                 "backendStatus": result.status_code,
             },
@@ -507,21 +537,11 @@ def _clean_optional(value: Any) -> str | None:
 
 
 def _normalize_document_type(value: Any) -> str | None:
+    normalized = normalize_document_type(value)
+    if normalized:
+        return normalized
     text = str(value or "").strip().upper().replace("-", "_").replace(" ", "_")
-    if not text:
-        return None
-    aliases = {
-        "WORK_CERTIFICATE": "ATTESTATION_TRAVAIL",
-        "CERTIFICATE": "ATTESTATION_TRAVAIL",
-        "ATTESTATION": "ATTESTATION_TRAVAIL",
-        "ATTESTATION_DE_TRAVAIL": "ATTESTATION_TRAVAIL",
-        "PAYSLIP": "BULLETIN_PAIE",
-        "PAY_SLIP": "BULLETIN_PAIE",
-        "FICHE_DE_PAIE": "BULLETIN_PAIE",
-        "SALARY_CERTIFICATE": "ATTESTATION_SALAIRE",
-        "ATTESTATION_DE_SALAIRE": "ATTESTATION_SALAIRE",
-    }
-    return aliases.get(text, text)
+    return text or None
 
 
 def _sanitize_document_item(value: Any) -> Any:

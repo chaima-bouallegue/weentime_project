@@ -24,7 +24,7 @@ public interface RecruitmentService {
     org.springframework.core.io.Resource getCvFile(Long applicationId, Long entrepriseId);
     
     // --- AI Callback ---
-    void processAiResult(Long applicationId, java.util.Map<String, Object> aiResult);
+    void processAiResult(Long applicationId, AiRecruitmentResultRequest aiResult);
     
     // --- Page Publique ---
     List<JobPostingDTO> getPublicJobs(String companySlug);

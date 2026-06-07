@@ -151,6 +151,7 @@ public class PresenceServiceImpl implements PresenceService {
         WorkSchedule schedule = resolveSchedule(utilisateurId, today);
         LocalDateTime now = currentDateTime();
         boolean lateArrival = todaySessions.isEmpty() && isLateArrival(schedule, now, today);
+        boolean outOfScheduleCheckIn = isCheckInAfterScheduledEnd(schedule, now, today);
         Integer expectedMinutes = expectedMinutes(schedule, today);
 
         AttendanceSession session = AttendanceSession.builder()
@@ -172,13 +173,14 @@ public class PresenceServiceImpl implements PresenceService {
                 .checkInRegion(checkInLocation.region())
                 .checkInCountry(checkInLocation.country())
                 .lateArrival(lateArrival)
-                .dailyStatus(lateArrival ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING)
+                .dailyStatus((lateArrival || outOfScheduleCheckIn) ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING)
                 .workedMinutes(0)
                 .expectedMinutes(expectedMinutes)
                 .overtimeMinutes(0)
                 .overtimeMode(OvertimeMode.NONE)
                 .earlyLeaveMinutes(0)
                 .autoClosed(Boolean.FALSE)
+                .latestAlert(outOfScheduleCheckIn ? "Pointage hors horaire detecte" : null)
                 .build();
 
         AttendanceSession savedSession = attendanceSessionRepository.saveAndFlush(session);
@@ -244,8 +246,11 @@ public class PresenceServiceImpl implements PresenceService {
         int earlyLeaveMinutes = earlyLeaveMinutes(schedule, openSession.getDate(), now);
         OvertimeMode previousOvertimeMode = normalizeOvertimeMode(openSession.getOvertimeMode());
         int overtimeMinutes = previousOvertimeMode == OvertimeMode.ACTIVE
-                ? rawOvertimeMinutes(schedule, openSession.getDate(), now)
+                ? confirmedOvertimeMinutes(openSession, now)
                 : 0;
+        LocalDateTime overtimeStart = previousOvertimeMode == OvertimeMode.ACTIVE
+                ? resolveConfirmedOvertimeStart(openSession, now)
+                : null;
 
         openSession.setCheckOutTime(now);
         openSession.setDuration(duration);
@@ -266,8 +271,11 @@ public class PresenceServiceImpl implements PresenceService {
         openSession.setExpectedMinutes(expectedMinutes);
         openSession.setOvertimeMinutes(overtimeMinutes);
         openSession.setOvertimeMode(OvertimeMode.FINISHED);
-        if (previousOvertimeMode == OvertimeMode.ACTIVE && openSession.getOvertimeStartedAt() == null) {
-            openSession.setOvertimeStartedAt(scheduledEndDateTime(schedule, openSession.getDate()));
+        if (previousOvertimeMode == OvertimeMode.ACTIVE) {
+            openSession.setOvertimeStartedAt(overtimeStart);
+            if (openSession.getOvertimeConfirmedAt() == null) {
+                openSession.setOvertimeConfirmedAt(overtimeStart);
+            }
         }
         openSession.setEarlyLeaveMinutes(earlyLeaveMinutes);
         openSession.setStatus(AttendanceSessionStatus.CLOSED);
@@ -325,6 +333,15 @@ public class PresenceServiceImpl implements PresenceService {
         }
 
         LocalDateTime now = currentDateTime();
+        if (openSession.getCheckInTime() == null || !openSession.getCheckInTime().isBefore(scheduledEnd)) {
+            openSession.setLatestAlert("Pointage hors horaire detecte");
+            attendanceSessionRepository.save(openSession);
+            throw new PresenceBusinessException(
+                    HttpStatus.CONFLICT,
+                    "OVERTIME_OUT_OF_SCHEDULE_CHECK_IN",
+                    "Ce pointage hors horaire n'ouvre pas automatiquement droit aux heures supplementaires."
+            );
+        }
         if (now.isBefore(scheduledEnd)) {
             throw new PresenceBusinessException(
                     HttpStatus.CONFLICT,
@@ -336,7 +353,7 @@ public class PresenceServiceImpl implements PresenceService {
         OvertimeMode currentMode = normalizeOvertimeMode(openSession.getOvertimeMode());
         if (currentMode != OvertimeMode.ACTIVE) {
             openSession.setOvertimeMode(OvertimeMode.ACTIVE);
-            openSession.setOvertimeStartedAt(scheduledEnd);
+            openSession.setOvertimeStartedAt(now);
             openSession.setOvertimeConfirmedAt(now);
             if (openSession.getOvertimeConfirmationShownAt() == null) {
                 openSession.setOvertimeConfirmationShownAt(now);
@@ -759,7 +776,9 @@ public class PresenceServiceImpl implements PresenceService {
             staleSession.setWorkedMinutes(Math.toIntExact(duration / 60L));
             WorkSchedule schedule = resolveSchedule(utilisateurId, sessionDate);
             staleSession.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
-            staleSession.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, closeAt));
+            staleSession.setOvertimeMinutes(normalizeOvertimeMode(staleSession.getOvertimeMode()) == OvertimeMode.ACTIVE
+                    ? confirmedOvertimeMinutes(staleSession, closeAt)
+                    : 0);
             staleSession.setOvertimeMode(OvertimeMode.FINISHED);
             staleSession.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, closeAt));
             staleSession.setAutoClosed(Boolean.TRUE);
@@ -891,6 +910,7 @@ public class PresenceServiceImpl implements PresenceService {
                 .overtimePreview(overtimeState.overtimeMinutes())
                 .overtimeMinutes(overtimeState.overtimeMinutes())
                 .overtimeMode(overtimeState.mode())
+                .overtimeConfirmed(overtimeState.overtimeConfirmed())
                 .showCheckoutAlert(overtimeState.showCheckoutAlert())
                 .overtimeStartedAt(overtimeState.overtimeStartedAt())
                 .overtimeLabel(overtimeState.label())
@@ -918,20 +938,35 @@ public class PresenceServiceImpl implements PresenceService {
             LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, date);
             LocalDateTime now = currentDateTime();
             if (scheduledEnd == null || now.isBefore(scheduledEnd)) {
-                return new OvertimeSummaryState(OvertimeMode.NONE, false, 0, null, "0 min");
+                return new OvertimeSummaryState(OvertimeMode.NONE, false, false, 0, null, "0 min");
+            }
+            if (isCheckInAfterScheduledEnd(schedule, activeSession.getCheckInTime(), date)) {
+                if (normalizeOvertimeMode(activeSession.getOvertimeMode()) == OvertimeMode.WAITING_CONFIRMATION) {
+                    activeSession.setOvertimeMode(OvertimeMode.NONE);
+                    attendanceSessionRepository.save(activeSession);
+                }
+                return new OvertimeSummaryState(
+                        OvertimeMode.NONE,
+                        false,
+                        false,
+                        0,
+                        null,
+                        "Pointage hors horaire detecte"
+                );
             }
 
             OvertimeMode mode = normalizeOvertimeMode(activeSession.getOvertimeMode());
             if (mode == OvertimeMode.ACTIVE) {
-                LocalDateTime startedAt = activeSession.getOvertimeStartedAt() != null
-                        ? activeSession.getOvertimeStartedAt()
-                        : scheduledEnd;
-                if (activeSession.getOvertimeStartedAt() == null) {
-                    activeSession.setOvertimeStartedAt(scheduledEnd);
+                LocalDateTime startedAt = resolveConfirmedOvertimeStart(activeSession, now);
+                if (!Objects.equals(activeSession.getOvertimeStartedAt(), startedAt)) {
+                    activeSession.setOvertimeStartedAt(startedAt);
+                    if (activeSession.getOvertimeConfirmedAt() == null) {
+                        activeSession.setOvertimeConfirmedAt(startedAt);
+                    }
                     attendanceSessionRepository.save(activeSession);
                 }
-                int minutes = Math.toIntExact(Math.max(Duration.between(scheduledEnd, now).toMinutes(), 0L));
-                return new OvertimeSummaryState(OvertimeMode.ACTIVE, false, minutes, startedAt, minutes + " min");
+                int minutes = confirmedOvertimeMinutes(activeSession, now);
+                return new OvertimeSummaryState(OvertimeMode.ACTIVE, false, true, minutes, startedAt, minutes + " min");
             }
 
             boolean changed = false;
@@ -949,6 +984,7 @@ public class PresenceServiceImpl implements PresenceService {
             return new OvertimeSummaryState(
                     OvertimeMode.WAITING_CONFIRMATION,
                     true,
+                    false,
                     0,
                     null,
                     "En attente de confirmation"
@@ -960,18 +996,20 @@ public class PresenceServiceImpl implements PresenceService {
             return new OvertimeSummaryState(
                     OvertimeMode.FINISHED,
                     false,
+                    lastClosedSession.getOvertimeStartedAt() != null && minutes > 0,
                     minutes,
                     lastClosedSession.getOvertimeStartedAt(),
                     minutes + " min"
             );
         }
 
-        return new OvertimeSummaryState(OvertimeMode.NONE, false, 0, null, "0 min");
+        return new OvertimeSummaryState(OvertimeMode.NONE, false, false, 0, null, "0 min");
     }
 
     private record OvertimeSummaryState(
             OvertimeMode mode,
             boolean showCheckoutAlert,
+            boolean overtimeConfirmed,
             int overtimeMinutes,
             LocalDateTime overtimeStartedAt,
             String label
@@ -982,14 +1020,18 @@ public class PresenceServiceImpl implements PresenceService {
         if (users == null || users.isEmpty()) {
             return emptyOverview(scope, teamId, null);
         }
+        List<UserSummaryDTO> scopedUsers = distinctUsersById(users);
+        if (scopedUsers.isEmpty()) {
+            return emptyOverview(scope, teamId, null);
+        }
 
         LocalDate today = currentDate();
         Map<Long, List<AttendanceSession>> sessionsByUser = attendanceSessionRepository
-                .findByUtilisateurIdInAndDate(users.stream().map(UserSummaryDTO::getId).toList(), today)
+                .findByUtilisateurIdInAndDate(scopedUsers.stream().map(UserSummaryDTO::getId).toList(), today)
                 .stream()
                 .collect(Collectors.groupingBy(AttendanceSession::getUtilisateurId));
 
-        List<TeamStatusResponse.MemberStatus> members = users.stream()
+        List<TeamStatusResponse.MemberStatus> members = scopedUsers.stream()
                 .map(user -> {
                     AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
                     return toMemberStatus(user, summary);
@@ -1004,14 +1046,29 @@ public class PresenceServiceImpl implements PresenceService {
         return TeamStatusResponse.builder()
                 .scope(scope)
                 .teamId(teamId)
-                .entrepriseId(users.stream().map(UserSummaryDTO::getEntrepriseId).filter(Objects::nonNull).findFirst().orElse(null))
-                .totalMembers(users.size())
+                .entrepriseId(scopedUsers.stream().map(UserSummaryDTO::getEntrepriseId).filter(Objects::nonNull).findFirst().orElse(null))
+                .totalMembers(scopedUsers.size())
                 .presentMembers(presentMembers)
                 .workingMembers(workingMembers)
                 .lateMembers(lateMembers)
                 .absentMembers(absentMembers)
                 .members(members)
                 .build();
+    }
+
+    private List<UserSummaryDTO> distinctUsersById(List<UserSummaryDTO> users) {
+        return users.stream()
+                .filter(Objects::nonNull)
+                .filter(user -> user.getId() != null)
+                .collect(Collectors.toMap(
+                        UserSummaryDTO::getId,
+                        user -> user,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
     }
 
     private Page<AttendanceSessionViewDTO> buildScopedHistory(List<UserSummaryDTO> users, Pageable pageable) {
@@ -1047,10 +1104,15 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private TeamStatusResponse.MemberStatus toMemberStatus(UserSummaryDTO user, AttendanceSummaryDTO summary) {
+        AttendanceDayStatus dayStatus = summary.getStatus();
+        Boolean scheduledWorkday = summary.getExpectedMinutes() != null
+                ? summary.getExpectedMinutes() > 0
+                : null;
         return TeamStatusResponse.MemberStatus.builder()
                 .utilisateurId(user.getId())
                 .nomComplet(resolveFullName(user))
-                .status(mapTeamStatus(summary.getStatus()))
+                .date(summary.getDate())
+                .status(mapTeamStatus(dayStatus))
                 .heureEntree(summary.getHeureEntree() != null ? summary.getHeureEntree().toLocalTime().toString() : null)
                 .heureSortie(summary.getHeureSortie() != null ? summary.getHeureSortie().toLocalTime().toString() : null)
                 .checkInLocation(summary.getCheckInLocation())
@@ -1058,12 +1120,21 @@ public class PresenceServiceImpl implements PresenceService {
                 .checkOutLocation(summary.getCheckOutLocation())
                 .checkOutLocationDetails(summary.getCheckOutLocationDetails())
                 .durationSeconds(summary.getTotalDuration())
+                .workedMinutes(summary.getWorkedMinutes())
+                .expectedMinutes(summary.getExpectedMinutes())
+                .scheduledStart(summary.getScheduledStart())
+                .scheduledEnd(summary.getScheduledEnd())
+                .scheduledWorkday(scheduledWorkday)
+                .approvedLeave(dayStatus == AttendanceDayStatus.ON_LEAVE)
+                .approvedTelework(dayStatus == AttendanceDayStatus.REMOTE)
+                .holiday(dayStatus == AttendanceDayStatus.HOLIDAY)
                 .overtimeMinutes(summary.getOvertimeMode() == OvertimeMode.FINISHED
                         ? Math.max(Optional.ofNullable(summary.getOvertimeMinutes()).orElse(0), 0)
                         : 0)
                 .latestAlert(summary.getLatestAlert())
                 .autoClosed(summary.getSessions() != null && summary.getSessions().stream().anyMatch(session -> Boolean.TRUE.equals(session.getAutoClosed())))
                 .lateArrival(summary.getLateArrival())
+                .managerId(user.getManagerId())
                 .equipeId(user.getEquipeId())
                 .equipe(user.getEquipe())
                 .entrepriseId(user.getEntrepriseId())
@@ -1250,7 +1321,9 @@ public class PresenceServiceImpl implements PresenceService {
             session.setDailyStatus(AttendanceDayStatus.MISSING_CHECKOUT);
             session.setWorkedMinutes(Math.toIntExact(duration / 60L));
             session.setExpectedMinutes(expectedMinutes(schedule, sessionDate));
-            session.setOvertimeMinutes(overtimeMinutes(schedule, sessionDate, scheduledEnd));
+            session.setOvertimeMinutes(normalizeOvertimeMode(session.getOvertimeMode()) == OvertimeMode.ACTIVE
+                    ? confirmedOvertimeMinutes(session, scheduledEnd)
+                    : 0);
             session.setOvertimeMode(OvertimeMode.FINISHED);
             session.setEarlyLeaveMinutes(earlyLeaveMinutes(schedule, sessionDate, scheduledEnd));
             session.setAutoClosed(Boolean.TRUE);
@@ -1310,19 +1383,30 @@ public class PresenceServiceImpl implements PresenceService {
         return Math.toIntExact(Math.max(Duration.between(checkOutTime, scheduledEnd).toMinutes(), 0L));
     }
 
-    private Integer overtimeMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
-        int rawMinutes = rawOvertimeMinutes(schedule, date, checkOutTime);
-        int threshold = overtimeThresholdMinutes();
-        return rawMinutes >= threshold ? rawMinutes : 0;
+    private boolean isCheckInAfterScheduledEnd(WorkSchedule schedule, LocalDateTime checkInTime, LocalDate date) {
+        LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, date);
+        return scheduledEnd != null && checkInTime != null && !checkInTime.isBefore(scheduledEnd);
     }
 
-    private int rawOvertimeMinutes(WorkSchedule schedule, LocalDate date, LocalDateTime checkOutTime) {
-        if (schedule == null || !isWorkingDay(schedule, date) || schedule.getHeureFin() == null || checkOutTime == null) {
+    private int confirmedOvertimeMinutes(AttendanceSession session, LocalDateTime endTime) {
+        if (session == null || endTime == null) {
             return 0;
         }
-        LocalDateTime scheduledEnd = LocalDateTime.of(date, schedule.getHeureFin());
-        long rawMinutes = Duration.between(scheduledEnd, checkOutTime).toMinutes();
-        return Math.toIntExact(Math.max(rawMinutes, 0L));
+        LocalDateTime start = resolveConfirmedOvertimeStart(session, endTime);
+        long minutes = Duration.between(start, endTime).toMinutes();
+        return Math.toIntExact(Math.max(minutes, 0L));
+    }
+
+    private LocalDateTime resolveConfirmedOvertimeStart(AttendanceSession session, LocalDateTime fallback) {
+        LocalDateTime startedAt = session != null ? session.getOvertimeStartedAt() : null;
+        LocalDateTime confirmedAt = session != null ? session.getOvertimeConfirmedAt() : null;
+        if (confirmedAt != null && (startedAt == null || confirmedAt.isAfter(startedAt))) {
+            return confirmedAt;
+        }
+        if (startedAt != null) {
+            return startedAt;
+        }
+        return fallback != null ? fallback : currentDateTime();
     }
 
     private LocalDateTime scheduledEndDateTime(WorkSchedule schedule, LocalDate date) {
@@ -1330,10 +1414,6 @@ public class PresenceServiceImpl implements PresenceService {
             return null;
         }
         return LocalDateTime.of(date, schedule.getHeureFin());
-    }
-
-    private int overtimeThresholdMinutes() {
-        return Math.max(Optional.ofNullable(presenceProperties.resolveOvertimeThresholdMinutes()).orElse(30), 0);
     }
 
     private OvertimeMode normalizeOvertimeMode(OvertimeMode mode) {
@@ -1654,17 +1734,12 @@ public class PresenceServiceImpl implements PresenceService {
         }
 
         int overtimeMinutes = Math.max(Optional.ofNullable(lastClosedSession.getOvertimeMinutes()).orElse(0), 0);
-        if (overtimeMinutes < overtimeThresholdMinutes()) {
+        if (overtimeMinutes <= 0 || lastClosedSession.getOvertimeStartedAt() == null || lastClosedSession.getCheckOutTime() == null) {
             overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
             return;
         }
 
         long overtimeSeconds = overtimeMinutes * 60L;
-
-        if (overtimeSeconds <= 0) {
-            overtimeRepository.deleteByUtilisateurIdAndDate(utilisateurId, date);
-            return;
-        }
 
         BigDecimal overtimeHours = BigDecimal.valueOf(overtimeSeconds)
                 .divide(BigDecimal.valueOf(3600L), 2, RoundingMode.HALF_UP);
@@ -1675,7 +1750,7 @@ public class PresenceServiceImpl implements PresenceService {
                         .utilisateurId(utilisateurId)
                         .date(date)
                         .approuvee(Boolean.FALSE)
-                        .status(OvertimeStatus.EN_ATTENTE_MANAGER)
+                        .status(OvertimeStatus.PENDING_MANAGER)
                         .build());
         UserSummaryDTO user = fetchUserSummary(utilisateurId);
 
@@ -1687,6 +1762,8 @@ public class PresenceServiceImpl implements PresenceService {
         overtime.setCheckInTime(lastClosedSession.getCheckInTime());
         overtime.setCheckOutTime(lastClosedSession.getCheckOutTime());
         overtime.setActualCheckOut(lastClosedSession.getCheckOutTime());
+        overtime.setOvertimeStart(lastClosedSession.getOvertimeStartedAt());
+        overtime.setOvertimeEnd(lastClosedSession.getCheckOutTime());
         overtime.setWorkedMinutes(lastClosedSession.getWorkedMinutes());
         overtime.setExpectedMinutes(lastClosedSession.getExpectedMinutes() != null ? lastClosedSession.getExpectedMinutes() : Math.toIntExact(expectedSeconds / 60L));
         overtime.setOvertimeMinutes(overtimeMinutes);
@@ -1694,15 +1771,17 @@ public class PresenceServiceImpl implements PresenceService {
         if (overtime.getReason() == null || overtime.getReason().isBlank()) {
             overtime.setReason("Travail au-dela de l'horaire planifie");
         }
-        if (overtime.getStatus() == null || overtime.getStatus() == OvertimeStatus.NO_OVERTIME) {
-            overtime.setStatus(OvertimeStatus.EN_ATTENTE_MANAGER);
+        if (overtime.getStatus() == null || overtime.getStatus() == OvertimeStatus.NO_OVERTIME || overtime.getStatus() == OvertimeStatus.NONE) {
+            overtime.setStatus(OvertimeStatus.PENDING_MANAGER);
         }
         overtime.setApprouvee(isApprovedOvertimeStatus(overtime.getStatus()));
         overtimeRepository.save(overtime);
     }
 
     private boolean isApprovedOvertimeStatus(OvertimeStatus status) {
-        return status == OvertimeStatus.APPROUVEE_MANAGER
+        return status == OvertimeStatus.APPROVED_MANAGER
+                || status == OvertimeStatus.APPROVED_RH
+                || status == OvertimeStatus.APPROUVEE_MANAGER
                 || status == OvertimeStatus.APPROUVEE_RH
                 || status == OvertimeStatus.APPROVED;
     }
@@ -1947,41 +2026,103 @@ public class PresenceServiceImpl implements PresenceService {
     @Override
     public Map<LocalDate, TeamStatusResponse> getStatusRange(Long entrepriseId, Long teamId, LocalDate start, LocalDate end) {
         log.info("Fetching status range for enterprise {} team {} from {} to {}", entrepriseId, teamId, start, end);
-        
-        List<UserSummaryDTO> users = filterUsersByEntreprise(fetchActiveUsers(), entrepriseId);
+
+        List<UserSummaryDTO> users = entrepriseId == null
+                ? fetchActiveUsers()
+                : filterUsersByEntreprise(fetchActiveUsers(), entrepriseId);
         if (teamId != null) {
             users = filterUsersByTeam(users, teamId);
         }
-        
+
+        String scope = entrepriseId == null ? "GLOBAL" : teamId != null ? "TEAM" : "COMPANY";
+        return buildStatusRange(users, entrepriseId, teamId, scope, start, end);
+    }
+
+    @Override
+    public Map<LocalDate, TeamStatusResponse> getCompanyStatusRange(
+            Long rhUserId,
+            LocalDate start,
+            LocalDate end
+    ) {
+        if (rhUserId == null) {
+            throw new IllegalStateException("Authenticated RH user not found");
+        }
+        UserSummaryDTO currentUser = fetchUserSummary(rhUserId);
+        Long entrepriseId = currentUser != null ? currentUser.getEntrepriseId() : null;
+        if (entrepriseId == null) {
+            log.warn("RH user {} has no entrepriseId in organisation-service", rhUserId);
+            return Collections.emptyMap();
+        }
+        log.info("Fetching company status range for RH {} enterprise {} from {} to {}",
+                rhUserId, entrepriseId, start, end);
+        return buildStatusRange(
+                filterUsersByEntreprise(fetchActiveUsers(), entrepriseId),
+                entrepriseId,
+                null,
+                "COMPANY",
+                start,
+                end
+        );
+    }
+
+    @Override
+    public Map<LocalDate, TeamStatusResponse> getTeamStatusRange(
+            Long managerId,
+            Long teamId,
+            LocalDate start,
+            LocalDate end
+    ) {
+        if (managerId == null) {
+            throw new IllegalStateException("Authenticated manager not found");
+        }
+        List<UserSummaryDTO> users = filterUsersByTeam(fetchTeamMembers(managerId), teamId);
+        Long entrepriseId = users.stream()
+                .map(UserSummaryDTO::getEntrepriseId)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        log.info("Fetching team status range for manager {} team {} from {} to {}",
+                managerId, teamId, start, end);
+        return buildStatusRange(users, entrepriseId, teamId, "TEAM", start, end);
+    }
+
+    private Map<LocalDate, TeamStatusResponse> buildStatusRange(
+            List<UserSummaryDTO> users,
+            Long entrepriseId,
+            Long teamId,
+            String scope,
+            LocalDate start,
+            LocalDate end
+    ) {
         if (users.isEmpty()) {
             return Collections.emptyMap();
         }
-        
+
         List<Long> userIds = users.stream().map(UserSummaryDTO::getId).toList();
         List<AttendanceSession> sessions = attendanceSessionRepository.findByUtilisateurIdInAndDateBetween(userIds, start, end);
         Map<LocalDate, Map<Long, List<AttendanceSession>>> sessionsByDateAndUser = sessions.stream()
-                .collect(Collectors.groupingBy(AttendanceSession::getDate, 
+                .collect(Collectors.groupingBy(AttendanceSession::getDate,
                         Collectors.groupingBy(AttendanceSession::getUtilisateurId)));
-        
+
         Map<LocalDate, TeamStatusResponse> result = new LinkedHashMap<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             final LocalDate currentDate = date;
             Map<Long, List<AttendanceSession>> daySessionsByUser = sessionsByDateAndUser.getOrDefault(date, Collections.emptyMap());
-            
+
             List<TeamStatusResponse.MemberStatus> members = users.stream()
                     .map(user -> {
                         AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()), user);
                         return toMemberStatus(user, summary);
                     })
                     .toList();
-            
+
             long presentMembers = members.stream().filter(m -> m.getStatus() != PresenceStatus.ABSENT).count();
             long workingMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.PRESENT && m.getHeureSortie() == null).count();
             long lateMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.LATE).count();
             long absentMembers = members.stream().filter(m -> m.getStatus() == PresenceStatus.ABSENT).count();
-            
+
             result.put(date, TeamStatusResponse.builder()
-                    .scope(teamId != null ? "TEAM" : "COMPANY")
+                    .scope(scope)
                     .teamId(teamId)
                     .entrepriseId(entrepriseId)
                     .totalMembers(users.size())
@@ -1992,7 +2133,7 @@ public class PresenceServiceImpl implements PresenceService {
                     .members(members)
                     .build());
         }
-        
+
         return result;
     }
 }

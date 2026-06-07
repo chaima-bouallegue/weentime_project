@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import { AlertTriangle, LucideAngularModule } from 'lucide-angular';
 import { InactivityService } from '../../../core/services/inactivity.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -20,7 +20,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
           <!-- Icon -->
           <div class="w-16 h-16 bg-amber-100 dark:bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500 mx-auto">
-            <lucide-icon name="alert-triangle" size="32"></lucide-icon>
+            <lucide-icon [img]="AlertTriangleIcon" size="32"></lucide-icon>
           </div>
 
           <!-- Title -->
@@ -77,6 +77,7 @@ import { AuthService } from '../../../core/services/auth.service';
   `]
 })
 export class SessionWarningModalComponent {
+  readonly AlertTriangleIcon = AlertTriangle;
   inactivityService = inject(InactivityService);
   private authService = inject(AuthService);
 

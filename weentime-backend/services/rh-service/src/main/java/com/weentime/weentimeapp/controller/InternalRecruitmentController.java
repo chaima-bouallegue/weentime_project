@@ -1,18 +1,22 @@
 package com.weentime.weentimeapp.controller;
 
+import com.weentime.weentimeapp.dto.AiRecruitmentResultRequest;
 import com.weentime.weentimeapp.service.RecruitmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 
 /**
  * Endpoint interne pour les callbacks inter-services.
- * NON exposé via le gateway — accessible uniquement sur le réseau Docker interne.
- * 
+ *
  * Utilisé par le ai-service Python pour envoyer les résultats d'analyse CV.
  */
 @RestController
@@ -34,13 +38,13 @@ public class InternalRecruitmentController {
     public ResponseEntity<Map<String, String>> receiveAiResult(
             @PathVariable Long id,
             @RequestHeader(value = "X-Internal-Secret", required = false) String requestSecret,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody AiRecruitmentResultRequest body) {
         
         log.info("📥 Callback IA reçu pour candidature #{}", id);
 
-        if (requestSecret == null || !requestSecret.equals(internalSecret)) {
+        if (!isInternalSecretValid(requestSecret)) {
             log.warn("🚫 Accès non autorisé : Secret interne partagé invalide ou absent.");
-            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(Map.of(
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
                 "status", "error",
                 "message", "Access Denied: Invalid internal secret"
             ));
@@ -52,12 +56,28 @@ public class InternalRecruitmentController {
                 "status", "saved",
                 "message", "Résultat IA enregistré pour la candidature #" + id
             ));
+        } catch (ResponseStatusException e) {
+            log.warn("Callback IA refusé pour candidature #{}: {}", id, e.getReason());
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of(
+                "status", "error",
+                "message", e.getReason() != null ? e.getReason() : "Callback IA invalide"
+            ));
         } catch (Exception e) {
             log.error("❌ Erreur traitement callback IA pour candidature #{}: {}", id, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of(
                 "status", "error",
-                "message", e.getMessage()
+                "message", e.getMessage() != null ? e.getMessage() : "Erreur interne"
             ));
         }
+    }
+
+    private boolean isInternalSecretValid(String requestSecret) {
+        if (requestSecret == null || internalSecret == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                requestSecret.getBytes(StandardCharsets.UTF_8),
+                internalSecret.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }

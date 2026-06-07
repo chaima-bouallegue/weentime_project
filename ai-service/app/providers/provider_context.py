@@ -9,6 +9,9 @@ from app.context.current_user import CurrentUserContext
 
 class ProviderContext(BaseModel):
     role: str
+    user_id: int | None = Field(default=None, exclude=True)
+    tenant_id: int | None = Field(default=None, exclude=True)
+    company_id: int | None = Field(default=None, exclude=True)
     language: str = "fr"
     locale: str = "fr-FR"
     channel: str = "chat"
@@ -34,6 +37,9 @@ class ProviderContext(BaseModel):
         safe_permissions = sorted(str(permission) for permission in (context.permissions or set()))
         return cls(
             role=str(context.role or "UNKNOWN").upper().replace("ROLE_", ""),
+            user_id=context.user_id,
+            tenant_id=context.tenant_id,
+            company_id=context.entreprise_id,
             language=str(context.language or context.metadata.get("language") or "fr").lower(),
             locale=str(context.locale or "fr-FR"),
             channel=channel,

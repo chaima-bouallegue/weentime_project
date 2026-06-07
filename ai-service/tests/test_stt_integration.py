@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 import pytest
@@ -61,4 +62,22 @@ async def test_async_stt_cancellation_returns_controlled_status(monkeypatch, tmp
     assert isinstance(result, VoiceProcessingResult)
     assert result.status == "cancelled"
     assert result.error == "audio_cancelled"
+
+
+@pytest.mark.asyncio
+async def test_async_stt_timeout_returns_controlled_status(monkeypatch, tmp_path: Path) -> None:
+    settings = Settings()
+    settings.stt_timeout_seconds = 0.01
+    service = SpeechToTextService(settings)
+
+    def slow_process(_path):
+        time.sleep(0.05)
+        return VoiceProcessingResult(status="success", cleaned_text="bonjour")
+
+    monkeypatch.setattr(service, "process", slow_process)
+
+    result = await service.aprocess(tmp_path / "input.webm")
+
+    assert result.status == "unavailable"
+    assert result.error == "stt_timeout"
 

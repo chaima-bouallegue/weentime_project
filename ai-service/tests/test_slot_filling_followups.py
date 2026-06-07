@@ -72,6 +72,77 @@ def test_document_type_followup_continues_pending_flow() -> None:
     assert second.actionResult["summary"]["type"] == "ATTESTATION_TRAVAIL"
 
 
+def test_payslip_request_requires_month_then_confirms_with_month() -> None:
+    state = make_state()
+    first = asyncio.run(_send(state, "je veux un bulletin de paie"))
+    second = asyncio.run(_send(state, "avril 2026"))
+
+    assert first.type == "ask"
+    assert first.intent == "document.create"
+    assert "mois" in first.text.lower()
+    pending = first.actionResult["pendingFlow"]
+    assert pending["documentType"] == "BULLETIN_PAIE"
+    assert pending["missingFields"] == ["month"]
+
+    assert second.intent == "document.create"
+    assert second.type == "confirm_action"
+    assert second.toolCalls[0].name == "document.create_request"
+    assert second.toolCalls[0].arguments == {
+        "document_type": "BULLETIN_PAIE",
+        "reason": None,
+        "month": "Avril 2026",
+    }
+    assert second.actionResult["summary"]["moisConcerne"] == "Avril 2026"
+
+
+def test_invalid_payslip_month_asks_again() -> None:
+    state = make_state()
+    first = asyncio.run(_send(state, "je veux un bulletin de paie"))
+    second = asyncio.run(_send(state, "mois invente"))
+
+    assert first.type == "ask"
+    assert second.type == "ask"
+    assert second.intent == "document.create"
+    assert "mois" in second.text.lower()
+    assert second.actionResult["pendingFlow"]["missingFields"] == ["month"]
+
+
+def test_manager_payslip_month_followup_uses_same_personal_document_flow() -> None:
+    state = make_state()
+    manager = make_context("MANAGER", user_id=21, tenant_id=9)
+
+    first = asyncio.run(_send_context(state, "je veux un bulletin de paie", manager, session_id="manager-docs"))
+    second = asyncio.run(_send_context(state, "avril 2026", manager, session_id="manager-docs"))
+
+    assert first.type == "ask"
+    assert first.actionResult["pendingFlow"]["role"] == "MANAGER"
+    assert second.type == "confirm_action"
+    assert second.toolCalls[0].arguments["document_type"] == "BULLETIN_PAIE"
+    assert second.toolCalls[0].arguments["month"] == "Avril 2026"
+
+
+def test_confirm_without_pending_action_returns_controlled_message() -> None:
+    state = make_state()
+    response = asyncio.run(_send(state, "oui", session_id="no-pending"))
+
+    assert response.intent == "confirmation.no_pending"
+    assert response.type == "answer"
+    assert response.actionResult["status"] == "unavailable"
+    assert response.actionResult["code"] == "no_pending_confirmation"
+
+
+def test_confirm_after_payslip_month_executes_backend_write_once() -> None:
+    state = make_state()
+    asyncio.run(_send(state, "je veux un bulletin de paie", session_id="doc-confirm"))
+    second = asyncio.run(_send(state, "avril 2026", session_id="doc-confirm"))
+    third = asyncio.run(_send(state, "oui", session_id="doc-confirm"))
+
+    assert second.type == "confirm_action"
+    assert third.intent == "confirmation.document.create_request"
+    backend = state.copilot_backend_client
+    assert ("POST", "/documents", {"type": "BULLETIN_PAIE", "moisConcerne": "Avril 2026", "motif": "Avril 2026"}) in backend.calls
+
+
 def test_public_context_pending_flow_is_role_scoped() -> None:
     state = make_state()
     employee = make_context("EMPLOYEE", user_id=12, tenant_id=9)

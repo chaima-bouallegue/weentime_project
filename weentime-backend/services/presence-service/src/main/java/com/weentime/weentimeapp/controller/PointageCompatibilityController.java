@@ -78,12 +78,43 @@ public class PointageCompatibilityController {
     }
 
     @GetMapping("/enterprise/status-range")
+    @PreAuthorize("hasAnyAuthority('ROLE_RH', 'ROLE_ADMIN')")
     public ResponseEntity<Map<LocalDate, TeamStatusResponse>> getStatusRange(
             @org.springframework.web.bind.annotation.RequestParam("entrepriseId") Long entrepriseId,
             @org.springframework.web.bind.annotation.RequestParam(value = "equipeId", required = false) Long equipeId,
             @org.springframework.web.bind.annotation.RequestParam("start") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate start,
             @org.springframework.web.bind.annotation.RequestParam("end") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate end) {
         return ResponseEntity.ok(presenceService.getStatusRange(entrepriseId, equipeId, start, end));
+    }
+
+    @GetMapping("/global/status-range")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Map<LocalDate, TeamStatusResponse>> getGlobalStatusRange(
+            @org.springframework.web.bind.annotation.RequestParam("start") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate start,
+            @org.springframework.web.bind.annotation.RequestParam("end") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(presenceService.getStatusRange(null, null, start, end));
+    }
+
+    @GetMapping("/company/status-range")
+    @PreAuthorize("hasAuthority('ROLE_RH')")
+    public ResponseEntity<Map<LocalDate, TeamStatusResponse>> getCompanyStatusRange(
+            @org.springframework.web.bind.annotation.RequestParam("start") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate start,
+            @org.springframework.web.bind.annotation.RequestParam("end") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(presenceService.getCompanyStatusRange(securityUtils.getCurrentUserId(), start, end));
+    }
+
+    @GetMapping("/team/status-range")
+    @PreAuthorize("hasAuthority('ROLE_MANAGER')")
+    public ResponseEntity<Map<LocalDate, TeamStatusResponse>> getTeamStatusRange(
+            @org.springframework.web.bind.annotation.RequestParam(value = "teamId", required = false) Long teamId,
+            @org.springframework.web.bind.annotation.RequestParam("start") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate start,
+            @org.springframework.web.bind.annotation.RequestParam("end") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(presenceService.getTeamStatusRange(
+                securityUtils.getCurrentUserId(),
+                teamId,
+                start,
+                end
+        ));
     }
 
     @GetMapping("/week")

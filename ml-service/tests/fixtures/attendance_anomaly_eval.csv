@@ -1,0 +1,13 @@
+case_id,arrival_hour,departure_hour,worked_hours,late_minutes,weekday,is_weekend,missing_checkout,remote_flag,weekly_hours,avg_checkin_hour_30d,deviation_from_usual,behavior_delta_weekly,night_activity,rapid_session,overtime_excess,has_checkin,has_checkout,is_absent,is_late,is_remote,is_working,expected_anomaly
+normal-01,9.0,18.0,8.0,0,0,0,0,0,40,9.0,0.0,0.0,0,0,0,1,1,0,0,0,1,0
+normal-02,9.1,17.8,7.7,0,1,0,0,0,39,9.0,0.1,-1.0,0,0,0,1,1,0,0,0,1,0
+normal-03,8.9,17.6,7.8,0,2,0,0,1,38,9.0,0.1,0.5,0,0,0,1,1,0,0,1,0,0
+normal-04,9.2,18.1,8.1,2,3,0,0,0,41,9.1,0.1,1.0,0,0,0,1,1,0,0,0,1,0
+normal-05,9.0,17.5,7.5,0,4,0,0,0,37,9.0,0.0,-0.5,0,0,0,1,1,0,0,0,1,0
+normal-06,8.8,18.0,8.2,0,1,0,0,0,40,8.9,0.1,0.0,0,0,0,1,1,0,0,0,1,0
+anomaly-night,23.2,3.0,3.8,842,2,0,0,0,18,9.0,14.2,-20,1,0,0,1,1,0,1,0,1,1
+anomaly-missing-checkout,9.0,0.0,0.0,0,1,0,1,0,8,9.0,0.0,-32,0,0,0,1,0,0,0,0,1,1
+anomaly-rapid,9.0,9.2,0.2,0,3,0,0,0,1,9.0,0.0,-39,0,1,0,1,1,0,0,0,1,1
+anomaly-overtime,7.0,23.0,16.0,0,4,0,0,0,72,9.0,2.0,32,0,0,1,1,1,0,0,0,1,1
+anomaly-late,13.0,18.0,5.0,230,0,0,0,0,24,9.0,4.0,-16,0,0,0,1,1,0,1,0,1,1
+anomaly-weekend,10.0,16.0,6.0,50,6,1,0,0,6,9.0,1.0,-34,0,0,0,1,1,0,1,0,1,1

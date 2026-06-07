@@ -7,8 +7,10 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.database import get_session_for_url
 from app.features.attendance_features import AttendanceRecord, FEATURE_NAMES, FeatureEngineer
 from app.models.isolation_forest_model import AttendanceAnomalyModel, TrainResult
 from app.training.generate_synthetic_attendance import generate, save_dataframe
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_dt(value) -> datetime | None:
-    if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
+    if value is None or pd.isna(value) or value == "":
         return None
     if isinstance(value, datetime):
         return value
@@ -43,6 +45,15 @@ def dataframe_to_records(df: pd.DataFrame) -> list[AttendanceRecord]:
                 duration_seconds=(
                     int(row["duration_seconds"]) if not pd.isna(row.get("duration_seconds")) else None
                 ),
+                expected_minutes=(
+                    int(row["expected_minutes"]) if not pd.isna(row.get("expected_minutes")) else None
+                ),
+                worked_minutes=(
+                    int(row["worked_minutes"]) if not pd.isna(row.get("worked_minutes")) else None
+                ),
+                overtime_minutes=(
+                    int(row["overtime_minutes"]) if not pd.isna(row.get("overtime_minutes")) else None
+                ),
                 daily_status=str(row.get("daily_status") or "") or None,
                 late_arrival=bool(row.get("late_arrival")) if not pd.isna(row.get("late_arrival")) else None,
                 source=str(row.get("source") or "") or None,
@@ -52,26 +63,44 @@ def dataframe_to_records(df: pd.DataFrame) -> list[AttendanceRecord]:
     return records
 
 
-def load_or_generate_data(min_records: int) -> pd.DataFrame:
+def load_real_attendance_data() -> pd.DataFrame:
+    """Read the active attendance store used by presence-service."""
     settings = get_settings()
-    parquet = settings.training_data_dir_path / "synthetic_attendance.parquet"
-    csv = settings.training_data_dir_path / "synthetic_attendance.csv"
-
-    if parquet.exists():
-        df = pd.read_parquet(parquet)
-        if len(df) >= min_records:
-            logger.info("loaded %d rows from %s", len(df), parquet)
-            return df
-    if csv.exists():
-        df = pd.read_csv(csv)
-        if len(df) >= min_records:
-            logger.info("loaded %d rows from %s", len(df), csv)
-            return df
-
-    logger.info("no usable training data found -- generating synthetic 10k rows")
-    df = generate(n_rows=max(min_records * 5, 10_000))
-    save_dataframe(df, settings.training_data_dir_path)
-    return df
+    query = text(
+        """
+        SELECT
+            utilisateur_id AS employee_id,
+            'Employee #' || utilisateur_id AS employee_name,
+            attendance_date AS date,
+            check_in_time AS check_in,
+            CASE
+                WHEN daily_status::text = 'MISSING_CHECKOUT'
+                  OR auto_closed = TRUE
+                THEN NULL
+                ELSE check_out_time
+            END AS check_out,
+            duration_seconds,
+            expected_minutes,
+            worked_minutes,
+            overtime_minutes,
+            daily_status,
+            late_arrival,
+            source,
+            COALESCE(check_in_address, check_out_address, localisation) AS localisation
+        FROM attendance_sessions
+        WHERE attendance_date IS NOT NULL
+          AND check_in_time IS NOT NULL
+        ORDER BY utilisateur_id, attendance_date, check_in_time
+        """
+    )
+    with get_session_for_url(settings.presence_database_url) as session:
+        rows = session.execute(query).mappings().all()
+    frame = pd.DataFrame(rows)
+    logger.info(
+        "loaded %d real attendance rows from presence PostgreSQL",
+        len(frame),
+    )
+    return frame
 
 
 def train_pipeline(force_synthetic: bool = False) -> TrainResult:
@@ -79,12 +108,16 @@ def train_pipeline(force_synthetic: bool = False) -> TrainResult:
     if force_synthetic:
         df = generate(n_rows=10_000)
         save_dataframe(df, settings.training_data_dir_path)
+        data_source = "synthetic_explicit"
+        minimum = settings.min_training_records
     else:
-        df = load_or_generate_data(settings.min_training_records)
+        df = load_real_attendance_data()
+        data_source = "postgresql:attendance_sessions"
+        minimum = settings.min_real_training_records
 
-    if len(df) < settings.min_training_records:
+    if len(df) < minimum:
         raise ValueError(
-            f"not enough training records: {len(df)} < {settings.min_training_records}"
+            f"not enough real attendance records: {len(df)} < {minimum}"
         )
 
     records = dataframe_to_records(df)
@@ -98,6 +131,7 @@ def train_pipeline(force_synthetic: bool = False) -> TrainResult:
         critical_threshold=settings.critical_threshold,
         high_threshold=settings.high_threshold,
         medium_threshold=settings.medium_threshold,
+        auto_calibrate_thresholds=settings.auto_calibrate_thresholds,
     )
 
     result = model.train(features_df)
@@ -110,6 +144,7 @@ def train_pipeline(force_synthetic: bool = False) -> TrainResult:
         contamination_observed=result.contamination_observed,
         duration_seconds=result.duration_seconds,
         bundle_path=bundle_path,
+        data_source=data_source,
     )
 
 

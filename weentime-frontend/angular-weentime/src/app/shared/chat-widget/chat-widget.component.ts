@@ -57,12 +57,14 @@ interface PendingFlowStatus {
   agent?: string | null;
   status?: string | null;
   missingFields?: string[];
+  collectedFields?: UnknownRecord;
 }
 
 interface ConfirmationSummary {
   type?: string | null;
   date?: string | null;
   endDate?: string | null;
+  month?: string | null;
   time?: string | null;
   motif?: string | null;
 }
@@ -253,6 +255,13 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   });
 
   readonly quickActions = computed(() => {
+    if (this.latestPendingDocumentMonthFlow()) {
+      return [
+        { label: 'Ce mois-ci', action: 'ce mois-ci' },
+        { label: 'Mois dernier', action: 'le mois dernier' },
+        { label: 'Choisir un mois', action: 'Je veux préciser le mois' }
+      ];
+    }
     switch (this.assistantRole()) {
       case 'MANAGER':
         return [
@@ -764,6 +773,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     return [
       { label: 'Type', value: summary.type ?? '' },
       { label: 'Date', value: summary.endDate && summary.endDate !== summary.date ? `${summary.date} -> ${summary.endDate}` : summary.date ?? '' },
+      { label: 'Mois', value: summary.month ?? '' },
       { label: 'Horaire', value: summary.time ?? '' },
       { label: 'Motif', value: summary.motif ?? '' },
     ].filter(row => row.value.trim().length > 0);
@@ -1068,42 +1078,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   }
 
   private streamAssistantText(messageId: string, fullText: string): void {
-    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
-      this.animateAssistantText(messageId, fullText);
-      return;
-    }
-    const token = this.authService.getToken();
-    const sessionId = sessionStorage.getItem('weentime.ai.chat.session_id') || 'default';
-    const sseUrl = `${environment.aiServiceUrl}/v2/chat/stream?session_id=${encodeURIComponent(sessionId)}` +
-                   (token ? `&token=${encodeURIComponent(token)}` : '');
-    this.patchMessage(messageId, { isStreaming: true, text: '' });
-    this.changeDetector.markForCheck();
-    const eventSource = new EventSource(sseUrl);
-    let hasReceivedMessage = false;
-    eventSource.onmessage = (event) => {
-      hasReceivedMessage = true;
-      if (event.data === '[DONE]') {
-        this.patchMessage(messageId, { isStreaming: false });
-        eventSource.close();
-        this.triggerDoneFlash();
-        this.changeDetector.markForCheck();
-        return;
-      }
-      this.messages.update(messages =>
-        messages.map(msg => msg.id === messageId ? { ...msg, text: msg.text + event.data } : msg)
-      );
-      this.shouldScrollToBottom = true;
-      this.changeDetector.markForCheck();
-    };
-    eventSource.onerror = () => {
-      eventSource.close();
-      if (!hasReceivedMessage) {
-        this.animateAssistantText(messageId, fullText);
-      } else {
-        this.patchMessage(messageId, { isStreaming: false });
-        this.changeDetector.markForCheck();
-      }
-    };
+    this.animateAssistantText(messageId, fullText);
   }
 
   private animateAssistantText(messageId: string, fullText: string): void {
@@ -1490,7 +1465,30 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
         : [];
     const status = this.firstDisplayString(candidate['status']);
     if (status && status !== 'pending') return null;
-    return { intent: this.firstDisplayString(candidate['intent']), agent: this.firstDisplayString(candidate['agent']), status, missingFields: missing };
+    const collectedFields = this.asRecord(candidate['collectedFields'])
+      ?? this.asRecord(candidate['collected_fields'])
+      ?? this.asRecord(candidate['filledSlots'])
+      ?? this.asRecord(candidate['filled_slots'])
+      ?? undefined;
+    return { intent: this.firstDisplayString(candidate['intent']), agent: this.firstDisplayString(candidate['agent']), status, missingFields: missing, collectedFields };
+  }
+
+  private latestPendingDocumentMonthFlow(): PendingFlowStatus | null {
+    for (const message of [...this.messages()].reverse()) {
+      const flow = message.pendingFlow;
+      if (!flow) {
+        if (message.sender === 'assistant' || message.sender === 'user') return null;
+        continue;
+      }
+      if (flow.status !== 'pending') return null;
+      const intent = String(flow.intent ?? '').toLowerCase();
+      const missing = flow.missingFields ?? [];
+      if (intent === 'document.create' && missing.includes('month')) {
+        return flow;
+      }
+      return null;
+    }
+    return null;
   }
 
   private extractConfirmationSummary(value: unknown): ConfirmationSummary | null {
@@ -1502,6 +1500,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       type: this.firstDisplayString(summary['type']),
       date: this.firstDisplayString(summary['date']),
       endDate: this.firstDisplayString(summary['endDate'], summary['end_date']),
+      month: this.firstDisplayString(summary['month'], summary['moisConcerne'], summary['mois_concerne']),
       time: this.firstDisplayString(summary['time']),
       motif: this.firstDisplayString(summary['motif'], summary['reason']),
     };

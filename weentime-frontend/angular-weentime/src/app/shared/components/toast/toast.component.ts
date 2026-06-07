@@ -1,6 +1,14 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  LucideAngularModule,
+  LucideIconData,
+  X,
+  XCircle
+} from 'lucide-angular';
 import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
@@ -13,12 +21,12 @@ import { ToastService } from '../../../core/services/toast.service';
       @for (toast of toastService.toasts(); track toast.id) {
         <div class="toast" [class]="'toast-' + toast.type">
           <lucide-icon
-            [name]="getIcon(toast.type)"
+            [img]="getIcon(toast.type)"
             size="18">
           </lucide-icon>
           <span class="toast-msg">{{ toast.message }}</span>
           <button (click)="toastService.dismiss(toast.id)" class="toast-close">
-            <lucide-icon name="x" size="14"></lucide-icon>
+            <lucide-icon [img]="CloseIcon" size="14"></lucide-icon>
           </button>
         </div>
       }
@@ -116,14 +124,15 @@ import { ToastService } from '../../../core/services/toast.service';
   `]
 })
 export class ToastComponent {
+  readonly CloseIcon = X;
   toastService = inject(ToastService);
 
-  getIcon(type: string): string {
+  getIcon(type: string): LucideIconData {
     switch(type) {
-      case 'success': return 'check-circle';
-      case 'error': return 'x-circle';
-      case 'warning': return 'alert-triangle';
-      default: return 'info';
+      case 'success': return CheckCircle;
+      case 'error': return XCircle;
+      case 'warning': return AlertTriangle;
+      default: return Info;
     }
   }
 }

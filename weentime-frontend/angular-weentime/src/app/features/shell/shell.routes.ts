@@ -271,6 +271,12 @@ export const shellRoutes: Routes = [
     resolve: { presence: presenceResolver },
     loadComponent: () => import('../manager/presence/manager-presence.component').then(m => m.ManagerPresenceComponent)
   },
+  {
+    path: 'manager/forecast',
+    title: 'WeenTime - Prevision RH',
+    data: { title: 'Prevision RH' },
+    loadComponent: () => import('../forecast/forecast-dashboard.component').then(m => m.ForecastDashboardComponent)
+  },
 
   { path: 'rh', redirectTo: 'rh/dashboard', pathMatch: 'full' },
   {
@@ -317,6 +323,12 @@ export const shellRoutes: Routes = [
         })
       }
     ]
+  },
+  {
+    path: 'rh/forecast',
+    title: 'WeenTime - Prevision RH',
+    data: { title: 'Prevision RH' },
+    loadComponent: () => import('../forecast/forecast-dashboard.component').then(m => m.ForecastDashboardComponent)
   },
   {
     path: 'rh/requests',
@@ -730,6 +742,20 @@ export const shellRoutes: Routes = [
     data: { title: 'Analytics' },
     canActivate: [adminGuard],
     loadComponent: () => import('../admin/analytics/admin-analytics.component').then(m => m.AdminAnalyticsComponent)
+  },
+  {
+    path: 'admin/anomalies',
+    title: 'WeenTime - Anomalies IA',
+    data: { title: 'Anomalies IA' },
+    canActivate: [adminGuard],
+    loadComponent: () => import('../admin/anomalies/admin-anomalies.component').then(m => m.AdminAnomaliesComponent)
+  },
+  {
+    path: 'admin/forecast',
+    title: 'WeenTime - Prevision RH',
+    data: { title: 'Prevision RH' },
+    canActivate: [adminGuard],
+    loadComponent: () => import('../forecast/forecast-dashboard.component').then(m => m.ForecastDashboardComponent)
   },
   {
     path: 'admin/departements',

@@ -103,13 +103,22 @@
       Service de présence temporairement indisponible. Les anomalies s'afficheront dès la reconnexion.
     </div>
   }
+  @if (anomalyError() && !anomalyLoading()) {
+    <div class="backend-unavailable-banner" role="alert">
+      <lucide-angular [img]="ic.refresh" size="16"></lucide-angular>
+      Impossible de charger les anomalies de votre entreprise.
+    </div>
+  }
   <ui-ai-anomaly-feed
+    layout="cards"
+    scope="RH"
     [loading]="anomalyLoading()"
     [anomalies]="anomalies()"
     [totalAnomalies]="anomalyTotals().total"
     [critical]="anomalyTotals().critical"
     [high]="anomalyTotals().high"
     [medium]="anomalyTotals().medium"
+    [maxVisible]="0"
     title="Anomalies de présence détectées par l'IA"
     subtitle="Modèle Isolation Forest · scoring en temps réel"
   ></ui-ai-anomaly-feed>

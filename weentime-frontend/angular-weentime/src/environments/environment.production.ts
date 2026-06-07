@@ -6,8 +6,8 @@ export const environment = {
   // Spring gateway unless a dedicated gateway route is explicitly configured.
   aiServiceUrl: 'http://127.0.0.1:8000',
   aiUrl: 'http://127.0.0.1:8000',
-  // ML service (attendance anomaly detection).
-  mlServiceUrl: 'http://127.0.0.1:8001',
+  // ML service through the authenticated gateway.
+  mlServiceUrl: 'http://localhost:8322',
   // Production keeps the chatbot fully authenticated. Demo/public mode must
   // remain disabled in production builds.
   chatbotPublicMode: false,

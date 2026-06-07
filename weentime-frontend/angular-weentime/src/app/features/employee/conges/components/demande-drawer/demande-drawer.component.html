@@ -32,7 +32,8 @@
               <button
                 class="type-card"
                 [class.selected]="selectedType() === type"
-                [class.disabled]="getSoldeForType(type.libelle) === 0 && type.libelle !== 'SANS_SOLDE'"
+                [class.disabled]="isTypeDisabled(type)"
+                [disabled]="isTypeDisabled(type)"
                 (click)="selectType(type)"
               >
                 <div class="type-icon-wrapper" [class]="type.libelle.toLowerCase()">
@@ -40,10 +41,10 @@
                 </div>
                 <div class="type-info">
                   <span class="type-label">{{ type.libelle }}</span>
-                  <span class="type-quota" *ngIf="type.libelle !== 'SANS_SOLDE'">{{ getSoldeForType(type.libelle) }} jours dispos.</span>
-                  <span class="type-quota" *ngIf="type.libelle === 'SANS_SOLDE'">Aucun quota</span>
+                  <span class="type-quota" *ngIf="isBalanceTracked(type)">{{ getSoldeForType(type.libelle) }} jours dispos.</span>
+                  <span class="type-quota" *ngIf="!isBalanceTracked(type)">Aucun quota</span>
                 </div>
-                @if (getSoldeForType(type.libelle) === 0 && type.libelle !== 'SANS_SOLDE') {
+                @if (isTypeDisabled(type)) {
                   <span class="sold-out-badge">Solde épuisé</span>
                 }
               </button>
@@ -112,7 +113,7 @@
             @if (endDate()) {
               <div class="days-count animate-fade-in">
                 <strong>{{ selectedBusinessDays }}</strong> jours ouvres selectionnes
-                @if (selectedType()?.libelle !== 'SANS_SOLDE' && selectedBusinessDays > getSoldeForType(selectedType()?.libelle)) {
+                @if (isBalanceTracked(selectedType()) && selectedBusinessDays > getSoldeForType(selectedType()?.libelle)) {
                   <div class="error-alert">
                     <lucide-icon name="alert-triangle" size="14"></lucide-icon>
                     Solde insuffisant ({{ getSoldeForType(selectedType()?.libelle) }} jours)
@@ -144,7 +145,7 @@
               </div>
               <div class="summary-row total">
                 <span class="label">Solde apres deduction</span>
-                @if (selectedType()?.libelle === 'SANS_SOLDE') {
+                @if (!isBalanceTracked(selectedType())) {
                   <span class="value">Non applicable</span>
                 } @else {
                   <span class="value" [class.text-danger]="(getSoldeForType(selectedType()?.libelle) - selectedBusinessDays) < 3">
@@ -155,6 +156,19 @@
             </div>
 
             <form [formGroup]="motifForm" class="motif-section">
+              @if (requiresJustificatif(selectedType())) {
+                <label for="justificatif">Justificatif *</label>
+                <input
+                  id="justificatif"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  (change)="onJustificatifChange($event)"
+                />
+                <div class="motif-footer">
+                  <span class="char-count">{{ selectedJustificatif()?.name || 'Aucun fichier selectionne' }}</span>
+                </div>
+              }
+
               <label for="motif">Motif de la demande *</label>
               <textarea
                 id="motif"

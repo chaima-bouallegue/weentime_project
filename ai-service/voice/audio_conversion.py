@@ -31,29 +31,35 @@ def convert_to_wav(
     output_path: str | Path,
     *,
     ffmpeg_binary: str = "ffmpeg",
+    timeout_seconds: float = 15.0,
 ) -> None:
     binary = resolve_ffmpeg_binary(ffmpeg_binary)
     if not binary:
         raise RuntimeError("ffmpeg_not_available")
 
-    result = subprocess.run(
-        [
-            binary,
-            "-y",
-            "-i",
-            str(input_path),
-            "-ar",
-            "16000",
-            "-ac",
-            "1",
-            "-acodec",
-            "pcm_s16le",
-            str(output_path),
-        ],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    try:
+        result = subprocess.run(
+            [
+                binary,
+                "-y",
+                "-i",
+                str(input_path),
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-acodec",
+                "pcm_s16le",
+                str(output_path),
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=max(1.0, float(timeout_seconds or 15.0)),
+        )
+    except subprocess.TimeoutExpired as exc:
+        logger.warning("ffmpeg_conversion_timeout input=%s timeout=%s", input_path, timeout_seconds)
+        raise RuntimeError("conversion_timeout") from exc
 
     if result.returncode != 0:
         stderr_tail = (result.stderr.decode("utf-8", errors="replace") or "").strip()[-500:]

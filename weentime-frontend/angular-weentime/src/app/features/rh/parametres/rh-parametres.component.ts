@@ -249,9 +249,9 @@ export class RhParametresComponent implements OnInit {
 
   congeColumns: CrudColumn[] = [
     { key: 'libelle', label: 'Libellé', type: 'text', required: true },
-    { key: 'nombreJoursMax', label: 'Jours max', type: 'number' },
-    { key: 'decompteJours', label: 'Décompter jours ?', type: 'boolean' },
-    { key: 'requireJustificatif', label: 'Justificatif exigé ?', type: 'boolean' }
+    { key: 'joursMax', label: 'Jours max', type: 'number' },
+    { key: 'decompterJours', label: 'Décompter jours ?', type: 'boolean' },
+    { key: 'justificatifExige', label: 'Justificatif exigé ?', type: 'boolean' }
   ];
 
   teletravailColumns: CrudColumn[] = [

@@ -41,6 +41,7 @@ export class DemandeDrawerComponent implements OnInit {
   readonly endDate = signal<Date | null>(null);
   readonly hoverDate = signal<Date | null>(null);
   readonly viewDate = signal(new Date());
+  readonly selectedJustificatif = signal<File | null>(null);
   readonly calendarDays = computed(() => this.generateCalendarDays(this.viewDate()));
   readonly validationError = signal<string | null>(null);
   readonly weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -50,10 +51,18 @@ export class DemandeDrawerComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.congeService.getTypesConge().subscribe((types: any[]) => {
-      this.leaveTypes.set(types);
+    this.congeService.getTypesConge().subscribe({
+      next: (types: any[]) => {
+        this.leaveTypes.set(types);
+        this.applyAssistantDraft();
+      },
+      error: (error) => {
+        this.validationError.set(this.extractErrorMessage(error, 'Impossible de charger les types de conge.'));
+      }
     });
+  }
 
+  private applyAssistantDraft(): void {
     const draft = this.assistantWorkflow.leaveDraft();
     if (!draft) {
       return;
@@ -85,10 +94,12 @@ export class DemandeDrawerComponent implements OnInit {
   }
 
   selectType(type: any): void {
-    const solde = this.soldes.find(item => item.type === type.libelle || item.label === type.libelle);
-    // If no solde found, it might be a new type without balance yet, allow it if it's sans solde or similar
+    if (this.isTypeDisabled(type)) {
+      return;
+    }
     this.validationError.set(null);
     this.selectedType.set(type);
+    this.selectedJustificatif.set(null);
     this.step.set(2);
   }
 
@@ -205,7 +216,9 @@ export class DemandeDrawerComponent implements OnInit {
       typeCongeId: this.selectedType()?.id,
       dateDebut: this.startDate()!.toISOString().split('T')[0],
       dateFin: this.endDate()!.toISOString().split('T')[0],
-      motif: this.motifForm.value.motif
+      motif: this.motifForm.value.motif,
+      justificatif: this.selectedJustificatif(),
+      justificatifFourni: Boolean(this.selectedJustificatif())
     });
   }
 
@@ -232,6 +245,31 @@ export class DemandeDrawerComponent implements OnInit {
     return solde?.disponible || 0;
   }
 
+  isBalanceTracked(type: any): boolean {
+    const libelle = this.normalize(type?.libelle);
+    if (libelle.includes('sans')) {
+      return false;
+    }
+    if (type?.decompteJours !== undefined || type?.decompterJours !== undefined) {
+      return Boolean(type.decompteJours ?? type.decompterJours);
+    }
+    return true;
+  }
+
+  requiresJustificatif(type: any): boolean {
+    return Boolean(type?.requireJustificatif ?? type?.justificatifExige);
+  }
+
+  isTypeDisabled(type: any): boolean {
+    return this.isBalanceTracked(type) && this.getSoldeForType(type.libelle) <= 0;
+  }
+
+  onJustificatifChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedJustificatif.set(input.files?.[0] ?? null);
+    this.validationError.set(null);
+  }
+
   canProceedToSummary(): boolean {
     return !this.validateSelection();
   }
@@ -252,7 +290,7 @@ export class DemandeDrawerComponent implements OnInit {
       return 'La periode choisie ne contient aucun jour ouvrable disponible.';
     }
 
-    if (type.libelle !== 'SANS_SOLDE' && this.selectedBusinessDays > this.getSoldeForType(type.libelle)) {
+    if (this.isBalanceTracked(type) && this.selectedBusinessDays > this.getSoldeForType(type.libelle)) {
       return `Solde insuffisant (${this.getSoldeForType(type.libelle)} jours disponibles).`;
     }
 
@@ -264,6 +302,10 @@ export class DemandeDrawerComponent implements OnInit {
   }
 
   private validateMotif(): string | null {
+    if (this.requiresJustificatif(this.selectedType()) && !this.selectedJustificatif()) {
+      return 'Un justificatif est obligatoire pour ce type de conge.';
+    }
+
     const motifControl = this.motifForm.get('motif');
     if (!motifControl || motifControl.valid) {
       return null;
@@ -385,5 +427,10 @@ export class DemandeDrawerComponent implements OnInit {
         .toLowerCase()
         .trim()
       : '';
+  }
+
+  private extractErrorMessage(error: unknown, fallback: string): string {
+    const source = (error ?? {}) as Record<string, any>;
+    return source?.['error']?.['message'] || source?.['message'] || fallback;
   }
 }

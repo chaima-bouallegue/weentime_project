@@ -73,7 +73,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
               <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                 <lucide-angular [img]="iconSearch" size="15"></lucide-angular>
               </span>
-              <input type="text" 
+              <input type="text"
                 [value]="searchDraft()"
                 (input)="onSearchInput(($any($event.target).value || '').trimStart())"
                 class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
@@ -86,7 +86,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                 <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
                 <span>Actualiser</span>
               </button>
-              
+
               <button type="button" (click)="openCreate()" [disabled]="isSaving() || isActionSaving()"
                 class="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl transition-colors text-sm font-semibold shadow-2xs">
                 <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
@@ -100,18 +100,18 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
 
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/40">
-            <button (click)="onStatusFilterChange('')" 
+            <button (click)="onStatusFilterChange('')"
               class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
               [class]="statusFilter() === '' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               Toutes
             </button>
-            <button (click)="onStatusFilterChange('ACTIF')" 
+            <button (click)="onStatusFilterChange('ACTIF')"
               class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
               [class]="statusFilter() === 'ACTIF' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Actifs
             </button>
-            <button (click)="onStatusFilterChange('INACTIF')" 
+            <button (click)="onStatusFilterChange('INACTIF')"
               class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
               [class]="statusFilter() === 'INACTIF' ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -120,7 +120,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
           </div>
 
           <div class="flex items-center gap-2.5 flex-wrap">
-            <select [value]="roleFilter()" (change)="onRoleFilterChange($any($event.target).value)" 
+            <select [value]="roleFilter()" (change)="onRoleFilterChange($any($event.target).value)"
               class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
               <option value="">Tous les rôles</option>
               @for (role of createRoleOptions; track role) {
@@ -216,8 +216,8 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                     <td class="py-4 px-5">
                       <button (click)="toggleStatus(user)" [disabled]="isActionSaving()"
                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors cursor-pointer disabled:opacity-50"
-                        [ngClass]="user.statut === 'ACTIF' 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-100/60 dark:border-emerald-900/20' 
+                        [ngClass]="user.statut === 'ACTIF'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-100/60 dark:border-emerald-900/20'
                           : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200'">
                         <span class="w-1.5 h-1.5 rounded-full" [ngClass]="user.statut === 'ACTIF' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                         {{ user.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
@@ -270,7 +270,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
             <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
               Affichage de <span class="font-bold text-slate-700 dark:text-slate-300">{{ filteredUsers().length }}</span> sur {{ totalElements() }} résultats
             </span>
-            
+
             <div class="flex items-center gap-1.5">
               <button (click)="changePage(-1)" [disabled]="page() === 0 || isBusy()"
                 class="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-40 transition-colors cursor-pointer">
@@ -322,7 +322,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                   <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Mot de passe {{ editingUser() ? '(optionnel)' : '*' }}</label>
                   <input class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-sm text-slate-900 dark:text-white" formControlName="password" type="password" [placeholder]="editingUser() ? 'Laisser vide pour ne pas changer' : 'Mot de passe'" />
                 </div>
-                
+
                 <hr class="border-slate-100 dark:border-slate-800">
 
                 <div>
@@ -556,15 +556,7 @@ export class AdminUsersComponent {
     const entrepriseId = this.entrepriseFilter();
     const sort = this.sortBy();
 
-    this.api.getUsers(
-      this.page(),
-      this.size(),
-      search,
-      role,
-      status,
-      entrepriseId,
-      sort
-    ).pipe(
+    this.api.getUsers(this.page(), this.size(), search, role, status, entrepriseId, sort).pipe(
       take(1),
       finalize(() => this.isLoading.set(false))
     ).subscribe({

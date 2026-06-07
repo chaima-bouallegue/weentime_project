@@ -14,6 +14,18 @@ class TextToSpeechService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
+    def preload(self) -> bool:
+        if not self.settings.tts_enabled:
+            return False
+        try:
+            return bool(self.synthesize("Bonjour.", "fr"))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("tts_preload_failed error=%s", exc)
+            return False
+
+    async def apreload(self) -> bool:
+        return await asyncio.to_thread(self.preload)
+
     def synthesize(self, text: str, language: str | None = None) -> str | None:
         if not self.settings.tts_enabled:
             return None

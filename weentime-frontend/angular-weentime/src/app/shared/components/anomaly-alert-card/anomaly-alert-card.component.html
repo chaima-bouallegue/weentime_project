@@ -1,16 +1,13 @@
-<article class="anomaly-card" [class]="cardModifier" [class.anomaly-card--compact]="compact" *ngIf="anomaly">
-
-  <!-- Header : avatar + identity + risk badge -->
+<article class="anomaly-card" [ngClass]="cardModifier" [class.anomaly-card--compact]="compact" *ngIf="anomaly">
   <header class="anomaly-card__header">
-    <div class="anomaly-card__avatar" aria-hidden="true">{{ getInitials(anomaly.employeeName) }}</div>
+    <div class="anomaly-card__avatar" aria-hidden="true">{{ getInitials(employeeName) }}</div>
     <div class="anomaly-card__employee">
-      <span class="anomaly-card__name">{{ anomaly.employeeName }}</span>
+      <span class="anomaly-card__name">{{ employeeName }}</span>
       <span class="anomaly-card__date">{{ formattedDate }}</span>
     </div>
     <app-ai-risk-badge [risk]="anomaly.risk"></app-ai-risk-badge>
   </header>
 
-  <!-- Score section -->
   <div class="anomaly-card__score-section">
     <div class="anomaly-card__score-row">
       <span class="anomaly-card__score-label">Score de risque</span>
@@ -19,24 +16,24 @@
     <app-ai-score-bar [score]="anomaly.score"></app-ai-score-bar>
   </div>
 
-  <!-- Reasons -->
-  <ul class="anomaly-card__reasons" *ngIf="anomaly.reasons.length > 0">
-    <li class="anomaly-card__reason" *ngFor="let reason of anomaly.reasons">
-      <span class="anomaly-card__reason-icon" aria-hidden="true">⚠</span>
-      <span>{{ reason }}</span>
-    </li>
-  </ul>
+  <h3 class="anomaly-card__title">{{ title }}</h3>
 
-  <!-- Explanation -->
-  <p class="anomaly-card__explanation" *ngIf="anomaly.explanation">
-    {{ anomaly.explanation }}
+  <div class="anomaly-card__reason">
+    <span class="anomaly-card__reason-icon" aria-hidden="true">!</span>
+    <span class="anomaly-card__reason-copy">
+      <small>Raison détectée</small>
+      <strong>{{ primaryReason }}</strong>
+      <em *ngIf="extraReasonCount > 0">+{{ extraReasonCount }} autre(s) signal(aux)</em>
+    </span>
+  </div>
+
+  <p class="anomaly-card__explanation">
+    {{ summary }}
   </p>
 
-  <!-- Actions -->
   <footer class="anomaly-card__actions">
     <button type="button" class="anomaly-btn anomaly-btn--ghost" (click)="emit('dismiss')">Ignorer</button>
     <button type="button" class="anomaly-btn anomaly-btn--outline" (click)="emit('contact')">Contacter</button>
     <button type="button" class="anomaly-btn anomaly-btn--primary" (click)="emit('open')">Voir détails</button>
   </footer>
-
 </article>

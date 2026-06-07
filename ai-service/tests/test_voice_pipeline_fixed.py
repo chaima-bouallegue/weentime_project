@@ -32,14 +32,14 @@ class VoicePipelineFixedTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(hasattr(session, "silence_counter"))
 
     async def test_minimum_duration_prevents_false_rejections(self) -> None:
-        """FIX: Minimum duration raised from 0.35s to 1.5s."""
+        """Minimum duration rejects sub-second recordings before Whisper."""
         from config import Settings
         settings = Settings()
         
         self.assertEqual(
             settings.voice_min_duration_seconds,
-            1.5,
-            "Minimum duration should be 1.5s for reliable Whisper recognition"
+            1.0,
+            "Minimum duration should be 1.0s for a clean short-audio exit"
         )
 
     async def test_vad_filter_parameters_preserve_speech(self) -> None:
@@ -191,8 +191,8 @@ class VoicePipelineE2ETest(unittest.IsolatedAsyncioTestCase):
 
     async def test_e2e_short_speech_rejected_with_new_minimum(self) -> None:
         """
-        With new minimum duration (1.5s), speech < 1.5s is still rejected.
-        This prevents false positives but accepts valid 1.5s+ speech.
+        With the minimum duration at 1.0s, sub-second audio is rejected.
+        This prevents false positives but accepts valid 1s+ speech.
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             session_dir = Path(temp_dir)

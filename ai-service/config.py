@@ -3,16 +3,17 @@ from __future__ import annotations
 import logging
 import os
 from functools import lru_cache
+from multiprocessing import cpu_count
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement depuis .env
 env_path = Path(__file__).parent / '.env'
 if env_path.exists():
-    load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=env_path, override=False)
     key = os.getenv("GEMINI_API_KEY")
     if key:
-        print(f"[OK] Cle API Gemini chargee : {key[:8]}...{key[-4:]}")
+        print("[OK] Cle API Gemini chargee")
     else:
         print("[ERROR] Cle API Gemini manquante dans le .env")
 else:
@@ -91,23 +92,42 @@ class Settings:
         self.ollama_timeout_seconds = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", str(self.ai_provider_timeout_seconds)))
         self.ollama_max_tokens = max(1, int(os.getenv("OLLAMA_MAX_TOKENS", "512")))
         self.ollama_temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
+        self.voice_ollama_timeout_seconds = float(os.getenv("VOICE_OLLAMA_TIMEOUT_SECONDS", "3"))
+        self.voice_ollama_max_tokens = max(32, int(os.getenv("VOICE_OLLAMA_MAX_TOKENS", "160")))
+        self.voice_ollama_temperature = float(os.getenv("VOICE_OLLAMA_TEMPERATURE", "0.2"))
 
-        self.stt_model = os.getenv("STT_MODEL", "base")
+        self.stt_model = os.getenv("WHISPER_MODEL", os.getenv("STT_MODEL", "tiny")).strip() or "tiny"
         self.stt_language = os.getenv("STT_LANGUAGE", "fr")
         self.stt_device = os.getenv("STT_DEVICE", "cpu").strip().lower()
+        self.stt_compute_type = os.getenv("STT_COMPUTE_TYPE", "int8").strip() or "int8"
+        default_stt_threads = max(1, min(4, cpu_count() or 1))
+        self.stt_cpu_threads = max(1, int(os.getenv("STT_CPU_THREADS", str(default_stt_threads))))
+        self.stt_num_workers = max(1, int(os.getenv("STT_NUM_WORKERS", "1")))
+        self.stt_beam_size = max(1, int(os.getenv("WHISPER_BEAM_SIZE", os.getenv("STT_BEAM_SIZE", "1"))))
+        self.stt_best_of = max(1, int(os.getenv("WHISPER_BEST_OF", os.getenv("STT_BEST_OF", "1"))))
+        self.stt_condition_on_previous_text = _to_bool(os.getenv("WHISPER_CONDITION_ON_PREVIOUS_TEXT"), False)
+        self.stt_vad_filter = _to_bool(os.getenv("WHISPER_VAD_FILTER"), False)
+        self.stt_timeout_seconds = max(
+            1.0,
+            float(os.getenv("VOICE_STT_TIMEOUT_SECONDS", os.getenv("STT_TIMEOUT_SECONDS", "20"))),
+        )
+        self.stt_local_files_only = _to_bool(os.getenv("STT_LOCAL_FILES_ONLY"), True)
+        self.stt_preload = _to_bool(os.getenv("STT_PRELOAD"), True)
         self.ffmpeg_binary = os.getenv("FFMPEG_BINARY", "ffmpeg")
+        self.ffmpeg_timeout_seconds = max(1.0, float(os.getenv("FFMPEG_TIMEOUT_SECONDS", "15")))
         self.voice_min_chunk_bytes = int(os.getenv("VOICE_MIN_CHUNK_BYTES", "100"))
         self.voice_min_input_bytes = int(os.getenv("VOICE_MIN_INPUT_BYTES", "5000"))
         self.voice_min_buffer_seconds = float(os.getenv("VOICE_MIN_BUFFER_SECONDS", "1.0"))
         self.voice_min_words = max(1, int(os.getenv("VOICE_MIN_WORDS", "2")))
-        self.voice_min_duration_seconds = float(os.getenv("VOICE_MIN_DURATION_SECONDS", "1.5"))
-        self.voice_short_command_min_duration_seconds = float(os.getenv("VOICE_SHORT_COMMAND_MIN_DURATION_SECONDS", "0.45"))
+        self.voice_min_duration_seconds = float(os.getenv("VOICE_MIN_DURATION_SECONDS", "1.0"))
+        self.voice_short_command_min_duration_seconds = float(os.getenv("VOICE_SHORT_COMMAND_MIN_DURATION_SECONDS", "1.0"))
         self.voice_min_detected_volume = float(os.getenv("VOICE_MIN_DETECTED_VOLUME", "0.15"))
         self.voice_min_peak_amplitude = int(os.getenv("VOICE_MIN_PEAK_AMPLITUDE", "180"))
         self.voice_silence_seconds = float(os.getenv("VOICE_SILENCE_SECONDS", "1.0"))
         self.voice_vad_aggressiveness = int(os.getenv("VOICE_VAD_AGGRESSIVENESS", "1"))
         self.voice_min_voiced_ms = int(os.getenv("VOICE_MIN_VOICED_MS", "500"))
         self.voice_frame_ms = int(os.getenv("VOICE_FRAME_MS", "30"))
+        self.voice_preferred_languages = _split_csv(os.getenv("VOICE_PREFERRED_LANGUAGES", "fr,ar,en")) or ["fr", "ar", "en"]
         self.voice_noise_phrases = _split_csv(
             os.getenv("VOICE_NOISE_PHRASES", "bla bla,hum hum,uh uh")
         )
@@ -118,6 +138,7 @@ class Settings:
         self.tts_enabled = _to_bool(os.getenv("TTS_ENABLED"), True)
         self.tts_model = os.getenv("TTS_MODEL", "tts_models/fr/css10/vits")
         self.tts_use_gpu = _to_bool(os.getenv("TTS_USE_GPU"), False)
+        self.tts_preload = _to_bool(os.getenv("TTS_PRELOAD"), True)
         self.tts_max_chars_per_chunk = max(120, int(os.getenv("TTS_MAX_CHARS_PER_CHUNK", "420")))
         self.tts_piper_binary = os.getenv("TTS_PIPER_BINARY", "piper").strip()
         self.tts_piper_model_fr = os.getenv("TTS_PIPER_MODEL_FR")
@@ -145,7 +166,11 @@ class Settings:
 
         self.braintrust_enabled = _to_bool(os.getenv("BRAINTRUST_ENABLED"), False)
         self.braintrust_api_key = os.getenv("BRAINTRUST_API_KEY")
-        self.braintrust_project_name = os.getenv("BRAINTRUST_PROJECT_NAME", "WeenTime AI Copilot")
+        self.braintrust_project_name = (
+            os.getenv("BRAINTRUST_PROJECT")
+            or os.getenv("BRAINTRUST_PROJECT_NAME")
+            or "WeenTime AI Copilot"
+        )
         self.braintrust_project_id = os.getenv("BRAINTRUST_PROJECT_ID")
         self.braintrust_env = os.getenv("BRAINTRUST_ENV", self.app_env)
         self.braintrust_log_inputs = _to_bool(os.getenv("BRAINTRUST_LOG_INPUTS"), False)
@@ -170,7 +195,7 @@ class Settings:
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "gemini")
+        self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
         self.internal_secret = os.getenv("INTERNAL_SECRET", "WeenTimeInternalSecretKey2026")
 
 

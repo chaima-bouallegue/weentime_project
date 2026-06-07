@@ -3,7 +3,9 @@ from pydantic import BaseModel, Field
 import httpx
 import os
 import logging
+from time import perf_counter
 from config import get_settings
+from app.observability.braintrust_client import log_ollama_interaction
 
 router = APIRouter(prefix="/v1/ai", tags=["Document Generation"])
 logger = logging.getLogger(__name__)
@@ -111,7 +113,10 @@ def _clean_markdown_fences(content: str) -> str:
 # Rate limiter simple (6 secondes entre appels = 10 RPM max)
 last_call_time = 0
 
-async def _generate_gemini(req: DocumentGenerationRequest) -> DocumentGenerationResponse:
+async def _generate_gemini(
+    req: DocumentGenerationRequest,
+    response_mime_type: str | None = None,
+) -> DocumentGenerationResponse:
     global last_call_time
     
     if not settings.gemini_api_key:
@@ -129,7 +134,10 @@ async def _generate_gemini(req: DocumentGenerationRequest) -> DocumentGeneration
     last_call_time = time.time()
 
     # Modèle recommandé en mai 2026 pour le Free Tier : gemini-2.5-flash-lite
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={settings.gemini_api_key}"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+    headers = {
+        "x-goog-api-key": settings.gemini_api_key,
+    }
     
     # Structure v1beta validée avec system_instruction séparé
     payload = {
@@ -143,17 +151,19 @@ async def _generate_gemini(req: DocumentGenerationRequest) -> DocumentGeneration
             }
         ],
         "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 2048,
+            "temperature": req.temperature,
+            "maxOutputTokens": req.max_tokens,
         }
     }
+    if response_mime_type:
+        payload["generationConfig"]["responseMimeType"] = response_mime_type
 
     max_retries = 3
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 logger.info(f"Appel Gemini 2.5 (Essai {attempt + 1})")
-                response = await client.post(url, json=payload)
+                response = await client.post(url, json=payload, headers=headers)
                 
                 if response.status_code != 200:
                     logger.error(f"Erreur API : {response.status_code}")
@@ -189,6 +199,8 @@ async def _generate_gemini(req: DocumentGenerationRequest) -> DocumentGeneration
 async def _generate_ollama(req: DocumentGenerationRequest) -> DocumentGenerationResponse:
     """Fallback vers Gemma 3 local via Ollama."""
     ollama_url = settings.ollama_url
+    model = "gemma3:4b"
+    started = perf_counter()
     
     # Combiner system et user prompt pour Ollama
     full_prompt = f"{req.system_prompt}\n\n{req.user_prompt}"
@@ -198,7 +210,7 @@ async def _generate_ollama(req: DocumentGenerationRequest) -> DocumentGeneration
             response = await client.post(
                 f"{ollama_url}/api/generate",
                 json={
-                    "model": "gemma3:4b", # Modèle recommandé pour le PC de l'utilisateur
+                    "model": model, # Modèle recommandé pour le PC de l'utilisateur
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {"temperature": req.temperature},
@@ -207,14 +219,53 @@ async def _generate_ollama(req: DocumentGenerationRequest) -> DocumentGeneration
             response.raise_for_status()
             data = response.json()
 
-        return DocumentGenerationResponse(
+        result = DocumentGenerationResponse(
             content=_clean_markdown_fences(data["response"]),
-            model_used="gemma3:4b",
+            model_used=model,
             tokens_used=data.get("eval_count", 0),
             provider="ollama",
         )
+        log_ollama_interaction(
+            input_text=req.user_prompt,
+            output_text=result.content,
+            model=model,
+            module="document_generation",
+            language=req.language,
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+            status="success",
+            endpoint="/api/generate",
+            channel="document",
+            max_tokens=req.max_tokens,
+            temperature=req.temperature,
+            metadata_extra={
+                "application_endpoint": "/v1/ai/generate-document",
+                "system_prompt_length": len(req.system_prompt or ""),
+                "tokens_used": result.tokens_used,
+            },
+        )
+        return result
     except Exception as e:
         logger.error(f"Ollama generation failed: {str(e)}")
+        log_ollama_interaction(
+            input_text=req.user_prompt,
+            output_text="",
+            model=model,
+            module="document_generation",
+            language=req.language,
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+            status="error",
+            error_type=e.__class__.__name__,
+            error_message=str(e),
+            endpoint="/api/generate",
+            channel="document",
+            max_tokens=req.max_tokens,
+            temperature=req.temperature,
+            timeout=isinstance(e, httpx.TimeoutException),
+            metadata_extra={
+                "application_endpoint": "/v1/ai/generate-document",
+                "system_prompt_length": len(req.system_prompt or ""),
+            },
+        )
         raise HTTPException(500, f"Ollama local error: {str(e)}")
 
 async def _generate_openai(req: DocumentGenerationRequest) -> DocumentGenerationResponse:

@@ -9,6 +9,16 @@ from app.tools.executor import ToolExecutor
 from app.tools.result import get_read_result
 
 from .base_domain_agent import DomainAgent
+from .document_request_flow import (
+    document_label,
+    infer_document_type,
+    is_payslip_type,
+    localized_confirmation_text,
+    localized_document_type_question,
+    localized_month_question,
+    normalize_document_type,
+    parse_month_reference,
+)
 from .hr_agent_utils import ConfirmationMixin, extract_payload, has_any
 from .response_composer import compose_tool_error
 
@@ -37,7 +47,11 @@ DOCUMENT_TERMS = (
     "مستند",
     "شهادة",
     "كشف الراتب",
+    "شهادة الراتب",
     "راتب",
+    "war9a",
+    "warka",
+    "khidma",
 )
 
 
@@ -91,28 +105,22 @@ class DocumentAgent(ConfirmationMixin, DomainAgent):
                 confidence=confidence,
             )
         if intent == "document.create":
-            # Pre-flight role check. `document.create_request` is registered with
-            # allowed_roles={"EMPLOYEE"} in document_tools.py — the registry will
-            # deny non-EMPLOYEE callers at execution time, but if we still offered
-            # a confirm_action here the user would see the confirm dialog then
-            # get a 401/403 on accept. That's bad UX and what RH-AGENT-HOTFIX-01
-            # called out. Refuse upfront with a capability message instead.
+            # Pre-flight role check. The personal document endpoint is available
+            # to Employee and Manager users; RH document generation remains a
+            # separate RH capability.
             caller_role = (context.role or "").upper().replace("ROLE_", "")
-            if caller_role and caller_role != "EMPLOYEE":
+            allowed_roles = ["EMPLOYEE", "MANAGER"]
+            if caller_role and caller_role not in allowed_roles:
                 return AgentResponse(
                     type="answer",
-                    text=(
-                        "La demande de document est une action employe. "
-                        f"En tant que {caller_role}, utilisez plutot 'charge documents RH' "
-                        "pour voir le backlog, ou 'generer document' pour produire un document RH."
-                    ),
+                    text="La demande personnelle de document est disponible pour les employes et managers.",
                     intent=intent,
                     confidence=confidence,
                     actionResult={
                         "kind": "capability_unavailable",
                         "agent": "DocumentAgent",
                         "capability": "document.create_request",
-                        "allowedRoles": ["EMPLOYEE"],
+                        "allowedRoles": allowed_roles,
                         "callerRole": caller_role,
                         "alternatives": [
                             "charge documents RH (document.rh_workload)",
@@ -121,26 +129,44 @@ class DocumentAgent(ConfirmationMixin, DomainAgent):
                     },
                 )
             payload = extract_payload(source_text, "REQUEST_DOCUMENT", context)
-            document_type = payload.get("document_type") or _infer_document_type(source_text)
+            document_type = normalize_document_type(payload.get("document_type")) or infer_document_type(source_text)
             if not document_type:
                 return AgentResponse(
                     type="ask",
-                    text="Quel type de document souhaitez-vous demander ?",
+                    text=localized_document_type_question(context.language),
                     intent=intent,
                     confidence=confidence,
                 )
-            label = _document_type_label(document_type)
+            month = parse_month_reference(payload.get("month")) or parse_month_reference(source_text)
+            if is_payslip_type(document_type) and not month:
+                return AgentResponse(
+                    type="ask",
+                    text=localized_month_question(context.language),
+                    intent=intent,
+                    confidence=confidence,
+                )
             return self.confirmation_response(
                 context=context,
                 tool_name="document.create_request",
                 tool_input={
                     "document_type": document_type,
                     "reason": payload.get("reason"),
-                    "month": payload.get("month"),
+                    "month": month,
                 },
                 intent=intent,
-                text=f"Voulez-vous confirmer la demande de {label} ?",
+                text=localized_confirmation_text(document_type, month, context.language),
                 confidence=confidence,
+                action_result={
+                    "kind": "confirmation_summary",
+                    "intent": intent,
+                    "agent": self.name,
+                    "summary": {
+                        "type": document_type,
+                        "documentLabel": document_label(document_type),
+                        "month": month,
+                        "motif": payload.get("reason"),
+                    },
+                },
             )
         return AgentResponse(type="ask", text="Quel document souhaitez-vous gerer ?", intent="document.unknown", confidence=0.35)
 
@@ -213,34 +239,11 @@ def _source_text(message: str, context: CurrentUserContext | None) -> str:
 
 
 def _infer_document_type(message: str) -> str | None:
-    text = (message or "").lower()
-    if has_any(text, ("bulletin", "paie", "payslip", "pay slip", "fiche de paie", "كشف الراتب", "راتب")):
-        return "BULLETIN_PAIE"
-    if has_any(text, ("salaire", "salary certificate", "attestation salaire")):
-        return "ATTESTATION_SALAIRE"
-    if has_any(text, ("travail", "work certificate", "attestation", "certificate", "شهادة عمل", "عمل")):
-        return "ATTESTATION_TRAVAIL"
-    if has_any(text, ("contrat", "contract")):
-        return "CONTRAT_TRAVAIL"
-    if has_any(text, ("anciennete", "ancienneté")):
-        return "ATTESTATION_ANCIENNETE"
-    if has_any(text, ("fiche de poste", "poste")):
-        return "FICHE_POSTE"
-    return None
+    return infer_document_type(message)
 
 
 def _document_type_label(document_type: Any) -> str:
-    value = str(document_type or "document").upper()
-    labels = {
-        "ATTESTATION_TRAVAIL": "l'attestation de travail",
-        "BULLETIN_PAIE": "bulletin de paie",
-        "ATTESTATION_SALAIRE": "l'attestation de salaire",
-        "CONTRAT_TRAVAIL": "contrat de travail",
-        "CERTIFICAT_CONGE": "certificat de conge",
-        "ATTESTATION_ANCIENNETE": "l'attestation d'anciennete",
-        "FICHE_POSTE": "fiche de poste",
-    }
-    return labels.get(value, "ce document")
+    return document_label(document_type)
 
 
 def _status_counts(items: list[object]) -> dict[str, int]:

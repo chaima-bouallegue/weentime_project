@@ -14,20 +14,56 @@
     </div>
 
     <div class="feed__counters" *ngIf="!loading">
-      <span class="counter" data-tone="critical" *ngIf="activeCritical > 0">
-        {{ activeCritical }} critique{{ activeCritical > 1 ? 's' : '' }}
+      <span class="counter" data-tone="critical">
+        {{ activeCritical }} Critique{{ activeCritical > 1 ? 's' : '' }}
       </span>
-      <span class="counter" data-tone="high" *ngIf="activeHigh > 0">
-        {{ activeHigh }} élevé{{ activeHigh > 1 ? 's' : '' }}
+      <span class="counter" data-tone="high">
+        {{ activeHigh }} Élevé{{ activeHigh > 1 ? 's' : '' }}
       </span>
-      <span class="counter" data-tone="medium" *ngIf="activeMedium > 0">
-        {{ activeMedium }} modéré{{ activeMedium > 1 ? 's' : '' }}
+      <span class="counter" data-tone="medium">
+        {{ activeMedium }} Modéré{{ activeMedium > 1 ? 's' : '' }}
       </span>
-      <span class="counter counter--muted" *ngIf="activeTotal === 0">Aucune anomalie</span>
+      <span class="counter counter--total">
+        {{ activeTotal }} Total
+      </span>
     </div>
+
+    <button
+      *ngIf="controlsVisible && !loading"
+      type="button"
+      class="feed__collapse"
+      (click)="toggleCollapsed()"
+      [attr.aria-expanded]="!collapsed()"
+    >
+      {{ collapsed() ? 'Afficher les anomalies' : 'Masquer les anomalies' }}
+    </button>
   </header>
 
-  <div class="feed__body">
+  <div class="feed__toolbar" *ngIf="controlsVisible && !loading && !collapsed()">
+    <label>
+      <span>Criticité</span>
+      <select [value]="riskFilter" (change)="setRiskFilter($any($event.target).value)">
+        <option value="ALL">Tous</option>
+        <option value="CRITICAL">Critique</option>
+        <option value="HIGH">Élevé</option>
+        <option value="MEDIUM">Modéré</option>
+        <option value="LOW">Faible</option>
+      </select>
+    </label>
+    <label>
+      <span>Tri</span>
+      <select [value]="sortMode" (change)="setSortMode($any($event.target).value)">
+        <option value="SCORE_DESC">Score décroissant</option>
+        <option value="DATE_DESC">Date récente</option>
+        <option value="EMPLOYEE_ASC">Employé A-Z</option>
+      </select>
+    </label>
+    <span class="feed__display-count">
+      {{ displayedCount }} / {{ filteredAnomalies.length }} affichées
+    </span>
+  </div>
+
+  <div class="feed__body" *ngIf="!collapsed()">
     <div class="feed__skeleton" *ngIf="loading" aria-hidden="true">
       <div class="row-skeleton" *ngFor="let _ of [0,1,2]"></div>
     </div>
@@ -38,6 +74,9 @@
     </div>
 
     <p class="feed__empty" *ngIf="!loading && !hasIgnoredAll && activeTotal === 0">{{ emptyMessage }}</p>
+    <p class="feed__empty" *ngIf="!loading && activeTotal > 0 && filteredAnomalies.length === 0">
+      Aucune anomalie pour cette criticité.
+    </p>
 
     <ul class="feed__list" *ngIf="!loading && layout === 'list' && activeTotal > 0">
       <li
@@ -82,7 +121,14 @@
       />
     </div>
 
-    <p class="feed__overflow" *ngIf="!loading && overflowCount > 0">
+    <div class="feed__more" *ngIf="!loading && controlsVisible && filteredAnomalies.length > maxVisible">
+      <span>{{ displayedCount }} / {{ filteredAnomalies.length }} affichées</span>
+      <button type="button" (click)="toggleShowAll()">
+        {{ showAll ? 'Voir moins' : 'Voir plus' }}
+      </button>
+    </div>
+
+    <p class="feed__overflow" *ngIf="!loading && !controlsVisible && overflowCount > 0">
       +{{ overflowCount }} autre(s) anomalie(s) à consulter
     </p>
   </div>
@@ -128,10 +174,18 @@
         <p>{{ anomaly.explanation || 'Aucune explication disponible.' }}</p>
       </section>
 
-      <section class="detail-section" *ngIf="anomaly.reasons.length > 0">
+      <section class="detail-section" *ngIf="selectedReasonEntries.length > 0">
         <span class="detail-label">Raisons détectées</span>
         <ul class="reason-list">
-          <li *ngFor="let reason of anomaly.reasons">{{ reason }}</li>
+          <li *ngFor="let reason of selectedReasonEntries">
+            <strong>{{ reason.label }}</strong>
+            <span *ngIf="reason.description">{{ reason.description }}</span>
+            <small *ngIf="reason.value || reason.expected">
+              <ng-container *ngIf="reason.value">Observé: {{ reason.value }}</ng-container>
+              <ng-container *ngIf="reason.value && reason.expected"> · </ng-container>
+              <ng-container *ngIf="reason.expected">Attendu: {{ reason.expected }}</ng-container>
+            </small>
+          </li>
         </ul>
       </section>
 
@@ -143,6 +197,18 @@
             <strong>{{ item.value }}</strong>
           </div>
         </div>
+      </section>
+
+      <section class="detail-section">
+        <span class="detail-label">Recommandation</span>
+        <p>{{ selectedRecommendation }}</p>
+      </section>
+
+      <section class="detail-section detail-section--warning" *ngIf="selectedWarnings.length > 0">
+        <span class="detail-label">Avertissements</span>
+        <ul class="warning-list">
+          <li *ngFor="let warning of selectedWarnings">{{ warning }}</li>
+        </ul>
       </section>
 
       <details class="technical-details" *ngIf="selectedFeatureEntries.length > 0">

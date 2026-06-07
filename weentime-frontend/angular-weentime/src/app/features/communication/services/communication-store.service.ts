@@ -88,8 +88,14 @@ export class CommunicationStoreService {
     const channelId = this.activeChannelId();
     return channelId ? this.typingByChannel()[channelId] ?? null : null;
   });
-  readonly canSync = computed(() => this.authService.hasRole('ADMIN'));
-  readonly canCreateChannel = computed(() => this.authService.hasRole('ADMIN') || this.authService.hasRole('RH'));
+  readonly tenantContextAvailable = computed(
+    () => this.communicationSessionKey(this.authService.currentUser()) !== null
+  );
+  readonly canSync = computed(() => this.authService.hasRole('ADMIN') && this.tenantContextAvailable());
+  readonly canCreateChannel = computed(
+    () => this.tenantContextAvailable()
+      && (this.authService.hasRole('ADMIN') || this.authService.hasRole('RH'))
+  );
   readonly readRetryPending = computed(() => {
     const channelId = this.activeChannelId();
     return channelId ? !!this.pendingReadRetryByChannel()[channelId] : false;
@@ -1105,11 +1111,11 @@ export class CommunicationStoreService {
 
 
   private hasTenantContext(): boolean {
-    return this.communicationSessionKey(this.authService.currentUser()) !== null;
+    return this.tenantContextAvailable();
   }
 
   private communicationSessionKey(user: ReturnType<AuthService['currentUser']>): string | null {
-    if (!user?.id || !Number.isFinite(user.entrepriseId)) {
+    if (!user?.id || !Number.isFinite(user.entrepriseId) || (user.entrepriseId ?? 0) <= 0) {
       return null;
     }
     return `${user.id}:${user.entrepriseId}`;

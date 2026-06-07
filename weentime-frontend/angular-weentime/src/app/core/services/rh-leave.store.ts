@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, tap, forkJoin, of } from 'rxjs';
+import { Observable, tap, forkJoin, of, catchError, throwError } from 'rxjs';
 import { RhApiService, TypeCongeOption, RhLeaveBalance, RhRequest } from '../../features/rh/rh-api.service';
 import { AdminApiService, AdminUser } from '../../features/admin/admin-api.service';
 import { CongeService } from '../../features/employee/conges/conge.service';
@@ -47,6 +47,11 @@ export class RhLeaveStore {
         this._users.set(users.content);
         this._leaveTypes.set(typeConges);
         this._loading.set(false);
+      }),
+      catchError(error => {
+        this._error.set(this.extractErrorMessage(error, 'Chargement des references conges impossible'));
+        this._loading.set(false);
+        return throwError(() => error);
       })
     );
   }
@@ -60,6 +65,11 @@ export class RhLeaveStore {
       tap(data => {
         this._allDemandes.set(data);
         this._loading.set(false);
+      }),
+      catchError(error => {
+        this._error.set(this.extractErrorMessage(error, 'Chargement des demandes conges impossible'));
+        this._loading.set(false);
+        return throwError(() => error);
       })
     );
   }
@@ -73,6 +83,11 @@ export class RhLeaveStore {
       tap(data => {
         this._leaveBalances.set(data);
         this._loading.set(false);
+      }),
+      catchError(error => {
+        this._error.set(this.extractErrorMessage(error, 'Chargement des soldes conges impossible'));
+        this._loading.set(false);
+        return throwError(() => error);
       })
     );
   }
@@ -84,5 +99,10 @@ export class RhLeaveStore {
 
   updateBalance(updated: RhLeaveBalance) {
     this._leaveBalances.update(list => list.map(b => b.typeCongeId === updated.typeCongeId ? updated : b));
+  }
+
+  private extractErrorMessage(error: unknown, fallback: string): string {
+    const source = (error ?? {}) as Record<string, any>;
+    return source?.['error']?.['message'] || source?.['message'] || fallback;
   }
 }

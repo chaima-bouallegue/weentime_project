@@ -246,6 +246,30 @@ export class VoiceAssistantService {
         return;
       }
 
+      const normalized = normalizeVoiceAiResponse(response);
+      if (normalized.success === false) {
+        const message = normalized.assistantText
+          || this.normalizeAudioErrorMessage(normalized.error)
+          || this.extractAssistantText(response)
+          || VoiceAssistantService.AUDIO_ERROR_MESSAGE;
+        this.finalized = true;
+        this.eventsSubject.next({
+          type: 'final',
+          response: this.withNormalizedResponse({
+            ...response,
+            success: false,
+            final: true,
+            retryable: true,
+            status: normalized.status ?? 'audio_error',
+            message,
+            response: message,
+            text: message,
+          }, normalized),
+        });
+        this.completeSession();
+        return;
+      }
+
       this.emitState('responding');
       this.finish(response);
     } catch (error) {
@@ -649,6 +673,9 @@ export class VoiceAssistantService {
       || lowered === 'audio_processing_failed'
       || lowered === 'conversion_failed'
       || lowered === 'whisper_failed'
+      || lowered === 'stt_timeout'
+      || lowered === 'stt_unavailable'
+      || lowered === 'stt_failed'
       || lowered === 'server_error'
       || lowered.includes('ollama')
       || lowered.includes('connection refused')
@@ -684,6 +711,7 @@ export class VoiceAssistantService {
       || error === 'retry'
       || error === 'unclear_audio'
       || error === 'invalid_audio'
+      || error === 'stt_timeout'
       || message.includes("je n'ai rien entendu")
       || message.includes("je n'ai pas bien compris")
       || message.includes("je n'ai pas entendu")
@@ -728,6 +756,9 @@ export class VoiceAssistantService {
       lowered === 'audio_transcription_failed'
       || lowered === 'audio_processing_failed'
       || lowered === 'whisper_failed'
+      || lowered === 'stt_timeout'
+      || lowered === 'stt_unavailable'
+      || lowered === 'stt_failed'
       || lowered === 'server_error'
     );
   }

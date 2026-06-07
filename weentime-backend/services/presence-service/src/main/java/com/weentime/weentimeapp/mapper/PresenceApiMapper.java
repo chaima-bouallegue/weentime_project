@@ -74,6 +74,7 @@ public class PresenceApiMapper {
                 .overtimePreview(summary.getOvertimePreview())
                 .overtimeMinutes(summary.getOvertimeMinutes())
                 .overtimeMode(summary.getOvertimeMode())
+                .overtimeConfirmed(summary.getOvertimeConfirmed())
                 .showCheckoutAlert(summary.getShowCheckoutAlert())
                 .overtimeStartedAt(formatDateTime(summary.getOvertimeStartedAt(), zoneId))
                 .overtimeLabel(summary.getOvertimeLabel())

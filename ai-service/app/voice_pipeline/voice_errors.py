@@ -11,6 +11,7 @@ VOICE_ERROR_MESSAGES = {
     "audio_processing_failed": "Erreur audio, veuillez reessayer.",
     "audio_cancelled": "Traitement audio interrompu. Reessayez.",
     "stt_unavailable": "Service de transcription indisponible. Reessayez dans quelques instants.",
+    "stt_timeout": "La transcription a pris trop de temps. Veuillez réessayer avec un message plus court.",
 }
 
 VOICE_ERROR_TRANSLATIONS = {
@@ -25,6 +26,7 @@ VOICE_ERROR_TRANSLATIONS = {
         "audio_processing_failed": "Audio error, please try again.",
         "audio_cancelled": "Audio processing was interrupted. Try again.",
         "stt_unavailable": "Transcription service is unavailable. Try again in a moment.",
+        "stt_timeout": "Transcription took too long. Try again with a shorter message.",
     },
     "ar": {
         "missing_jwt": "يلزم تسجيل الدخول.",
@@ -37,6 +39,7 @@ VOICE_ERROR_TRANSLATIONS = {
         "audio_processing_failed": "حدث خطأ في الصوت، حاول مرة أخرى.",
         "audio_cancelled": "تم إيقاف معالجة الصوت. حاول مرة أخرى.",
         "stt_unavailable": "خدمة التفريغ الصوتي غير متاحة حاليا. حاول بعد قليل.",
+        "stt_timeout": "استغرقت عملية التفريغ وقتا طويلا. حاول برسالة أقصر.",
     },
     "tn": {
         "missing_jwt": "Lazem tkoun connecté.",
@@ -49,6 +52,7 @@ VOICE_ERROR_TRANSLATIONS = {
         "audio_processing_failed": "Saret ghalta fel audio, jarreb mara okhra.",
         "audio_cancelled": "Traitement audio twa9ef. Jarreb mara okhra.",
         "stt_unavailable": "Service transcription moch disponible taw. Jarreb baad chweya.",
+        "stt_timeout": "Transcription twalet barcha. Jarreb message aksar.",
     },
 }
 

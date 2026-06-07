@@ -41,6 +41,8 @@ public interface OvertimeRepository extends JpaRepository<Overtime, Long> {
 
     Page<Overtime> findByEntrepriseIdAndStatusInOrderByDateDesc(Long entrepriseId, Collection<OvertimeStatus> statuses, Pageable pageable);
 
+    Page<Overtime> findByManagerIdAndStatusInOrderByDateDesc(Long managerId, Collection<OvertimeStatus> statuses, Pageable pageable);
+
     @Query("select coalesce(sum(o.heuresSupplementaires), 0) from Overtime o where o.date between :dateFrom and :dateTo")
     BigDecimal sumHeuresSupplementairesBetween(@Param("dateFrom") LocalDate dateFrom, @Param("dateTo") LocalDate dateTo);
 

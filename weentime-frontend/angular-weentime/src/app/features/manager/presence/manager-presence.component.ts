@@ -159,6 +159,46 @@ export class ManagerPresenceComponent implements OnInit {
     return hours > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${mins} min`;
   }
 
+  formatOvertimeTimestamp(value?: string | null): string {
+    if (!value) {
+      return '--';
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }
+    const match = value.match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : value;
+  }
+
+  formatOvertimeStatus(status?: string | null): string {
+    switch (status) {
+      case 'PENDING_MANAGER':
+      case 'EN_ATTENTE_MANAGER':
+      case 'PENDING_APPROVAL':
+        return 'En attente manager';
+      case 'PENDING_RH':
+      case 'EN_ATTENTE_RH':
+        return 'En attente RH';
+      case 'APPROVED_MANAGER':
+      case 'APPROUVEE_MANAGER':
+      case 'APPROVED':
+        return 'Approuvee manager';
+      case 'REJECTED_MANAGER':
+      case 'REFUSEE_MANAGER':
+      case 'REJECTED':
+        return 'Refusee manager';
+      case 'APPROVED_RH':
+      case 'APPROUVEE_RH':
+        return 'Approuvee RH';
+      case 'REJECTED_RH':
+      case 'REFUSEE_RH':
+        return 'Refusee RH';
+      default:
+        return status || 'Inconnu';
+    }
+  }
+
   private reviewOvertime(request: OvertimeRequestDto, action: 'approve' | 'reject'): void {
     this.reviewingOvertimeId.set(request.id);
     const call$ = action === 'approve'

@@ -5,6 +5,7 @@ import audioop
 import logging
 import os
 import tempfile
+import threading
 import wave
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,7 +17,7 @@ from app.observability.tracing import log_event, start_span
 from voice.audio_conversion import convert_to_wav
 from voice.cleaner import SHORT_COMMANDS, clean_transcription as base_clean_transcription
 from voice.vad import VadAnalysis, analyze_voice
-from voice.whisper_service import transcribe_audio_result
+from voice.whisper_service import preload_model, transcribe_audio_result
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,25 @@ clean_transcript = clean_transcription
 class SpeechToTextService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self._timed_out_paths: set[str] = set()
+        self._timed_out_paths_lock = threading.Lock()
+
+    def preload(self) -> bool:
+        return preload_model(
+            model_name=self.settings.stt_model,
+            device=self.settings.stt_device,
+            compute_type=getattr(self.settings, "stt_compute_type", "int8"),
+            cpu_threads=getattr(self.settings, "stt_cpu_threads", 1),
+            num_workers=getattr(self.settings, "stt_num_workers", 1),
+            local_files_only=getattr(self.settings, "stt_local_files_only", True),
+        )
+
+    async def apreload(self) -> bool:
+        return await asyncio.to_thread(self.preload)
 
     def process(self, audio_file: str | Path) -> VoiceProcessingResult:
+        pipeline_started = perf_counter()
+        timings: dict[str, float] = {}
         source_path = Path(audio_file)
         source_size = source_path.stat().st_size if source_path.exists() else 0
         if source_size <= 0:
@@ -94,19 +112,25 @@ class SpeechToTextService:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as handle:
                 wav_path = Path(handle.name)
 
+            stage_started = perf_counter()
             with start_span("voice.audio_convert", {"size_bytes": source_size}):
                 try:
                     convert_to_wav(
                         source_path,
                         wav_path,
                         ffmpeg_binary=self.settings.ffmpeg_binary,
+                        timeout_seconds=getattr(self.settings, "ffmpeg_timeout_seconds", 15.0),
                     )
                     log_event("voice.audio_convert", metadata={"size_bytes": source_size, "status": "success"})
                 except Exception as exc:  # noqa: BLE001
                     log_event("voice.audio_convert", metadata={"size_bytes": source_size, "status": "failed"})
                     raise AudioConversionError("conversion_failed") from exc
+            timings["ffmpeg_ms"] = round((perf_counter() - stage_started) * 1000, 2)
 
+            stage_started = perf_counter()
             duration_seconds, detected_volume, peak_amplitude = self._read_audio_metrics(wav_path)
+            timings["audio_metrics_ms"] = round((perf_counter() - stage_started) * 1000, 2)
+            stage_started = perf_counter()
             with start_span(
                 "voice.vad",
                 {
@@ -121,6 +145,7 @@ class SpeechToTextService:
                     frame_ms=self.settings.voice_frame_ms,
                     min_voiced_ms=self.settings.voice_min_voiced_ms,
                 )
+            timings["vad_ms"] = round((perf_counter() - stage_started) * 1000, 2)
 
             logger.info(
                 "voice_pipeline_metrics path=%s size_bytes=%s duration_seconds=%.3f detected_volume=%.3f peak_amplitude=%s voiced_ratio=%.3f voiced_duration_ms=%s",
@@ -189,8 +214,16 @@ class SpeechToTextService:
                     model_name=self.settings.stt_model,
                     language=None,
                     device=self.settings.stt_device,
-                    compute_type="int8",
+                    compute_type=getattr(self.settings, "stt_compute_type", "int8"),
+                    cpu_threads=getattr(self.settings, "stt_cpu_threads", 1),
+                    num_workers=getattr(self.settings, "stt_num_workers", 1),
+                    beam_size=getattr(self.settings, "stt_beam_size", 1),
+                    best_of=getattr(self.settings, "stt_best_of", 1),
+                    vad_filter=bool(getattr(self.settings, "stt_vad_filter", False)),
+                    condition_on_previous_text=bool(getattr(self.settings, "stt_condition_on_previous_text", False)),
+                    local_files_only=getattr(self.settings, "stt_local_files_only", True),
                 )
+                timings["whisper_ms"] = round((perf_counter() - stt_started) * 1000, 2)
                 if transcription_result.error == "stt_unavailable":
                     return VoiceProcessingResult(
                         status="unavailable",
@@ -202,6 +235,7 @@ class SpeechToTextService:
                         vad_analysis=vad_analysis,
                         wav_path=str(wav_path),
                         error="stt_unavailable",
+                        details={"timings": {**timings, "total_pipeline_ms": round((perf_counter() - pipeline_started) * 1000, 2)}},
                     )
                 if transcription_result.error:
                     return VoiceProcessingResult(
@@ -214,8 +248,10 @@ class SpeechToTextService:
                         vad_analysis=vad_analysis,
                         wav_path=str(wav_path),
                         error=transcription_result.error,
+                        details={"timings": {**timings, "total_pipeline_ms": round((perf_counter() - pipeline_started) * 1000, 2)}},
                     )
                 raw_text = transcription_result.text
+            stage_started = perf_counter()
             with start_span("voice.cleaner", {"raw_empty": not bool(raw_text)}):
                 cleaned_text = clean_transcription(
                     raw_text,
@@ -232,32 +268,36 @@ class SpeechToTextService:
                         "duration_seconds": duration_seconds,
                     },
                 )
-            log_event(
-                "voice.stt.finished",
-                output={
-                    "cleaned_empty": not bool(cleaned_text),
-                    "raw_length": len(raw_text or ""),
-                    "language": transcription_result.language,
-                    "language_confidence": transcription_result.language_probability,
-                },
-                metadata={
-                    "latency_ms": round((perf_counter() - stt_started) * 1000, 2),
-                    "language": transcription_result.language,
-                    "language_confidence": transcription_result.language_probability,
-                    "stt_model": self.settings.stt_model,
-                    "vad_ratio": vad_analysis.voiced_ratio if vad_analysis else 0.0,
-                },
-            )
+            timings["cleaner_ms"] = round((perf_counter() - stage_started) * 1000, 2)
+            timings["total_pipeline_ms"] = round((perf_counter() - pipeline_started) * 1000, 2)
+            if not self._consume_timeout_marker(source_path):
+                log_event(
+                    "voice.stt.finished",
+                    output={
+                        "cleaned_empty": not bool(cleaned_text),
+                        "raw_length": len(raw_text or ""),
+                        "language": transcription_result.language,
+                        "language_confidence": transcription_result.language_probability,
+                    },
+                    metadata={
+                        "latency_ms": round((perf_counter() - stt_started) * 1000, 2),
+                        "language": transcription_result.language,
+                        "language_confidence": transcription_result.language_probability,
+                        "stt_model": self.settings.stt_model,
+                        "vad_ratio": vad_analysis.voiced_ratio if vad_analysis else 0.0,
+                    },
+                )
 
-            logger.info(
-                "voice_pipeline_transcription path=%s language=%s confidence=%.4f length=%s raw=%r cleaned=%r",
-                source_path,
-                transcription_result.language,
-                transcription_result.language_probability,
-                len(raw_text or ""),
-                raw_text,
-                cleaned_text,
-            )
+                logger.info(
+                    "voice_pipeline_transcription path=%s language=%s confidence=%.4f length=%s timings=%s raw=%r cleaned=%r",
+                    source_path,
+                    transcription_result.language,
+                    transcription_result.language_probability,
+                    len(raw_text or ""),
+                    timings,
+                    raw_text,
+                    cleaned_text,
+                )
 
             if not cleaned_text:
                 return VoiceProcessingResult(
@@ -271,6 +311,7 @@ class SpeechToTextService:
                     vad_analysis=vad_analysis,
                     wav_path=str(wav_path),
                     error="unclean_transcription",
+                    details={"timings": timings},
                 )
 
             return VoiceProcessingResult(
@@ -284,7 +325,7 @@ class SpeechToTextService:
                 peak_amplitude=peak_amplitude,
                 vad_analysis=vad_analysis,
                 wav_path=str(wav_path),
-                details={"short_command_candidate": short_command_candidate},
+                details={"short_command_candidate": short_command_candidate, "timings": timings},
             )
         except AudioConversionError:
             raise
@@ -296,11 +337,39 @@ class SpeechToTextService:
                 wav_path.unlink(missing_ok=True)
 
     async def aprocess(self, audio_file: str | Path) -> VoiceProcessingResult:
+        timeout_seconds = float(getattr(self.settings, "stt_timeout_seconds", 20.0))
+        task: asyncio.Task[VoiceProcessingResult] | None = None
         try:
-            return await asyncio.to_thread(self.process, audio_file)
+            task = asyncio.create_task(asyncio.to_thread(self.process, audio_file))
+            return await asyncio.wait_for(
+                task,
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            if task is not None:
+                task.cancel()
+            self._mark_timed_out(audio_file)
+            logger.warning("voice_pipeline_timeout path=%s timeout_seconds=%.2f", audio_file, timeout_seconds)
+            return VoiceProcessingResult(
+                status="unavailable",
+                error="stt_timeout",
+                details={"timings": {"stt_timeout_seconds": timeout_seconds, "stt_ms": round(timeout_seconds * 1000, 2)}},
+            )
         except asyncio.CancelledError:
             logger.info("voice_pipeline_cancelled path=%s", audio_file)
             return VoiceProcessingResult(status="cancelled", error="audio_cancelled")
+
+    def _mark_timed_out(self, audio_file: str | Path) -> None:
+        with self._timed_out_paths_lock:
+            self._timed_out_paths.add(str(Path(audio_file)))
+
+    def _consume_timeout_marker(self, audio_file: str | Path) -> bool:
+        key = str(Path(audio_file))
+        with self._timed_out_paths_lock:
+            if key not in self._timed_out_paths:
+                return False
+            self._timed_out_paths.remove(key)
+            return True
 
     def transcribe(self, audio_file: str | Path) -> str | None:
         result = self.process(audio_file)

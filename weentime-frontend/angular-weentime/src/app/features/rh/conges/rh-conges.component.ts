@@ -227,7 +227,9 @@ export class RhCongesComponent {
   approvedCount = computed(() => this.allDemandes().filter(d => d.statut === 'APPROUVE').length);
 
   refresh(): void {
-    this.leaveStore.loadAllDemandes().subscribe();
+    this.leaveStore.loadAllDemandes().subscribe({
+      error: (error) => this.toast.error(this.extractErrorMessage(error, 'Chargement des demandes impossible'))
+    });
   }
 
   onFilterChange(): void {
@@ -243,7 +245,7 @@ export class RhCongesComponent {
         this.toast.success(`Demande de ${demande.userName} approuvée officiellement`);
         this.leaveStore.updateDemande(updated);
       },
-      error: () => this.toast.error('Échec de la validation RH')
+      error: (error) => this.toast.error(this.extractErrorMessage(error, 'Echec de la validation RH'))
     });
   }
 
@@ -273,7 +275,7 @@ export class RhCongesComponent {
         this.toast.success('Demande rejetée par les RH');
         this.leaveStore.updateDemande(updated);
       },
-      error: () => this.toast.error('Erreur lors du rejet')
+      error: (error) => this.toast.error(this.extractErrorMessage(error, 'Erreur lors du rejet'))
     });
   }
 
@@ -331,5 +333,10 @@ export class RhCongesComponent {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
+  }
+
+  private extractErrorMessage(error: unknown, fallback: string): string {
+    const source = (error ?? {}) as Record<string, any>;
+    return source?.['error']?.['message'] || source?.['message'] || fallback;
   }
 }

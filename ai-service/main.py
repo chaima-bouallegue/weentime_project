@@ -37,7 +37,12 @@ from app.api.router_loader import RouterSpec, register_routers
 from app.core.copilot_engine import configure_copilot_engine, process_copilot_message
 from app.nlp.language_detector import detect_language as detect_response_language
 from app.observability.decorators import trace_ai_step
-from app.observability.braintrust_client import flush_braintrust, init_braintrust
+from app.observability.braintrust_client import (
+    flush_braintrust,
+    init_braintrust,
+    log_ai_interaction,
+    log_rag_interaction,
+)
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.request_trace import trace_request_lifecycle
 from app.observability.tracing import log_event, start_span
@@ -265,6 +270,32 @@ async def lifespan(app: FastAPI):
     app.state.legacy_process_chat = _process_chat
     configure_copilot_engine(app.state, legacy_handler=_process_chat)
     init_braintrust()
+    if getattr(settings, "stt_preload", True):
+        started = perf_counter()
+        try:
+            app.state.stt_ready = await stt_service.apreload()
+        except Exception as exc:  # noqa: BLE001
+            app.state.stt_ready = False
+            logger.warning("stt_preload_failed error=%s", exc)
+        logger.info(
+            "stt_preload ready=%s model=%s load_ms=%.2f",
+            app.state.stt_ready,
+            settings.stt_model,
+            (perf_counter() - started) * 1000,
+        )
+    if getattr(settings, "tts_preload", True) and settings.tts_enabled:
+        started = perf_counter()
+        try:
+            app.state.tts_ready = await tts_service.apreload()
+        except Exception as exc:  # noqa: BLE001
+            app.state.tts_ready = False
+            logger.warning("tts_preload_failed error=%s", exc)
+        logger.info(
+            "tts_preload ready=%s model=%s load_ms=%.2f",
+            app.state.tts_ready,
+            settings.tts_model,
+            (perf_counter() - started) * 1000,
+        )
 
     try:
         yield
@@ -591,6 +622,7 @@ def _build_workflow_response(decision: dict[str, Any], workflow_result: Any) -> 
 
 
 async def _process_chat(request: ChatRequest) -> ChatResponse:
+    started = perf_counter()
     router: AgentRouter = app.state.agent_router
     decision_engine: DecisionEngine = app.state.decision_engine
     task_executor: TaskExecutor = app.state.task_executor
@@ -606,6 +638,7 @@ async def _process_chat(request: ChatRequest) -> ChatResponse:
     if decision.get("type") == "ask":
         response = _build_ask_response(decision)
         agent.remember(request.user_id, response.text)
+        _trace_legacy_chat(request, response, resolved_role, decision, started)
         return response
 
     if decision.get("type") == "workflow":
@@ -634,6 +667,7 @@ async def _process_chat(request: ChatRequest) -> ChatResponse:
                 )
         response = _build_workflow_response(decision, workflow_result)
         agent.remember(request.user_id, response.text)
+        _trace_legacy_chat(request, response, resolved_role, decision, started)
         return response
 
     if decision.get("type") == "action":
@@ -661,6 +695,7 @@ async def _process_chat(request: ChatRequest) -> ChatResponse:
                 )
         response = _build_workflow_response(decision, workflow_result)
         agent.remember(request.user_id, response.text)
+        _trace_legacy_chat(request, response, resolved_role, decision, started)
         return response
 
     agent_reply = agent.reply(message=request.message, decision=decision)
@@ -673,7 +708,65 @@ async def _process_chat(request: ChatRequest) -> ChatResponse:
         ],
     )
     agent.remember(request.user_id, response.text)
+    _trace_legacy_chat(request, response, resolved_role, decision, started)
     return response
+
+
+def _trace_legacy_chat(
+    request: ChatRequest,
+    response: ChatResponse,
+    role: str,
+    decision: dict[str, Any],
+    started: float,
+) -> None:
+    latency_ms = round((perf_counter() - started) * 1000, 2)
+    request_id = str(request.metadata.get("request_id") or "") or None
+    language = str(request.metadata.get("language") or "unknown")
+    provider = "local_keyword" if response.sources else "deterministic"
+    log_ai_interaction(
+        input_text=request.message,
+        output_text=response.text,
+        provider=provider,
+        model=None,
+        module="chatbot_text_legacy",
+        role=role,
+        intent=response.intent or str(decision.get("intent") or "") or None,
+        language=language,
+        user_id=request.user_id,
+        latency_ms=latency_ms,
+        status="error" if response.type == "error" else "success",
+        error_type=response.error if response.type == "error" else None,
+        error_message=response.error if response.type == "error" else None,
+        endpoint="/chat",
+        request_id=request_id,
+        channel="text",
+        metadata_extra={
+            "legacy_endpoint": True,
+            "response_type": response.type,
+            "source_count": len(response.sources),
+        },
+    )
+    if response.sources:
+        log_rag_interaction(
+            question=request.message,
+            output_text=response.text,
+            provider="local_keyword",
+            collection="legacy_local_documents",
+            retrieved_chunks=len(response.sources),
+            top_k=settings.rag_search_limit,
+            citations_required=False,
+            citations_found=True,
+            tenant_filter_applied=False,
+            fallback_used=False,
+            role=role,
+            intent=response.intent,
+            language=language,
+            user_id=request.user_id,
+            latency_ms=latency_ms,
+            endpoint="/chat",
+            request_id=request_id,
+            metadata_extra={"legacy_rag": True},
+        )
 
 
 def _resolve_upload_suffix(upload: UploadFile, fallback: str = ".webm") -> str:
@@ -1013,24 +1106,28 @@ def _validate_stream_audio(stream_path: Path) -> tuple[bool, str | None]:
     if not ffprobe_binary:
         return True, None
 
-    result = subprocess.run(
-        [
-            ffprobe_binary,
-            "-v",
-            "error",
-            "-select_streams",
-            "a:0",
-            "-show_entries",
-            "stream=codec_name",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            str(stream_path),
-        ],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                ffprobe_binary,
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(stream_path),
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=max(1.0, float(getattr(settings, "ffmpeg_timeout_seconds", 15.0))),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "ffprobe_timeout"
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()[-500:]
         return False, detail or "ffprobe_failed"
@@ -1073,6 +1170,7 @@ def convert_stream_to_wav(session_id: str, merged_path: Path) -> Path:
             merged_path,
             wav_path,
             ffmpeg_binary=settings.ffmpeg_binary,
+            timeout_seconds=getattr(settings, "ffmpeg_timeout_seconds", 15.0),
         )
     except Exception as exc:  # noqa: BLE001
         detail = str(exc)

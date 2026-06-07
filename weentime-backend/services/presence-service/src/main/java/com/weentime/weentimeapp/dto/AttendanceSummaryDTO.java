@@ -37,6 +37,7 @@ public class AttendanceSummaryDTO {
     private Integer overtimePreview;
     private Integer overtimeMinutes;
     private OvertimeMode overtimeMode;
+    private Boolean overtimeConfirmed;
     private Boolean showCheckoutAlert;
     private LocalDateTime overtimeStartedAt;
     private String overtimeLabel;

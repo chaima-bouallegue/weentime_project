@@ -116,3 +116,16 @@ def test_save_and_load_roundtrip(tmp_path):
     assert other.model_version == model.model_version
     sample = df[list(FEATURE_NAMES)].iloc[0].to_numpy()
     assert other.predict(sample)["risk"] in {r.value for r in RiskLevel}
+
+
+def test_training_auto_calibrates_ordered_thresholds():
+    df = _training_frame()
+    model = AttendanceAnomalyModel(
+        contamination=0.05,
+        n_estimators=50,
+        auto_calibrate_thresholds=True,
+    )
+
+    model.train(df)
+
+    assert 0.0 < model.medium_threshold < model.high_threshold < model.critical_threshold <= 1.0

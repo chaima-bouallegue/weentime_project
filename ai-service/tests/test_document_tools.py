@@ -108,6 +108,56 @@ async def test_document_create_request_posts_verified_endpoint_without_user_id()
 
 
 @pytest.mark.asyncio
+async def test_payslip_create_request_requires_month_before_backend_write() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "document.create_request",
+        {"document_type": "BULLETIN_PAIE"},
+        context(),
+        confirmed=True,
+    )
+
+    assert result.success is False
+    assert result.error_code == "document_month_required"
+    assert backend.calls == []
+
+
+@pytest.mark.asyncio
+async def test_payslip_create_request_posts_frontend_equivalent_payload() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "document.create_request",
+        {"document_type": "BULLETIN_PAIE", "month": "04/2026"},
+        context(),
+        confirmed=True,
+    )
+
+    assert result.success is True
+    assert backend.calls == [
+        (
+            "POST",
+            "/documents",
+            {"type": "BULLETIN_PAIE", "moisConcerne": "Avril 2026", "motif": "Avril 2026"},
+        )
+    ]
+    assert result.data["summary"] == "Votre demande de bulletin de paie pour Avril 2026 a été envoyée."
+
+
+@pytest.mark.asyncio
+async def test_manager_can_create_own_document_request() -> None:
+    backend = FakeBackendClient()
+    result = await executor_with_backend(backend).execute(
+        "document.create_request",
+        {"document_type": "ATTESTATION_TRAVAIL"},
+        context("MANAGER"),
+        confirmed=True,
+    )
+
+    assert result.success is True
+    assert backend.calls == [("POST", "/documents", {"type": "ATTESTATION_TRAVAIL", "motif": "ATTESTATION_TRAVAIL"})]
+
+
+@pytest.mark.asyncio
 async def test_document_list_my_requests_returns_read_result() -> None:
     backend = FakeBackendClient()
     result = await executor_with_backend(backend).execute("document.list_my_requests", {}, context())
@@ -200,7 +250,7 @@ async def test_rh_document_workload_does_not_invent_counts_for_empty_backend_dat
 
 
 @pytest.mark.asyncio
-async def test_document_create_request_requires_employee_role() -> None:
+async def test_rh_cannot_create_personal_document_request() -> None:
     backend = FakeBackendClient()
     result = await executor_with_backend(backend).execute(
         "document.create_request",

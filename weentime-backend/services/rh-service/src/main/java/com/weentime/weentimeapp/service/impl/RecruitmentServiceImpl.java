@@ -1,5 +1,6 @@
 package com.weentime.weentimeapp.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weentime.weentimeapp.dto.*;
 import com.weentime.weentimeapp.entity.*;
 import com.weentime.weentimeapp.enums.*;
@@ -17,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,7 +25,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import com.weentime.weentimeapp.service.AiService;
 
@@ -43,6 +42,7 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     private final com.weentime.weentimeapp.client.EntrepriseServiceClient entrepriseServiceClient;
     private final NotificationSender notificationSender;
     private final RecruitmentEmailService emailService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public JobPostingDTO createJob(JobCreateRequest request, Long entrepriseId, Long creatorId) {
@@ -276,102 +276,104 @@ public class RecruitmentServiceImpl implements RecruitmentService {
     }
 
     @Override
-    public void processAiResult(Long applicationId, Map<String, Object> aiResult) {
+    public void processAiResult(Long applicationId, AiRecruitmentResultRequest aiResult) {
         Application app = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> {
                     log.error("Callback IA : candidature #{} introuvable", applicationId);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, "Candidature introuvable");
                 });
 
-        // Sécurité : vérifier que l'entreprise_id correspond
-        Object entrepriseIdObj = aiResult.get("entreprise_id");
-        if (entrepriseIdObj != null) {
-            Long resultEntrepriseId = Long.valueOf(entrepriseIdObj.toString());
-            if (!app.getEntrepriseId().equals(resultEntrepriseId)) {
-                log.error("Callback IA : entreprise_id mismatch pour candidature #{}", applicationId);
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Isolation tenant violée");
-            }
+        if (aiResult.getApplicationId() != null && !applicationId.equals(aiResult.getApplicationId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "application_id ne correspond pas au chemin"
+            );
+        }
+        if (aiResult.getEntrepriseId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "entreprise_id est obligatoire"
+            );
+        }
+        if (!app.getEntrepriseId().equals(aiResult.getEntrepriseId())) {
+            log.error("Callback IA : entreprise_id mismatch pour candidature #{}", applicationId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Isolation tenant violée");
         }
 
-        try {
-            // Extraire les scores
-            Map<String, Object> scores = (Map<String, Object>) aiResult.getOrDefault("scores", aiResult);
-            
-            app.setAiOverallScore(toBigDecimal(scores.get("score_global")));
-            app.setAiTechnicalScore(toBigDecimal(scores.get("score_technique")));
-            app.setAiExperienceScore(toBigDecimal(scores.get("score_experience")));
-            app.setAiCompetenceScore(toBigDecimal(scores.get("score_competences")));
-            app.setAiRecommendation((String) aiResult.getOrDefault("recommandation", 
-                                     scores.getOrDefault("recommandation", "A_EVALUER")));
-            app.setAiRecommendationSummary((String) scores.getOrDefault("resume_evaluation", ""));
-            app.setAiNiveauConfiance(toInteger(scores.get("niveau_confiance")));
-            app.setAiExperienceDetectee(toInteger(scores.get("annees_experience_detectees")));
+        app.setAiAnalysisJson(toJsonString(aiResult));
 
-            // Stocker les listes JSON en tant que String
-            app.setAiPointsForts(toJsonString(scores.get("points_forts")));
-            app.setAiPointsFaibles(toJsonString(scores.get("points_faibles")));
-            app.setAiCompetencesTrouvees(toJsonString(scores.get("competences_trouvees")));
-            app.setAiCompetencesManquantes(toJsonString(scores.get("competences_manquantes")));
-
-            // Stocker le JSON brut complet
-            app.setAiAnalysisJson(toJsonString(aiResult));
-
-            // Passer le statut à AI_ANALYZED
-            app.setStatus(ApplicationStatus.AI_ANALYZED);
-            app.setAiStatus("COMPLETED");
-
-            applicationRepository.save(app);
-
-            log.info("✅ Résultat IA sauvegardé pour candidature #{} — Score: {}, Recommandation: {}",
-                     applicationId, app.getAiOverallScore(), app.getAiRecommendation());
-
-            // Push WebSocket temps réel vers les RH connectés
-            try {
-                NotificationPayload wsPayload = NotificationPayload.of(
-                    "RECRUITMENT_AI_RESULT",
-                    "Analyse IA terminée",
-                    String.format("Candidature #%d analysée — Score: %s/100", 
-                                  applicationId, app.getAiOverallScore()),
-                    "brain", // icon
-                    "violet", // color
-                    applicationId, // refId
-                    "APPLICATION", // refType
-                    "/app/rh/recrutement/offre/" + app.getJobPosting().getId() // actionUrl
-                );
-                notificationSender.sendToRole("rh", wsPayload);
-                log.info("📡 WebSocket push envoyé pour candidature #{}", applicationId);
-            } catch (Exception wsEx) {
-                log.warn("WebSocket push échoué (non bloquant) : {}", wsEx.getMessage());
-            }
-
-        } catch (Exception e) {
-            log.error("❌ Erreur lors du traitement du résultat IA pour candidature #{}: {}", 
-                      applicationId, e.getMessage());
+        if (aiResult.isFailure()) {
             app.setAiStatus("FAILED");
-            app.setStatus(ApplicationStatus.APPLIED); // Revenir à APPLIED si l'analyse échoue
+            if (app.getStatus() == ApplicationStatus.AI_ANALYZING) {
+                app.setStatus(ApplicationStatus.APPLIED);
+            }
             applicationRepository.save(app);
+            log.warn(
+                    "Analyse IA échouée pour candidature #{}: {}",
+                    applicationId,
+                    aiResult.getError()
+            );
+            return;
+        }
+
+        AiRecruitmentResultRequest.Scores scores = aiResult.getScores();
+        if (scores == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Le payload de succès doit contenir scores"
+            );
+        }
+
+        app.setAiOverallScore(scores.getScoreGlobal());
+        app.setAiTechnicalScore(scores.getScoreTechnique());
+        app.setAiExperienceScore(scores.getScoreExperience());
+        app.setAiCompetenceScore(scores.getScoreCompetences());
+        app.setAiRecommendation(firstNonBlank(
+                aiResult.getRecommandation(),
+                scores.getRecommandation(),
+                "A_EVALUER"
+        ));
+        app.setAiRecommendationSummary(defaultString(scores.getResumeEvaluation()));
+        app.setAiNiveauConfiance(scores.getNiveauConfiance());
+        app.setAiExperienceDetectee(scores.getAnneesExperienceDetectees());
+        app.setAiPointsForts(toJsonString(scores.getPointsForts()));
+        app.setAiPointsFaibles(toJsonString(scores.getPointsFaibles()));
+        app.setAiCompetencesTrouvees(toJsonString(scores.getCompetencesTrouvees()));
+        app.setAiCompetencesManquantes(toJsonString(scores.getCompetencesManquantes()));
+
+        if (app.getStatus() == ApplicationStatus.AI_ANALYZING
+                || app.getStatus() == ApplicationStatus.APPLIED
+                || app.getStatus() == ApplicationStatus.AI_ANALYZED) {
+            app.setStatus(ApplicationStatus.AI_ANALYZED);
+        }
+        app.setAiStatus("COMPLETED");
+
+        applicationRepository.save(app);
+
+        log.info("✅ Résultat IA sauvegardé pour candidature #{} — Score: {}, Recommandation: {}",
+                 applicationId, app.getAiOverallScore(), app.getAiRecommendation());
+
+        // Push WebSocket temps réel vers les RH connectés
+        try {
+            NotificationPayload wsPayload = NotificationPayload.of(
+                "RECRUITMENT_AI_RESULT",
+                "Analyse IA terminée",
+                String.format("Candidature #%d analysée — Score: %s/100",
+                              applicationId, app.getAiOverallScore()),
+                "brain",
+                "violet",
+                applicationId,
+                "APPLICATION",
+                "/app/rh/recrutement/offre/" + app.getJobPosting().getId()
+            );
+            notificationSender.sendToRole("rh", wsPayload);
+            log.info("📡 WebSocket push envoyé pour candidature #{}", applicationId);
+        } catch (Exception wsEx) {
+            log.warn("WebSocket push échoué (non bloquant) : {}", wsEx.getMessage());
         }
     }
 
     // ── Helpers ──
-
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return null;
-        try {
-            return new BigDecimal(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Integer toInteger(Object value) {
-        if (value == null) return null;
-        try {
-            return Integer.valueOf(value.toString().replaceAll("\\..*", ""));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 
     @Override
     public org.springframework.core.io.Resource getCvFile(Long applicationId, Long entrepriseId) {
@@ -430,10 +432,23 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         if (value == null) return null;
         if (value instanceof String) return (String) value;
         try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+            return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
             return value.toString();
         }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String defaultString(String value) {
+        return value != null ? value : "";
     }
 
     private String storeCV(Long entrepriseId, MultipartFile file) {

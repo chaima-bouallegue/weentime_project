@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import { Home, Laptop, LucideAngularModule, LucideIconData, Sun, Sunrise, Sunset } from 'lucide-angular';
 import { DemandeTeletravailWorkflow, TypeTeletravail } from '../../../../shared/models/workflow-teletravail.model';
 import { DateFrPipe } from '../../../../../shared/pipes/date-fr.pipe';
 
@@ -19,13 +19,13 @@ export class DemandesRhListComponent {
   @Output() approuver = new EventEmitter<DemandeTeletravailWorkflow>();
   @Output() refuser = new EventEmitter<DemandeTeletravailWorkflow>();
 
-  getTypeIcon(type: TypeTeletravail): string {
+  getTypeIcon(type: TypeTeletravail): LucideIconData {
     switch (type) {
-      case 'JOURNEE_COMPLETE': return 'sun';
-      case 'DEMI_JOURNEE_MATIN': return 'sunrise';
-      case 'DEMI_JOURNEE_APRES_MIDI': return 'sunset';
-      case 'SEMAINE_COMPLETE': return 'home';
-      default: return 'laptop';
+      case 'JOURNEE_COMPLETE': return Sun;
+      case 'DEMI_JOURNEE_MATIN': return Sunrise;
+      case 'DEMI_JOURNEE_APRES_MIDI': return Sunset;
+      case 'SEMAINE_COMPLETE': return Home;
+      default: return Laptop;
     }
   }
 
@@ -39,14 +39,21 @@ export class DemandesRhListComponent {
     }
   }
 
-  getAvatarColor(initiales: string): string {
+  getAvatarColor(initiales: string | null | undefined): string {
     const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+    const value = initiales ?? '';
     let hash = 0;
-    for (let i = 0; i < initiales.length; i++) hash = initiales.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < value.length; i++) {
+      hash = value.charCodeAt(i) + ((hash << 5) - hash);
+    }
     return colors[Math.abs(hash) % colors.length];
   }
 
-  truncateMotif(motif: string, max: number = 80): string {
-    return motif.length > max ? motif.substring(0, max) + '…' : motif;
+  truncateMotif(motif: string | null | undefined, max: number = 80): string {
+    const value = motif?.trim();
+    if (!value) {
+      return '-';
+    }
+    return value.length > max ? `${value.substring(0, max)}...` : value;
   }
 }
