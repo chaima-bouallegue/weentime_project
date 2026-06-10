@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from time import perf_counter
 from typing import Any, Awaitable, Callable
 
 from app.agents.attendance_agent import AttendanceAgent
@@ -27,6 +28,7 @@ from app.models.agent_models import AgentResponse
 from app.nlp.language_detector import resolve_response_language
 from app.i18n.response_localizer import localize_agent_response
 from app.observability.request_context import ensure_request_id
+from app.observability.braintrust_client import log_ai_interaction, log_error_interaction
 from app.observability.tracing import log_error, log_event, start_span
 from app.guards.response_guard import ResponseGuard
 from app.insights import InsightEngine
@@ -300,6 +302,7 @@ async def process_copilot_message(
     services = ensure_copilot_services(state)
     request_id = ensure_request_id(str(metadata.get("request_id") or "") or None)
     language = resolve_response_language(message, metadata)
+    started = perf_counter()
 
     with start_span(
         "copilot.request",
@@ -328,6 +331,37 @@ async def process_copilot_message(
             )
         except ContextError as exc:
             log_error("copilot.context_error", exc, {"code": exc.code, "status_code": exc.status_code})
+            log_error_interaction(
+                input_text=message,
+                module="assistant_voice" if channel == "voice" else "chatbot_text",
+                error=exc,
+                provider=getattr(services["provider_router"], "mode", "ollama"),
+                model=getattr(services["provider_router"], "default_model", None),
+                role=role,
+                language=language,
+                user_id=user_id,
+                latency_ms=round((perf_counter() - started) * 1000, 2),
+                endpoint="/v2/voice" if channel == "voice" else "/v2/chat",
+                request_id=request_id,
+                channel="voice" if channel == "voice" else "text",
+                metadata_extra={"error_code": exc.code, "status_code": exc.status_code},
+            )
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log_error_interaction(
+                input_text=message,
+                module="assistant_voice" if channel == "voice" else "chatbot_text",
+                error=exc,
+                provider=getattr(services["provider_router"], "mode", "ollama"),
+                model=getattr(services["provider_router"], "default_model", None),
+                role=role,
+                language=language,
+                user_id=user_id,
+                latency_ms=round((perf_counter() - started) * 1000, 2),
+                endpoint="/v2/voice" if channel == "voice" else "/v2/chat",
+                request_id=request_id,
+                channel="voice" if channel == "voice" else "text",
+            )
             raise
 
         context = result.context
@@ -366,6 +400,39 @@ async def process_copilot_message(
                 "response_type": getattr(response, "type", None),
                 "text_length": len(response_text),
                 "provider_mode": getattr(services["provider_router"], "mode", "disabled"),
+            },
+        )
+        action_result = response.actionResult if isinstance(response.actionResult, dict) else {}
+        log_ai_interaction(
+            input_text=message,
+            output_text=response_text,
+            provider=str(action_result.get("provider") or getattr(services["provider_router"], "mode", "ollama")),
+            model=action_result.get("model") or getattr(services["provider_router"], "default_model", None),
+            module="assistant_voice" if channel == "voice" else "chatbot_text",
+            role=context.role if context is not None else role,
+            intent=getattr(response, "intent", None),
+            language=context.language if context is not None else language,
+            tenant_id=context.tenant_id if context is not None else None,
+            company_id=context.entreprise_id if context is not None else None,
+            user_id=context.user_id if context is not None else user_id,
+            latency_ms=round((perf_counter() - started) * 1000, 2),
+            status="error" if getattr(response, "type", None) == "error" else "success",
+            error_type=(str(result.state.error_code or "") or "AgentResponseError")
+            if getattr(response, "type", None) == "error"
+            else None,
+            error_message=response_text if getattr(response, "type", None) == "error" else None,
+            endpoint="/v2/voice" if channel == "voice" else "/v2/chat",
+            request_id=request_id,
+            channel="voice" if channel == "voice" else "text",
+            metadata_extra={
+                "agent": result.state.selected_agent or "unknown",
+                "agent_module": result.state.selected_agent or "unknown",
+                "response_type": getattr(response, "type", None),
+                "llm_used": bool(action_result.get("llm_used")),
+                "fallback_used": bool(result.state.fallback_used),
+                "fallback_reason": result.state.error_code,
+                "session_id": metadata.get("session_id"),
+                "requires_confirmation": bool(getattr(response, "requiresConfirmation", False)),
             },
         )
         return response

@@ -68,10 +68,18 @@ class AttendanceRecord:
     scheduled_end: time | None = None
     scheduled_workday: bool | None = None
     approved_leave: bool | None = None
+    approved_telework: bool | None = None
     holiday: bool | None = None
     exceptional_work_allowed: bool | None = None
     daily_status: str | None = None  # WORKING, REMOTE, ON_LEAVE, ...
     late_arrival: bool | None = None
+    entreprise_id: int | None = None
+    entreprise_name: str | None = None
+    manager_id: int | None = None
+    team_id: int | None = None
+    team_name: str | None = None
+    department_id: int | None = None
+    department_name: str | None = None
     source: str | None = None
     localisation: str | None = None
     missing_data_warnings: list[str] = field(default_factory=list)
@@ -82,7 +90,7 @@ class AttendanceRecord:
 
     @property
     def is_remote(self) -> bool:
-        return self.status_upper == "REMOTE"
+        return bool(self.approved_telework) or self.status_upper == "REMOTE"
 
     @property
     def has_checkin(self) -> bool:
@@ -264,6 +272,12 @@ class FeatureEngineer:
                 "localisation": record.localisation,
                 "late_arrival": record.late_arrival,
                 "daily_status": record.daily_status,
+                "entreprise_id": record.entreprise_id,
+                "entreprise_name": record.entreprise_name,
+                "team_id": record.team_id,
+                "team_name": record.team_name,
+                "department_id": record.department_id,
+                "department_name": record.department_name,
             },
         )
 

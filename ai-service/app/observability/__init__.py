@@ -7,6 +7,11 @@ from .braintrust_client import (
     init_braintrust,
     is_braintrust_configured,
     is_braintrust_enabled,
+    log_ai_interaction,
+    log_error_interaction,
+    log_ollama_interaction,
+    log_rag_interaction,
+    log_voice_interaction,
     send_test_event,
 )
 from .braintrust_logger import braintrust_health_summary, braintrust_span, log_observation
@@ -20,6 +25,11 @@ __all__ = [
     "init_braintrust",
     "is_braintrust_configured",
     "is_braintrust_enabled",
+    "log_ai_interaction",
+    "log_error_interaction",
+    "log_ollama_interaction",
+    "log_rag_interaction",
+    "log_voice_interaction",
     "braintrust_health_summary",
     "braintrust_span",
     "log_error",

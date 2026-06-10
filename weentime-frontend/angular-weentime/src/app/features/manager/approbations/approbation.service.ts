@@ -185,7 +185,7 @@ export class ApprobationService {
 
     return this.httpClient.get<ApiResponse<unknown>>(request.detailPath).pipe(
       map((response) => {
-        const demande = this.mapResponseDemande(type, response?.data);
+        const demande = this.mapResponseDemande(type, response?.data ?? response);
         if (!demande) {
           throw new Error('Demande introuvable');
         }
@@ -325,14 +325,18 @@ export class ApprobationService {
     approved: boolean,
     commentaire: string
   ): Observable<ApprobationResponse> {
-    const url = `${this.apiConfig.getApiBase()}/demandes/${id}/statut`;
-    return this.httpClient.put<ApiResponse<unknown>>(url, {
-      typeDemande: type,
-      statut: approved ? 'APPROUVEE' : 'REFUSEE',
-      commentaire
-    }).pipe(
+    const request = this.getRequestConfig(type, id);
+    const path = approved ? request.approvePath : request.rejectPath;
+    const mode = approved ? request.approveMode : request.rejectMode;
+    const url = `${this.apiConfig.getApiBase()}${path}`;
+    const options = mode === 'query' && commentaire
+      ? { params: new HttpParams().set('commentaire', commentaire) }
+      : {};
+    const body = mode === 'body' ? { commentaire } : {};
+
+    return this.httpClient.patch<ApiResponse<unknown>>(url, body, options).pipe(
       map((response) => {
-        const demande = this.mapResponseDemande(type, response?.data);
+        const demande = this.mapResponseDemande(type, response?.data ?? response);
         if (!demande) {
           throw new Error('Reponse invalide');
         }
@@ -355,9 +359,9 @@ export class ApprobationService {
     switch (type) {
       case 'ABSENCE':
         return {
-          detailPath: `${this.apiConfig.getApiBase()}/absences/${id}`,
-          approvePath: `/absences/${id}/validate/manager`,
-          rejectPath: `/absences/${id}/reject`,
+          detailPath: `${this.apiConfig.getApiBase()}/rh/absences/${id}`,
+          approvePath: `/rh/absences/${id}/valider`,
+          rejectPath: `/rh/absences/${id}/rejeter`,
           approveMode: 'query',
           rejectMode: 'query'
         };
@@ -371,9 +375,9 @@ export class ApprobationService {
         };
       case 'AUTORISATION':
         return {
-          detailPath: `${this.apiConfig.getApiBase()}/autorisations/${id}`,
-          approvePath: `/autorisations/${id}/validate/manager`,
-          rejectPath: `/autorisations/${id}/reject`,
+          detailPath: `${this.apiConfig.getApiBase()}/rh/autorisations/${id}`,
+          approvePath: `/rh/autorisations/${id}/manager/validate`,
+          rejectPath: `/rh/autorisations/${id}/reject`,
           approveMode: 'query',
           rejectMode: 'query'
         };
@@ -388,9 +392,9 @@ export class ApprobationService {
       case 'CONGE':
       default:
         return {
-          detailPath: `${this.apiConfig.getApiBase()}/conges/${id}`,
-          approvePath: `/conges/${id}/valider`,
-          rejectPath: `/conges/${id}/refuser`,
+          detailPath: `${this.apiConfig.getApiBase()}/rh/conges/${id}`,
+          approvePath: `/rh/conges/${id}/valider`,
+          rejectPath: `/rh/conges/${id}/refuser`,
           approveMode: 'body',
           rejectMode: 'body'
         };
@@ -438,7 +442,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type: 'CONGE',
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || '',
       dateDebut: dto.dateDebut,
       dateFin: dto.dateFin,
@@ -455,7 +459,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type,
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || dto.dateCreation || '',
       dateDebut: dto.dateDebut,
       dateFin: dto.dateFin,
@@ -471,7 +475,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type: 'ABSENCE',
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || '',
       dateDebut: dto.dateDebut,
       dateFin: dto.dateFin,
@@ -487,7 +491,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type: 'TELETRAVAIL',
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || '',
       dateDebut: dto.dateDebut,
       dateFin: dto.dateFin,
@@ -503,7 +507,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type: 'AUTORISATION',
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || dto.dateCreation || '',
       dateDebut: dto.dateDebut,
       dateFin: dto.dateFin,
@@ -519,7 +523,7 @@ export class ApprobationService {
       id: dto.id,
       utilisateurId: dto.utilisateurId,
       type: 'DOCUMENT',
-      statut: dto.statut,
+      statut: this.normalizeStatus(dto.statut),
       dateCreation: dto.createdAt || '',
       description: dto.typeDocument || dto.motif,
       raison: dto.motif,
@@ -574,6 +578,23 @@ export class ApprobationService {
       const rightDate = right.dateCreation ? new Date(right.dateCreation).getTime() : 0;
       return rightDate - leftDate;
     });
+  }
+
+  private normalizeStatus(value: unknown): Demande['statut'] {
+    const status = String(value ?? 'EN_ATTENTE_MANAGER').toUpperCase();
+    if (['PRET', 'APPROUVE', 'APPROUVEE', 'VALIDEE', 'VALIDE', 'SIGNE', 'ENVOYE'].includes(status)) {
+      return 'APPROUVEE';
+    }
+    if (['REFUSE', 'REFUSEE', 'REJETEE'].includes(status)) {
+      return 'REFUSEE';
+    }
+    if (['ANNULE', 'ANNULEE', 'CANCELLED'].includes(status)) {
+      return 'ANNULEE';
+    }
+    if (['EN_ATTENTE', 'EN_ATTENTE_RH', 'PENDING_RH'].includes(status)) {
+      return 'EN_ATTENTE_RH';
+    }
+    return 'EN_ATTENTE_MANAGER';
   }
 
   private calculateDaysInclusive(dateDebut?: string, dateFin?: string): number | undefined {

@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 
+from app.observability.braintrust_client import log_ollama_interaction
+
 from .base import LLMProvider
 from .provider_request import ProviderRequest
 from .provider_response import ProviderResponse
@@ -50,17 +52,22 @@ class OllamaProvider(LLMProvider):
         return "ollama"
 
     async def generate(self, request: ProviderRequest) -> ProviderResponse:
+        total_started = perf_counter()
         selected_model = self._model_for_request(request)
         fallback_model = str(request.metadata.get("fallback_model") or self.fallback_model or "").strip() or None
-        response = await self._generate_with_model(selected_model, request)
+        response = await self._generate_with_model(selected_model, request, fallback_used=False)
         if response.success or not fallback_model or fallback_model == selected_model:
+            response.metadata.setdefault("total_latency_ms", round((perf_counter() - total_started) * 1000, 2))
             return response
         if response.error_code != "provider_timeout":
-            fallback_response = await self._generate_with_model(fallback_model, request)
+            fallback_response = await self._generate_with_model(fallback_model, request, fallback_used=True)
             if fallback_response.success:
                 fallback_response.metadata["fallback_model_used"] = True
                 fallback_response.metadata["primary_model_failed"] = selected_model
+                fallback_response.metadata["total_latency_ms"] = round((perf_counter() - total_started) * 1000, 2)
+                fallback_response.latency_ms = fallback_response.metadata["total_latency_ms"]
                 return fallback_response
+        response.metadata.setdefault("total_latency_ms", round((perf_counter() - total_started) * 1000, 2))
         return response
 
     async def health(self) -> ProviderHealth:
@@ -141,13 +148,23 @@ class OllamaProvider(LLMProvider):
         role = str(request.metadata.get("model_role") or "").strip().lower()
         return self.coder_model if role in {"coder", "coding", "debug"} else self.model
 
-    async def _generate_with_model(self, model: str, request: ProviderRequest) -> ProviderResponse:
+    async def _generate_with_model(
+        self,
+        model: str,
+        request: ProviderRequest,
+        *,
+        fallback_used: bool,
+    ) -> ProviderResponse:
         started = perf_counter()
+        timeout_seconds = _float_metadata(request.metadata.get("timeout_seconds"), self.timeout_seconds)
+        max_tokens = max(1, int(_float_metadata(request.metadata.get("max_tokens"), self.max_tokens)))
+        temperature = _float_metadata(request.metadata.get("temperature"), self.temperature)
+        payload = self._payload(model, request)
         try:
-            async with self._client() as client:
-                response = await client.post("/api/chat", json=self._payload(model, request))
-        except httpx.TimeoutException:
-            return ProviderResponse.fail(
+            async with self._client(timeout_seconds=timeout_seconds) as client:
+                response = await client.post("/api/chat", json=payload)
+        except httpx.TimeoutException as exc:
+            result = ProviderResponse.fail(
                 "provider_timeout",
                 provider_name=self.provider_name(),
                 error_code="provider_timeout",
@@ -155,8 +172,19 @@ class OllamaProvider(LLMProvider):
                 latency_ms=round((perf_counter() - started) * 1000, 2),
                 metadata={"model": model},
             )
-        except httpx.RequestError:
-            return ProviderResponse.fail(
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type=exc.__class__.__name__,
+            )
+            return result
+        except httpx.RequestError as exc:
+            result = ProviderResponse.fail(
                 "provider_unavailable",
                 provider_name=self.provider_name(),
                 error_code="provider_unavailable",
@@ -164,10 +192,21 @@ class OllamaProvider(LLMProvider):
                 latency_ms=round((perf_counter() - started) * 1000, 2),
                 metadata={"model": model},
             )
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type=exc.__class__.__name__,
+            )
+            return result
 
         latency_ms = round((perf_counter() - started) * 1000, 2)
         if response.status_code >= 500:
-            return ProviderResponse.fail(
+            result = ProviderResponse.fail(
                 "provider_unavailable",
                 provider_name=self.provider_name(),
                 error_code="provider_unavailable",
@@ -175,8 +214,19 @@ class OllamaProvider(LLMProvider):
                 latency_ms=latency_ms,
                 metadata={"model": model, "status_code": response.status_code},
             )
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type="OllamaHTTPError",
+            )
+            return result
         if response.status_code >= 400:
-            return ProviderResponse.fail(
+            result = ProviderResponse.fail(
                 "provider_invalid_output",
                 provider_name=self.provider_name(),
                 error_code="provider_invalid_output",
@@ -184,11 +234,22 @@ class OllamaProvider(LLMProvider):
                 latency_ms=latency_ms,
                 metadata={"model": model, "status_code": response.status_code},
             )
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type="OllamaHTTPError",
+            )
+            return result
 
         try:
             payload = response.json()
-        except ValueError:
-            return ProviderResponse.fail(
+        except ValueError as exc:
+            result = ProviderResponse.fail(
                 "provider_invalid_output",
                 provider_name=self.provider_name(),
                 error_code="provider_invalid_output",
@@ -196,10 +257,21 @@ class OllamaProvider(LLMProvider):
                 latency_ms=latency_ms,
                 metadata={"model": model},
             )
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type=exc.__class__.__name__,
+            )
+            return result
 
         text = self._extract_text(payload)
         if not text:
-            return ProviderResponse.fail(
+            result = ProviderResponse.fail(
                 "provider_invalid_output",
                 provider_name=self.provider_name(),
                 error_code="provider_invalid_output",
@@ -207,7 +279,18 @@ class OllamaProvider(LLMProvider):
                 latency_ms=latency_ms,
                 metadata={"model": model},
             )
-        return ProviderResponse.ok(
+            self._trace_interaction(
+                request,
+                result,
+                model=model,
+                fallback_used=fallback_used,
+                timeout_seconds=timeout_seconds,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                error_type="EmptyOllamaResponse",
+            )
+            return result
+        result = ProviderResponse.ok(
             text,
             provider_name=self.provider_name(),
             model=model,
@@ -215,9 +298,20 @@ class OllamaProvider(LLMProvider):
             finish_reason=str(payload.get("done_reason") or payload.get("finish_reason") or "") or None,
             metadata={"model": model, "device": self.local_device},
         )
+        self._trace_interaction(
+            request,
+            result,
+            model=model,
+            fallback_used=fallback_used,
+            timeout_seconds=timeout_seconds,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return result
 
-    def _client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout_seconds, transport=self.transport)
+    def _client(self, *, timeout_seconds: float | None = None) -> httpx.AsyncClient:
+        timeout = max(0.1, float(timeout_seconds if timeout_seconds is not None else self.timeout_seconds))
+        return httpx.AsyncClient(base_url=self.base_url, timeout=timeout, transport=self.transport)
 
     def _payload(self, model: str, request: ProviderRequest) -> dict[str, Any]:
         context = request.context.model_dump(mode="json")
@@ -234,6 +328,8 @@ class OllamaProvider(LLMProvider):
             f"User request:\n{request.prompt}\n\n"
             "Return plain text only. Do not return tool calls."
         )
+        max_tokens = max(1, int(_float_metadata(request.metadata.get("max_tokens"), self.max_tokens)))
+        temperature = _float_metadata(request.metadata.get("temperature"), self.temperature)
         return {
             "model": model,
             "stream": False,
@@ -242,10 +338,56 @@ class OllamaProvider(LLMProvider):
                 {"role": "user", "content": user_content},
             ],
             "options": {
-                "temperature": self.temperature,
-                "num_predict": self.max_tokens,
+                "temperature": temperature,
+                "num_predict": max_tokens,
             },
         }
+
+    def _trace_interaction(
+        self,
+        request: ProviderRequest,
+        response: ProviderResponse,
+        *,
+        model: str,
+        fallback_used: bool,
+        timeout_seconds: float,
+        max_tokens: int,
+        temperature: float,
+        error_type: str | None = None,
+    ) -> None:
+        channel = str(request.context.channel or "chat").lower()
+        log_ollama_interaction(
+            input_text=request.prompt,
+            output_text=response.text,
+            model=model,
+            module=str(request.metadata.get("module") or "ollama_provider"),
+            role=request.context.role,
+            intent=request.context.intent,
+            language=request.context.language,
+            tenant_id=request.context.tenant_id,
+            company_id=request.context.company_id,
+            user_id=request.context.user_id,
+            latency_ms=response.latency_ms,
+            status="success" if response.success else "error",
+            error_type=error_type or response.error_code,
+            error_message=response.error_message,
+            endpoint="/api/chat",
+            request_id=request.context.request_id,
+            channel="voice" if channel == "voice" else "text",
+            fallback_used=fallback_used,
+            timeout=response.error_code == "provider_timeout",
+            max_tokens=max_tokens,
+            temperature=temperature,
+            metadata_extra={
+                "base_url": self.base_url,
+                "timeout_seconds": timeout_seconds,
+                "model_role": request.metadata.get("model_role"),
+                "selected_agent": request.metadata.get("selected_agent"),
+                "application_endpoint": "/v2/voice" if channel == "voice" else "/v2/chat",
+                "device": self.local_device,
+                "finish_reason": response.finish_reason,
+            },
+        )
 
     @staticmethod
     def _extract_text(payload: dict[str, Any]) -> str:
@@ -261,3 +403,10 @@ class OllamaProvider(LLMProvider):
         if isinstance(content, str):
             return content.strip()
         return ""
+
+
+def _float_metadata(value: Any, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(fallback)

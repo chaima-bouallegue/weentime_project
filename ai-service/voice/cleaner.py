@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 SHORT_COMMANDS = {
+    "bonjour",
+    "salut",
+    "coucou",
+    "hello",
+    "hi",
     "oui",
     "non",
     "ok",
@@ -15,9 +21,17 @@ SHORT_COMMANDS = {
     "ghodwa",
     "npointi",
     "pointi",
+    "pointage",
     "nokhrej",
     "teletravail",
+    "télétravail",
     "autorisation",
+    "مرحبا",
+}
+
+SHORT_COMMAND_ALIASES = {
+    "conge": "congé",
+    "télé travail": "télétravail",
 }
 
 
@@ -38,11 +52,13 @@ def clean_transcription(text: str | None):
     if not text:
         return None
 
-    normalized = re.sub(r"\s+", " ", str(text)).strip().lower()
+    normalized = unicodedata.normalize("NFC", str(text))
+    normalized = re.sub(r"\s+", " ", normalized).strip().lower()
     normalized = re.sub(r"[^\w\s\-']", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     if not normalized:
         return None
+    normalized = SHORT_COMMAND_ALIASES.get(normalized, normalized)
 
     words = [word for word in normalized.split(" ") if word]
     if len(words) <= 2 and normalized in SHORT_COMMANDS:

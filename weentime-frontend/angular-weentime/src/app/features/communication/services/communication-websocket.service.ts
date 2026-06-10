@@ -32,13 +32,13 @@ export class CommunicationWebSocketService {
 
   connect(): void {
     if (!this.authService.getToken()) {
-      console.debug('[communication-ws] skipped connect because no JWT is available');
+      console.debug('[communication-ws] CONNECT skipped: no JWT is available');
       this.connectionError.set(null);
       this.disconnect();
       return;
     }
     if (!this.hasTenantContext()) {
-      console.debug('[communication-ws] skipped connect because the current user has no entreprise context');
+      console.debug('[communication-ws] CONNECT skipped: no valid entreprise context');
       this.connectionError.set(null);
       this.disconnect();
       return;
@@ -50,7 +50,7 @@ export class CommunicationWebSocketService {
 
     this.manualDisconnect = false;
     this.connectionState.set('connecting');
-    console.debug('[communication-ws] connecting', this.socketUrl);
+    console.debug('[communication-ws] CONNECT', { url: this.socketUrl });
     this.clientPromise = Promise.all([
       import('@stomp/rx-stomp'),
       import('sockjs-client')
@@ -60,7 +60,7 @@ export class CommunicationWebSocketService {
 
       client.connectionState$.subscribe((state: number) => {
         if (state === rxStompModule.RxStompState.OPEN) {
-          console.debug('[communication-ws] connected');
+          console.debug('[communication-ws] CONNECTED', { url: this.socketUrl });
           this.connectionState.set('connected');
           this.connectionError.set(null);
           this.hadOpenConnection = true;
@@ -72,7 +72,7 @@ export class CommunicationWebSocketService {
         }
 
         if (state === rxStompModule.RxStompState.CLOSED) {
-          console.debug('[communication-ws] disconnected', {
+          console.debug('[communication-ws] DISCONNECTED', {
             manual: this.manualDisconnect,
             hadOpenConnection: this.hadOpenConnection
           });
@@ -98,11 +98,24 @@ export class CommunicationWebSocketService {
         debug: (message: string) => console.debug('[communication-ws]', message)
       });
 
+      client.stompErrors$.subscribe(frame => {
+        const brokerMessage = frame.headers?.['message'] ?? frame.body ?? 'STOMP connection rejected';
+        console.error('[communication-ws] AUTH/STOMP FAILURE', {
+          message: brokerMessage,
+          command: frame.command
+        });
+        this.connectionError.set('Authentification temps reel refusee');
+      });
+      client.webSocketErrors$.subscribe(error => {
+        console.error('[communication-ws] TRANSPORT FAILURE', error);
+        this.connectionError.set('Connexion temps reel indisponible');
+      });
+
       client.activate();
       this.client = client;
       return client;
     }).catch(error => {
-      console.debug('[communication-ws] connect failed', error);
+      console.error('[communication-ws] CONNECT FAILURE', error);
       this.clientPromise = null;
       this.client = null;
       this.connectionState.set('disconnected');
@@ -124,7 +137,7 @@ export class CommunicationWebSocketService {
     this.client = null;
     this.clientPromise = null;
     this.connectionState.set('disconnected');
-    console.debug('[communication-ws] disconnect requested');
+    console.debug('[communication-ws] DISCONNECT requested');
     void currentClient?.deactivate();
   }
 
@@ -210,7 +223,7 @@ export class CommunicationWebSocketService {
       return;
     }
     if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-      console.warn('[communication-ws] reconnect stopped after maximum attempts', { attempts: this.reconnectAttempt });
+      console.warn('[communication-ws] RETRY stopped: maximum attempts reached', { attempts: this.reconnectAttempt });
       this.connectionState.set('disconnected');
       this.connectionError.set('Connexion temps réel indisponible');
       return;
@@ -218,7 +231,7 @@ export class CommunicationWebSocketService {
 
     const delay = Math.min(30000, 1000 * (2 ** this.reconnectAttempt)) + Math.round(Math.random() * 250);
     this.reconnectAttempt += 1;
-    console.debug('[communication-ws] scheduling reconnect', { delay, attempt: this.reconnectAttempt });
+    console.debug('[communication-ws] RETRY scheduled', { delay, attempt: this.reconnectAttempt });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
@@ -247,6 +260,6 @@ export class CommunicationWebSocketService {
 
   private hasTenantContext(): boolean {
     const user = this.authService.currentUser();
-    return Number.isFinite(user?.entrepriseId);
+    return Number.isFinite(user?.entrepriseId) && (user?.entrepriseId ?? 0) > 0;
   }
 }

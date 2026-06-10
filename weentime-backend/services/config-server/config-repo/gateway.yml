@@ -7,10 +7,12 @@ spring:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials RETAIN_FIRST
       globalcors:
+        add-to-simple-url-handler-mapping: true
         corsConfigurations:
           '[/**]':
             allowedOrigins:
               - ${FRONTEND_ORIGIN:http://localhost:4200}
+              - ${FRONTEND_ORIGIN_ALT:http://127.0.0.1:4200}
             allowedMethods:
               - GET
               - POST
@@ -19,7 +21,22 @@ spring:
               - DELETE
               - OPTIONS
             allowedHeaders:
-              - "*"
+              - "Authorization"
+              - "Content-Type"
+              - "Accept"
+              - "Origin"
+              - "X-Requested-With"
+              - "X-Skip-Error-Toast"
+              - "X-Request-ID"
+              - "X-User-Id"
+              - "X-User-Role"
+              - "X-Role"
+              - "X-Tenant-Id"
+              - "X-Entreprise-Id"
+              - "X-Company-Id"
+              - "X-Dashboard-Scope"
+              - "X-Current-Page"
+              - "X-Agent-Role"
             allowCredentials: true
       discovery:
         locator:
@@ -36,7 +53,7 @@ spring:
         - id: rh-service
           uri: ${RH_SERVICE_URI:http://localhost:8192}
           predicates:
-            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**, /api/v1/internal/recruitment/**
         - id: presence-service
           uri: ${PRESENCE_SERVICE_URI:http://localhost:8193}
           predicates:
@@ -55,6 +72,10 @@ spring:
           uri: ${AI_SERVICE_URI:http://localhost:8000}
           predicates:
             - Path=/audio-stream, /audio-stream/**
+        - id: ml-service
+          uri: ${ML_SERVICE_URI:http://localhost:8001}
+          predicates:
+            - Path=/api/ml/**
         - id: organisation-ws
           uri: ${ORGANISATION_SERVICE_URI:http://localhost:8190}
           predicates:

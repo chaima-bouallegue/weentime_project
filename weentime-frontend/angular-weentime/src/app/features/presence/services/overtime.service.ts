@@ -7,6 +7,13 @@ import { ApiConfigService } from '../../../core/services/api-config.service';
 export type OvertimeStatus =
   | 'NONE'
   | 'NO_OVERTIME'
+  | 'PENDING_MANAGER'
+  | 'APPROVED_MANAGER'
+  | 'REJECTED_MANAGER'
+  | 'PENDING_RH'
+  | 'APPROVED_RH'
+  | 'REJECTED_RH'
+  | 'CANCELLED'
   | 'EN_ATTENTE_MANAGER'
   | 'APPROUVEE_MANAGER'
   | 'REFUSEE_MANAGER'
@@ -29,12 +36,18 @@ export interface OvertimeRequestDto {
   checkInTime?: string | null;
   checkOutTime?: string | null;
   actualCheckOut?: string | null;
+  overtimeStart?: string | null;
+  overtimeEnd?: string | null;
   workedMinutes?: number | null;
   expectedMinutes?: number | null;
   overtimeMinutes?: number | null;
   reason?: string | null;
   status: OvertimeStatus;
   managerId?: number | null;
+  managerDecision?: string | null;
+  managerComment?: string | null;
+  rhDecision?: string | null;
+  rhComment?: string | null;
   rhDecisionBy?: number | null;
   reviewedBy?: number | null;
   reviewedAt?: string | null;
@@ -102,14 +115,20 @@ export class OvertimeService {
     );
   }
 
-  approve(id: number, reason?: string): Observable<OvertimeRequestDto> {
-    return this.http.post<unknown>(this.api.OVERTIME.APPROVE(id), { reason }).pipe(
+  getRhPending(page = 0, size = 20): Observable<OvertimePage> {
+    return this.http.get<unknown>(this.api.OVERTIME.GET_RH_PENDING, { params: { page, size } as any }).pipe(
+      map(response => this.unwrapPage(response))
+    );
+  }
+
+  approve(id: number, comment?: string): Observable<OvertimeRequestDto> {
+    return this.http.patch<unknown>(this.api.OVERTIME.MANAGER_DECISION(id), { decision: 'APPROVED', comment }).pipe(
       map(response => this.unwrap(response) as OvertimeRequestDto)
     );
   }
 
-  reject(id: number, reason?: string): Observable<OvertimeRequestDto> {
-    return this.http.post<unknown>(this.api.OVERTIME.REJECT(id), { reason }).pipe(
+  reject(id: number, comment?: string): Observable<OvertimeRequestDto> {
+    return this.http.patch<unknown>(this.api.OVERTIME.MANAGER_DECISION(id), { decision: 'REJECTED', comment }).pipe(
       map(response => this.unwrap(response) as OvertimeRequestDto)
     );
   }
@@ -129,6 +148,18 @@ export class OvertimeService {
   getRhByDepartment(): Observable<OvertimeDepartmentStat[]> {
     return this.http.get<unknown>(this.api.OVERTIME.GET_RH_BY_DEPARTMENT).pipe(
       map(response => this.unwrap(response) as OvertimeDepartmentStat[])
+    );
+  }
+
+  rhApprove(id: number, comment?: string): Observable<OvertimeRequestDto> {
+    return this.http.patch<unknown>(this.api.OVERTIME.RH_DECISION(id), { decision: 'APPROVED', comment }).pipe(
+      map(response => this.unwrap(response) as OvertimeRequestDto)
+    );
+  }
+
+  rhReject(id: number, comment?: string): Observable<OvertimeRequestDto> {
+    return this.http.patch<unknown>(this.api.OVERTIME.RH_DECISION(id), { decision: 'REJECTED', comment }).pipe(
+      map(response => this.unwrap(response) as OvertimeRequestDto)
     );
   }
 

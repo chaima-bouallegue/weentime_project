@@ -28,7 +28,7 @@ export interface TeletravailWorkflow {
   dateFin: string;
   nombreJours: number;
   periode?: PeriodeDemiJournee;
-  motif: string;
+  motif: string | null;
   statut: StatutTeletravail;
   dateCreation: string;
   commentaireManager?: string;

@@ -28,12 +28,18 @@ public class OvertimeDTO {
     private LocalDateTime checkInTime;
     private LocalDateTime checkOutTime;
     private LocalDateTime actualCheckOut;
+    private LocalDateTime overtimeStart;
+    private LocalDateTime overtimeEnd;
     private Integer workedMinutes;
     private Integer expectedMinutes;
     private Integer overtimeMinutes;
     private String reason;
     private OvertimeStatus status;
     private Long managerId;
+    private String managerDecision;
+    private String managerComment;
+    private String rhDecision;
+    private String rhComment;
     private Long rhDecisionBy;
     private Long reviewedBy;
     private LocalDateTime reviewedAt;

@@ -103,7 +103,7 @@ export interface WorkflowLane {
                 </article>
               } @empty {
                 <div class="empty-state">
-                  <lucide-icon name="check-circle2" size="16"></lucide-icon>
+                  <lucide-icon name="check-circle-2" size="16"></lucide-icon>
                   <span>Aucun dossier en attente.</span>
                 </div>
               }

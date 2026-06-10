@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.agents.document_request_flow import localized_no_pending_confirmation
 from app.agents.response_composer import enhance_safe_response_wording
 from app.context.context_builder import ContextBuilder, ContextError
 from app.context.current_user import CurrentUserContext
@@ -493,7 +494,16 @@ class WorkflowOrchestrator:
         if recovery_action == "none":
             return None
         if recovered_session is None:
-            response = build_resume_unavailable_response()
+            if recovery_action in {"approve", "reject"}:
+                response = AgentResponse(
+                    type="answer",
+                    text=localized_no_pending_confirmation(context.language),
+                    intent="confirmation.no_pending",
+                    confidence=1.0,
+                    actionResult={"kind": "confirmation_result", "status": "unavailable", "code": "no_pending_confirmation"},
+                )
+            else:
+                response = build_resume_unavailable_response()
             return await self._finalize_response(
                 response,
                 context=context,
@@ -506,7 +516,13 @@ class WorkflowOrchestrator:
         if recovery_action in {"approve", "reject"}:
             confirmation_id = _session_confirmation_id(recovered_session)
             if confirmation_id is None:
-                response = build_resume_response(recovered_session) or build_resume_unavailable_response()
+                response = AgentResponse(
+                    type="answer",
+                    text=localized_no_pending_confirmation(context.language),
+                    intent="confirmation.no_pending",
+                    confidence=1.0,
+                    actionResult={"kind": "confirmation_result", "status": "unavailable", "code": "no_pending_confirmation"},
+                )
                 return await self._finalize_response(
                     response,
                     context=context,

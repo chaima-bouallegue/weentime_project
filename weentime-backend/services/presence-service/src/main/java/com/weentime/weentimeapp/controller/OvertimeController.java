@@ -18,7 +18,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,16 +50,33 @@ import java.util.stream.Collectors;
 public class OvertimeController {
 
     private static final Set<OvertimeStatus> PENDING_STATUSES = Set.of(
+            OvertimeStatus.PENDING_MANAGER,
+            OvertimeStatus.PENDING_RH,
             OvertimeStatus.EN_ATTENTE_MANAGER,
             OvertimeStatus.EN_ATTENTE_RH,
             OvertimeStatus.PENDING_APPROVAL
     );
+    private static final Set<OvertimeStatus> MANAGER_PENDING_STATUSES = Set.of(
+            OvertimeStatus.PENDING_MANAGER,
+            OvertimeStatus.EN_ATTENTE_MANAGER,
+            OvertimeStatus.PENDING_APPROVAL
+    );
+    private static final Set<OvertimeStatus> RH_PENDING_STATUSES = Set.of(
+            OvertimeStatus.PENDING_RH,
+            OvertimeStatus.APPROVED_MANAGER,
+            OvertimeStatus.EN_ATTENTE_RH,
+            OvertimeStatus.APPROUVEE_MANAGER
+    );
     private static final Set<OvertimeStatus> APPROVED_STATUSES = Set.of(
+            OvertimeStatus.APPROVED_MANAGER,
+            OvertimeStatus.APPROVED_RH,
             OvertimeStatus.APPROUVEE_MANAGER,
             OvertimeStatus.APPROUVEE_RH,
             OvertimeStatus.APPROVED
     );
     private static final Set<OvertimeStatus> REJECTED_STATUSES = Set.of(
+            OvertimeStatus.REJECTED_MANAGER,
+            OvertimeStatus.REJECTED_RH,
             OvertimeStatus.REFUSEE_MANAGER,
             OvertimeStatus.REFUSEE_RH,
             OvertimeStatus.REJECTED
@@ -122,44 +141,71 @@ public class OvertimeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size) {
         Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+        PageRequest pageable = pageRequest(page, size);
+        Page<Overtime> pending;
+        if (isManagerOnly()) {
+            pending = overtimeRepository.findByManagerIdAndStatusInOrderByDateDesc(requireCurrentUser(), MANAGER_PENDING_STATUSES, pageable);
+        } else {
+            pending = entrepriseId == null
+                    ? overtimeRepository.findByStatusInOrderByDateDesc(MANAGER_PENDING_STATUSES, pageable)
+                    : overtimeRepository.findByEntrepriseIdAndStatusInOrderByDateDesc(entrepriseId, MANAGER_PENDING_STATUSES, pageable);
+        }
+        return ResponseEntity.ok(ApiResponse.success(pending.map(overtimeMapper::toDto)));
+    }
+
+    @GetMapping("/rh/pending")
+    @PreAuthorize("hasAnyAuthority('ROLE_RH','ROLE_ADMIN','RH','ADMIN')")
+    public ResponseEntity<ApiResponse<Page<OvertimeDTO>>> getRhPending(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        Long entrepriseId = securityUtils.getCurrentEntrepriseId();
         Page<Overtime> pending = entrepriseId == null
-                ? overtimeRepository.findByStatusInOrderByDateDesc(PENDING_STATUSES, pageRequest(page, size))
-                : overtimeRepository.findByEntrepriseIdAndStatusInOrderByDateDesc(entrepriseId, PENDING_STATUSES, pageRequest(page, size));
+                ? overtimeRepository.findByStatusInOrderByDateDesc(RH_PENDING_STATUSES, pageRequest(page, size))
+                : overtimeRepository.findByEntrepriseIdAndStatusInOrderByDateDesc(entrepriseId, RH_PENDING_STATUSES, pageRequest(page, size));
         return ResponseEntity.ok(ApiResponse.success(pending.map(overtimeMapper::toDto)));
     }
 
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyAuthority('ROLE_MANAGER','ROLE_RH','ROLE_ADMIN','MANAGER','RH','ADMIN')")
     public ResponseEntity<ApiResponse<OvertimeDTO>> approve(@PathVariable Long id, @RequestBody(required = false) DecisionRequest request) {
-        Overtime overtime = findScopedOvertime(id);
-        overtime.setStatus(OvertimeStatus.APPROUVEE_MANAGER);
-        overtime.setApprouvee(Boolean.TRUE);
-        overtime.setManagerId(currentReviewer());
-        setReview(overtime);
-        applyDecisionComment(overtime, request);
-        return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
+        return managerDecision(id, DecisionRequest.approved(request));
     }
 
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasAnyAuthority('ROLE_MANAGER','ROLE_RH','ROLE_ADMIN','MANAGER','RH','ADMIN')")
     public ResponseEntity<ApiResponse<OvertimeDTO>> reject(@PathVariable Long id, @RequestBody(required = false) DecisionRequest request) {
-        Overtime overtime = findScopedOvertime(id);
-        overtime.setStatus(OvertimeStatus.REFUSEE_MANAGER);
-        overtime.setApprouvee(Boolean.FALSE);
-        overtime.setManagerId(currentReviewer());
-        setReview(overtime);
-        applyDecisionComment(overtime, request);
-        return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
+        return managerDecision(id, DecisionRequest.rejected(request));
     }
 
     @PostMapping("/{id}/request-justification")
     @PreAuthorize("hasAnyAuthority('ROLE_MANAGER','ROLE_RH','ROLE_ADMIN','MANAGER','RH','ADMIN')")
     public ResponseEntity<ApiResponse<OvertimeDTO>> requestJustification(@PathVariable Long id, @RequestBody(required = false) DecisionRequest request) {
         Overtime overtime = findScopedOvertime(id);
-        overtime.setStatus(OvertimeStatus.EN_ATTENTE_MANAGER);
+        overtime.setStatus(OvertimeStatus.PENDING_MANAGER);
         overtime.setManagerId(currentReviewer());
+        overtime.setManagerComment(resolveComment(request));
         setReview(overtime);
         applyDecisionComment(overtime, request);
+        return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
+    }
+
+    @PatchMapping("/{id}/manager-decision")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER','ROLE_ADMIN','MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<OvertimeDTO>> managerDecision(@PathVariable Long id, @RequestBody DecisionRequest request) {
+        Overtime overtime = findManagerScopedOvertime(id);
+        String decision = requireDecision(request);
+        overtime.setManagerId(currentReviewer());
+        overtime.setManagerDecision(decision);
+        overtime.setManagerComment(resolveComment(request));
+        overtime.setReviewedBy(currentReviewer());
+        overtime.setReviewedAt(LocalDateTime.now());
+        if ("APPROVED".equals(decision)) {
+            overtime.setStatus(OvertimeStatus.PENDING_RH);
+            overtime.setApprouvee(Boolean.FALSE);
+        } else {
+            overtime.setStatus(OvertimeStatus.REJECTED_MANAGER);
+            overtime.setApprouvee(Boolean.FALSE);
+        }
         return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
     }
 
@@ -237,24 +283,32 @@ public class OvertimeController {
     @PostMapping("/{id}/rh-approve")
     @PreAuthorize("hasAnyAuthority('ROLE_RH','ROLE_ADMIN','RH','ADMIN')")
     public ResponseEntity<ApiResponse<OvertimeDTO>> rhApprove(@PathVariable Long id, @RequestBody(required = false) DecisionRequest request) {
-        Overtime overtime = findScopedOvertime(id);
-        overtime.setStatus(OvertimeStatus.APPROUVEE_RH);
-        overtime.setApprouvee(Boolean.TRUE);
-        overtime.setRhDecisionBy(currentReviewer());
-        setReview(overtime);
-        applyDecisionComment(overtime, request);
-        return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
+        return rhDecision(id, DecisionRequest.approved(request));
     }
 
     @PostMapping("/{id}/rh-reject")
     @PreAuthorize("hasAnyAuthority('ROLE_RH','ROLE_ADMIN','RH','ADMIN')")
     public ResponseEntity<ApiResponse<OvertimeDTO>> rhReject(@PathVariable Long id, @RequestBody(required = false) DecisionRequest request) {
+        return rhDecision(id, DecisionRequest.rejected(request));
+    }
+
+    @PatchMapping("/{id}/rh-decision")
+    @PreAuthorize("hasAnyAuthority('ROLE_RH','ROLE_ADMIN','RH','ADMIN')")
+    public ResponseEntity<ApiResponse<OvertimeDTO>> rhDecision(@PathVariable Long id, @RequestBody DecisionRequest request) {
         Overtime overtime = findScopedOvertime(id);
-        overtime.setStatus(OvertimeStatus.REFUSEE_RH);
-        overtime.setApprouvee(Boolean.FALSE);
+        String decision = requireDecision(request);
+        overtime.setRhDecision(decision);
+        overtime.setRhComment(resolveComment(request));
         overtime.setRhDecisionBy(currentReviewer());
-        setReview(overtime);
-        applyDecisionComment(overtime, request);
+        overtime.setReviewedBy(currentReviewer());
+        overtime.setReviewedAt(LocalDateTime.now());
+        if ("APPROVED".equals(decision)) {
+            overtime.setStatus(OvertimeStatus.APPROVED_RH);
+            overtime.setApprouvee(Boolean.TRUE);
+        } else {
+            overtime.setStatus(OvertimeStatus.REJECTED_RH);
+            overtime.setApprouvee(Boolean.FALSE);
+        }
         return ResponseEntity.ok(ApiResponse.success(overtimeMapper.toDto(overtimeRepository.save(overtime))));
     }
 
@@ -268,6 +322,14 @@ public class OvertimeController {
         Long entrepriseId = securityUtils.getCurrentEntrepriseId();
         if (entrepriseId != null && overtime.getEntrepriseId() != null && !Objects.equals(entrepriseId, overtime.getEntrepriseId())) {
             throw new PresenceBusinessException(HttpStatus.FORBIDDEN, "OVERTIME_FORBIDDEN", "Cette demande appartient a une autre entreprise.");
+        }
+        return overtime;
+    }
+
+    private Overtime findManagerScopedOvertime(Long id) {
+        Overtime overtime = findScopedOvertime(id);
+        if (isManagerOnly() && overtime.getManagerId() != null && !Objects.equals(overtime.getManagerId(), requireCurrentUser())) {
+            throw new PresenceBusinessException(HttpStatus.FORBIDDEN, "OVERTIME_FORBIDDEN", "Cette demande n'appartient pas a votre equipe.");
         }
         return overtime;
     }
@@ -301,10 +363,46 @@ public class OvertimeController {
     }
 
     private void applyDecisionComment(Overtime overtime, DecisionRequest request) {
-        if (request == null || request.getReason() == null || request.getReason().isBlank()) {
+        String comment = resolveComment(request);
+        if (comment == null) {
             return;
         }
-        overtime.setReason(request.getReason().trim());
+        overtime.setReason(comment);
+    }
+
+    private String requireDecision(DecisionRequest request) {
+        String decision = request != null && request.getDecision() != null
+                ? request.getDecision().trim().toUpperCase()
+                : null;
+        if (!"APPROVED".equals(decision) && !"REJECTED".equals(decision)) {
+            throw new PresenceBusinessException(HttpStatus.BAD_REQUEST, "OVERTIME_DECISION_INVALID", "Decision APPROVED ou REJECTED requise.");
+        }
+        return decision;
+    }
+
+    private String resolveComment(DecisionRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String comment = request.getComment() != null ? request.getComment() : request.getReason();
+        if (comment == null || comment.isBlank()) {
+            return null;
+        }
+        return comment.trim();
+    }
+
+    private boolean isManagerOnly() {
+        return hasAuthority("ROLE_MANAGER", "MANAGER") && !hasAuthority("ROLE_RH", "RH", "ROLE_ADMIN", "ADMIN");
+    }
+
+    private boolean hasAuthority(String... names) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        Set<String> requested = Set.of(names);
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> requested.contains(authority.getAuthority()));
     }
 
     private long countByStatuses(Long entrepriseId, Set<OvertimeStatus> statuses) {
@@ -342,6 +440,25 @@ public class OvertimeController {
 
     @Data
     public static class DecisionRequest {
+        private String decision;
+        private String comment;
         private String reason;
+
+        static DecisionRequest approved(DecisionRequest source) {
+            return withDecision(source, "APPROVED");
+        }
+
+        static DecisionRequest rejected(DecisionRequest source) {
+            return withDecision(source, "REJECTED");
+        }
+
+        private static DecisionRequest withDecision(DecisionRequest source, String decision) {
+            DecisionRequest request = source == null ? new DecisionRequest() : source;
+            request.setDecision(decision);
+            if (request.getComment() == null) {
+                request.setComment(request.getReason());
+            }
+            return request;
+        }
     }
 }

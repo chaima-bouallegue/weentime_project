@@ -4,7 +4,9 @@ import com.weentime.weentimeapp.dto.ApiResponse;
 import com.weentime.weentimeapp.dto.PageResponse;
 import com.weentime.weentimeapp.service.TypeCongeService;
 import com.weentime.weentimeapp.dto.TypeCongeDTO;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -19,9 +21,9 @@ public class TypeCongeController {
     private final TypeCongeService service;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER')")
-    public ResponseEntity<TypeCongeDTO> create(@RequestBody TypeCongeDTO dto) {
-        return ResponseEntity.ok(service.create(dto));
+    @PreAuthorize("hasAnyRole('ADMIN','RH')")
+    public ResponseEntity<TypeCongeDTO> create(@Valid @RequestBody TypeCongeDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto));
     }
 
     @GetMapping
@@ -44,15 +46,15 @@ public class TypeCongeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RH')")
     public ResponseEntity<TypeCongeDTO> update(
             @PathVariable Long id,
-            @RequestBody TypeCongeDTO dto) {
+            @Valid @RequestBody TypeCongeDTO dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('RH') or hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RH')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

@@ -12,7 +12,8 @@ import { CommunicationStoreService } from '../services/communication-store.servi
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="comm-page">
-      <div class="comm-banner-root" *ngIf="store.connectionState() !== 'connected' || store.websocketError()">
+      <div class="comm-banner-root"
+           *ngIf="store.tenantContextAvailable() && (store.connectionState() !== 'connected' || store.websocketError())">
         <div class="comm-banner">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="m2 22 1-1h3l9-9"/><path d="M3 14c.83 0 1.5-.67 1.5-1.5S3.83 11 3 11s-1.5.67-1.5 1.5S2.17 14 3 14zm0 0v5"/><path d="M19 10c.83 0 1.5-.67 1.5-1.5S19.83 7 19 7s-1.5.67-1.5 1.5S18.17 10 19 10zm0 0v5"/><path d="M14 14c.83 0 1.5-.67 1.5-1.5S14.83 11 14 11s-1.5.67-1.5 1.5S13.17 14 14 14zm0 0v5"/><path d="M21 2h-6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
           <ng-container [ngSwitch]="store.connectionState()">

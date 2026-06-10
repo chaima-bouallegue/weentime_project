@@ -215,14 +215,27 @@ export class AdminApiService {
   private readonly api = inject(ApiConfigService);
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
-  getUsers(page: number, size: number, search?: string, role?: string, statut?: string, entrepriseId?: string, sort?: string, options?: RequestOptions): Observable<AdminPage<AdminUser>> {
+  getUsers(
+    page: number,
+    size: number,
+    searchOrOptions?: string | null | RequestOptions,
+    role?: string,
+    statut?: string,
+    entrepriseId?: string,
+    sort?: string,
+    options?: RequestOptions
+  ): Observable<AdminPage<AdminUser>> {
     const normalizedPage = Math.max(page, 0);
     const normalizedSize = this.normalizePageSize(size);
+    const search = typeof searchOrOptions === 'string' ? searchOrOptions : null;
+    const requestOptions = typeof searchOrOptions === 'object' && searchOrOptions !== null
+      ? searchOrOptions
+      : options;
     let params = new HttpParams()
       .set('page', String(normalizedPage))
       .set('size', String(normalizedSize));
 
-    if (search) {
+    if (search?.trim()) {
       params = params.set('search', search.trim());
     }
     if (role) {
@@ -241,7 +254,7 @@ export class AdminApiService {
     return this.http
       .get<unknown>(this.api.ORGANISATION.GET_ADMIN_USERS, {
         params,
-        context: this.requestContext(options)
+        context: this.requestContext(requestOptions)
       })
       .pipe(map(response => {
         const pageData = this.normalizePageResponse<AdminUser>(response, normalizedPage, normalizedSize);

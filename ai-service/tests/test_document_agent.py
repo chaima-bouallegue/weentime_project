@@ -31,8 +31,8 @@ class FakeAttendance:
         return AgentResponse(type="answer", text="attendance", intent="attendance.status", confidence=1.0)
 
 
-def context(role: str = "EMPLOYEE") -> CurrentUserContext:
-    return CurrentUserContext(user_id=1, role=role, entreprise_id=2, token="token")
+def context(role: str = "EMPLOYEE", *, language: str = "fr") -> CurrentUserContext:
+    return CurrentUserContext(user_id=1, role=role, entreprise_id=2, token="token", language=language)
 
 
 def test_document_request_asks_document_type_if_missing() -> None:
@@ -78,13 +78,45 @@ def test_arabic_work_certificate_routes_to_document_agent() -> None:
     assert response.toolCalls[0].arguments["document_type"] == "ATTESTATION_TRAVAIL"
 
 
-def test_payslip_request_returns_confirmation() -> None:
+def test_payslip_request_asks_for_month_before_confirmation() -> None:
     agent = DocumentAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
 
-    response = asyncio.run(agent.handle("I need my payslip", context()))
+    response = asyncio.run(agent.handle("I need my payslip", context(language="en")))
+
+    assert response.type == "ask"
+    assert response.intent == "document.create"
+    assert "month" in response.text.lower()
+    assert response.toolCalls == []
+
+
+def test_manager_payslip_request_asks_for_month() -> None:
+    agent = DocumentAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("je veux un bulletin de paie", context("MANAGER")))
+
+    assert response.type == "ask"
+    assert response.intent == "document.create"
+    assert "mois" in response.text.lower()
+
+
+def test_payslip_request_with_month_returns_confirmation() -> None:
+    agent = DocumentAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("Je veux un bulletin de paie avril 2026", context()))
 
     assert response.type == "confirm_action"
     assert response.toolCalls[0].arguments["document_type"] == "BULLETIN_PAIE"
+    assert response.toolCalls[0].arguments["month"] == "Avril 2026"
+
+
+def test_rh_personal_document_request_is_not_confirmed() -> None:
+    agent = DocumentAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    response = asyncio.run(agent.handle("je veux une attestation de travail", context("RH")))
+
+    assert response.type == "answer"
+    assert response.confirmationId is None
+    assert response.actionResult["kind"] == "capability_unavailable"
 
 
 def test_document_status_without_id_lists_documents() -> None:

@@ -82,6 +82,7 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   private readonly _data = signal<DashboardViewModel | null>(null);
   private readonly _anomalyData = signal<AnomalyDashboardResponse | null>(null);
   readonly anomalyLoading = signal(true);
+  readonly anomalyError = signal(false);
 
   private clockSub?: Subscription;
   private dataSub?: Subscription;
@@ -114,14 +115,12 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   readonly anomalies = computed<AnomalyRecord[]>(() => this._anomalyData()?.anomalies ?? []);
   readonly anomalyBackendUnavailable = computed(() => this._anomalyData()?.backendStatus === 'unavailable');
   readonly anomalyTotals = computed(() => {
-    const d = this._anomalyData();
-    const list = d?.anomalies ?? [];
-    if (list.length === 0) return { total: 0, critical: 0, high: 0, medium: 0 };
+    const list = this.anomalies();
     return {
-      total: d?.totalAnomalies ?? list.length,
-      critical: d?.critical ?? 0,
-      high: d?.high ?? 0,
-      medium: d?.medium ?? 0,
+      total: list.length,
+      critical: list.filter(a => a.risk === 'CRITICAL').length,
+      high: list.filter(a => a.risk === 'HIGH').length,
+      medium: list.filter(a => a.risk === 'MEDIUM').length,
     };
   });
 
@@ -181,12 +180,16 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
 
   private loadAnomalies(): void {
     this.anomalyLoading.set(true);
-    this.anomalySub = this.mlAnomaly.getDashboardSummary().subscribe({
+    this.anomalyError.set(false);
+    this.anomalySub = this.mlAnomaly.getRhAnomalies().subscribe({
       next: data => {
         this._anomalyData.set(data);
         this.anomalyLoading.set(false);
       },
-      error: () => this.anomalyLoading.set(false),
+      error: () => {
+        this.anomalyError.set(true);
+        this.anomalyLoading.set(false);
+      },
     });
   }
 

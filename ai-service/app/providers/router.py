@@ -29,6 +29,9 @@ class ProviderRouter:
         optional_model: str | None = None,
         coder_model: str | None = None,
         fallback_model: str | None = None,
+        voice_timeout_seconds: float = 3.0,
+        voice_max_tokens: int = 160,
+        voice_temperature: float = 0.2,
     ) -> None:
         raw_mode = (mode or "disabled").strip().lower()
         self.mode_error: str | None = None
@@ -42,6 +45,9 @@ class ProviderRouter:
         self.optional_model = optional_model
         self.coder_model = coder_model
         self.fallback_model = fallback_model
+        self.voice_timeout_seconds = max(0.5, float(voice_timeout_seconds or 3.0))
+        self.voice_max_tokens = max(32, int(voice_max_tokens or 160))
+        self.voice_temperature = float(voice_temperature if voice_temperature is not None else 0.2)
         self.providers = {"disabled": DisabledProvider(), **(providers or {})}
         if self.mode in {"ollama", "cloud"} and self.mode not in self.providers:
             self.mode_error = f"provider_not_configured:{self.mode}"
@@ -70,6 +76,9 @@ class ProviderRouter:
             optional_model=getattr(settings, "ai_provider_optional_model", None) if settings else None,
             coder_model=str(getattr(settings, "ollama_coder_model", "qwen2.5-coder:3b-instruct") if settings else "qwen2.5-coder:3b-instruct"),
             fallback_model=str(getattr(settings, "ollama_fallback_model", "phi3") if settings else "phi3"),
+            voice_timeout_seconds=float(getattr(settings, "voice_ollama_timeout_seconds", 3.0) if settings else 3.0),
+            voice_max_tokens=int(getattr(settings, "voice_ollama_max_tokens", 160) if settings else 160),
+            voice_temperature=float(getattr(settings, "voice_ollama_temperature", 0.2) if settings else 0.2),
         )
 
     def selected_provider(self) -> LLMProvider:
@@ -182,6 +191,11 @@ class ProviderRouter:
             metadata.setdefault("model_override", selected_model)
         if self.fallback_model:
             metadata.setdefault("fallback_model", self.fallback_model)
+        if str(request.context.channel or "").lower() == "voice":
+            metadata.setdefault("timeout_seconds", self.voice_timeout_seconds)
+            metadata.setdefault("max_tokens", self.voice_max_tokens)
+            metadata.setdefault("temperature", self.voice_temperature)
+            metadata.setdefault("voice_response", True)
         return request.model_copy(update={"metadata": metadata})
 
     async def generate_agent_response(

@@ -67,6 +67,7 @@ export interface TodayPointageSummary {
   overtimePreview?: number;
   overtimeMinutes?: number;
   overtimeMode?: OvertimeMode | string | null;
+  overtimeConfirmed?: boolean;
   showCheckoutAlert?: boolean;
   overtimeStartedAt?: string | null;
   overtimeLabel?: string | null;

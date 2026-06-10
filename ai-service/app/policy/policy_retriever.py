@@ -75,6 +75,8 @@ class PolicyRetriever(BasePolicyRetriever):
         provider = str(getattr(self.settings, "rag_provider", "local_keyword") or "local_keyword")
         fallback_used = False
         success = True
+        retrieval_error_type: str | None = None
+        retrieval_error_message: str | None = None
         with start_span(
             "rag.search",
             {
@@ -89,6 +91,13 @@ class PolicyRetriever(BasePolicyRetriever):
                 try:
                     result = self._get_chroma().search(query=query, tenant_id=tenant_id, language=language, limit=limit)
                     if result.citations:
+                        self._annotate_result(
+                            result,
+                            provider="chromadb",
+                            fallback_used=False,
+                            limit=limit,
+                            tenant_id=tenant_id,
+                        )
                         self._record_rag_result(
                             result,
                             provider="chromadb",
@@ -102,13 +111,26 @@ class PolicyRetriever(BasePolicyRetriever):
                 except ChromaUnavailableError as exc:
                     self._chroma_error = str(exc)
                     fallback_used = True
+                    retrieval_error_type = exc.__class__.__name__
+                    retrieval_error_message = str(exc)
                     log_event("rag.chroma_unavailable", metadata={"tenant_id": tenant_id, "error_type": exc.__class__.__name__})
                 except Exception as exc:  # noqa: BLE001 - optional retriever boundary
                     self._chroma_error = str(exc)
                     fallback_used = True
                     success = False
+                    retrieval_error_type = exc.__class__.__name__
+                    retrieval_error_message = str(exc)
                     log_event("rag.chroma_error", metadata={"tenant_id": tenant_id, "error_type": exc.__class__.__name__})
             result = self.keyword.search(query=query, tenant_id=tenant_id, language=language, limit=limit)
+            self._annotate_result(
+                result,
+                provider="local_keyword",
+                fallback_used=fallback_used,
+                limit=limit,
+                tenant_id=tenant_id,
+                error_type=retrieval_error_type,
+                error_message=retrieval_error_message,
+            )
             self._record_rag_result(
                 result,
                 provider="local_keyword",
@@ -150,6 +172,24 @@ class PolicyRetriever(BasePolicyRetriever):
                 top_k=int(getattr(self.settings, "chroma_top_k", 5)),
             )
         return self._chroma
+
+    @staticmethod
+    def _annotate_result(
+        result: PolicySearchResult,
+        *,
+        provider: str,
+        fallback_used: bool,
+        limit: int,
+        tenant_id: int | None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        result.provider = provider
+        result.fallback_used = fallback_used
+        result.top_k = limit
+        result.tenant_filter_applied = tenant_id is not None
+        result.error_type = error_type
+        result.error_message = error_message
 
     @staticmethod
     def _record_rag_result(

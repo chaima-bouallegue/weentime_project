@@ -105,9 +105,25 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     const end = this.todaySummary()?.scheduledEnd;
     return start && end ? `${start.slice(0, 5)} - ${end.slice(0, 5)}` : 'Horaire non defini';
   });
+  readonly isOutOfSchedulePointage = computed(() => {
+    const summary = this.todaySummary();
+    const marker = `${this.asText(summary?.latestAlert) ?? ''} ${this.asText(summary?.overtimeLabel) ?? ''}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return marker.includes('hors horaire');
+  });
+  readonly outOfScheduleLabel = computed(() =>
+    this.asText(this.todaySummary()?.latestAlert)
+    ?? this.asText(this.todaySummary()?.overtimeLabel)
+    ?? 'Pointage hors horaire detecte'
+  );
   readonly overtimeMode = computed(() => this.normalizeOvertimeMode(this.todaySummary()?.overtimeMode));
   readonly overtimePreviewLabel = computed(() => {
     const summary = this.todaySummary();
+    if (this.isOutOfSchedulePointage()) {
+      return '0 min';
+    }
     const mode = this.overtimeMode();
     if (mode === 'WAITING_CONFIRMATION') {
       return this.asText(summary?.overtimeLabel) ?? 'En attente de confirmation';
@@ -462,20 +478,28 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   formatOvertimeStatus(status?: string | null): string {
     switch (status) {
       case 'EN_ATTENTE_MANAGER':
+      case 'PENDING_MANAGER':
       case 'PENDING_APPROVAL':
         return 'En attente manager';
       case 'APPROUVEE_MANAGER':
+      case 'APPROVED_MANAGER':
       case 'APPROVED':
         return 'Approuvee manager';
       case 'REFUSEE_MANAGER':
+      case 'REJECTED_MANAGER':
       case 'REJECTED':
         return 'Refusee manager';
       case 'EN_ATTENTE_RH':
+      case 'PENDING_RH':
         return 'En attente RH';
       case 'APPROUVEE_RH':
+      case 'APPROVED_RH':
         return 'Approuvee RH';
       case 'REFUSEE_RH':
+      case 'REJECTED_RH':
         return 'Refusee RH';
+      case 'CANCELLED':
+        return 'Annulee';
       default:
         return 'Aucune demande';
     }

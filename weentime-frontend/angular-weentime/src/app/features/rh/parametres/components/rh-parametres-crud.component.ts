@@ -2,17 +2,17 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges, inject, signal } fr
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { 
-  LucideAngularModule, 
-  Check, 
-  AlertCircle, 
-  X, 
-  Plus, 
-  FolderOpen, 
-  Pencil, 
-  Trash2, 
-  ChevronDown, 
-  Loader2 
+import {
+  LucideAngularModule,
+  Check,
+  AlertCircle,
+  X,
+  Plus,
+  FolderOpen,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  Loader2
 } from 'lucide-angular';
 import { environment } from '../../../../../environments/environment';
 
@@ -35,14 +35,14 @@ export interface CrudColumn {
   ],
   template: `
     <div class="flex flex-col gap-8 animate-in fade-in duration-700">
-      
+
       <!-- Toolbar Premium -->
       <div class="flex flex-col gap-4">
         <!-- Global Feedback Message -->
         @if (status()) {
           <div class="animate-in slide-in-from-top-4 duration-500 px-8 py-5 rounded-[2rem] flex items-center justify-between gap-4 border shadow-2xl backdrop-blur-xl"
-               [ngClass]="status()?.type === 'success' 
-                ? 'bg-emerald-50/90 border-emerald-100 text-emerald-800' 
+               [ngClass]="status()?.type === 'success'
+                ? 'bg-emerald-50/90 border-emerald-100 text-emerald-800'
                 : 'bg-rose-50/90 border-rose-100 text-rose-800'">
             <div class="flex items-center gap-4">
               <div class="p-2 rounded-xl" [ngClass]="status()?.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'">
@@ -78,12 +78,12 @@ export interface CrudColumn {
         <div class="overflow-x-auto custom-scrollbar">
           <table class="w-full text-sm text-left border-collapse">
             <thead>
-              <tr class="bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-700/60">
-                @for (col of columns; track col.key) {
-                  <th class="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{{ col.label }}</th>
-                }
-                <th class="px-8 py-6 text-right text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Actions</th>
-              </tr>
+            <tr class="bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-700/60">
+              @for (col of columns; track col.key) {
+                <th class="px-8 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{{ col.label }}</th>
+              }
+              <th class="px-8 py-6 text-right text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Actions</th>
+            </tr>
             </thead>
             <tbody class="divide-y divide-slate-50 dark:divide-slate-700/30">
               @if (loading()) {
@@ -163,9 +163,9 @@ export interface CrudColumn {
     @if (isModalOpen()) {
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-8 animate-in fade-in duration-300">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" (click)="closeModal()"></div>
-        
+
         <div class="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-black/30 w-full max-w-lg overflow-hidden border border-white/20 scale-100 animate-in zoom-in-95 duration-300">
-          
+
           <!-- Modal Header -->
           <div class="relative px-10 py-8 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
             <div class="flex items-center justify-between">
@@ -183,14 +183,14 @@ export interface CrudColumn {
 
           <!-- Modal Body -->
           <form [formGroup]="form" (ngSubmit)="save()" class="p-8 flex flex-col gap-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-            
+
             @for (col of columns; track col.key) {
               <div class="space-y-2">
                 <label class="flex items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
-                  {{ col.label }} 
+                  {{ col.label }}
                   @if (col.required) { <span class="text-red-500">*</span> }
                 </label>
-                
+
                 <div class="relative group">
                   @if (col.type === 'boolean') {
                     <label class="relative inline-flex items-center cursor-pointer">
@@ -206,7 +206,7 @@ export interface CrudColumn {
                       }
                     </select>
                     <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                       <lucide-icon [img]="ChevronDownIcon" size="18"></lucide-icon>
+                      <lucide-icon [img]="ChevronDownIcon" size="18"></lucide-icon>
                     </div>
                   } @else {
                     <input [type]="col.type === 'number' ? 'number' : 'text'" [formControlName]="col.key" class="w-full px-5 py-3.5 bg-slate-100 dark:bg-slate-800 border-2 border-transparent dark:border-slate-800 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400 transition-all" [placeholder]="'Saisie de ' + col.label.toLowerCase() + '...'">
@@ -237,7 +237,7 @@ export interface CrudColumn {
     @if (isDeleteModalOpen()) {
       <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-in fade-in duration-300">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" (click)="closeDeleteModal()"></div>
-        
+
         <div class="relative bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 dark:border-slate-800 scale-100 animate-in zoom-in-95 duration-300">
           <div class="p-8 text-center mt-4">
             <div class="w-16 h-16 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -316,8 +316,8 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if ((changes['columns'] && !changes['columns'].firstChange) || 
-        (changes['endpoint'] && !changes['endpoint'].firstChange)) {
+    if ((changes['columns'] && !changes['columns'].firstChange) ||
+      (changes['endpoint'] && !changes['endpoint'].firstChange)) {
       this.buildForm();
       this.loadData();
     }
@@ -349,13 +349,13 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
   openModal(item?: any) {
     this.isEditMode.set(!!item);
     this.currentId.set(item?.id || null);
-    
+
     if (item) {
       this.form.patchValue(item);
     } else {
       this.form.reset();
     }
-    
+
     this.isModalOpen.set(true);
   }
 
@@ -370,7 +370,7 @@ export class RhParametresCrudComponent implements OnInit, OnChanges {
     this.saving.set(true);
     const payload = this.form.value;
     const url = `${environment.apiUrl}/${this.endpoint}`;
-    const request = this.isEditMode() 
+    const request = this.isEditMode()
       ? this.http.put(`${url}/${this.currentId()}`, payload)
       : this.http.post(url, payload);
 

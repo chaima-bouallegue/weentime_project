@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.context.current_user import CurrentUserContext
 from app.models.tool_models import ToolDefinition
+from app.observability.braintrust_client import log_rag_interaction
 from app.policy import LocalPolicyStore, PolicyRetriever
 from app.policy.source_citation import citations_to_dicts, valid_citation_dicts
 
@@ -103,8 +104,66 @@ class PolicyTools:
         result = self.retriever.search(query=query, tenant_id=context.tenant_id, language=language, limit=limit)
         citations = valid_citation_dicts(citations_to_dicts(result.citations))
         if not citations:
+            log_rag_interaction(
+                question=query,
+                output_text=POLICY_UNAVAILABLE,
+                provider=result.provider,
+                collection=str(getattr(self.retriever.settings, "chroma_collection_name", "weentime_policy")),
+                retrieved_chunks=0,
+                top_k=result.top_k or limit,
+                citations_required=bool(getattr(self.retriever.settings, "rag_require_citations", True)),
+                citations_found=False,
+                tenant_filter_applied=result.tenant_filter_applied,
+                fallback_used=result.fallback_used,
+                role=context.role,
+                intent="policy.question",
+                language=language,
+                tenant_id=context.tenant_id,
+                company_id=context.entreprise_id,
+                user_id=context.user_id,
+                status="error" if result.error_type and not result.fallback_used else "success",
+                error_type=result.error_type,
+                error_message=result.error_message,
+                endpoint="/v2/voice" if context.metadata.get("channel") == "voice" else "/v2/chat",
+                request_id=str(context.metadata.get("request_id") or "") or None,
+                metadata_extra={
+                    "embedding_model": getattr(self.retriever.settings, "chroma_embedding_model", None),
+                    "embedding_endpoint": "/api/embeddings" if result.provider == "chromadb" else "none",
+                },
+            )
             return _policy_unavailable(tool_name, query=query)
         answer = _answer_from_citations(citations, language=language)
+        log_rag_interaction(
+            question=query,
+            output_text=answer,
+            provider=result.provider,
+            collection=str(getattr(self.retriever.settings, "chroma_collection_name", "weentime_policy")),
+            retrieved_chunks=len(citations),
+            top_k=result.top_k or limit,
+            citations_required=bool(getattr(self.retriever.settings, "rag_require_citations", True)),
+            citations_found=True,
+            tenant_filter_applied=result.tenant_filter_applied,
+            fallback_used=result.fallback_used,
+            role=context.role,
+            intent="policy.question",
+            language=language,
+            tenant_id=context.tenant_id,
+            company_id=context.entreprise_id,
+            user_id=context.user_id,
+            status="success",
+            error_type=result.error_type,
+            error_message=result.error_message,
+            endpoint="/v2/voice" if context.metadata.get("channel") == "voice" else "/v2/chat",
+            request_id=str(context.metadata.get("request_id") or "") or None,
+            metadata_extra={
+                "embedding_model": getattr(self.retriever.settings, "chroma_embedding_model", None),
+                "embedding_endpoint": "/api/embeddings" if result.provider == "chromadb" else "none",
+                "citation_labels": [
+                    str(item.get("citationLabel") or item.get("sourceId") or "")
+                    for item in citations
+                ],
+            },
+        )
         return ToolResult.ok(
             {
                 "read_result": build_read_result(

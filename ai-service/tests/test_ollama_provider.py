@@ -209,6 +209,34 @@ async def test_standard_copilot_request_uses_qwen_chat_model() -> None:
 
 
 @pytest.mark.asyncio
+async def test_voice_provider_request_uses_short_generation_budget() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, json={"message": {"content": "Bien reçu."}})
+
+    router = ProviderRouter.from_settings(
+        settings(),
+        providers={"ollama": OllamaProvider(base_url="http://ollama.test", transport=httpx.MockTransport(handler))},
+    )
+    request = ProviderRequest.build(
+        "bonjour",
+        context=context(),
+        channel="voice",
+        intent="voice.greeting",
+    )
+
+    response = await router.generate(request)
+
+    assert response.success is True
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["options"]["num_predict"] == 160
+    assert payload["options"]["temperature"] == 0.2
+
+
+@pytest.mark.asyncio
 async def test_coding_request_uses_qwen_coder_model() -> None:
     captured: dict[str, object] = {}
 

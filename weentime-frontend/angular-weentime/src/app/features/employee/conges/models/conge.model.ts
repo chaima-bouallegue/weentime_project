@@ -68,5 +68,6 @@ export interface NouvelleDemandeRequest {
   typeCongeId?: number;
   typeCongeNom?: string;
   justificatif?: File | null;
+  justificatifFourni?: boolean;
   [key: string]: unknown;
 }

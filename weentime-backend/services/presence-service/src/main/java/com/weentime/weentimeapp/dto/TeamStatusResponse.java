@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -30,6 +31,7 @@ public class TeamStatusResponse {
     public static class MemberStatus {
         private Long utilisateurId;
         private String nomComplet;
+        private LocalDate date;
         private PresenceStatus status;
         private String heureEntree;
         private String heureSortie;
@@ -38,10 +40,19 @@ public class TeamStatusResponse {
         private String checkOutLocation;
         private PointageLocationDTO checkOutLocationDetails;
         private Long durationSeconds;
+        private Integer workedMinutes;
+        private Integer expectedMinutes;
+        private String scheduledStart;
+        private String scheduledEnd;
+        private Boolean scheduledWorkday;
+        private Boolean approvedLeave;
+        private Boolean approvedTelework;
+        private Boolean holiday;
         private Integer overtimeMinutes;
         private String latestAlert;
         private Boolean autoClosed;
         private Boolean lateArrival;
+        private Long managerId;
         private Long equipeId;
         private String equipe;
         private Long entrepriseId;

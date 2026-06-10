@@ -24,7 +24,7 @@
       </div>
 
       <div class="dash-header__actions">
-        <button class="btn-ghost" (click)="loadAll()" [disabled]="refreshing()">
+        <button class="btn-ghost" (click)="refreshData()" [disabled]="refreshing()">
           <lucide-angular [img]="ic.refresh" size="18" [class.spin]="refreshing()"></lucide-angular>
           Actualiser
         </button>
@@ -142,7 +142,7 @@
       [critical]="globalStats().critical"
       [high]="globalStats().high"
       [medium]="globalStats().medium"
-      [maxVisible]="8"
+      [maxVisible]="6"
       title="Anomalies de pr&eacute;sence &mdash; global"
       subtitle="D&eacute;tection IA toutes entreprises"
       emptyMessage="Aucune anomalie globale d&eacute;tect&eacute;e."

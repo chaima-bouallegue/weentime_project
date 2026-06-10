@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule } from 'lucide-angular';
+import { AlertTriangle, LucideAngularModule } from 'lucide-angular';
 import { DemandeTeletravailWorkflow } from '../../../../shared/models/workflow-teletravail.model';
 import { DateFrPipe } from '../../../../../shared/pipes/date-fr.pipe';
 
@@ -14,6 +14,7 @@ import { DateFrPipe } from '../../../../../shared/pipes/date-fr.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DecisionRhModalComponent {
+  readonly AlertTriangleIcon = AlertTriangle;
   @Input() demande: DemandeTeletravailWorkflow | null = null;
   @Input() mode: 'VALIDER' | 'REFUSER' | null = null;
   @Input() isSubmitting = false;

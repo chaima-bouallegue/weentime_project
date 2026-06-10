@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 import logging
 import json
 import io
+import re
 from pathlib import Path
 import pypdf
 import httpx
@@ -12,6 +13,53 @@ from config import get_settings
 router = APIRouter(tags=["Recruitment IA"])
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def extract_json_from_gemini(raw_text: str) -> dict:
+    """Extract a JSON object from a Gemini response."""
+    raw_text = raw_text or ""
+    logger.debug(
+        "Gemini JSON parser input length=%s preview=%r",
+        len(raw_text),
+        raw_text[:500],
+    )
+
+    content = raw_text.strip()
+    if not content:
+        raise ValueError("Reponse Gemini vide.")
+
+    fenced_match = re.fullmatch(
+        r"```(?:json)?\s*(.*?)\s*```",
+        content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if fenced_match:
+        content = fenced_match.group(1).strip()
+
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as direct_error:
+        decoder = json.JSONDecoder()
+        found_object_start = False
+
+        for match in re.finditer(r"\{", content):
+            found_object_start = True
+            try:
+                parsed, _ = decoder.raw_decode(content[match.start():])
+            except json.JSONDecodeError:
+                continue
+
+            if isinstance(parsed, dict):
+                return parsed
+
+        if not found_object_start:
+            raise ValueError("Aucun objet JSON trouve dans la reponse Gemini.") from direct_error
+        raise ValueError("Objet JSON invalide dans la reponse Gemini.") from direct_error
+
+    if not isinstance(parsed, dict):
+        raise ValueError("La reponse Gemini doit contenir un objet JSON.")
+    return parsed
+
 
 # URL du rh-service Java (Configurable)
 def _get_callback_url() -> str:
@@ -110,9 +158,14 @@ Retourne UNIQUEMENT un JSON valide :
             provider="gemini"
         )
 
-        result = await _generate_gemini(gen_req)
-        clean_json = result.content.strip().removeprefix("```json").removesuffix("```").strip()
-        data = json.loads(clean_json)
+        result = await _generate_gemini(gen_req, response_mime_type="application/json")
+        raw_content = result.content or ""
+        logger.info(
+            "Gemini raw response length=%s preview=%r",
+            len(raw_content),
+            raw_content[:500],
+        )
+        data = extract_json_from_gemini(raw_content)
 
         return CvAnalysisResponse(
             overall_score=data.get("overall_score", 0),
@@ -121,7 +174,7 @@ Retourne UNIQUEMENT un JSON valide :
             summary=data.get("summary", ""),
             strengths=data.get("strengths", []),
             weaknesses=data.get("weaknesses", []),
-            raw_json=clean_json
+            raw_json=json.dumps(data, ensure_ascii=False)
         )
 
     except Exception as e:
@@ -199,8 +252,15 @@ RÈGLES :
 - Base ton évaluation uniquement sur le contenu du CV
 - Si une information manque dans le CV, indique-le clairement
 - Les scores doivent être cohérents entre eux
+- Réponds uniquement avec un objet JSON valide
+- N'utilise jamais de bloc markdown
+- N'ajoute jamais de texte avant ou après le JSON
+- Utilise exactement ces clés : score_global, score_technique, score_experience,
+  score_competences, recommandation, points_forts, points_faibles,
+  resume_evaluation, competences_trouvees, competences_manquantes,
+  annees_experience_detectees, niveau_confiance
 
-Retourne UNIQUEMENT ce JSON, sans texte autour :
+Retourne uniquement cet objet JSON :
 {
   "score_global": <0-100>,
   "score_technique": <0-100>,
@@ -234,12 +294,16 @@ CV DU CANDIDAT :
             provider="gemini"
         )
 
-        result = await _generate_gemini(gen_req)
+        result = await _generate_gemini(gen_req, response_mime_type="application/json")
 
         # Parser et valider le JSON
-        raw_content = result.content.strip()
-        clean_json = raw_content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        evaluation = json.loads(clean_json)
+        raw_content = result.content or ""
+        logger.info(
+            "Gemini raw response length=%s preview=%r",
+            len(raw_content),
+            raw_content[:500],
+        )
+        evaluation = extract_json_from_gemini(raw_content)
 
         # Valider les scores (clamp entre 0 et 100)
         for score_key in ["score_global", "score_technique", "score_experience", "score_competences", "niveau_confiance"]:
@@ -258,7 +322,7 @@ CV DU CANDIDAT :
             application_id, evaluation.get("score_global"), evaluation.get("recommandation")
         )
 
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         logger.error("JSON malformé retourné par Gemini: %s", str(e))
         await _send_failure_callback(application_id, entreprise_id, "Réponse IA malformée")
         return {"status": "error", "detail": "Réponse IA malformée"}
@@ -275,29 +339,43 @@ CV DU CANDIDAT :
         "recommandation": evaluation.get("recommandation", "A_EVALUER")
     }
 
+    callback_url = f"{_get_callback_url()}/applications/{application_id}/ai-result"
+    callback_succeeded = False
+    callback_error = ""
+    logger.info("Callback rh-service URL=%s", callback_url)
+
     try:
-        callback_url = f"{_get_callback_url()}/applications/{application_id}/ai-result"
         headers = {
             "X-Internal-Secret": settings.internal_secret
         }
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(callback_url, json=callback_payload, headers=headers)
-            if response.status_code == 200:
+            if response.is_success:
+                callback_succeeded = True
                 logger.info("📡 Callback envoyé avec succès au rh-service pour candidature #%s", application_id)
             else:
+                callback_error = f"HTTP {response.status_code}"
                 logger.error(
                     "Callback rh-service échoué — Status: %s, Body: %s",
-                    response.status_code, response.text
+                    response.status_code, response.text[:500]
                 )
     except Exception as e:
+        callback_error = str(e)
         logger.error("Erreur callback vers rh-service: %s", str(e))
 
-    return {
+    result_payload = {
         "status": "success",
         "application_id": application_id,
         "score_global": evaluation.get("score_global"),
-        "recommandation": evaluation.get("recommandation")
+        "recommandation": evaluation.get("recommandation"),
+        "callback_status": "success" if callback_succeeded else "failed",
     }
+    if not callback_succeeded:
+        result_payload["detail"] = (
+            "Evaluation IA terminee, mais le callback rh-service a echoue"
+            + (f": {callback_error}" if callback_error else ".")
+        )
+    return result_payload
 
 
 # ═══════════════════════════════════════════════════
@@ -332,6 +410,7 @@ async def _send_failure_callback(application_id: int, entreprise_id: int, reason
     """Envoie un callback d'échec au rh-service pour que le statut soit remis à APPLIED."""
     try:
         callback_url = f"{_get_callback_url()}/applications/{application_id}/ai-result"
+        logger.info("Callback rh-service URL=%s", callback_url)
         payload = {
             "application_id": application_id,
             "entreprise_id": entreprise_id,
@@ -357,7 +436,14 @@ async def _send_failure_callback(application_id: int, entreprise_id: int, reason
             "X-Internal-Secret": settings.internal_secret
         }
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(callback_url, json=payload, headers=headers)
-        logger.info("Callback d'échec envoyé pour candidature #%s: %s", application_id, reason)
+            response = await client.post(callback_url, json=payload, headers=headers)
+        if response.is_success:
+            logger.info("Callback d'échec envoyé pour candidature #%s: %s", application_id, reason)
+        else:
+            logger.error(
+                "Callback d'échec refusé — Status: %s, Body: %s",
+                response.status_code,
+                response.text[:500],
+            )
     except Exception as e:
         logger.error("Impossible d'envoyer le callback d'échec: %s", str(e))

@@ -52,7 +52,7 @@ def test_stt_pipeline_returns_non_empty_text_and_detected_language(tmp_path: Pat
             language_probability=0.91,
         ),
     ):
-        convert_mock.side_effect = lambda _source, target, ffmpeg_binary=None: Path(target).write_bytes(b"RIFF")
+        convert_mock.side_effect = lambda _source, target, **_kwargs: Path(target).write_bytes(b"RIFF")
         result = service.process(audio_path)
 
     assert result.status == "success"
@@ -92,7 +92,7 @@ def test_stt_pipeline_keeps_tunisian_franco_arabic_transcript(tmp_path: Path) ->
             language_probability=0.82,
         ),
     ):
-        convert_mock.side_effect = lambda _source, target, ffmpeg_binary=None: Path(target).write_bytes(b"RIFF")
+        convert_mock.side_effect = lambda _source, target, **_kwargs: Path(target).write_bytes(b"RIFF")
         result = service.process(audio_path)
 
     assert result.status == "success"
@@ -110,6 +110,7 @@ def test_short_tunisian_hr_commands_are_not_rejected(command: str) -> None:
     ("transcript", "stt_language", "expected"),
     [
         ("je veux un conge", "fr", "fr"),
+        ("bonjour", "en", "fr"),
         ("I want a leave", "en", "en"),
         ("أريد عطلة", "ar", "ar"),
         ("nheb conge ghodwa", "fr", "tn"),
@@ -120,7 +121,7 @@ def test_voice_language_resolution_prefers_transcript_tunisian_markers(
     stt_language: str,
     expected: str,
 ) -> None:
-    assert VoiceRequestProcessor._resolve_language(transcript, stt_language, None) == expected
+    assert VoiceRequestProcessor._resolve_language(transcript, stt_language, None, 0.52) == expected
 
 
 def test_voice_language_resolution_falls_back_safely_when_uncertain() -> None:

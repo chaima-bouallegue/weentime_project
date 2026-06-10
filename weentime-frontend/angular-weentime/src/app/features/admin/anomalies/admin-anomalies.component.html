@@ -1,0 +1,308 @@
+<section class="admin-anomalies">
+  <app-admin-page-header
+    title="Anomalies IA"
+    eyebrow="ML admin"
+    description="Vue consolidee des anomalies de presence detectees par le service ML."
+    [breadcrumbs]="[
+      { label: 'Admin', route: '/app/admin/dashboard' },
+      { label: 'Anomalies IA' }
+    ]"
+  >
+    <button type="button" class="admin-button ghost" (click)="exportCsv()" [disabled]="exporting()">
+      <lucide-icon name="download" size="18"></lucide-icon>
+      <span>{{ exporting() ? 'Export...' : 'CSV' }}</span>
+    </button>
+    <button type="button" class="admin-button primary" (click)="load()" [disabled]="refreshing()">
+      <lucide-icon name="refresh-cw" size="18" [class.spin]="refreshing()"></lucide-icon>
+      <span>Actualiser</span>
+    </button>
+  </app-admin-page-header>
+
+  @if (backendUnavailable()) {
+    <div class="notice notice--warning" role="status">
+      <lucide-icon name="wifi-off" size="18"></lucide-icon>
+      <span>Le backend presence ne repond pas. Les donnees seront rechargees automatiquement des que le service redevient disponible.</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="notice notice--danger" role="alert">
+      <lucide-icon name="triangle-alert" size="18"></lucide-icon>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <div class="stats-grid">
+    <app-admin-stat-card
+      label="Anomalies"
+      [value]="summary()?.totalAnomalies ?? 'N/D'"
+      hint="Sur la periode filtree"
+      icon="activity"
+      tone="info"
+      [interactive]="false"
+    ></app-admin-stat-card>
+    <app-admin-stat-card
+      label="Critiques"
+      [value]="summary()?.critical ?? 'N/D'"
+      hint="Priorite immediate"
+      icon="shield-alert"
+      tone="danger"
+      [interactive]="false"
+    ></app-admin-stat-card>
+    <app-admin-stat-card
+      label="Employes"
+      [value]="summary()?.employeesConcerned ?? 'N/D'"
+      hint="Collaborateurs concernes"
+      icon="users"
+      tone="neutral"
+      [interactive]="false"
+    ></app-admin-stat-card>
+    <app-admin-stat-card
+      label="Taux"
+      [value]="summary() ? summary()!.anomalyRate + '%' : 'N/D'"
+      hint="Anomalies / lignes parsees"
+      icon="bar-chart-3"
+      tone="warning"
+      [interactive]="false"
+    ></app-admin-stat-card>
+    <app-admin-stat-card
+      label="Non verifies"
+      [value]="summary()?.unverified ?? 'N/D'"
+      hint="A qualifier"
+      icon="help-circle"
+      tone="warning"
+      [interactive]="false"
+    ></app-admin-stat-card>
+  </div>
+
+  <section class="filters admin-surface">
+    <label>
+      <span>Du</span>
+      <input type="date" [ngModel]="filters().fromDate" (ngModelChange)="setFilter('fromDate', $event)" />
+    </label>
+    <label>
+      <span>Au</span>
+      <input type="date" [ngModel]="filters().toDate" (ngModelChange)="setFilter('toDate', $event)" />
+    </label>
+    <label>
+      <span>Risque</span>
+      <select [ngModel]="filters().risk ?? ''" (ngModelChange)="setFilter('risk', $event)">
+        @for (option of riskOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Type</span>
+      <select [ngModel]="filters().category ?? ''" (ngModelChange)="setFilter('category', $event)">
+        @for (option of categoryOptions(); track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Statut</span>
+      <select [ngModel]="filters().status ?? ''" (ngModelChange)="setFilter('status', $event)">
+        @for (option of statusOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Employe</span>
+      <input
+        type="number"
+        min="1"
+        inputmode="numeric"
+        [ngModel]="filters().employeeId ?? ''"
+        (ngModelChange)="setFilter('employeeId', $event)"
+        placeholder="ID"
+      />
+    </label>
+    <div class="filter-actions">
+      <button type="button" class="admin-button ghost" (click)="resetFilters()">Reinitialiser</button>
+      <button type="button" class="admin-button primary" (click)="applyFilters()">Filtrer</button>
+    </div>
+  </section>
+
+  @if (loading()) {
+    <div class="loading-grid">
+      <div class="placeholder admin-surface"></div>
+      <div class="placeholder admin-surface"></div>
+      <div class="placeholder admin-surface"></div>
+    </div>
+  } @else {
+    <div class="charts-grid">
+      <ui-chart-card [chart]="riskChart()"></ui-chart-card>
+      <ui-chart-card [chart]="typeChart()"></ui-chart-card>
+      <ui-chart-card [chart]="dayChart()"></ui-chart-card>
+    </div>
+
+    <div class="content-grid">
+      <section class="table-panel admin-surface">
+        <div class="panel-head">
+          <div>
+            <h2>File d'analyse</h2>
+            <p>{{ total() }} anomalie(s) trouvee(s)</p>
+          </div>
+          <select [ngModel]="filters().sort" (ngModelChange)="setFilter('sort', $event); applyFilters()">
+            <option value="-score">Score decroissant</option>
+            <option value="date">Date croissante</option>
+            <option value="-date">Date recente</option>
+            <option value="risk">Risque croissant</option>
+            <option value="-risk">Risque decroissant</option>
+            <option value="employee">Employe</option>
+            <option value="status">Statut</option>
+          </select>
+        </div>
+
+        @if (items().length === 0) {
+          <app-admin-empty-state
+            [title]="error() ? 'Donnees indisponibles' : 'Aucune anomalie'"
+            [description]="error() ? 'Le service ML doit etre joignable avant de conclure a une absence d anomalies.' : 'Aucun signal ne correspond aux filtres actifs.'"
+            icon="inbox"
+          ></app-admin-empty-state>
+        } @else {
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Employe</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Risque</th>
+                  <th>Score</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of items(); track trackById($index, item)) {
+                  <tr (click)="select(item)" [class.is-active]="selected()?.id === item.id">
+                    <td>
+                      <strong>{{ item.employeeName }}</strong>
+                      <span>#{{ item.employeeId }} {{ item.departmentName || item.teamName || '' }}</span>
+                    </td>
+                    <td>{{ formatDate(item.date) }}</td>
+                    <td>{{ item.categoryLabel }}</td>
+                    <td><span class="risk" [attr.data-risk]="riskTone(item.risk)">{{ riskLabel(item.risk) }}</span></td>
+                    <td>
+                      <div class="score">
+                        <span>{{ scorePercent(item) }}%</span>
+                        <i [style.width.%]="scorePercent(item)"></i>
+                      </div>
+                    </td>
+                    <td><span class="status" [attr.data-status]="statusTone(item.status)">{{ statusLabel(item.status) }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <footer class="pager">
+            <button type="button" class="admin-button ghost" (click)="previousPage()" [disabled]="page() <= 1">
+              <lucide-icon name="chevron-left" size="16"></lucide-icon>
+              <span>Precedent</span>
+            </button>
+            <span>Page {{ page() }} / {{ totalPages() || 1 }}</span>
+            <button type="button" class="admin-button ghost" (click)="nextPage()" [disabled]="page() >= totalPages()">
+              <span>Suivant</span>
+              <lucide-icon name="chevron-right" size="16"></lucide-icon>
+            </button>
+          </footer>
+        }
+      </section>
+
+      <aside class="detail-panel admin-surface">
+        @if (selected(); as item) {
+          <div class="panel-head">
+            <div>
+              <h2>{{ item.title || item.categoryLabel }}</h2>
+              <p>{{ item.employeeName }} &middot; {{ formatDate(item.date) }}</p>
+            </div>
+            <span class="risk" [attr.data-risk]="riskTone(item.risk)">{{ riskLabel(item.risk) }}</span>
+          </div>
+
+          <div class="detail-score">
+            <span>Score IA</span>
+            <strong>{{ scorePercent(item) }}%</strong>
+            <i [style.width.%]="scorePercent(item)"></i>
+          </div>
+
+          <p class="summary-text">{{ item.summary }}</p>
+
+          <dl class="snapshot">
+            <div>
+              <dt>Entree</dt>
+              <dd>{{ item.attendanceSnapshot?.checkIn || '-' }}</dd>
+            </div>
+            <div>
+              <dt>Sortie</dt>
+              <dd>{{ item.attendanceSnapshot?.checkOut || '-' }}</dd>
+            </div>
+            <div>
+              <dt>Travaille</dt>
+              <dd>{{ item.attendanceSnapshot?.workedMinutes ?? 0 }} min</dd>
+            </div>
+            <div>
+              <dt>Retard</dt>
+              <dd>{{ item.attendanceSnapshot?.lateMinutes ?? 0 }} min</dd>
+            </div>
+          </dl>
+
+          <section class="detail-block">
+            <h3>Signaux</h3>
+            @if (item.detectedReasons.length === 0) {
+              <p>Aucun signal detaille.</p>
+            } @else {
+              <ul>
+                @for (reason of item.detectedReasons; track reason.code + reason.label) {
+                  <li>
+                    <strong>{{ reason.label }}</strong>
+                    <span>{{ reason.value || reason.description }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+
+          <section class="detail-block">
+            <h3>Qualification</h3>
+            <textarea
+              rows="3"
+              [ngModel]="statusComment()"
+              (ngModelChange)="statusComment.set($event)"
+              placeholder="Commentaire interne"
+            ></textarea>
+            <div class="status-actions">
+              <button type="button" class="status-btn" (click)="updateStatus('IN_PROGRESS')" [disabled]="!!updatingStatus()">
+                En cours
+              </button>
+              <button type="button" class="status-btn suspicious" (click)="updateStatus('SUSPICIOUS')" [disabled]="!!updatingStatus()">
+                Suspect
+              </button>
+              <button type="button" class="status-btn justified" (click)="updateStatus('JUSTIFIED')" [disabled]="!!updatingStatus()">
+                Justifie
+              </button>
+              <button type="button" class="status-btn closed" (click)="updateStatus('CLOSED')" [disabled]="!!updatingStatus()">
+                Clos
+              </button>
+            </div>
+          </section>
+
+          @if (item.recommendation) {
+            <section class="recommendation">
+              <lucide-icon name="sparkles" size="18"></lucide-icon>
+              <span>{{ item.recommendation }}</span>
+            </section>
+          }
+        } @else {
+          <app-admin-empty-state
+            title="Selection vide"
+            description="Selectionnez une ligne pour consulter les details."
+            icon="mouse-pointer-click"
+          ></app-admin-empty-state>
+        }
+      </aside>
+    </div>
+  }
+</section>

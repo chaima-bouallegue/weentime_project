@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+from time import perf_counter
 from typing import Any
 
 from fastapi import APIRouter, File, Form, Header, Request, UploadFile
@@ -15,6 +17,7 @@ from app.core.copilot_engine import ensure_copilot_services, process_copilot_mes
 from app.models.agent_models import AgentResponse
 from app.models.envelopes import ApiEnvelope
 from app.nlp.language_detector import resolve_response_language
+from app.observability.braintrust_client import log_voice_interaction
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.workflows.workflow_steps import apply_safe_request_metadata
@@ -24,6 +27,7 @@ from app.voice_pipeline.voice_request_processor import StoredAudio, VoiceRequest
 from config import get_settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 POSITIVE_CONFIRMATIONS = {
     "oui",
@@ -134,7 +138,9 @@ async def voice_v2(
 ) -> JSONResponse:
     resolved_request_id = ensure_request_id(x_request_id or request_id)
     request_token = set_request_id(resolved_request_id)
+    request_started = perf_counter()
     stored: StoredAudio | None = None
+    context: CurrentUserContext | None = None
     processor = VoiceRequestProcessor(request.app.state)
     parsed_metadata = _voice_workflow_metadata(
         _parse_voice_metadata(metadata),
@@ -170,6 +176,19 @@ async def voice_v2(
                         },
                     )
                 else:
+                    log_voice_interaction(
+                        transcription="",
+                        output_text="",
+                        model=get_settings().ollama_model,
+                        role=None,
+                        language=language_hint,
+                        latency_ms=round((perf_counter() - request_started) * 1000, 2),
+                        status="error",
+                        error_type=exc.__class__.__name__,
+                        error_message=exc.message,
+                        request_id=resolved_request_id,
+                        metadata_extra={"error_code": exc.code, "status_code": exc.status_code},
+                    )
                     return JSONResponse(
                         status_code=exc.status_code,
                         content=ApiEnvelope.fail(
@@ -181,15 +200,19 @@ async def voice_v2(
 
             try:
                 processed = await processor.process_upload(audio_file, context=context, language_hint=language_hint)
+                timings = dict(processed.timings)
                 stored = processed.stored_audio
                 stt_result = processed.stt
                 transcript_for_language = (stt_result.cleaned_text or stt_result.raw_text or "").strip()
                 parsed_metadata["original_text"] = transcript_for_language
-                response_language = resolve_response_language(
-                    transcript_for_language,
-                    parsed_metadata,
-                    stt_language=processed.detected_language or stt_result.language,
-                )
+                if processed.detected_language in {"tn", "ar"}:
+                    response_language = processed.detected_language
+                else:
+                    response_language = resolve_response_language(
+                        transcript_for_language,
+                        parsed_metadata,
+                        stt_language=processed.detected_language or stt_result.language,
+                    )
                 _set_voice_language_metadata(parsed_metadata, response_language)
                 parsed_metadata["stt_language"] = stt_result.language
                 parsed_metadata["sttLanguage"] = stt_result.language
@@ -198,17 +221,18 @@ async def voice_v2(
                 apply_safe_request_metadata(context, parsed_metadata, language=response_language)
                 context.metadata["voice_language_confidence"] = stt_result.language_confidence
                 if stt_result.status == "no_input":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "no_voice_detected", resolved_request_id, language=response_language))
+                    return _voice_error_response(stt_result.error or "no_voice_detected", resolved_request_id, stt_result, request_started, language=response_language, timings=timings, context=context, audio_size_bytes=stored.size_bytes)
                 if stt_result.status == "retry":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "unclean_transcription", resolved_request_id, language=response_language))
+                    return _voice_error_response(stt_result.error or "unclean_transcription", resolved_request_id, stt_result, request_started, language=response_language, timings=timings, context=context, audio_size_bytes=stored.size_bytes)
                 if stt_result.status == "unavailable":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "stt_unavailable", resolved_request_id, language=response_language))
+                    return _voice_error_response(stt_result.error or "stt_unavailable", resolved_request_id, stt_result, request_started, language=response_language, timings=timings, context=context, audio_size_bytes=stored.size_bytes)
                 if stt_result.status == "cancelled":
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_cancelled", resolved_request_id, language=response_language))
+                    return _voice_error_response(stt_result.error or "audio_cancelled", resolved_request_id, stt_result, request_started, language=response_language, timings=timings, context=context, audio_size_bytes=stored.size_bytes)
                 if stt_result.status != "success" or not (stt_result.cleaned_text or "").strip():
-                    return JSONResponse(status_code=200, content=_voice_error_with_request_id(stt_result.error or "audio_processing_failed", resolved_request_id, language=response_language))
+                    return _voice_error_response(stt_result.error or "audio_processing_failed", resolved_request_id, stt_result, request_started, language=response_language, timings=timings, context=context, audio_size_bytes=stored.size_bytes)
 
                 transcript = (stt_result.cleaned_text or "").strip()
+                agent_started = perf_counter()
                 confirmation_response = await _maybe_handle_voice_confirmation(
                     transcript=transcript,
                     context=context,
@@ -257,6 +281,8 @@ async def voice_v2(
                                     "cleaned_empty": False,
                                 },
                             )
+                timings["agent_ms"] = round((perf_counter() - agent_started) * 1000, 2)
+                timings["llm_ms"] = timings["agent_ms"]
 
                 response = optimize_voice_response(response, context)
                 response = services["response_guard"].guard_response(response, context)
@@ -264,21 +290,33 @@ async def voice_v2(
                 text = str(response_payload.get("text") or response_payload.get("message") or response_payload.get("response") or "")
                 audio_url = None
                 if generate_tts and text:
+                    tts_started = perf_counter()
                     audio_url = await _safe_generate_tts(
                         processor,
                         text,
                         language=response_language,
                         request_id=resolved_request_id,
                     )
+                    timings["tts_generation_ms"] = round((perf_counter() - tts_started) * 1000, 2)
+                timings["tts_ms"] = float(timings.get("tts_generation_ms") or 0.0)
                 tts_unavailable = bool(generate_tts and text and not audio_url)
                 tts_status = "generated" if audio_url else "unavailable" if tts_unavailable else "skipped"
+                timings["total_request_ms"] = round((perf_counter() - request_started) * 1000, 2)
+                timings["total_ms"] = timings["total_request_ms"]
+                timings.setdefault("stt_ms", float(timings.get("stt_service_ms") or 0.0))
 
                 with start_span("voice.response.normalize", {"intent": response_payload.get("intent"), "has_audio": bool(audio_url)}):
                     payload = {
                         "request_id": resolved_request_id,
                         "requestId": resolved_request_id,
+                        "correlation_id": resolved_request_id,
+                        "correlationId": resolved_request_id,
                         "transcript": transcript,
                         "transcription": transcript,
+                        "rawTranscript": stt_result.raw_text,
+                        "raw_transcript": stt_result.raw_text,
+                        "cleanedTranscript": transcript,
+                        "cleaned_transcript": transcript,
                         "detectedLanguage": response_language,
                         "detected_language": response_language,
                         "languageConfidence": stt_result.language_confidence,
@@ -305,14 +343,86 @@ async def voice_v2(
                         "audio_status": tts_status,
                         "ttsUnavailable": tts_unavailable,
                         "tts_unavailable": tts_unavailable,
+                        "timings": timings,
+                        "warnings": ["tts_unavailable"] if tts_unavailable else [],
                     }
-                    return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload).model_dump(mode="json"))
+                    content = ApiEnvelope.ok(payload).model_dump(mode="json")
+                    content.update(
+                        {
+                            "transcript": transcript,
+                            "transcription": transcript,
+                            "cleaned_transcript": transcript,
+                            "raw_transcript": stt_result.raw_text,
+                            "language": response_language,
+                            "response": text,
+                            "message": text,
+                            "timings": timings,
+                        }
+                    )
+                    _log_voice_request_summary(
+                        request_id=resolved_request_id,
+                        duration_seconds=stt_result.duration_seconds,
+                        timings=timings,
+                        success=True,
+                        error_code=None,
+                    )
+                    action_result = response_payload.get("actionResult")
+                    action_result = action_result if isinstance(action_result, dict) else {}
+                    log_voice_interaction(
+                        transcription=transcript,
+                        output_text=text,
+                        model=str(action_result.get("model") or get_settings().ollama_model),
+                        role=context.role,
+                        intent=str(response_payload.get("intent") or "") or None,
+                        language=response_language,
+                        tenant_id=context.tenant_id,
+                        company_id=context.entreprise_id,
+                        user_id=context.user_id,
+                        latency_ms=timings.get("total_ms"),
+                        status="error" if response_payload.get("type") == "error" else "success",
+                        error_type="VoiceAgentError" if response_payload.get("type") == "error" else None,
+                        error_message=text if response_payload.get("type") == "error" else None,
+                        request_id=resolved_request_id,
+                        audio_size_bytes=stored.size_bytes,
+                        audio_duration_seconds=stt_result.duration_seconds,
+                        stt_latency_ms=timings.get("stt_ms"),
+                        llm_latency_ms=timings.get("llm_ms"),
+                        tts_latency_ms=timings.get("tts_ms"),
+                        metadata_extra={
+                            "agent": payload["agent"],
+                            "stt_language": stt_result.language,
+                            "stt_language_confidence": stt_result.language_confidence,
+                            "tts_status": tts_status,
+                            "tts_unavailable": tts_unavailable,
+                            "llm_used": bool(action_result.get("llm_used")),
+                            "fallback_used": bool(action_result.get("fallbackUsed") or action_result.get("fallback_used")),
+                        },
+                    )
+                    return JSONResponse(status_code=200, content=content)
             except asyncio.CancelledError:
                 log_event("voice.v2.cancelled", metadata={"request_id": resolved_request_id})
-                return JSONResponse(status_code=200, content=_voice_error_with_request_id("audio_cancelled", resolved_request_id, language=language_hint))
+                return _voice_error_response(
+                    "audio_cancelled",
+                    resolved_request_id,
+                    None,
+                    request_started,
+                    language=language_hint,
+                    context=context,
+                    audio_size_bytes=stored.size_bytes if stored else None,
+                )
             except Exception as exc:  # noqa: BLE001
                 log_error("voice.v2.unhandled", exc)
-                return JSONResponse(status_code=500, content=_voice_error_with_request_id("audio_processing_failed", resolved_request_id, language=language_hint))
+                return _voice_error_response(
+                    "audio_processing_failed",
+                    resolved_request_id,
+                    None,
+                    request_started,
+                    language=language_hint,
+                    status_code=500,
+                    context=context,
+                    audio_size_bytes=stored.size_bytes if stored else None,
+                    exception=exc,
+                )
             finally:
                 processor.cleanup(stored)
     finally:
@@ -409,9 +519,41 @@ async def _safe_generate_tts(
         return None
 
 
-def _voice_error_with_request_id(code: str, request_id: str, *, language: str | None = None) -> dict[str, Any]:
+def _voice_error_with_request_id(
+    code: str,
+    request_id: str,
+    *,
+    language: str | None = None,
+    timings: dict[str, float] | None = None,
+) -> dict[str, Any]:
     payload = voice_error_payload(code, language=language)
-    payload["data"] = {"request_id": request_id, "requestId": request_id}
+    resolved_timings = _finalize_voice_timings(timings or {})
+    if code == "stt_timeout":
+        message = "La transcription a pris trop de temps. Veuillez réessayer avec un message plus court."
+        return {
+            "success": False,
+            "error": "STT_TIMEOUT",
+            "error_code": "STT_TIMEOUT",
+            "message": message,
+            "data": {
+                "request_id": request_id,
+                "requestId": request_id,
+                "correlation_id": request_id,
+                "correlationId": request_id,
+                "timings": resolved_timings,
+                "warnings": ["STT_TIMEOUT"],
+            },
+            "timings": resolved_timings,
+            "warnings": ["STT_TIMEOUT"],
+        }
+    payload["data"] = {
+        "request_id": request_id,
+        "requestId": request_id,
+        "correlation_id": request_id,
+        "correlationId": request_id,
+        "timings": resolved_timings,
+        "warnings": [code],
+    }
     error = payload.get("error")
     if isinstance(error, dict):
         details = error.setdefault("details", {})
@@ -419,3 +561,96 @@ def _voice_error_with_request_id(code: str, request_id: str, *, language: str | 
             details["request_id"] = request_id
             details["requestId"] = request_id
     return payload
+
+
+def _voice_error_response(
+    code: str,
+    request_id: str,
+    stt_result: Any,
+    request_started: float,
+    *,
+    language: str | None = None,
+    timings: dict[str, float] | None = None,
+    status_code: int = 200,
+    context: CurrentUserContext | None = None,
+    audio_size_bytes: int | None = None,
+    exception: BaseException | None = None,
+) -> JSONResponse:
+    resolved_timings = _finalize_voice_timings(timings or {}, request_started=request_started)
+    duration_seconds = float(getattr(stt_result, "duration_seconds", 0.0) or 0.0) if stt_result is not None else 0.0
+    _log_voice_request_summary(
+        request_id=request_id,
+        duration_seconds=duration_seconds,
+        timings=resolved_timings,
+        success=False,
+        error_code="STT_TIMEOUT" if code == "stt_timeout" else code,
+    )
+    transcription = ""
+    if stt_result is not None:
+        transcription = str(getattr(stt_result, "cleaned_text", None) or getattr(stt_result, "raw_text", None) or "")
+    log_voice_interaction(
+        transcription=transcription,
+        output_text="",
+        model=get_settings().ollama_model,
+        role=context.role if context is not None else None,
+        language=language,
+        tenant_id=context.tenant_id if context is not None else None,
+        company_id=context.entreprise_id if context is not None else None,
+        user_id=context.user_id if context is not None else None,
+        latency_ms=resolved_timings.get("total_ms"),
+        status="error",
+        error_type=exception.__class__.__name__ if exception is not None else ("TimeoutError" if code == "stt_timeout" else "VoicePipelineError"),
+        error_message=str(exception) if exception is not None else code,
+        request_id=request_id,
+        audio_size_bytes=audio_size_bytes,
+        audio_duration_seconds=duration_seconds,
+        stt_latency_ms=resolved_timings.get("stt_ms"),
+        llm_latency_ms=resolved_timings.get("llm_ms"),
+        tts_latency_ms=resolved_timings.get("tts_ms"),
+        metadata_extra={
+            "voice_error_code": "STT_TIMEOUT" if code == "stt_timeout" else code,
+            "stt_status": getattr(stt_result, "status", None) if stt_result is not None else "unknown",
+            "stt_language": getattr(stt_result, "language", None) if stt_result is not None else language,
+            "stt_language_confidence": getattr(stt_result, "language_confidence", None) if stt_result is not None else None,
+        },
+    )
+    return JSONResponse(
+        status_code=status_code,
+        content=_voice_error_with_request_id(code, request_id, language=language, timings=resolved_timings),
+    )
+
+
+def _finalize_voice_timings(
+    timings: dict[str, float],
+    *,
+    request_started: float | None = None,
+) -> dict[str, float]:
+    resolved = dict(timings or {})
+    if request_started is not None:
+        resolved["total_request_ms"] = round((perf_counter() - request_started) * 1000, 2)
+    resolved.setdefault("stt_ms", float(resolved.get("stt_service_ms") or resolved.get("whisper_ms") or 0.0))
+    resolved.setdefault("llm_ms", float(resolved.get("agent_ms") or 0.0))
+    resolved.setdefault("tts_ms", float(resolved.get("tts_generation_ms") or 0.0))
+    resolved.setdefault("total_ms", float(resolved.get("total_request_ms") or resolved.get("total_voice_processing_ms") or 0.0))
+    return resolved
+
+
+def _log_voice_request_summary(
+    *,
+    request_id: str,
+    duration_seconds: float,
+    timings: dict[str, float],
+    success: bool,
+    error_code: str | None,
+) -> None:
+    logger.info(
+        "voice_request_summary request_id=%s duration_seconds=%.3f stt_ms=%.2f llm_ms=%.2f tts_ms=%.2f total_ms=%.2f success=%s error_code=%s",
+        request_id,
+        float(duration_seconds or 0.0),
+        float(timings.get("stt_ms") or 0.0),
+        float(timings.get("llm_ms") or 0.0),
+        float(timings.get("tts_ms") or 0.0),
+        float(timings.get("total_ms") or 0.0),
+        bool(success),
+        error_code or "",
+    )

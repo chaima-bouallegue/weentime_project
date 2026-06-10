@@ -273,8 +273,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       next: (response) => {
         const list = (response.anomalies || [])
           .filter(a => !!a)
-          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-          .slice(0, 8);
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
         this.globalAnomalies.set(list);
         this.globalError.set(!response.success);
         this.globalDemo.set(Boolean(response.isDemo));
@@ -289,6 +288,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadAnomalies(): void {
+    this.loadGlobalAnomalies();
+  }
+
+  refreshData(): void {
+    if (this.refreshing()) return;
+    this.loadAll();
     this.loadGlobalAnomalies();
   }
 
@@ -307,7 +312,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
 
     forkJoin({
-      users: this.api.getUsers(0, 200, undefined, undefined, undefined, undefined, undefined, { silent: true }).pipe(catchError(() => of(empty<AdminUser>(200)))),
+      users: this.api.getUsers(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminUser>(200)))),
       entreprises: this.api.getEntreprises(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminEntreprise>(200)))),
       roles: this.api.getRoles({ silent: true }).pipe(catchError(() => of([] as AdminRole[]))),
       requests: this.api.getRequests(0, 100, {}, { silent: true }).pipe(catchError(() => of(empty<AdminRequest>(100)))),

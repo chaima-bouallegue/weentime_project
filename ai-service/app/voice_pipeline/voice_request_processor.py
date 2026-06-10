@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -28,6 +29,7 @@ class VoiceProcessorResult:
     stt: VoiceProcessingResult
     stored_audio: StoredAudio
     detected_language: str
+    timings: dict[str, float] = field(default_factory=dict)
 
 
 class VoiceRequestProcessor:
@@ -44,6 +46,7 @@ class VoiceRequestProcessor:
         context: CurrentUserContext,
         language_hint: str | None = None,
     ) -> VoiceProcessorResult:
+        total_started = perf_counter()
         audio_store_started = perf_counter()
         with start_span("voice.audio.store", {"content_type": upload.content_type}):
             stored = await self.store_upload(upload)
@@ -107,9 +110,28 @@ class VoiceRequestProcessor:
                 },
             )
         with start_span("voice.language.detect", {"stt_language": stt_result.language, "language_hint": language_hint}):
-            detected_language = self._resolve_language(transcript, stt_result.language, language_hint)
+            detected_language = self._resolve_language(
+                transcript,
+                stt_result.language,
+                language_hint,
+                stt_result.language_confidence,
+                preferred_languages=getattr(self.settings, "voice_preferred_languages", ["fr", "ar", "en"]),
+            )
 
-        return VoiceProcessorResult(stt=stt_result, stored_audio=stored, detected_language=detected_language)
+        timings: dict[str, float] = {}
+        stt_timings = stt_result.details.get("timings") if isinstance(stt_result.details, dict) else None
+        if isinstance(stt_timings, dict):
+            timings.update({str(key): float(value) for key, value in stt_timings.items() if isinstance(value, (int, float))})
+        timings["audio_store_ms"] = audio_store_duration_ms
+        timings["stt_service_ms"] = stt_duration_ms
+        timings["stt_ms"] = stt_duration_ms
+        timings["total_voice_processing_ms"] = round((perf_counter() - total_started) * 1000, 2)
+        return VoiceProcessorResult(
+            stt=stt_result,
+            stored_audio=stored,
+            detected_language=detected_language,
+            timings=timings,
+        )
 
     async def store_upload(self, upload: UploadFile) -> StoredAudio:
         request_id = uuid.uuid4().hex
@@ -118,7 +140,7 @@ class VoiceRequestProcessor:
         suffix = Path(upload.filename or "audio.webm").suffix or ".webm"
         target = directory / f"input{suffix}"
         payload = await upload.read()
-        target.write_bytes(payload)
+        await asyncio.to_thread(target.write_bytes, payload)
         return StoredAudio(path=target, directory=directory, size_bytes=len(payload))
 
     async def generate_tts(self, text: str, *, language: str | None = None) -> str | None:
@@ -139,6 +161,7 @@ class VoiceRequestProcessor:
                 "status": "generated" if audio_path else "skipped",
                 "detected_language": language,
                 "cleaned_empty": False,
+                "tts_generation_ms": tts_duration_ms,
             },
         )
         record_voice_event(
@@ -157,19 +180,31 @@ class VoiceRequestProcessor:
             shutil.rmtree(stored.directory, ignore_errors=True)
 
     @staticmethod
-    def _resolve_language(transcript: str, stt_language: str | None, language_hint: str | None) -> str:
+    def _resolve_language(
+        transcript: str,
+        stt_language: str | None,
+        language_hint: str | None,
+        language_confidence: float = 0.0,
+        *,
+        preferred_languages: list[str] | None = None,
+    ) -> str:
+        preferred = [_canonical_voice_language(item) for item in (preferred_languages or ["fr", "ar", "en"])]
+        preferred = [item for item in preferred if item]
         transcript_language = detect_language(transcript)
         if transcript_language in {"tn", "ar"}:
             return transcript_language
 
         stt_detected = _canonical_voice_language(stt_language)
-        if stt_detected:
+        confidence = float(language_confidence or 0.0)
+        if transcript_language == "fr" and (confidence < 0.70 or stt_detected in {None, "fr", "en"}):
+            return "fr"
+        if stt_detected and confidence >= 0.70:
             return resolve_response_language(transcript, {"language": stt_detected}, stt_language=stt_detected)
 
         hinted = _canonical_voice_language(language_hint)
         if hinted:
             return resolve_response_language(transcript, {"language": hinted}, stt_language=hinted)
-        return transcript_language
+        return transcript_language if transcript_language in {"fr", "en", "ar", "tn"} else (preferred[0] or "fr")
 
 
 def _canonical_voice_language(value: str | None) -> str | None:

@@ -50,31 +50,27 @@ class SharedTableSchemaCompatibilityDataJpaTest {
     private DemandeRepository demandeRepository;
 
     @Test
-    void sharedEntitiesRemainEnterpriseAgnostic() {
-        assertThat(fieldNames(TypeConge.class)).doesNotContain("entrepriseId", "enterpriseId");
-        assertThat(fieldNames(TypeDocument.class)).doesNotContain("entrepriseId", "enterpriseId");
-        assertThat(fieldNames(TypeAutorisation.class)).doesNotContain("entrepriseId", "enterpriseId");
-        assertThat(fieldNames(SoldeConge.class)).doesNotContain("entrepriseId", "enterpriseId");
+    void rhReferenceEntitiesCarryEntrepriseScope() {
+        assertThat(fieldNames(TypeConge.class)).contains("entrepriseId");
+        assertThat(fieldNames(TypeDocument.class)).contains("entrepriseId");
+        assertThat(fieldNames(TypeAutorisation.class)).contains("entrepriseId");
+        assertThat(fieldNames(SoldeConge.class)).contains("entrepriseId");
     }
 
     @Test
-    void sharedRepositoriesDoNotExposeEntrepriseScopedQueries() {
+    void tenantRepositoriesExposeEntrepriseScopedQueries() {
         assertThat(methodNames(TypeCongeRepository.class))
-                .noneMatch(this::containsEnterpriseScope);
-        assertThat(methodNames(TypeDocumentRepository.class))
-                .noneMatch(this::containsEnterpriseScope);
-        assertThat(methodNames(TypeAutorisationRepository.class))
-                .noneMatch(this::containsEnterpriseScope);
+                .anyMatch(this::containsEnterpriseScope);
         assertThat(methodNames(SoldeCongeRepository.class))
-                .noneMatch(this::containsEnterpriseScope);
+                .contains("findByUtilisateurIdAndAnnee");
     }
 
     @Test
-    void generatedSchemaKeepsSharedTablesEnterpriseAgnosticAndDemandesScoped() {
-        assertThat(hasColumn("type_conges", "entreprise_id")).isFalse();
-        assertThat(hasColumn("type_documents", "entreprise_id")).isFalse();
-        assertThat(hasColumn("type_autorisations", "entreprise_id")).isFalse();
-        assertThat(hasColumn("solde_conges", "entreprise_id")).isFalse();
+    void generatedSchemaKeepsRhReferenceAndDemandesTablesScoped() {
+        assertThat(hasColumn("type_conges", "entreprise_id")).isTrue();
+        assertThat(hasColumn("type_documents", "entreprise_id")).isTrue();
+        assertThat(hasColumn("type_autorisations", "entreprise_id")).isTrue();
+        assertThat(hasColumn("solde_conges", "entreprise_id")).isTrue();
 
         assertThat(hasColumn("demandes", "entreprise_id")).isTrue();
     }
@@ -126,6 +122,25 @@ class SharedTableSchemaCompatibilityDataJpaTest {
                 .contains(solde);
         assertThat(soldeCongeRepository.findByUtilisateurIdAndAnnee(22L, 2026))
                 .containsExactly(solde);
+    }
+
+    @Test
+    void typeCongeTenantListUsesSameEntrepriseScopeAsDuplicateValidation() {
+        typeCongeRepository.saveAndFlush(TypeConge.builder()
+                .entrepriseId(13L)
+                .libelle("Maladie")
+                .build());
+        typeCongeRepository.saveAndFlush(TypeConge.builder()
+                .entrepriseId(99L)
+                .libelle("Congé maternité")
+                .build());
+        typeCongeRepository.saveAndFlush(TypeConge.builder()
+                .libelle("Congé maternité")
+                .build());
+
+        assertThat(typeCongeRepository.findAllByEntrepriseId(13L))
+                .extracting(TypeConge::getLibelle)
+                .containsExactly("Maladie");
     }
 
     @Test

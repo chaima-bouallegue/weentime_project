@@ -29,4 +29,6 @@ public interface PresenceService {
     void autoCloseOpenSessions();
     void detectMissingCheckIns();
     java.util.Map<java.time.LocalDate, TeamStatusResponse> getStatusRange(Long entrepriseId, Long teamId, java.time.LocalDate start, java.time.LocalDate end);
+    java.util.Map<java.time.LocalDate, TeamStatusResponse> getCompanyStatusRange(Long rhUserId, java.time.LocalDate start, java.time.LocalDate end);
+    java.util.Map<java.time.LocalDate, TeamStatusResponse> getTeamStatusRange(Long managerId, Long teamId, java.time.LocalDate start, java.time.LocalDate end);
 }

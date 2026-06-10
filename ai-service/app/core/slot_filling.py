@@ -5,6 +5,16 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.agents.authorization_agent import _infer_authorization_type, _infer_reason
+from app.agents.document_request_flow import (
+    document_label,
+    infer_document_type,
+    is_payslip_type,
+    localized_confirmation_text,
+    localized_document_type_question,
+    localized_month_question,
+    normalize_document_type,
+    parse_month_reference,
+)
 from app.agents.leave_planner import LeaveRiskAnalyzer
 from app.agents.organisation_agent import (
     _DEPT_TERMS,
@@ -143,7 +153,7 @@ async def continue_pending_flow(
         analysis = await LeaveRiskAnalyzer(executor).analyze(tool_input, context)
     record = confirmation_store.create(context, tool_name, tool_input)
     store.clear(context, session_id)
-    text = _confirmation_text(flow.intent, tool_input, analysis)
+    text = _confirmation_text(flow.intent, tool_input, analysis, language=flow.language)
     return AgentResponse(
         type="confirm_action",
         text=text,
@@ -213,7 +223,7 @@ def _merge_flow_fields(flow: PendingConversationFlow, message: str, context: Cur
     elif flow.intent == "telework.create":
         _merge_telework_fields(fields, payload, original)
     elif flow.intent == "document.create":
-        _merge_document_fields(fields, payload, original)
+        _merge_document_fields(fields, payload, original, context)
     elif flow.intent == "rh.document_generate":
         _merge_rh_document_generation_fields(fields, original)
 
@@ -325,11 +335,25 @@ def _merge_authorization_fields(fields: dict[str, Any], payload: dict[str, Any],
         fields["reason"] = original
 
 
-def _merge_document_fields(fields: dict[str, Any], payload: dict[str, Any], original: str) -> None:
+def _merge_document_fields(fields: dict[str, Any], payload: dict[str, Any], original: str, context: CurrentUserContext) -> None:
     fields["raw_last_message"] = original
-    for key in ("document_type", "month"):
-        if payload.get(key):
-            fields[key] = payload[key]
+    fields.setdefault("user_id", context.user_id)
+    fields.setdefault("entreprise_id", context.entreprise_id or context.tenant_id)
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    fields.setdefault("source", metadata.get("channel") or "chat")
+
+    waiting_for_payslip_month = is_payslip_type(fields.get("document_type")) and not fields.get("month")
+    document_type = normalize_document_type(payload.get("document_type")) or infer_document_type(original)
+    if document_type:
+        fields["document_type"] = document_type
+
+    month = parse_month_reference(payload.get("month")) or parse_month_reference(original)
+    if month:
+        fields["month"] = month
+        fields.pop("month_parse_failed", None)
+    elif waiting_for_payslip_month and original.strip() and not infer_document_type(original):
+        fields["month_parse_failed"] = True
+
     if payload.get("reason"):
         fields["reason"] = payload["reason"]
 
@@ -377,6 +401,8 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
         missing = []
         if not fields.get("document_type"):
             missing.append("type")
+        elif is_payslip_type(fields.get("document_type")) and not fields.get("month"):
+            missing.append("month")
         return missing
     if flow.intent == "rh.document_generate":
         missing = []
@@ -429,7 +455,9 @@ def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow
         return "Pouvez-vous preciser cette information ?"
     if intent == "document.create":
         if field == "type":
-            return "Quel type de document souhaitez-vous demander ? Par exemple: attestation de travail, bulletin de paie ou contrat."
+            return localized_document_type_question(flow.language)
+        if field == "month":
+            return localized_month_question(flow.language, invalid=flow.collected_fields.get("month_parse_failed") is True)
         return "Pouvez-vous preciser cette information ?"
     if intent == "rh.document_generate":
         if field == "type":
@@ -518,31 +546,49 @@ def _tool_input(flow: PendingConversationFlow) -> dict[str, Any]:
 
 
 def _slot_result(flow: PendingConversationFlow, *, status: str = "pending") -> dict[str, Any]:
+    pending_flow = {
+        "intent": flow.intent,
+        "pendingIntent": flow.intent,
+        "agent": flow.agent,
+        "status": status,
+        "collectedFields": dict(flow.collected_fields),
+        "filledSlots": dict(flow.collected_fields),
+        "missingFields": list(flow.missing_fields),
+        "requiredSlots": list(flow.missing_fields),
+        "lastQuestion": flow.last_question,
+        "language": flow.language,
+        "role": flow.role,
+        "currentPage": flow.current_page,
+        "lastAction": flow.last_action,
+    }
+    if flow.intent == "document.create":
+        document_type = flow.collected_fields.get("document_type")
+        pending_flow.update(
+            {
+                "documentType": document_type,
+                "documentLabel": document_label(document_type),
+                "month": flow.collected_fields.get("month"),
+                "moisConcerne": flow.collected_fields.get("month"),
+                "motif": flow.collected_fields.get("reason"),
+                "userId": flow.collected_fields.get("user_id"),
+                "entrepriseId": flow.collected_fields.get("entreprise_id"),
+                "source": flow.collected_fields.get("source"),
+            }
+        )
     return {
         "kind": "slot_filling",
-        "pendingFlow": {
-            "intent": flow.intent,
-            "pendingIntent": flow.intent,
-            "agent": flow.agent,
-            "status": status,
-            "collectedFields": dict(flow.collected_fields),
-            "filledSlots": dict(flow.collected_fields),
-            "missingFields": list(flow.missing_fields),
-            "requiredSlots": list(flow.missing_fields),
-            "lastQuestion": flow.last_question,
-            "language": flow.language,
-            "role": flow.role,
-            "currentPage": flow.current_page,
-            "lastAction": flow.last_action,
-        },
+        "pendingFlow": pending_flow,
     }
 
 
 def _confirmation_result(flow: PendingConversationFlow, tool_input: dict[str, Any], analysis: dict[str, Any] | None) -> dict[str, Any]:
     if flow.intent == "document.create":
+        document_type = tool_input.get("document_type")
         summary: dict[str, Any] = {
-            "type": tool_input.get("document_type"),
+            "type": document_type,
+            "documentLabel": document_label(document_type),
             "month": tool_input.get("month"),
+            "moisConcerne": tool_input.get("month"),
             "motif": tool_input.get("reason"),
         }
     elif flow.intent.startswith("organisation.") or flow.intent.startswith("rh.structure."):
@@ -571,7 +617,7 @@ def _confirmation_result(flow: PendingConversationFlow, tool_input: dict[str, An
     return result
 
 
-def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[str, Any] | None) -> str:
+def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[str, Any] | None, *, language: Any = None) -> str:
     if intent == "leave.create":
         base = f"Confirmez-vous cette demande de conge {tool_input.get('leave_type_label') or ''} pour le {tool_input.get('start_date')} ?"
         return LeaveRiskAnalyzer.build_confirmation_text(base, analysis)
@@ -582,7 +628,7 @@ def _confirmation_text(intent: str, tool_input: dict[str, Any], analysis: dict[s
         date_label = tool_input.get("start_date") or "la date demandee"
         return f"Confirmez-vous cette demande de teletravail ({type_label}) pour le {date_label} ?"
     if intent == "document.create":
-        return f"Voulez-vous confirmer la demande de {_document_label(tool_input.get('document_type'))} ?"
+        return localized_confirmation_text(tool_input.get("document_type"), tool_input.get("month"), language)
     if intent in {"organisation.create_team", "rh.structure.team.create"}:
         return (
             f"Confirmez-vous la creation de l'equipe '{tool_input.get('nom')}' "

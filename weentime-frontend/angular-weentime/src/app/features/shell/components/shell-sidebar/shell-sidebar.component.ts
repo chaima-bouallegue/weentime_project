@@ -30,7 +30,9 @@ import {
   BarChart,
   Shield,
   MessageSquare,
-  Search
+  Search,
+  ShieldAlert,
+  TrendingUp
 } from 'lucide-angular';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LogoComponent } from '../../../../shared/components/logo/logo.component';
@@ -104,6 +106,8 @@ export class ShellSidebarComponent {
   readonly iconShield = Shield;
   readonly iconMessageSquare = MessageSquare;
   readonly iconSearch = Search;
+  readonly iconShieldAlert = ShieldAlert;
+  readonly iconTrendingUp = TrendingUp;
 
   collapsed = signal(false);
   mobileOpen = signal(false);
@@ -146,6 +150,7 @@ export class ShellSidebarComponent {
         { id: 'manager-equipe', label: 'Equipe', icon: 'users', route: `${base}/equipe` },
         { id: 'manager-pointage', label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
         { id: 'manager-presence', label: 'Presence', icon: 'clipboard-list', route: `${base}/presence` },
+        { id: 'manager-forecast', label: 'Prevision RH', icon: 'trending-up', route: `${base}/forecast` },
         { id: 'manager-horaires', label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
         { id: 'manager-autorisations', label: 'Autorisations', icon: 'timer', route: `${base}/autorisations` },
         { id: 'manager-teletravail', label: 'Teletravail', icon: 'laptop', route: `${base}/teletravail` },
@@ -157,6 +162,7 @@ export class ShellSidebarComponent {
     if (role === 'RH') {
       items.push(
         { id: 'rh-analytics', label: 'Analytics', icon: 'bar-chart', route: `${base}/analytics` },
+        { id: 'rh-forecast', label: 'Prevision RH', icon: 'trending-up', route: `${base}/forecast` },
         { id: 'rh-planning', label: 'Calendrier Global', icon: 'calendar', route: `${base}/planning` },
         { id: 'rh-recrutement', label: 'Recrutement', icon: 'search', route: `${base}/recrutement` },
         { id: 'rh-structure', label: 'Structure', icon: 'network', route: `${base}/structure` },
@@ -176,6 +182,8 @@ export class ShellSidebarComponent {
         { id: 'admin-users', label: 'Utilisateurs', icon: 'users', route: `${base}/users` },
         { id: 'admin-roles', label: 'Roles', icon: 'shield', route: `${base}/roles` },
         { id: 'admin-entreprises', label: 'Entreprises', icon: 'building', route: `${base}/entreprises` },
+        { id: 'admin-anomalies', label: 'Anomalies IA', icon: 'shield-alert', route: `${base}/anomalies` },
+        { id: 'admin-forecast', label: 'Prevision RH', icon: 'trending-up', route: `${base}/forecast` },
         { id: 'admin-rh-owners', label: 'Gestionnaires RH', icon: 'user-cog', route: `${base}/rh-owners` },
         { id: 'admin-parametres', label: 'Parametres', icon: 'settings', route: `${base}/parametres` }
       );
@@ -193,8 +201,8 @@ export class ShellSidebarComponent {
 
     const principalIds = ['dashboard', 'messages', 'reunions'];
     const gestionIds = [
-      'rh-analytics', 'rh-planning', 'rh-recrutement', 'rh-structure', 
-      'manager-equipe', 'rh-employes', 'employee-conges', 'rh-conges', 
+      'rh-analytics', 'rh-forecast', 'rh-planning', 'rh-recrutement', 'rh-structure', 
+      'manager-equipe', 'manager-forecast', 'rh-employes', 'employee-conges', 'rh-conges', 
       'employee-teletravail', 'manager-teletravail', 'rh-teletravail', 
       'employee-documents', 'manager-documents', 'rh-documents', 
       'manager-approbations'
@@ -344,6 +352,8 @@ export class ShellSidebarComponent {
       case 'bell': return this.iconBell;
       case 'bar-chart': return this.iconBarChart;
       case 'shield': return this.iconShield;
+      case 'shield-alert': return this.iconShieldAlert;
+      case 'trending-up': return this.iconTrendingUp;
       case 'message-square': return this.iconMessageSquare;
       case 'search': return this.iconSearch;
       default: return this.iconUser;

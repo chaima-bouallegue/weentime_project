@@ -25,6 +25,26 @@ def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def decode_jwt_claims(token: str | None) -> dict[str, Any]:
+    """Decode JWT claims without verifying the signature.
+
+    Spring/gateway remains the source of token validity. The ML service uses
+    this only to infer role and tenant scope for downstream calls.
+    """
+    if not token:
+        return {}
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return {}
+        payload_b = parts[1]
+        padding = "=" * (-len(payload_b) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload_b + padding))
+    except Exception:
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
 def decode_jwt_roles(token: str | None) -> list[str]:
     """Read role claims from a JWT WITHOUT verifying the signature.
 
@@ -32,16 +52,8 @@ def decode_jwt_roles(token: str | None) -> list[str]:
     validates the token. Tolerates both ``roles: [...]``, ``role: "..."`` and
     a Spring-style ``authorities`` claim. Returns upper-cased role strings.
     """
-    if not token:
-        return []
-    try:
-        parts = token.split(".")
-        if len(parts) < 2:
-            return []
-        payload_b = parts[1]
-        padding = "=" * (-len(payload_b) % 4)
-        claims = json.loads(base64.urlsafe_b64decode(payload_b + padding))
-    except Exception:  # malformed token -> no roles, caller falls back to default
+    claims = decode_jwt_claims(token)
+    if not claims:
         return []
 
     roles: list[str] = []
@@ -151,20 +163,21 @@ class WeenTimeBackendClient:
 
         if response.status_code >= 400:
             logger.warning(
-                "backend GET %s -> %d body=%s", url, response.status_code, response.text[:500]
+                "backend GET %s -> %d",
+                url,
+                response.status_code,
             )
             return {
                 "success": False,
                 "error": "backend_error",
                 "status_code": response.status_code,
-                "body": response.text[:500],
             }
         try:
             payload = response.json()
         except ValueError:
-            logger.warning("backend GET %s -> 200 but invalid JSON: %s", url, response.text[:300])
-            return {"success": False, "error": "invalid_json", "body": response.text[:500]}
+            logger.warning("backend GET %s -> 200 but invalid JSON", url)
+            return {"success": False, "error": "invalid_json"}
         if logger.isEnabledFor(logging.DEBUG):
             keys = list(payload.keys()) if isinstance(payload, dict) else f"list[{len(payload)}]"
-            logger.debug("backend GET %s -> 200 keys=%s sample=%s", url, keys, str(payload)[:300])
+            logger.debug("backend GET %s -> 200 keys=%s", url, keys)
         return payload

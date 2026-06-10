@@ -17,10 +17,17 @@
       <span>Horaire du jour</span>
       <strong>{{ scheduleLabel() }}</strong>
     </div>
-    <div class="context-item">
+    <div class="context-item" *ngIf="!isOutOfSchedulePointage(); else outOfScheduleStatus">
       <span>Heures supplementaires</span>
       <strong>{{ overtimePreviewLabel() }}</strong>
     </div>
+    <ng-template #outOfScheduleStatus>
+      <div class="context-item">
+        <span>Statut pointage</span>
+        <strong>{{ outOfScheduleLabel() }}</strong>
+        <small>Heures supplementaires: 0 min</small>
+      </div>
+    </ng-template>
     <div class="context-item">
       <span>Localisation</span>
       <strong *ngIf="latestLocationLabel(); else gpsStatusText">📍 {{ latestLocationLabel() }}</strong>

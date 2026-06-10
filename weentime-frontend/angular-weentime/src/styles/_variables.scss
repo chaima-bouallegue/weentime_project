@@ -1,0 +1,27 @@
+// ═══════════════════════════════════════════════════════════
+//  WeenTime — Brand Design Tokens
+//  Single source of truth for the dashboard redesign.
+//  Derived from the WeenTime logo palette.
+// ═══════════════════════════════════════════════════════════
+
+// ─── Brand ───────────────────────────────────────────────────
+$color-primary:     #6B5DD3; // indigo-violet
+$color-accent:      #E040A0; // fuchsia-pink (use sparingly)
+
+// ─── Surfaces & text ─────────────────────────────────────────
+$color-bg-page:     #F5F5F8;
+$color-surface:     #FFFFFF;
+$color-text:        #1A1A2E;
+$color-text-muted:  #6B7280;
+$color-border:      #E5E7EB;
+
+// ─── Semantic ────────────────────────────────────────────────
+$color-success:     #10B981;
+$color-warning:     #F59E0B;
+$color-danger:      #EF4444;
+$color-info:        #3B82F6;
+
+// ─── Shape & elevation ───────────────────────────────────────
+$radius-card:       12px;
+$radius-btn:        8px;
+$shadow-card:       0 1px 3px rgba(0, 0, 0, 0.05);

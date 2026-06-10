@@ -8,12 +8,32 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes.anomaly_routes import router as anomaly_router
+from app.api.v1.routes.forecast_routes import router as forecast_router
 from app.api.v1.routes.health_routes import router as health_router
 from app.approval_ai.routes.approval_routes import router as approval_router
 from app.core.config import get_settings
 from app.inference.anomaly_detector import get_detector
+from app.observability import flush_braintrust, init_braintrust
 
 logger = logging.getLogger(__name__)
+
+_CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+_CORS_HEADERS = [
+    "Authorization",
+    "Content-Type",
+    "Accept",
+    "Origin",
+    "X-Requested-With",
+    "X-User-Id",
+    "X-User-Role",
+    "X-Role",
+    "X-Tenant-Id",
+    "X-Entreprise-Id",
+    "X-Company-Id",
+    "X-Dashboard-Scope",
+    "X-Current-Page",
+    "X-Agent-Role",
+]
 
 
 def configure_logging(level: str) -> None:
@@ -28,12 +48,16 @@ async def lifespan(_: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
     logger.info("starting %s on port %d", settings.app_name, settings.port)
+    init_braintrust()
     try:
         await get_detector().initialize()
     except Exception:  # pragma: no cover - startup robustness
         logger.exception("detector initialization failed -- continuing in degraded mode")
-    yield
-    logger.info("shutting down %s", settings.app_name)
+    try:
+        yield
+    finally:
+        flush_braintrust()
+        logger.info("shutting down %s", settings.app_name)
 
 
 def create_app() -> FastAPI:
@@ -47,11 +71,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=_CORS_METHODS,
+        allow_headers=_CORS_HEADERS,
     )
     app.include_router(health_router, prefix="/api/ml")
     app.include_router(anomaly_router)
+    app.include_router(forecast_router)
     app.include_router(approval_router)
 
     @app.get("/")

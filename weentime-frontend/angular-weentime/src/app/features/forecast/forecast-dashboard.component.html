@@ -1,0 +1,294 @@
+<section class="forecast-page">
+  <header class="forecast-header">
+    <div>
+      <p class="eyebrow">Intelligence RH</p>
+      <h1>Prevision absences & conges</h1>
+      <p class="subtitle">Anticipation operationnelle par periode, equipe et niveau de risque.</p>
+    </div>
+    <button type="button" class="icon-button primary" (click)="load()" [disabled]="isLoading()" title="Actualiser">
+      <lucide-angular [img]="iconRefresh" size="18" [class.spin]="isLoading()"></lucide-angular>
+      <span>Actualiser</span>
+    </button>
+  </header>
+
+  <section class="forecast-toolbar" aria-label="Filtres de prevision">
+    <label>
+      <span>Periode</span>
+      <select [ngModel]="period()" (ngModelChange)="updatePeriod($event)">
+        <option value="next_week">7 jours</option>
+        <option value="next_30_days">30 jours</option>
+        <option value="next_month">Mois suivant</option>
+        <option value="next_90_days">90 jours</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Departement</span>
+      <input
+        type="number"
+        min="1"
+        inputmode="numeric"
+        [ngModel]="departmentId()"
+        (ngModelChange)="departmentId.set($event)"
+        placeholder="ID"
+      />
+    </label>
+
+    <label>
+      <span>Equipe</span>
+      <input
+        type="number"
+        min="1"
+        inputmode="numeric"
+        [ngModel]="teamId()"
+        (ngModelChange)="teamId.set($event)"
+        placeholder="ID"
+      />
+    </label>
+
+    <label>
+      <span>Type</span>
+      <select [ngModel]="typeFilter()" (ngModelChange)="updateTypeFilter($event)">
+        <option value="all">Tous</option>
+        <option value="absences">Absences</option>
+        <option value="leaves">Conges</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Risque</span>
+      <select [ngModel]="riskFilter()" (ngModelChange)="updateRiskFilter($event)">
+        <option value="ALL">Tous</option>
+        <option value="LOW">Faible</option>
+        <option value="MEDIUM">Moyen</option>
+        <option value="HIGH">Eleve</option>
+        <option value="CRITICAL">Critique</option>
+      </select>
+    </label>
+
+    <div class="toolbar-actions">
+      <button type="button" class="icon-button" (click)="applyFilters()" [disabled]="isLoading()" title="Appliquer">
+        <lucide-angular [img]="iconFilter" size="17"></lucide-angular>
+        <span>Filtrer</span>
+      </button>
+      <button type="button" class="icon-button ghost" (click)="resetFilters()" [disabled]="isLoading()" title="Reinitialiser">
+        <lucide-angular [img]="iconSearch" size="17"></lucide-angular>
+        <span>Reset</span>
+      </button>
+    </div>
+  </section>
+
+  @if (dataQuality()?.fallbackUsed || error()) {
+    <section class="quality-strip" [class.danger]="!!error() || dataQuality()?.status === 'UNAVAILABLE'">
+      <lucide-angular [img]="iconWarning" size="18"></lucide-angular>
+      <span>{{ qualityMessage() }}</span>
+      @if (error()) {
+        <button type="button" class="retry-button" (click)="load()" [disabled]="isLoading()">
+          <lucide-angular [img]="iconRefresh" size="16"></lucide-angular>
+          <span>Réessayer</span>
+        </button>
+      } @else {
+        <strong>{{ dataQuality()?.historicalDays || 0 }} jours historiques</strong>
+      }
+    </section>
+  }
+
+  @if (isLoading()) {
+    <section class="metric-grid">
+      @for (item of [1,2,3,4,5]; track item) {
+        <div class="metric-card skeleton"></div>
+      }
+    </section>
+  } @else if (hasForecastData()) {
+    @if (summary(); as summary) {
+      <section class="metric-grid">
+        <article class="metric-card absence">
+          <div class="metric-icon"><lucide-angular [img]="iconAbsence" size="20"></lucide-angular></div>
+          <div>
+            <span>Absences prevues</span>
+            <strong>{{ summary.predictedAbsences | number:'1.0-1' }}</strong>
+          </div>
+        </article>
+
+        <article class="metric-card leave">
+          <div class="metric-icon"><lucide-angular [img]="iconLeave" size="20"></lucide-angular></div>
+          <div>
+            <span>Conges prevus</span>
+            <strong>{{ summary.predictedLeaves | number:'1.0-1' }}</strong>
+          </div>
+        </article>
+
+        <article class="metric-card presence">
+          <div class="metric-icon"><lucide-angular [img]="iconPresence" size="20"></lucide-angular></div>
+          <div>
+            <span>Presence moyenne</span>
+            <strong>{{ summary.predictedPresenceRate | number:'1.0-1' }}%</strong>
+          </div>
+        </article>
+
+        <article class="metric-card risk" [ngClass]="riskClass(summary.riskLevel)">
+          <div class="metric-icon"><lucide-angular [img]="iconWarning" size="20"></lucide-angular></div>
+          <div>
+            <span>Risque global</span>
+            <strong>{{ summary.riskLevel }}</strong>
+          </div>
+        </article>
+
+        <article class="metric-card workload" [ngClass]="riskClass(workload()?.predictedWorkload)">
+          <div class="metric-icon"><lucide-angular [img]="iconWorkload" size="20"></lucide-angular></div>
+          <div>
+            <span>Charge RH</span>
+            @if (workload()?.success) {
+              <strong>{{ workload()?.pendingRequestsCount || 0 }}</strong>
+            } @else {
+              <strong>N/A</strong>
+            }
+          </div>
+        </article>
+      </section>
+    }
+  }
+
+  @if (hasForecastData()) {
+  <section class="dashboard-grid">
+    <article class="panel chart-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Tendance prevue</h2>
+          <p>{{ filteredSeries().length }} points</p>
+        </div>
+        <lucide-angular [img]="iconBrain" size="20"></lucide-angular>
+      </div>
+
+      @if (chartPoints().length === 0) {
+        <div class="empty-state">Aucune prevision disponible.</div>
+      } @else {
+        <svg viewBox="0 0 720 220" class="forecast-chart" role="img" aria-label="Courbes absences et conges">
+          <line x1="24" y1="200" x2="696" y2="200"></line>
+          <line x1="24" y1="24" x2="24" y2="200"></line>
+          <path class="line leave-line" [attr.d]="leavePath()"></path>
+          <path class="line absence-line" [attr.d]="absencePath()"></path>
+          @for (point of chartPoints(); track point.date) {
+            <circle class="leave-dot" [attr.cx]="point.x" [attr.cy]="point.yLeaves" r="4"></circle>
+            <circle class="absence-dot" [attr.cx]="point.x" [attr.cy]="point.yAbsences" r="4"></circle>
+          }
+        </svg>
+        <div class="legend">
+          <span><i class="swatch leave"></i>Conges</span>
+          <span><i class="swatch absence"></i>Absences</span>
+        </div>
+      }
+    </article>
+
+    <article class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>Presence par equipe</h2>
+          <p>{{ teamsAtRisk() }} equipe(s) a surveiller</p>
+        </div>
+        <lucide-angular [img]="iconUsers" size="20"></lucide-angular>
+      </div>
+
+      @if (teamBars().length === 0) {
+        <div class="empty-state">Aucune equipe dans ce perimetre.</div>
+      } @else {
+        <div class="team-list">
+          @for (team of teamBars(); track trackTeam($index, team)) {
+            <div class="team-row">
+              <div class="team-meta">
+                <strong>{{ team.teamName }}</strong>
+                <span>{{ team.predictedPresenceRate | number:'1.0-1' }}% presence</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" [ngClass]="riskClass(team.riskLevel)" [style.width.%]="team.percent"></div>
+              </div>
+              <span class="risk-pill" [ngClass]="riskClass(team.riskLevel)">{{ team.riskLevel }}</span>
+            </div>
+          }
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="table-grid">
+    <article class="panel table-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Calendrier previsionnel</h2>
+          <p>Absences, conges et presence</p>
+        </div>
+      </div>
+
+      @if (filteredSeries().length === 0) {
+        <div class="empty-state">Aucun jour ne correspond aux filtres.</div>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Absences</th>
+                <th>Conges</th>
+                <th>Presence</th>
+                <th>Risque</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (point of filteredSeries(); track trackDate($index, point)) {
+                <tr>
+                  <td>{{ formatDate(point.date) }}</td>
+                  <td>{{ point.predictedAbsences | number:'1.0-1' }}</td>
+                  <td>{{ point.predictedLeaves | number:'1.0-1' }}</td>
+                  <td>{{ point.predictedPresenceRate | number:'1.0-1' }}%</td>
+                  <td><span class="risk-pill" [ngClass]="riskClass(rowRisk(point))">{{ rowRisk(point) }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+
+    <article class="panel table-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Risque par salarie</h2>
+          <p>{{ filteredEmployees().length }} profils affiches</p>
+        </div>
+      </div>
+
+      @if (filteredEmployees().length === 0) {
+        <div class="empty-state">Aucun salarie ne correspond aux filtres.</div>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Salarie</th>
+                <th>Equipe</th>
+                <th>Abs. 30j</th>
+                <th>Conges planifies</th>
+                <th>Risque</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (employee of filteredEmployees(); track trackEmployee($index, employee)) {
+                <tr>
+                  <td>
+                    <strong>{{ employee.employeeName }}</strong>
+                    <span>{{ employee.explanation }}</span>
+                  </td>
+                  <td>{{ employee.teamName || 'Non assigne' }}</td>
+                  <td>{{ employee.absenceCountLast30Days }}</td>
+                  <td>{{ employee.plannedLeaveDays }}</td>
+                  <td><span class="risk-pill" [ngClass]="riskClass(employee.riskLevel)">{{ employee.riskLevel }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+  </section>
+  }
+</section>

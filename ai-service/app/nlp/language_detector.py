@@ -19,10 +19,14 @@ LANGUAGE_METADATA_KEYS = (
 )
 
 FR_HINTS = {
+    "bonjour",
+    "salut",
+    "coucou",
     "je",
     "veux",
     "conge",
     "congé",
+    "congés",
     "demain",
     "pointage",
     "pointe",

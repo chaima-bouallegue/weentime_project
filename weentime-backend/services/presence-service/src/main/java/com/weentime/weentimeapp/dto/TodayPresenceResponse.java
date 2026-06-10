@@ -43,6 +43,7 @@ public class TodayPresenceResponse {
     private Integer overtimePreview;
     private Integer overtimeMinutes;
     private OvertimeMode overtimeMode;
+    private Boolean overtimeConfirmed;
     private Boolean showCheckoutAlert;
     private String overtimeStartedAt;
     private String overtimeLabel;

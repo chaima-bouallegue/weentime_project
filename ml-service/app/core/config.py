@@ -5,7 +5,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,8 +48,18 @@ class Settings(BaseSettings):
     service_entreprise_id: int | None = None
 
     # Optional direct DB connection (defaults to presence-service postgres on 5433).
+    # Kept for backward compatibility with the anomaly module.
     database_url: str = (
         "postgresql://weentime:170502@localhost:5433/presence_db"
+    )
+    presence_database_url: str = (
+        "postgresql://weentime:170502@localhost:5433/presence_db"
+    )
+    rh_database_url: str = (
+        "postgresql://weentime:170502@localhost:5433/rh_db"
+    )
+    organisation_database_url: str = (
+        "postgresql://weentime:170502@localhost:5433/organisation_db"
     )
 
     # CORS -- Angular dev server + ai-service.
@@ -61,13 +71,30 @@ class Settings(BaseSettings):
     # Model training/eval
     contamination: float = 0.05
     min_training_records: int = 100
+    min_real_training_records: int = 30
     isolation_forest_n_estimators: int = 200
     random_state: int = 42
+    auto_calibrate_thresholds: bool = True
 
     # Score -> risk level thresholds
     critical_threshold: float = 0.90
     high_threshold: float = 0.70
     medium_threshold: float = 0.40
+
+    # Optional Braintrust tracing/evaluation. The API key is read from .env and
+    # is never included in logs or traces.
+    braintrust_enabled: bool = False
+    braintrust_api_key: str | None = None
+    braintrust_project_id: str | None = None
+    braintrust_project_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "BRAINTRUST_PROJECT_NAME",
+            "BRAINTRUST_PROJECT",
+        ),
+    )
+    braintrust_env: str = "development"
+    braintrust_sample_rate: float = Field(default=1.0, ge=0.0, le=1.0)
 
     @property
     def cors_origins(self) -> list[str]:

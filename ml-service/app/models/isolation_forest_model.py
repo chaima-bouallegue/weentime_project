@@ -35,6 +35,7 @@ class TrainResult:
     contamination_observed: float
     duration_seconds: float
     bundle_path: str
+    data_source: str = "unknown"
 
 
 class AttendanceAnomalyModel:
@@ -48,6 +49,7 @@ class AttendanceAnomalyModel:
         critical_threshold: float = 0.90,
         high_threshold: float = 0.70,
         medium_threshold: float = 0.40,
+        auto_calibrate_thresholds: bool = True,
     ) -> None:
         self.contamination = contamination
         self.n_estimators = n_estimators
@@ -55,6 +57,7 @@ class AttendanceAnomalyModel:
         self.critical_threshold = critical_threshold
         self.high_threshold = high_threshold
         self.medium_threshold = medium_threshold
+        self.auto_calibrate_thresholds = auto_calibrate_thresholds
 
         self.model: IsolationForest | None = None
         self.scaler: StandardScaler | None = None
@@ -92,6 +95,8 @@ class AttendanceAnomalyModel:
         raw_scores = self.model.decision_function(X_scaled)
         self._score_min = float(np.percentile(raw_scores, 1))
         self._score_max = float(np.percentile(raw_scores, 99))
+        if self.auto_calibrate_thresholds:
+            self._calibrate_thresholds(raw_scores)
 
         # Observed contamination -- sanity check.
         predictions = self.model.predict(X_scaled)
@@ -172,6 +177,32 @@ class AttendanceAnomalyModel:
         if score >= self.medium_threshold:
             return RiskLevel.MEDIUM
         return RiskLevel.LOW
+
+    def _calibrate_thresholds(self, raw_scores: np.ndarray) -> None:
+        """Derive risk bands from the training population.
+
+        Isolation Forest scores are relative to their training distribution.
+        Persisting fixed bands from synthetic data made real attendance scores
+        cluster at the top of the scale. Quantile bands keep the levels useful
+        after every real-data retrain while preserving strict ordering.
+        """
+        normalized = np.array(
+            [self.get_anomaly_score(float(raw_score)) for raw_score in raw_scores],
+            dtype=float,
+        )
+        medium = float(np.percentile(normalized, 75))
+        high = float(np.percentile(normalized, 90))
+        critical = float(np.percentile(normalized, 97))
+
+        self.medium_threshold = round(max(0.20, min(medium, 0.75)), 4)
+        self.high_threshold = round(
+            max(self.medium_threshold + 0.05, min(high, 0.90)),
+            4,
+        )
+        self.critical_threshold = round(
+            max(self.high_threshold + 0.03, min(critical, 0.98)),
+            4,
+        )
 
     # -- explainability ---------------------------------------------------
 
@@ -268,6 +299,7 @@ class AttendanceAnomalyModel:
                     "high": self.high_threshold,
                     "medium": self.medium_threshold,
                 },
+                "auto_calibrate_thresholds": self.auto_calibrate_thresholds,
             },
             bundle_path,
         )
@@ -286,6 +318,7 @@ class AttendanceAnomalyModel:
                         "high": self.high_threshold,
                         "medium": self.medium_threshold,
                     },
+                    "auto_calibrate_thresholds": self.auto_calibrate_thresholds,
                 },
                 indent=2,
             ),
@@ -306,6 +339,10 @@ class AttendanceAnomalyModel:
         self.critical_threshold = thresholds.get("critical", self.critical_threshold)
         self.high_threshold = thresholds.get("high", self.high_threshold)
         self.medium_threshold = thresholds.get("medium", self.medium_threshold)
+        self.auto_calibrate_thresholds = bundle.get(
+            "auto_calibrate_thresholds",
+            self.auto_calibrate_thresholds,
+        )
 
     @classmethod
     def load_latest(cls, model_dir: Path) -> "AttendanceAnomalyModel | None":

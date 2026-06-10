@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time as time_cls, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -44,6 +44,27 @@ class RuleSignal:
     expected: str | None = None
     recommendation: str = "Verifier le pointage avec le collaborateur."
     actions: tuple[str, ...] = ("IGNORE", "CONTACT_EMPLOYEE", "VIEW_DETAILS")
+
+
+@dataclass(slots=True)
+class ParsedPresencePayload:
+    records: list[AttendanceRecord]
+    raw_records_count: int = 0
+    skipped_records: list[dict[str, Any]] = field(default_factory=list)
+    source_path: str | None = None
+
+
+@dataclass(slots=True)
+class AttendanceFetchResult:
+    records: list[AttendanceRecord]
+    backend_ok: bool
+    scope: str
+    endpoint: str
+    role: str
+    raw_records_count: int = 0
+    parsed_records_count: int = 0
+    skipped_records: list[dict[str, Any]] = field(default_factory=list)
+    source_path: str | None = None
 
 
 class AnomalyDetector:
@@ -101,13 +122,20 @@ class AnomalyDetector:
         history = employee_history or []
         features = self.feature_engineer.compute_features(record, history)
         feature_map = features.to_dict()
+        ml_diagnostic = self._model_diagnostic(features)
         signals = self._business_rule_signals(record, history, features)
-        behavioral = self._behavioral_signal(record, history, features)
+        detection_source = "RULE"
+        behavioral = self._behavioral_signal(record, history, features) if not signals else None
         if behavioral is not None:
             signals.append(behavioral)
+            detection_source = (
+                "ML"
+                if str(behavioral.value or "").lower().startswith("score ml")
+                else "BEHAVIORAL_BASELINE"
+            )
 
         if not signals:
-            return self._normal_record(record, features, debug=debug)
+            return self._normal_record(record, features, ml_diagnostic=ml_diagnostic, debug=debug)
 
         signals.sort(key=lambda item: item.score, reverse=True)
         primary = signals[0]
@@ -143,8 +171,21 @@ class AnomalyDetector:
             actions=list(primary.actions),
             missing_data_warnings=self._missing_data_warnings(record, primary.code),
             explanation=summary,
+            ml_score=ml_diagnostic.get("score"),
+            ml_prediction=ml_diagnostic.get("is_anomaly"),
+            detection_source=detection_source,
+            model_version=self.model.model_version if self.model else None,
             features=feature_map if debug else {},
         )
+
+    def _model_diagnostic(self, features: Any) -> dict[str, Any]:
+        if not self.is_ready or self.model is None:
+            return {}
+        try:
+            return self.model.predict(features.to_vector())
+        except Exception as exc:  # pragma: no cover - defensive runtime guard
+            logger.warning("unable to compute ML diagnostic: %s", exc)
+            return {}
 
     @staticmethod
     def _is_benign_absence(record: AttendanceRecord, history: list[AttendanceRecord]) -> bool:
@@ -209,8 +250,33 @@ class AnomalyDetector:
             if result.score >= 0.20:
                 anomalies.append(result)
 
+        raw_anomaly_count = len(anomalies)
+        anomalies = self._merge_duplicate_anomalies(anomalies)
+        duplicates_removed = max(0, raw_anomaly_count - len(anomalies))
         anomalies.sort(key=lambda a: a.score, reverse=True)
-        return self._build_dashboard(anomalies)
+        rule_count = sum(1 for anomaly in anomalies if _category_value(anomaly.category) != AnomalyCategory.BEHAVIORAL_ANOMALY.value)
+        ml_count = len(anomalies) - rule_count
+        zero_reason = None
+        if rows and not anomalies:
+            zero_reason = "records_parsed_but_no_rule_or_ml_anomalies"
+        logger.info(
+            "anomaly detection parsed_records=%d rule_anomalies=%d ml_anomalies=%d total_anomalies=%d zero_reason=%s",
+            len(rows),
+            rule_count,
+            ml_count,
+            len(anomalies),
+            zero_reason,
+        )
+        dashboard = self._build_dashboard(anomalies)
+        dashboard.parsed_records_count = len(rows)
+        dashboard.returned_anomalies_count = len(anomalies)
+        dashboard.duplicates_removed = duplicates_removed
+        dashboard.anomalies_count = len(anomalies)
+        dashboard.rule_anomalies_count = rule_count
+        dashboard.ml_anomalies_count = ml_count
+        dashboard.date_used = date.today().isoformat()
+        dashboard.zero_reason = zero_reason
+        return dashboard
 
     async def analyze_employee(
         self,
@@ -273,16 +339,28 @@ class AnomalyDetector:
         worked_minutes = self._worked_minutes(record, features)
         expected_minutes = self._expected_minutes(record)
         late_minutes = int(round(float(features.late_minutes or 0)))
-        repeated_late = self._history_count(history, "late")
-        repeated_missing_checkout = self._history_count(history, "missing_checkout")
-        repeated_rapid = self._history_count(history, "rapid")
+        repeated_late = self._history_count(history, "late", current=record)
+        repeated_missing_checkout = self._history_count(history, "missing_checkout", current=record)
+        repeated_rapid = self._history_count(history, "rapid", current=record)
         is_leave = self._is_approved_leave(record)
         is_holiday = self._is_holiday(record)
+        is_telework = self._is_approved_telework(record)
         has_checkin = record.check_in is not None
         has_checkout = record.check_out is not None
 
-        if not has_checkin and not is_leave and not is_holiday:
-            if record.scheduled_workday is True:
+        if (
+            not has_checkin
+            and not has_checkout
+            and worked_minutes <= 0
+            and not is_leave
+            and not is_holiday
+            and not is_telework
+        ):
+            if record.scheduled_workday is True or (
+                record.scheduled_workday is None and record.status_upper == "ABSENT"
+            ):
+                if record.scheduled_workday is None:
+                    record.missing_data_warnings.append("Employee schedule unavailable")
                 score = 0.92
                 signals.append(
                     RuleSignal(
@@ -295,22 +373,20 @@ class AnomalyDetector:
                         recommendation="Verifier l'absence ou demander une justification.",
                     )
                 )
-            elif record.scheduled_workday is None and record.status_upper == "ABSENT":
-                record.missing_data_warnings.append("Employee schedule unavailable")
 
         can_evaluate_late = record.scheduled_start is not None or bool(record.late_arrival) or record.status_upper == "LATE"
         if can_evaluate_late and (late_minutes > 0 or bool(record.late_arrival)):
             if late_minutes <= 0:
                 late_minutes = 10
             if late_minutes < 15:
-                score = 0.30
+                score = 0.35
             elif late_minutes <= 30:
                 score = 0.55
             else:
-                score = 0.92 if repeated_late >= 3 else 0.78
+                score = 0.90 if repeated_late >= 3 else 0.75
             signals.append(
                 RuleSignal(
-                    code=AnomalyCategory.LATE,
+                    code=AnomalyCategory.LATE_ARRIVAL,
                     score=score,
                     label="Retard d'arrivee",
                     description="Le pointage d'entree est apres l'heure planifiee et la tolerance.",
@@ -321,16 +397,29 @@ class AnomalyDetector:
             )
 
         if self._is_missing_checkout(record):
-            score = 0.92 if repeated_missing_checkout >= 3 else 0.78
+            is_repeated = repeated_missing_checkout >= 2
+            score = 0.93 if is_repeated else 0.78
             signals.append(
                 RuleSignal(
-                    code=AnomalyCategory.MISSING_CHECKOUT,
+                    code=AnomalyCategory.REPEATED_MISSING_CHECKOUT if is_repeated else AnomalyCategory.MISSING_CHECKOUT,
                     score=score,
-                    label="Sortie non pointee",
-                    description="Une entree existe mais aucune sortie valide n'est enregistree.",
-                    value="Sortie manquante",
-                    expected="Pointage sortie apres la session",
-                    recommendation="Demander au collaborateur de confirmer l'heure de sortie.",
+                    label="Sorties oubliees repetees" if is_repeated else "Sortie non pointee",
+                    description=(
+                        "Plusieurs sessions recentes ont une sortie manquante."
+                        if is_repeated
+                        else "Une entree existe mais aucune sortie valide n'est enregistree."
+                    ),
+                    value=(
+                        f"{repeated_missing_checkout + 1} occurrences"
+                        if is_repeated
+                        else "Sortie manquante"
+                    ),
+                    expected="Pointage sortie apres chaque session",
+                    recommendation=(
+                        "Verifier la recurrence avec le collaborateur et corriger les sessions concernees."
+                        if is_repeated
+                        else "Demander au collaborateur de confirmer l'heure de sortie."
+                    ),
                 )
             )
 
@@ -363,6 +452,24 @@ class AnomalyDetector:
                 )
             )
 
+        if (
+            has_checkin
+            and has_checkout
+            and worked_minutes >= 12 * 60
+            and overtime_minutes < OVERTIME_THRESHOLD_MINUTES
+        ):
+            signals.append(
+                RuleSignal(
+                    code=AnomalyCategory.UNUSUAL_WORKING_HOURS,
+                    score=0.84 if worked_minutes >= 14 * 60 else 0.74,
+                    label="Duree de travail inhabituelle",
+                    description="La duree travaillee est tres eloignee d'une journee normale.",
+                    value=f"{worked_minutes} min",
+                    expected="journee proche de l'horaire planifie",
+                    recommendation="Verifier la duree reelle et le contexte de la journee.",
+                )
+            )
+
         if self._has_night_activity(record):
             signals.append(
                 RuleSignal(
@@ -376,11 +483,28 @@ class AnomalyDetector:
                 )
             )
 
+        if has_checkin and (
+            (self._has_night_activity(record) and worked_minutes > 0 and worked_minutes < MIN_VALID_SESSION_MINUTES)
+            or (self._has_night_activity(record) and self._is_missing_checkout(record))
+            or (self._has_night_activity(record) and worked_minutes >= 12 * 60)
+        ):
+            signals.append(
+                RuleSignal(
+                    code=AnomalyCategory.SUSPICIOUS_POINTAGE,
+                    score=0.93,
+                    label="Pointage suspect",
+                    description="Plusieurs signaux sensibles sont combines sur la meme session.",
+                    value=self._night_value(record) or "Signal combine",
+                    expected="Pointage coherent avec l'horaire et la duree attendue",
+                    recommendation="Verifier rapidement si ce pointage est legitime ou frauduleux.",
+                )
+            )
+
         if record.date.weekday() >= 5 and has_checkin:
             if record.exceptional_work_allowed is True or record.scheduled_workday is True:
                 pass
             else:
-                score = 0.45 if record.scheduled_workday is False else 0.38
+                score = 0.50 if record.scheduled_workday is False else 0.45
                 if record.scheduled_workday is None:
                     record.missing_data_warnings.append("Weekend schedule unavailable")
                 signals.append(
@@ -416,7 +540,13 @@ class AnomalyDetector:
         history: list[AttendanceRecord],
         features: Any,
     ) -> RuleSignal | None:
+        if record.check_in is None or record.check_out is None:
+            return None
+        if record.status_upper in {"ABSENT", "ON_LEAVE", "LEAVE", "CONGE", "REMOTE", "HOLIDAY"}:
+            return None
         usable_history = [item for item in history if item.check_in is not None and item is not record]
+        if len(usable_history) < 5:
+            return None
         if len(usable_history) >= 5 and features.deviation_from_usual >= 2.0:
             score = 0.75 if features.deviation_from_usual >= 3.5 else 0.58
             return RuleSignal(
@@ -434,7 +564,7 @@ class AnomalyDetector:
 
         prediction = self.model.predict(features.to_vector())
         score = float(prediction["score"])
-        if score < 0.40:
+        if score < self.model.medium_threshold:
             return None
         concrete_rule_flags = (
             features.missing_checkout
@@ -482,12 +612,28 @@ class AnomalyDetector:
             return min(score, 0.89)
         if codes == {AnomalyCategory.WEEKEND_ACTIVITY}:
             return min(score, 0.69)
+        if codes == {AnomalyCategory.MISSING_CHECKOUT}:
+            return min(score, 0.89)
+        if codes == {AnomalyCategory.UNUSUAL_WORKING_HOURS}:
+            return min(score, 0.89)
+        if AnomalyCategory.SUSPICIOUS_POINTAGE in codes:
+            return max(score, 0.90)
+        if AnomalyCategory.REPEATED_MISSING_CHECKOUT in codes:
+            return max(score, 0.90)
         if primary.code == AnomalyCategory.ABSENCE:
             return max(score, 0.90)
         return score
 
-    def _normal_record(self, record: AttendanceRecord, features: Any, *, debug: bool) -> AnomalyRecord:
+    def _normal_record(
+        self,
+        record: AttendanceRecord,
+        features: Any,
+        *,
+        ml_diagnostic: dict[str, Any] | None = None,
+        debug: bool,
+    ) -> AnomalyRecord:
         summary = "Aucune anomalie exploitable detectee."
+        diagnostic = ml_diagnostic or {}
         return AnomalyRecord(
             id=None,
             employee_id=record.employee_id,
@@ -506,6 +652,10 @@ class AnomalyDetector:
             actions=["VIEW_DETAILS"],
             missing_data_warnings=record.missing_data_warnings,
             explanation=summary,
+            ml_score=diagnostic.get("score"),
+            ml_prediction=diagnostic.get("is_anomaly"),
+            detection_source="NONE",
+            model_version=self.model.model_version if self.model else None,
             features=features.to_dict() if debug else {},
         )
 
@@ -521,6 +671,8 @@ class AnomalyDetector:
             overtime_minutes=self._overtime_minutes(record, worked_minutes, self._expected_minutes(record)),
             missing_checkout=self._is_missing_checkout(record),
             is_absent=record.check_in is None,
+            is_weekend=record.date.weekday() >= 5,
+            location=record.localisation,
         )
 
     @staticmethod
@@ -568,6 +720,11 @@ class AnomalyDetector:
         return bool(record.approved_leave) or status in {"ON_LEAVE", "LEAVE", "CONGE", "APPROVED_LEAVE"}
 
     @staticmethod
+    def _is_approved_telework(record: AttendanceRecord) -> bool:
+        status = record.status_upper
+        return bool(record.approved_telework) or status in {"REMOTE", "TELEWORK", "TELETRAVAIL"}
+
+    @staticmethod
     def _is_holiday(record: AttendanceRecord) -> bool:
         status = record.status_upper
         return bool(record.holiday) or status in {"HOLIDAY", "PUBLIC_HOLIDAY", "JOUR_FERIE"}
@@ -587,7 +744,7 @@ class AnomalyDetector:
             )
             return datetime.now() > due_at
         record.missing_data_warnings.append("Scheduled end unavailable for missing checkout")
-        return True
+        return False
 
     @staticmethod
     def _has_night_activity(record: AttendanceRecord) -> bool:
@@ -605,9 +762,17 @@ class AnomalyDetector:
             values.append(f"sortie {record.check_out.strftime('%H:%M')}")
         return ", ".join(values) if values else None
 
-    def _history_count(self, history: list[AttendanceRecord], kind: str) -> int:
+    def _history_count(
+        self,
+        history: list[AttendanceRecord],
+        kind: str,
+        *,
+        current: AttendanceRecord | None = None,
+    ) -> int:
         count = 0
         for item in history:
+            if current is not None and self._same_record(item, current):
+                continue
             features = self.feature_engineer.compute_features(item, [])
             if kind == "late" and (features.late_minutes > 0 or bool(item.late_arrival)):
                 count += 1
@@ -616,6 +781,15 @@ class AnomalyDetector:
             elif kind == "rapid" and 0 < self._worked_minutes(item, features) < MIN_VALID_SESSION_MINUTES:
                 count += 1
         return count
+
+    @staticmethod
+    def _same_record(left: AttendanceRecord, right: AttendanceRecord) -> bool:
+        return (
+            left.employee_id == right.employee_id
+            and left.date == right.date
+            and left.check_in == right.check_in
+            and left.check_out == right.check_out
+        )
 
     @staticmethod
     def _missing_data_warnings(record: AttendanceRecord, category: AnomalyCategory) -> list[str]:
@@ -630,13 +804,17 @@ class AnomalyDetector:
     def _title_for(signal: RuleSignal) -> str:
         titles = {
             AnomalyCategory.ABSENCE: "Absence non justifiee",
+            AnomalyCategory.LATE_ARRIVAL: "Retard d'arrivee",
             AnomalyCategory.LATE: "Retard d'arrivee",
             AnomalyCategory.MISSING_CHECKOUT: "Sortie non pointee",
+            AnomalyCategory.REPEATED_MISSING_CHECKOUT: "Sorties oubliees repetees",
             AnomalyCategory.RAPID_SESSION: "Session tres courte",
             AnomalyCategory.OVERTIME_EXCESS: "Heures supplementaires elevees",
+            AnomalyCategory.UNUSUAL_WORKING_HOURS: "Duree de travail inhabituelle",
             AnomalyCategory.NIGHT_ACTIVITY: "Activite nocturne",
             AnomalyCategory.WEEKEND_ACTIVITY: "Activite week-end",
             AnomalyCategory.HOLIDAY_ACTIVITY: "Activite jour ferie",
+            AnomalyCategory.SUSPICIOUS_POINTAGE: "Pointage suspect",
             AnomalyCategory.BEHAVIORAL_ANOMALY: "Comportement inhabituel",
         }
         return titles.get(signal.code, signal.label)
@@ -647,18 +825,24 @@ class AnomalyDetector:
             return f"{record.employee_name} a travaille seulement {worked_minutes} minutes."
         if signal.code == AnomalyCategory.ABSENCE:
             return f"{record.employee_name} n'a pas pointe sur un jour planifie."
-        if signal.code == AnomalyCategory.LATE:
+        if signal.code in {AnomalyCategory.LATE, AnomalyCategory.LATE_ARRIVAL}:
             return f"{record.employee_name} est arrive avec {signal.value or 'un retard'}."
         if signal.code == AnomalyCategory.MISSING_CHECKOUT:
             return f"{record.employee_name} a une entree sans sortie enregistree."
+        if signal.code == AnomalyCategory.REPEATED_MISSING_CHECKOUT:
+            return f"{record.employee_name} a oublie plusieurs pointages de sortie recemment."
         if signal.code == AnomalyCategory.OVERTIME_EXCESS:
             return f"{record.employee_name} depasse l'horaire planifie de {signal.value or 'plusieurs minutes'}."
+        if signal.code == AnomalyCategory.UNUSUAL_WORKING_HOURS:
+            return f"{record.employee_name} a une duree de travail inhabituelle."
         if signal.code == AnomalyCategory.WEEKEND_ACTIVITY:
             return f"{record.employee_name} a pointe pendant le week-end."
         if signal.code == AnomalyCategory.HOLIDAY_ACTIVITY:
             return f"{record.employee_name} a pointe pendant un jour ferie."
         if signal.code == AnomalyCategory.NIGHT_ACTIVITY:
             return f"{record.employee_name} a pointe en dehors de la plage horaire habituelle."
+        if signal.code == AnomalyCategory.SUSPICIOUS_POINTAGE:
+            return f"{record.employee_name} presente un pointage suspect avec plusieurs signaux combines."
         return f"{record.employee_name} presente un comportement inhabituel par rapport a son historique."
 
     # -- backend bridge ---------------------------------------------------
@@ -671,6 +855,26 @@ class AnomalyDetector:
         user_id: int,
         tenant_id: int | None,
     ) -> tuple[list[AttendanceRecord], bool]:
+        result = await self._fetch_scope_result(
+            endpoint=endpoint,
+            mint_role=mint_role,
+            scope=_scope_name_for_endpoint(endpoint),
+            token=token,
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+        return result.records, result.backend_ok
+
+    async def _fetch_scope_result(
+        self,
+        *,
+        endpoint: str,
+        mint_role: str,
+        scope: str,
+        token: str | None,
+        user_id: int,
+        tenant_id: int | None,
+    ) -> AttendanceFetchResult:
         payload = await self.backend.get(
             endpoint,
             token=token,
@@ -678,13 +882,35 @@ class AnomalyDetector:
             role=mint_role,
             tenant_id=tenant_id,
         )
-        backend_ok = (
-            bool(payload)
-            and payload.get("success") is not False
-            and not payload.get("error")
+        backend_ok = _payload_backend_ok(payload)
+        parsed = _team_status_to_parse_result(payload, today=date.today())
+        if parsed.skipped_records:
+            logger.warning(
+                "presence parser skipped %d raw record(s) endpoint=%s reasons=%s",
+                len(parsed.skipped_records),
+                endpoint,
+                [item.get("reason") for item in parsed.skipped_records[:5]],
+            )
+        logger.info(
+            "presence fetch endpoint=%s scope=%s backend_ok=%s raw_records=%d parsed_records=%d source_path=%s",
+            endpoint,
+            scope,
+            backend_ok,
+            parsed.raw_records_count,
+            len(parsed.records),
+            parsed.source_path,
         )
-        records = _team_status_to_records(payload, today=date.today())
-        return records, backend_ok
+        return AttendanceFetchResult(
+            records=parsed.records,
+            backend_ok=backend_ok,
+            scope=scope,
+            endpoint=endpoint,
+            role=mint_role,
+            raw_records_count=parsed.raw_records_count,
+            parsed_records_count=len(parsed.records),
+            skipped_records=parsed.skipped_records,
+            source_path=parsed.source_path,
+        )
 
     async def fetch_today_company(
         self,
@@ -719,6 +945,33 @@ class AnomalyDetector:
         logger.info("fetching attendance scope=%s endpoint=%s", scope, endpoint)
         records, backend_ok = await self._fetch_scope(endpoint, mint_role, token, user_id, tenant_id)
         return records, backend_ok, scope
+
+    async def fetch_today_for_scope(
+        self,
+        token: str | None,
+        user_id: int,
+        tenant_id: int | None,
+        scope_override: str | None = None,
+    ) -> AttendanceFetchResult:
+        """Fetch today's attendance from an explicit dashboard scope.
+
+        Role-specific routes use this instead of relying on JWT inference so
+        /anomalies/manager always hits the manager team endpoint, /rh always
+        hits company, and /dashboard?scope=ADMIN hits global.
+        """
+        if scope_override:
+            scope, endpoint, mint_role = _select_scope_override(scope_override)
+        else:
+            scope, endpoint, mint_role = select_scope(decode_jwt_roles(token))
+        logger.info("fetching attendance scope=%s endpoint=%s", scope, endpoint)
+        return await self._fetch_scope_result(
+            endpoint=endpoint,
+            mint_role=mint_role,
+            scope=scope,
+            token=token,
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
 
     def synthetic_demo_dashboard(self, limit: int = 8) -> AnomalyDashboardResponse:
         """Produce a populated dashboard from the synthetic parquet.
@@ -778,13 +1031,62 @@ class AnomalyDetector:
         if not self.is_ready:
             await self.initialize()
 
+    def _merge_duplicate_anomalies(self, anomalies: list[AnomalyRecord]) -> list[AnomalyRecord]:
+        """Merge duplicate cards for the dashboard view.
+
+        The card surface is intentionally one employee/day entry. When the
+        same employee/day is represented by duplicate presence rows, keep the
+        highest-score anomaly as the primary card and fold the other business
+        reasons into it.
+        """
+        merged: dict[tuple[int, str], AnomalyRecord] = {}
+        for anomaly in anomalies:
+            key = (anomaly.employee_id, anomaly.date)
+            current = merged.get(key)
+            if current is None:
+                merged[key] = anomaly
+                continue
+            merged[key] = self._merge_anomaly_pair(current, anomaly)
+        return list(merged.values())
+
+    def _merge_anomaly_pair(self, left: AnomalyRecord, right: AnomalyRecord) -> AnomalyRecord:
+        primary, secondary = (left, right) if left.score >= right.score else (right, left)
+        primary.score = max(float(left.score or 0), float(right.score or 0))
+        primary.risk = self._score_to_risk(primary.score)
+        primary.severity = primary.risk
+        primary.reasons = _unique_strings([*left.reasons, *right.reasons])
+        primary.detected_reasons = _unique_detected_reasons([
+            *left.detected_reasons,
+            *right.detected_reasons,
+        ])
+        primary.missing_data_warnings = _unique_strings([
+            *left.missing_data_warnings,
+            *right.missing_data_warnings,
+        ])
+        primary.actions = _unique_strings([*left.actions, *right.actions])
+        if not primary.attendance_snapshot:
+            primary.attendance_snapshot = secondary.attendance_snapshot
+        if secondary.summary and secondary.summary != primary.summary:
+            primary.summary = _join_distinct(primary.summary, secondary.summary)
+        if secondary.explanation and secondary.explanation != primary.explanation:
+            primary.explanation = _join_distinct(primary.explanation, secondary.explanation)
+        if secondary.recommendation and secondary.recommendation != primary.recommendation:
+            primary.recommendation = _join_distinct(primary.recommendation, secondary.recommendation)
+        if secondary.features:
+            primary.features = {**secondary.features, **primary.features}
+        return primary
+
     def _build_dashboard(self, anomalies: list[AnomalyRecord]) -> AnomalyDashboardResponse:
         anomalies = [a for a in anomalies if not (a.id and a.id in self._ignored_anomaly_ids)]
         counts = {RiskLevel.CRITICAL: 0, RiskLevel.HIGH: 0, RiskLevel.MEDIUM: 0, RiskLevel.LOW: 0}
         by_category: dict[str, int] = {}
+        by_day: dict[str, int] = {}
         for a in anomalies:
             counts[a.risk] += 1
-            by_category[str(a.category)] = by_category.get(str(a.category), 0) + 1
+            category = _category_value(a.category)
+            by_category[category] = by_category.get(category, 0) + 1
+            by_day[a.date] = by_day.get(a.date, 0) + 1
+        by_risk = {level.value: counts[level] for level in counts}
         self._last_anomalies = {a.id: a for a in anomalies if a.id}
         return AnomalyDashboardResponse(
             success=True,
@@ -795,9 +1097,15 @@ class AnomalyDetector:
             medium=counts[RiskLevel.MEDIUM],
             low=counts[RiskLevel.LOW],
             anomalies=anomalies,
-            grouped_by_severity={level.value: counts[level] for level in counts},
+            returned_anomalies_count=len(anomalies),
+            anomalies_count=len(anomalies),
+            grouped_by_severity=by_risk,
             grouped_by_category=by_category,
+            by_risk=by_risk,
+            by_type=by_category,
+            by_day=by_day,
             top_anomalies=anomalies[:5],
+            date_used=date.today().isoformat(),
         )
 
     def get_cached_anomaly(self, anomaly_id: str) -> AnomalyRecord | None:
@@ -841,11 +1149,82 @@ class AnomalyDetector:
 _detector: AnomalyDetector | None = None
 
 
+def _unique_strings(values: Iterable[Any]) -> list[str]:
+    output: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+    return output
+
+
+def _unique_detected_reasons(values: Iterable[DetectedReason]) -> list[DetectedReason]:
+    output: list[DetectedReason] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for reason in values:
+        key = (
+            str(reason.code or ""),
+            str(reason.label or ""),
+            str(reason.description or ""),
+            str(reason.value or ""),
+            str(reason.expected or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(reason)
+    return output
+
+
+def _join_distinct(*values: str | None) -> str:
+    return " ".join(_unique_strings(values))
+
+
 def get_detector() -> AnomalyDetector:
     global _detector
     if _detector is None:
         _detector = AnomalyDetector()
     return _detector
+
+
+def _category_value(category: Any) -> str:
+    if isinstance(category, AnomalyCategory):
+        return category.value
+    return str(category or "")
+
+
+def _select_scope_override(scope_override: str) -> tuple[str, str, str]:
+    normalized = scope_override.strip().upper()
+    if normalized in {"ADMIN", "GLOBAL"}:
+        return "GLOBAL", "presence/global/today", "ADMIN"
+    if normalized in {"RH", "COMPANY", "HR"}:
+        return "COMPANY", "presence/company/today", "RH"
+    if normalized in {"MANAGER", "TEAM"}:
+        return "TEAM", "presence/team/today", "MANAGER"
+    return select_scope([normalized])
+
+
+def _scope_name_for_endpoint(endpoint: str) -> str:
+    if "global" in endpoint:
+        return "GLOBAL"
+    if "team" in endpoint or "manager" in endpoint:
+        return "TEAM"
+    return "COMPANY"
+
+
+def _payload_backend_ok(payload: Any) -> bool:
+    if isinstance(payload, list):
+        return True
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("success") is False:
+        return False
+    if payload.get("error"):
+        return False
+    return bool(payload)
 
 
 def _parse_iso_dt(value: Any, default_date: date | None = None) -> datetime | None:
@@ -896,32 +1275,73 @@ def _boolish(value: Any) -> bool | None:
     return None
 
 
-def _extract_members(payload: Any) -> list[dict[str, Any]]:
-    """Pull the member list out of any of the shapes Spring may return.
+_MEMBER_COLLECTION_KEYS = ("members", "presences", "sessions", "items", "records", "content", "results")
 
-    Handles: a bare list; an ApiResponse wrapper ({"data": {...}}); and a
-    direct object ({"members": [...]}). Member arrays may be named members /
-    presences / sessions.
-    """
-    # Format C: bare list
+
+def _extract_members(payload: Any) -> list[dict[str, Any]]:
+    raw_members, _ = _extract_members_with_source(payload)
+    return [m for m in raw_members if isinstance(m, dict)]
+
+
+def _extract_members_with_source(payload: Any) -> tuple[list[Any], str | None]:
+    """Pull the attendance list out of the Spring shapes seen in production."""
     if isinstance(payload, list):
-        return [m for m in payload if isinstance(m, dict)]
+        return payload, "$"
     if not isinstance(payload, dict):
-        return []
-    # An error envelope from the client wrapper -> no members.
+        return [], None
     if payload.get("success") is False or payload.get("error"):
-        return []
-    # Format A: ApiResponse wrapper with nested data.
-    container = payload.get("data") if isinstance(payload.get("data"), (dict, list)) else payload
-    if isinstance(container, list):
-        return [m for m in container if isinstance(m, dict)]
-    if not isinstance(container, dict):
-        return []
-    for key in ("members", "presences", "sessions"):
-        value = container.get(key)
-        if isinstance(value, list):
-            return [m for m in value if isinstance(m, dict)]
-    return []
+        return [], None
+    return _find_member_collection(payload, "$")
+
+
+def _find_member_collection(value: Any, path: str, depth: int = 0) -> tuple[list[Any], str | None]:
+    if depth > 6:
+        return [], None
+    if isinstance(value, list):
+        return value, path
+    if not isinstance(value, dict):
+        return [], None
+
+    data = value.get("data")
+    if isinstance(data, (dict, list)):
+        members, source = _find_member_collection(data, f"{path}.data", depth + 1)
+        if source is not None:
+            return members, source
+
+    for key in _MEMBER_COLLECTION_KEYS:
+        child = value.get(key)
+        if isinstance(child, list):
+            return child, f"{path}.{key}"
+
+    if _looks_like_attendance_row(value):
+        return [value], path
+
+    for key in ("payload", "result", "body", "page"):
+        child = value.get(key)
+        if isinstance(child, (dict, list)):
+            members, source = _find_member_collection(child, f"{path}.{key}", depth + 1)
+            if source is not None:
+                return members, source
+
+    return [], None
+
+
+def _looks_like_attendance_row(row: dict[str, Any]) -> bool:
+    id_keys = {"utilisateurId", "employeeId", "userId", "id", "collaborateurId", "utilisateur"}
+    pointage_keys = {
+        "heureEntree",
+        "checkInTime",
+        "checkIn",
+        "check_in",
+        "heureSortie",
+        "checkOutTime",
+        "checkOut",
+        "check_out",
+        "status",
+        "dailyStatus",
+        "presenceStatus",
+    }
+    return bool(id_keys & row.keys()) and bool(pointage_keys & row.keys())
 
 
 def _member_int(value: Any) -> int | None:
@@ -940,8 +1360,294 @@ def _first_present(row: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def _nested_first_present(row: dict[str, Any], containers: tuple[str, ...], *keys: str) -> Any:
+    for container in containers:
+        child = row.get(container)
+        if isinstance(child, dict):
+            value = _first_present(child, *keys)
+            if value is not None:
+                return value
+    return None
+
+
+def _string_first_present(row: dict[str, Any], *keys: str) -> str | None:
+    value = _first_present(row, *keys)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _member_user_id(row: dict[str, Any]) -> int | None:
+    direct = _first_present(row, "utilisateurId", "employeeId", "userId", "id", "collaborateurId")
+    nested = _nested_first_present(row, ("utilisateur", "employee", "user", "collaborateur"), "id", "userId")
+    return _member_int(direct if direct is not None else nested)
+
+
+def _member_name(row: dict[str, Any], user_id: int) -> str:
+    direct = _first_present(row, "nomComplet", "fullName", "employeeName", "name", "displayName")
+    if direct:
+        return str(direct)
+    for container in ("utilisateur", "employee", "user", "collaborateur"):
+        child = row.get(container)
+        if isinstance(child, dict):
+            nested = _first_present(child, "nomComplet", "fullName", "employeeName", "name", "displayName")
+            if nested:
+                return str(nested)
+            first = child.get("prenom") or child.get("firstName") or ""
+            last = child.get("nom") or child.get("lastName") or ""
+            joined = f"{first} {last}".strip()
+            if joined:
+                return joined
+    joined = f"{row.get('prenom', '') or ''} {row.get('nom', '') or ''}".strip()
+    return joined or f"Employe #{user_id}"
+
+
+def _parse_date_value(value: Any) -> date | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    try:
+        if "T" in text or " " in text:
+            return datetime.fromisoformat(text.rstrip("Z")).date()
+        return date.fromisoformat(text[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def _record_date_from_member(row: dict[str, Any], fallback: date) -> date:
+    for key in ("date", "localDate", "attendanceDate", "sessionDate", "pointageDate", "jour", "day", "presenceDate"):
+        parsed = _parse_date_value(row.get(key))
+        if parsed is not None:
+            return parsed
+    for key in ("heureEntree", "checkInTime", "checkIn", "check_in", "heureSortie", "checkOutTime", "checkOut", "check_out"):
+        parsed_dt = _parse_iso_dt(row.get(key))
+        if parsed_dt is not None:
+            return parsed_dt.date()
+    return fallback
+
+
+def _duration_seconds(row: dict[str, Any], worked_minutes: int | None) -> int | None:
+    raw_seconds = _first_present(row, "durationSeconds", "duration_seconds", "workedSeconds", "worked_seconds")
+    parsed_seconds = _member_int(raw_seconds)
+    if parsed_seconds is not None:
+        return parsed_seconds
+
+    raw_duration = _first_present(row, "duration")
+    parsed_duration = _member_int(raw_duration)
+    if parsed_duration is not None:
+        return parsed_duration
+    if isinstance(raw_duration, str) and ":" in raw_duration:
+        parts = raw_duration.split(":")
+        try:
+            if len(parts) == 3:
+                hours, minutes, seconds = (int(part) for part in parts)
+                return hours * 3600 + minutes * 60 + seconds
+            if len(parts) == 2:
+                hours, minutes = (int(part) for part in parts)
+                return hours * 3600 + minutes * 60
+        except ValueError:
+            pass
+
+    hours = row.get("totalHeuresTravaillees")
+    if isinstance(hours, (int, float)):
+        return int(hours * 3600)
+    if worked_minutes is not None:
+        return worked_minutes * 60
+    return None
+
+
+def _location_label(*values: Any) -> str | None:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            address = value.get("address") or value.get("adresse")
+            city = value.get("city") or value.get("ville")
+            country = value.get("country") or value.get("pays")
+            region = value.get("region")
+            city_country = ", ".join(str(part).strip() for part in (city, country) if str(part or "").strip())
+            for candidate in (address, city_country, city, country, region):
+                if candidate and str(candidate).strip():
+                    return str(candidate).strip()
+    return None
+
+
 def _team_status_to_records(payload: dict[str, Any], today: date) -> list[AttendanceRecord]:
-    members = _extract_members(payload)
+    return _team_status_to_parse_result(payload, today).records
+
+
+def _team_status_to_parse_result(payload: Any, today: date) -> ParsedPresencePayload:
+    raw_members, source_path = _extract_members_with_source(payload)
+    records: list[AttendanceRecord] = []
+    skipped_records: list[dict[str, Any]] = []
+    for index, raw_member in enumerate(raw_members):
+        if not isinstance(raw_member, dict):
+            skipped_records.append({"index": index, "reason": "not_an_object", "type": type(raw_member).__name__})
+            continue
+
+        m = raw_member
+        user_id = _member_user_id(m)
+        if user_id is None:
+            skipped_records.append({
+                "index": index,
+                "reason": "missing_employee_id",
+                "keys": list(m.keys())[:12],
+            })
+            continue
+
+        record_date = _record_date_from_member(m, today)
+        check_in = _parse_iso_dt(
+            _first_present(m, "heureEntree", "checkInTime", "checkIn", "check_in", "entryTime", "startTime", "startedAt"),
+            record_date,
+        )
+        check_out = _parse_iso_dt(
+            _first_present(m, "heureSortie", "checkOutTime", "checkOut", "check_out", "exitTime", "endTime", "endedAt"),
+            record_date,
+        )
+        worked_minutes = _member_int(
+            _first_present(
+                m,
+                "workedMinutes",
+                "minutesTravaillees",
+                "worked_minutes",
+                "dureeMinutes",
+                "durationMinutes",
+            )
+        )
+        expected_minutes = _member_int(
+            _first_present(m, "expectedMinutes", "minutesAttendues", "plannedMinutes", "expected_minutes")
+        )
+        scheduled_start = _parse_time_value(
+            _first_present(m, "scheduledStart", "horaireDebut", "plannedStart", "heureDebut")
+        )
+        scheduled_end = _parse_time_value(
+            _first_present(m, "scheduledEnd", "horaireFin", "plannedEnd", "heureFin")
+        )
+        scheduled_workday = _boolish(
+            _first_present(m, "scheduledWorkday", "workingDay", "isWorkingDay", "jourTravaille")
+        )
+        if scheduled_workday is None and expected_minutes is not None:
+            scheduled_workday = expected_minutes > 0
+        approved_leave = _boolish(
+            _first_present(m, "approvedLeave", "onApprovedLeave", "onLeave", "isOnLeave")
+        )
+        approved_telework = _boolish(
+            _first_present(m, "approvedTelework", "onApprovedTelework", "telework", "remoteApproved", "isRemote")
+        )
+        holiday = _boolish(
+            _first_present(m, "holiday", "publicHoliday", "isHoliday", "jourFerie")
+        )
+        status = m.get("dailyStatus") or m.get("status") or m.get("presenceStatus")
+        closure_reason = str(
+            _first_present(m, "latestAlert", "autoClosedReason", "closureReason") or ""
+        ).upper()
+        if closure_reason == "MISSING_CHECKOUT":
+            status = "MISSING_CHECKOUT"
+        status_upper = str(status or "").upper()
+        if approved_leave is None and status_upper in {"ON_LEAVE", "LEAVE", "CONGE", "APPROVED_LEAVE"}:
+            approved_leave = True
+        if approved_telework is None and status_upper in {"REMOTE", "TELEWORK", "TELETRAVAIL"}:
+            approved_telework = True
+        if holiday is None and status_upper in {"HOLIDAY", "PUBLIC_HOLIDAY", "JOUR_FERIE"}:
+            holiday = True
+
+        missing_warnings: list[str] = []
+        if scheduled_start is None or scheduled_end is None or expected_minutes is None:
+            missing_warnings.append("Schedule data unavailable")
+        if approved_leave is None:
+            missing_warnings.append("Approved leave flag unavailable")
+        if approved_telework is None:
+            missing_warnings.append("Approved telework flag unavailable")
+        if holiday is None:
+            missing_warnings.append("Holiday flag unavailable")
+        if closure_reason == "MISSING_CHECKOUT":
+            missing_warnings.append("Session auto-closed after missing checkout")
+
+        team_id = _member_int(_first_present(m, "teamId", "equipeId", "team_id"))
+        team_name = _string_first_present(m, "teamName", "equipe", "equipeName", "team", "teamLabel")
+        department_id = _member_int(
+            _first_present(m, "departmentId", "departementId", "department_id", "departement_id")
+        ) or team_id
+        department_name = _string_first_present(
+            m,
+            "departmentName",
+            "departementName",
+            "department",
+            "departement",
+            "serviceName",
+            "service",
+        ) or team_name
+        entreprise_id = _member_int(_first_present(m, "entrepriseId", "enterpriseId", "companyId"))
+        entreprise_name = _string_first_present(
+            m,
+            "entreprise",
+            "entrepriseName",
+            "enterpriseName",
+            "companyName",
+            "company",
+        )
+
+        records.append(
+            AttendanceRecord(
+                employee_id=user_id,
+                employee_name=_member_name(m, user_id),
+                date=record_date,
+                check_in=check_in,
+                check_out=check_out,
+                duration_seconds=_duration_seconds(m, worked_minutes),
+                expected_minutes=expected_minutes,
+                worked_minutes=worked_minutes,
+                overtime_minutes=_member_int(
+                    _first_present(m, "overtimeMinutes", "overtimePreview", "heuresSupplementairesMinutes", "overtime_minutes")
+                ),
+                scheduled_start=scheduled_start,
+                scheduled_end=scheduled_end,
+                scheduled_workday=scheduled_workday,
+                approved_leave=approved_leave,
+                approved_telework=approved_telework,
+                holiday=holiday,
+                exceptional_work_allowed=_boolish(
+                    _first_present(m, "exceptionalWorkAllowed", "holidayWorkAllowed", "weekendWorkAllowed")
+                ),
+                daily_status=status,
+                late_arrival=_boolish(_first_present(m, "lateArrival", "retard", "isLate", "late")),
+                entreprise_id=entreprise_id,
+                entreprise_name=entreprise_name,
+                manager_id=_member_int(_first_present(m, "managerId", "manager_id", "responsableId")),
+                team_id=team_id,
+                team_name=team_name,
+                department_id=department_id,
+                department_name=department_name,
+                source=m.get("source"),
+                localisation=_location_label(
+                    m.get("localisation"),
+                    m.get("checkInLocation"),
+                    m.get("checkInLocationDetails"),
+                    m.get("checkOutLocation"),
+                    m.get("checkOutLocationDetails"),
+                ),
+                missing_data_warnings=missing_warnings,
+            )
+        )
+    logger.info(
+        "parsed %d/%d attendance record(s) from presence payload source=%s",
+        len(records),
+        len(raw_members),
+        source_path,
+    )
+    return ParsedPresencePayload(
+        records=records,
+        raw_records_count=len(raw_members),
+        skipped_records=skipped_records,
+        source_path=source_path,
+    )
     records: list[AttendanceRecord] = []
     for m in members:
         user_id = _member_int(
@@ -1010,7 +1716,13 @@ def _team_status_to_records(payload: dict[str, Any], today: date) -> list[Attend
                     m.get("lateArrival") if m.get("lateArrival") is not None else m.get("retard")
                 ),
                 source=m.get("source"),
-                localisation=m.get("localisation"),
+                localisation=_location_label(
+                    m.get("localisation"),
+                    m.get("checkInLocation"),
+                    m.get("checkInLocationDetails"),
+                    m.get("checkOutLocation"),
+                    m.get("checkOutLocationDetails"),
+                ),
             )
         )
     logger.info("parsed %d member record(s) from presence payload", len(records))
@@ -1110,6 +1822,29 @@ def _history_to_records(payload: dict[str, Any]) -> list[AttendanceRecord]:
             row_date = date.fromisoformat(str(row_date_raw)[:10])
         except ValueError:
             continue
+        team_id = _member_int(_first_present(row, "teamId", "equipeId", "team_id"))
+        team_name = _string_first_present(row, "teamName", "equipe", "equipeName", "team", "teamLabel")
+        department_id = _member_int(
+            _first_present(row, "departmentId", "departementId", "department_id", "departement_id")
+        ) or team_id
+        department_name = _string_first_present(
+            row,
+            "departmentName",
+            "departementName",
+            "department",
+            "departement",
+            "serviceName",
+            "service",
+        ) or team_name
+        entreprise_id = _member_int(_first_present(row, "entrepriseId", "enterpriseId", "companyId"))
+        entreprise_name = _string_first_present(
+            row,
+            "entreprise",
+            "entrepriseName",
+            "enterpriseName",
+            "companyName",
+            "company",
+        )
         records.append(
             AttendanceRecord(
                 employee_id=int(user_id),
@@ -1147,8 +1882,21 @@ def _history_to_records(payload: dict[str, Any]) -> list[AttendanceRecord]:
                 ),
                 daily_status=row.get("dailyStatus"),
                 late_arrival=_boolish(row.get("lateArrival")),
+                entreprise_id=entreprise_id,
+                entreprise_name=entreprise_name,
+                manager_id=_member_int(_first_present(row, "managerId", "manager_id", "responsableId")),
+                team_id=team_id,
+                team_name=team_name,
+                department_id=department_id,
+                department_name=department_name,
                 source=row.get("source"),
-                localisation=row.get("localisation"),
+                localisation=_location_label(
+                    row.get("localisation"),
+                    row.get("checkInLocation"),
+                    row.get("checkInLocationDetails"),
+                    row.get("checkOutLocation"),
+                    row.get("checkOutLocationDetails"),
+                ),
             )
         )
     return records

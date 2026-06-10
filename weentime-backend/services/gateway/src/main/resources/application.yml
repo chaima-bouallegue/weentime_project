@@ -34,10 +34,19 @@ spring:
               - "Authorization"
               - "Content-Type"
               - "Accept"
-              - "X-Requested-With"
               - "Origin"
+              - "X-Requested-With"
               - "X-Skip-Error-Toast"
               - "X-Request-ID"
+              - "X-User-Id"
+              - "X-User-Role"
+              - "X-Role"
+              - "X-Tenant-Id"
+              - "X-Entreprise-Id"
+              - "X-Company-Id"
+              - "X-Dashboard-Scope"
+              - "X-Current-Page"
+              - "X-Agent-Role"
             allowCredentials: true
 
       discovery:
@@ -60,12 +69,12 @@ spring:
         - id: rh-service
           uri: http://localhost:8192
           predicates:
-            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**
+            - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**, /api/v1/internal/recruitment/**
 
         - id: presence-service
           uri: http://localhost:8193
           predicates:
-            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
+            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**, /api/v1/overtime/**
 
         - id: communication-service
           uri: http://localhost:8194
@@ -83,6 +92,11 @@ spring:
           uri: http://localhost:8000
           predicates:
             - Path=/audio-stream, /audio-stream/**
+
+        - id: ml-service
+          uri: http://localhost:8001
+          predicates:
+            - Path=/api/ml/**
 
         - id: organisation-ws
           uri: http://localhost:8190
