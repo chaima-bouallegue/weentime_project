@@ -1,56 +1,1092 @@
-<div class="min-h-screen bg-slate-50/50 dark:bg-slate-950/20 pb-12">
-  
+<div class="min-h-screen structure-bg pb-12">
+
   <!-- Premium Header Section -->
-  <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 pt-10 pb-6 px-8 shadow-sm">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div class="flex items-start gap-5">
-          <div class="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-100 dark:shadow-none animate-in zoom-in duration-700">
-            <lucide-icon name="building-2" size="32"></lucide-icon>
+  <header class="structure-header mt-4 rounded-3xl overflow-hidden">
+    <div class="max-w-[1600px] mx-auto px-6 sm:px-8 pt-6 pb-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+
+        <!-- Header Info -->
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg"
+            style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); box-shadow: 0 6px 20px -6px rgba(99,102,241,0.5)">
+            <lucide-icon name="building-2" size="22"></lucide-icon>
           </div>
-          <div class="space-y-1">
-            <h1 class="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Structure <span class="text-indigo-600 italic">RH</span></h1>
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">Organisation</span>
-              <span class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-              <span class="text-xs font-semibold text-slate-400 italic">{{ entrepriseNom }}</span>
-            </div>
+          <div>
+            <h1 class="text-xl font-black tracking-tight"
+              style="background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text">
+              Structure organisationnelle</h1>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">Gérez vos départements, équipes
+              et collaborateurs en temps réel.</p>
           </div>
         </div>
 
-        <!-- Navigation Tabs (Modern Pill Style) -->
-        <nav class="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
-          @for (onglet of onglets; track onglet.key) {
-            <a
-              [routerLink]="['./', onglet.key]"
-              routerLinkActive="bg-white dark:bg-slate-800 text-indigo-600 shadow-sm border-slate-200/50"
-              class="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent"
-            >
-              <lucide-icon [name]="onglet.icon" size="14"></lucide-icon>
-              <span>{{ onglet.label }}</span>
-            </a>
+        <!-- Global Actions -->
+        <div class="flex flex-wrap items-center gap-3">
+          @if (structureStore.pendingEmployes().length > 0) {
+          <button (click)="openPendingDrawer()" class="notification-bell-trigger"
+            title="Voir les demandes d'inscription en attente">
+            <span class="notification-bell-icon-wrap">
+              <lucide-icon name="bell" size="18" class="notification-bell-icon"></lucide-icon>
+              <span class="notification-bell-badge">{{ structureStore.pendingEmployes().length }}</span>
+            </span>
+            <span class="notification-bell-label">{{ structureStore.pendingEmployes().length }} demande{{
+              structureStore.pendingEmployes().length > 1 ? 's' : '' }} en attente</span>
+          </button>
           }
-        </nav>
+
+          <button (click)="showOrgChartComingSoon.set(true)"
+            class="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/40 rounded-xl transition-colors border border-indigo-100 dark:border-indigo-900/40">
+            <lucide-icon name="git-branch" size="13"></lucide-icon>
+            <span>Organigramme</span>
+          </button>
+
+          <button (click)="openCreateDept()"
+            class="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <lucide-icon name="plus" size="13"></lucide-icon>
+            <span>Département</span>
+          </button>
+
+          <button (click)="openCreateTeam(selectedDepartment()?.id)"
+            class="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <lucide-icon name="plus" size="13"></lucide-icon>
+            <span>Équipe</span>
+          </button>
+
+          <button (click)="openCreateEmployee()"
+            class="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-xl shadow-sm transition-colors">
+            <lucide-icon name="plus" size="13"></lucide-icon>
+            <span>Collaborateur</span>
+          </button>
+        </div>
+
       </div>
+
+      <!-- Modern KPI Bento Cards (Compact row of badges) -->
+      <div class="kpi-stats-row flex flex-wrap items-center gap-3 mt-6">
+
+        <!-- KPI Departments -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #6366f1">
+          <lucide-icon name="building" size="13"></lucide-icon>
+          <span class="badge-value">{{ structureStore.departements().length }}</span>
+          <span class="badge-label">Départements</span>
+        </div>
+
+        <!-- KPI Teams -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #10b981">
+          <lucide-icon name="git-branch" size="13"></lucide-icon>
+          <span class="badge-value">{{ structureStore.equipes().length }}</span>
+          <span class="badge-label">Équipes</span>
+        </div>
+
+        <!-- KPI Employees -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #0ea5e9">
+          <lucide-icon name="users" size="13"></lucide-icon>
+          <span class="badge-value">{{ structureStore.employes().length }}</span>
+          <span class="badge-label">Collaborateurs</span>
+        </div>
+
+        <!-- KPI Managers -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #8b5cf6">
+          <lucide-icon name="user-cog" size="13"></lucide-icon>
+          <span class="badge-value">{{ structureStore.managers().length }}</span>
+          <span class="badge-label">Managers</span>
+        </div>
+
+        <!-- KPI Pending -->
+        @if (structureStore.pendingEmployes().length > 0) {
+        <button (click)="openPendingDrawer()" class="kpi-badge cursor-pointer kpi-badge-alert"
+          style="--badge-color: #f59e0b">
+          <lucide-icon name="clock" size="13"></lucide-icon>
+          <span class="badge-value">{{ structureStore.pendingEmployes().length }}</span>
+          <span class="badge-label">En attente</span>
+        </button>
+        }
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Content Area (3-Column Explorer Layout) -->
+  <main class="max-w-[1600px] mx-auto mt-8">
+
+    @if (!hasEntreprise) {
+    <div
+      class="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-20 flex flex-col items-center justify-center text-center gap-6 shadow-xl">
+      <div
+        class="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center animate-bounce">
+        <lucide-icon name="alert-circle" size="40"></lucide-icon>
+      </div>
+      <div class="space-y-2">
+        <h2 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Aucune entreprise assignée ⚠️</h2>
+        <p class="text-sm font-medium text-slate-400 dark:text-slate-500 max-w-sm mx-auto">Votre compte n'est pas lié à
+          une structure organisationnelle. Contactez votre administrateur.</p>
+      </div>
+    </div>
+    } @else {
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+      <!-- ========================================= -->
+      <!-- LEFT COLUMN: Organisation Tree Navigation (25% / col-span-3) -->
+      <!-- ========================================= -->
+      <div class="lg:col-span-3 left-sidebar-navigation p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-black text-slate-800 dark:text-white flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <lucide-icon name="building" size="12" class="text-white"></lucide-icon>
+            </span>
+            <span>Organisation</span>
+          </h3>
+          <div class="flex items-center gap-1">
+            <button
+              class="w-6 h-6 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors">
+              <lucide-icon name="more-vertical" size="13"></lucide-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search bar inside Left sidebar -->
+        <div class="search-field">
+          <lucide-icon name="search" size="14" class="search-icon">
+          </lucide-icon>
+
+          <input type="text" [ngModel]="searchSidebar()" (ngModelChange)="searchSidebar.set($event)"
+            placeholder="Rechercher un département..." class="search-input">
+
+          @if (searchSidebar()) {
+          <button type="button" class="search-clear-btn" (click)="searchSidebar.set('')">
+
+            <lucide-icon name="x" size="14"></lucide-icon>
+
+          </button>
+          }
+        </div>
+
+        <!-- Stats strip -->
+        <div class="flex items-center gap-3 px-3 py-2 rounded-xl"
+          style="background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(14,165,233,0.04)); border: 1px solid rgba(99,102,241,0.1)">
+          <div class="text-center flex-1">
+            <div class="text-[10px] font-black text-indigo-600">{{ structureStore.departements().length }}</div>
+            <div class="text-[8px] text-slate-400 font-bold uppercase tracking-wide">Dép.</div>
+          </div>
+          <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+          <div class="text-center flex-1">
+            <div class="text-[10px] font-black text-emerald-600">{{ structureStore.equipes().length }}</div>
+            <div class="text-[8px] text-slate-400 font-bold uppercase tracking-wide">Équipes</div>
+          </div>
+          <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+          <div class="text-center flex-1">
+            <div class="text-[10px] font-black text-sky-600">{{ structureStore.employes().length }}</div>
+            <div class="text-[8px] text-slate-400 font-bold uppercase tracking-wide">Collab.</div>
+          </div>
+        </div>
+
+        <hr class="border-slate-100 dark:border-slate-800">
+
+        <!-- Tree List -->
+        <div
+          class="relative pl-2 space-y-4 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800/80">
+          @for (dept of structureStore.departements(); track dept.id) {
+          <div class="space-y-2 relative">
+
+            <!-- Department Node -->
+            <div
+              class="flex items-center gap-2.5 cursor-pointer py-1.5 px-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40 group transition-colors tree-node"
+              [class.active-node]="selectedDepartment()?.id === dept.id && !selectedTeamId()"
+              (click)="selectDepartment(dept.id)">
+              <lucide-icon name="chevron-down" size="14" class="text-slate-400 transition-transform"
+                [class.rotate-180]="!expandedDepartments().has(dept.id)"></lucide-icon>
+              <lucide-icon name="building" size="14" class="text-indigo-500 dark:text-indigo-400"></lucide-icon>
+              <div class="text-left flex-1 min-w-0">
+                <div
+                  class="text-xs font-black text-slate-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                  [class.text-indigo-600]="selectedDepartment()?.id === dept.id && !selectedTeamId()"
+                  [class.dark:text-indigo-400]="selectedDepartment()?.id === dept.id && !selectedTeamId()">
+                  {{ dept.nom }}
+                </div>
+                <div class="text-[8px] text-slate-400 font-bold leading-none mt-0.5">1 département</div>
+              </div>
+            </div>
+
+            <!-- Teams list for Department -->
+            @if (expandedDepartments().has(dept.id)) {
+            <div
+              class="pl-7 space-y-1.5 relative before:absolute before:left-[17px] before:top-0 before:bottom-3 before:w-0.5 before:border-l before:border-slate-100 dark:before:border-slate-800/60">
+              @for (team of structureStore.equipes().filter(t => t.departementId === dept.id); track team.id) {
+              <div
+                class="flex items-center gap-2 cursor-pointer py-1.5 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/30 group transition-all tree-node"
+                [class.active-node]="selectedTeam()?.id === team.id" (click)="selectTeam(team.id, dept.id)">
+
+                <!-- Tree connector branch -->
+                <span
+                  class="w-1.5 h-1.5 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 group-hover:border-indigo-500"
+                  [class.bg-indigo-600]="selectedTeam()?.id === team.id"
+                  [class.border-indigo-600]="selectedTeam()?.id === team.id"></span>
+
+                <div class="text-left flex-1 min-w-0">
+                  <div
+                    class="text-xs font-bold text-slate-600 dark:text-slate-300 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                    [class.text-indigo-600]="selectedTeam()?.id === team.id"
+                    [class.dark:text-indigo-400]="selectedTeam()?.id === team.id"
+                    [class.font-black]="selectedTeam()?.id === team.id">
+                    {{ team.nom }}
+                  </div>
+                  <div class="text-[8px] text-slate-400 mt-0.5 font-bold leading-none">{{ team.nombreEmployes || 0 }}
+                    collaborateurs</div>
+                </div>
+              </div>
+              }
+
+              <!-- Outlined "+ Ajouter une équipe" button -->
+              <div class="pt-2 pr-2">
+                <button (click)="openCreateTeam(dept.id)" class="
+      group
+      w-full
+      flex
+      items-center
+      justify-center
+      gap-2
+      py-2.5
+      px-3
+      rounded-2xl
+      border
+      border-dashed
+      border-slate-300
+      dark:border-slate-700
+      bg-white/70
+      dark:bg-slate-900/40
+      text-xs
+      font-semibold
+      text-slate-600
+      dark:text-slate-300
+      hover:border-indigo-500
+      hover:bg-indigo-50
+      dark:hover:bg-indigo-950/20
+      hover:text-indigo-600
+      dark:hover:text-indigo-400
+      hover:shadow-sm
+      transition-all
+      duration-200
+    ">
+
+                  <span class="
+        flex
+        items-center
+        justify-center
+        w-5
+        h-5
+        rounded-full
+        bg-slate-100
+        dark:bg-slate-800
+        group-hover:bg-indigo-100
+        dark:group-hover:bg-indigo-900/50
+        transition-colors
+      ">
+                    <lucide-icon name="plus" size="12">
+                    </lucide-icon>
+                  </span>
+
+                  <span>Ajouter une équipe</span>
+
+                </button>
+              </div>
+            </div>
+            }
+
+          </div>
+          }
+        </div>
+      </div>
+
+      <!-- ========================================= -->
+      <!-- CENTER COLUMN: Active Team Details & Staff Cards (60% / col-span-6) -->
+      <!-- ========================================= -->
+      <div class="lg:col-span-6 space-y-6 overflow-hidden">
+
+        @if (selectedTeam(); as team) {
+
+        <!-- Team General Card (Unified UX Refactor) -->
+        <div class="premium-card p-5 space-y-4 team-hero-gradient" style="min-width: 0;">
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <!-- Left: Team Info -->
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div
+                class="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-md shadow-emerald-100 dark:shadow-none flex-shrink-0">
+                {{ team.nom.substring(0, 2).toUpperCase() }}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base font-black text-slate-800 dark:text-white truncate">{{ team.nom }}</h2>
+                  <span
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
+                    ● Actif
+                  </span>
+                </div>
+                <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-medium truncate">{{ team.description ||
+                  'Équipe active de la structure' }}</p>
+              </div>
+            </div>
+
+            <!-- Right: Actions -->
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <button (click)="openEditTeam(team)"
+                class="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-650 dark:text-slate-500 flex items-center justify-center"
+                title="Modifier l'équipe">
+                <lucide-icon name="edit-2" size="13"></lucide-icon>
+              </button>
+              <button (click)="confirmDeleteTeam(team)"
+                class="w-7 h-7 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 dark:text-slate-500 flex items-center justify-center"
+                title="Supprimer l'équipe">
+                <lucide-icon name="trash-2" size="13"></lucide-icon>
+              </button>
+              <button (click)="showOrgChartComingSoon.set(true)"
+                class="flex items-center gap-1.5 py-1 px-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-[10px] font-black text-slate-650 dark:text-slate-300 transition-colors"
+                title="Voir l'équipe complète">
+                <span>Voir l'équipe</span>
+                <lucide-icon name="external-link" size="10"></lucide-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            <!-- Manager block -->
+            <div
+              class="flex items-center gap-3 bg-slate-50/50 dark:bg-slate-800/20 border border-slate-100/50 dark:border-slate-800/50 rounded-xl p-3">
+              <div
+                class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black shadow-inner flex-shrink-0"
+                [style.background-color]="getAvatarColor(team.managerNom || 'Manager')">
+                {{ getInitials(team.managerNom?.split(' ')?.[0] || '', team.managerNom?.split(' ')?.[1] || '') }}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-black text-slate-800 dark:text-white truncate">{{ team.managerNom || 'Non
+                    assigné' }}</span>
+                  <span
+                    class="px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex-shrink-0">Mgr</span>
+                </div>
+                <div class="text-[9px] text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">{{
+                  team.managerNom ? 'manager@weentime.com' : 'Assigner un manager' }}</div>
+              </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                @if (team.managerId) {
+                <button (click)="openAssignManager(team)"
+                  class="text-[10px] font-bold text-indigo-650 dark:text-indigo-400 hover:underline px-2 py-1 rounded border border-indigo-200/50 dark:border-indigo-900/60"
+                  title="Remplacer le manager">
+                  Remplacer
+                </button>
+                } @else {
+                <button (click)="openAssignManager(team)"
+                  class="text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 px-2 py-1 rounded"
+                  title="Assigner un manager">
+                  Assigner
+                </button>
+                }
+              </div>
+            </div>
+
+            <!-- Inline metrics block inside card -->
+            <div class="flex flex-col justify-center gap-2.5 px-3 py-1.5">
+              <div class="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span class="text-slate-850 dark:text-slate-200 font-black">{{ selectedTeamEmployees().length
+                    }}</span> Actifs
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  <span class="text-slate-850 dark:text-slate-200 font-black">0</span> Inactifs
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                  <span class="text-slate-850 dark:text-slate-200 font-black">100%</span> Présence
+                </span>
+              </div>
+              <!-- Mini progress bar -->
+              <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-indigo-500 rounded-full" style="width: 100%;"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Collaborators Section Card -->
+        <div
+          class="premium-card overflow-hidden shadow-sm mt-6 p-0 border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 collaborators-container"
+          style="min-width: 0;">
+
+          <!-- Unified Search & Filter Toolbar -->
+          <div class="collaborators-toolbar p-5 border-b border-slate-100 dark:border-slate-800/80">
+
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4">
+
+              <!-- Search -->
+              <div class="relative min-w-0">
+
+                <lucide-icon name="search" size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                </lucide-icon>
+
+                <input type="text" [ngModel]="searchEmployee()" (ngModelChange)="onSearchChange($event)"
+                  placeholder="Rechercher un collaborateur, email ou poste..." class="toolbar-search">
+
+              </div>
+
+              <!-- Filters -->
+              <div class="flex flex-wrap items-center gap-2">
+
+                <select [ngModel]="filterStatut()" (ngModelChange)="onFilterChange($event)" class="toolbar-filter">
+
+                  <option value="ALL">Tous les statuts</option>
+                  <option value="ACTIF">Actifs</option>
+                  <option value="INACTIF">Inactifs</option>
+
+                </select>
+
+
+
+              </div>
+
+              <!-- Action -->
+              <button (click)="openCreateEmployee()" class="toolbar-add-btn">
+
+                <lucide-icon name="plus" size="14">
+                </lucide-icon>
+
+                Ajouter
+
+              </button>
+
+            </div>
+
+
+
+          </div>
+
+
+          <!-- Table Content -->
+          <div class="overflow-x-auto">
+            <table class="w-full border-separate border-spacing-y-1 text-left">
+              <thead>
+                <tr class="border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40">
+                  <th
+                    class="py-3 px-5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Collaborateur</th>
+                  <th
+                    class="py-3 px-5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Contact</th>
+                  <th
+                    class="py-3 px-5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Statut</th>
+
+                  <th
+                    class="py-3 px-5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-right pr-8">
+                    Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (emp of paginatedEmployees(); track emp.id) {
+                <tr
+                  class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/40 dark:hover:bg-slate-800/10 transition-colors emp-row">
+                  <!-- Collaborateur (Avatar + Name & Role) -->
+                  <td class="py-3 px-5">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shadow-inner flex-shrink-0"
+                        [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
+                        {{ getInitials(emp.prenom, emp.nom) }}
+                      </div>
+                      <div class="flex flex-col text-left min-w-0">
+                        <span class="text-xs font-bold text-slate-800 dark:text-white truncate">{{ emp.prenom }} {{
+                          emp.nom }}</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-450 font-semibold truncate">
+                          {{ emp.role === 'ROLE_MANAGER' ? 'Manager' : (emp.poste || 'Développeur') }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Contact (Email compact + custom CSS tooltip) -->
+                  <td class="py-3 px-5">
+                    <div
+                      class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 group/email relative cursor-pointer select-all">
+                      <lucide-icon name="mail" size="13" class="text-slate-400"></lucide-icon>
+                      <span class="truncate max-w-[120px]">{{ emp.email.split('@')[0] }}@...</span>
+                      <span
+                        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 dark:bg-slate-950 text-white text-[10px] font-semibold rounded shadow-md opacity-0 pointer-events-none group-hover/email:opacity-100 transition-opacity duration-200 whitespace-nowrap z-30">
+                        {{ emp.email }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- Statut -->
+                  <td class="py-3 px-5">
+                    <span
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                      [class.bg-emerald-50]="emp.statut === 'ACTIF'" [class.text-emerald-600]="emp.statut === 'ACTIF'"
+                      [class.dark:bg-emerald-950/30]="emp.statut === 'ACTIF'"
+                      [class.dark:text-emerald-400]="emp.statut === 'ACTIF'"
+                      [class.bg-slate-100]="emp.statut !== 'ACTIF'" [class.text-slate-500]="emp.statut !== 'ACTIF'"
+                      [class.dark:bg-slate-850]="emp.statut !== 'ACTIF'"
+                      [class.dark:text-slate-400]="emp.statut !== 'ACTIF'">
+                      <span>{{ emp.statut === 'ACTIF' ? 'ACTIF' : 'INACTIF' }}</span>
+                      <span class="w-1 h-1 rounded-full" [class.bg-emerald-500]="emp.statut === 'ACTIF'"
+                        [class.bg-slate-400]="emp.statut !== 'ACTIF'"></span>
+                    </span>
+                  </td>
+
+
+
+                  <!-- Actions — Ghost icons + Smart Overlay Menu -->
+                  <td class="py-3 px-5 text-right pr-6">
+                    <!-- Desktop: visible actions -->
+                    <div class="hidden sm:flex items-center justify-end gap-1">
+                      <a [routerLink]="['/app/rh/profil']" [queryParams]="{userId: emp.id}" class="action-icon-btn"
+                        aria-label="Voir le profil" title="Voir le profil">
+                        <lucide-icon name="eye" size="13"></lucide-icon>
+                      </a>
+                      <button (click)="openEditEmployee(emp)" class="action-icon-btn" aria-label="Modifier"
+                        title="Modifier">
+                        <lucide-icon name="edit-2" size="13"></lucide-icon>
+                      </button>
+                      <button (click)="openEmployeeMenu(emp, $event)" class="action-icon-btn employee-menu-trigger"
+                        aria-label="Plus d'actions" aria-haspopup="true"
+                        [attr.aria-expanded]="activeMenuEmployee()?.id === emp.id">
+                        <lucide-icon name="more-vertical" size="13"></lucide-icon>
+                      </button>
+                    </div>
+                    <!-- Mobile: all in one button -->
+                    <div class="sm:hidden">
+                      <button (click)="openEmployeeMenu(emp, $event)" class="action-icon-btn employee-menu-trigger"
+                        aria-label="Actions" aria-haspopup="true"
+                        [attr.aria-expanded]="activeMenuEmployee()?.id === emp.id">
+                        <lucide-icon name="more-vertical" size="13"></lucide-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                }
+                @if (selectedTeamEmployees().length === 0) {
+                <tr>
+                  <td colspan="5"
+                    class="py-10 text-center text-xs text-slate-400 font-semibold bg-slate-50/20 dark:bg-slate-950/20">
+                    Aucun collaborateur trouvé pour cette équipe.
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Footer (Pagination controls) -->
+          <div
+            class="pagination-footer p-4 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800/80 premium-card-footer">
+            <!-- Left: Items per page + range info -->
+            <div class="pagination-info">
+              <span class="pagination-range text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                @if (selectedTeamEmployees().length > 0) {
+                {{ startIndex() }}–{{ endIndex() }} sur {{ selectedTeamEmployees().length }}
+                collaborateur{{ selectedTeamEmployees().length > 1 ? 's' : '' }} affiché{{
+                selectedTeamEmployees().length > 1 ? 's' : '' }}
+                } @else {
+                Aucun collaborateur
+                }
+              </span>
+              <div class="pagination-size-selector">
+                <label for="page-size-select" class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Par
+                  page</label>
+                <select id="page-size-select" [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)"
+                  class="text-[11px] font-bold border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-650 dark:text-slate-350 px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all cursor-pointer">
+                  <option [value]="10">10</option>
+                  <option [value]="25">25</option>
+                  <option [value]="50">50</option>
+                  <option [value]="100">100</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Navigation buttons -->
+            @if (totalPages() > 1) {
+            <nav class="pagination-nav" aria-label="Pagination des collaborateurs">
+              <!-- First page -->
+              <button (click)="goToPage(1)" [disabled]="currentPage() === 1" class="pagination-btn"
+                aria-label="Première page" title="Première page">
+                <lucide-icon name="chevrons-left" size="12"></lucide-icon>
+              </button>
+              <!-- Previous -->
+              <button (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1" class="pagination-btn"
+                aria-label="Page précédente" title="Page précédente">
+                <lucide-icon name="chevron-left" size="12"></lucide-icon>
+              </button>
+
+              <!-- Page indicator (mobile) + numbers (desktop) -->
+              <span class="pagination-page-indicator text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1.5">
+                {{ currentPage() }}/{{ totalPages() }}
+              </span>
+
+              <!-- Page numbers (hidden on small screens) -->
+              <div class="pagination-pages">
+                @for (page of getPageNumbers(); track page) {
+                <button (click)="goToPage(page)" class="pagination-page-btn" [class.active]="currentPage() === page"
+                  [attr.aria-current]="currentPage() === page ? 'page' : null" aria-label="Page {{ page }}">
+                  {{ page }}
+                </button>
+                }
+              </div>
+
+              <!-- Next -->
+              <button (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()"
+                class="pagination-btn" aria-label="Page suivante" title="Page suivante">
+                <lucide-icon name="chevron-right" size="12"></lucide-icon>
+              </button>
+              <!-- Last page -->
+              <button (click)="goToPage(totalPages())" [disabled]="currentPage() === totalPages()"
+                class="pagination-btn" aria-label="Dernière page" title="Dernière page">
+                <lucide-icon name="chevrons-right" size="12"></lucide-icon>
+              </button>
+            </nav>
+            }
+          </div>
+
+        </div>
+
+        <!-- Employee Smart Menu Overlay (fixed, never clipped) -->
+        @if (activeMenuEmployee(); as menuEmp) {
+        <div class="employee-menu-backdrop" (click)="closeEmployeeMenu()"></div>
+        <div class="employee-menu-overlay" role="menu" aria-label="Actions collaborateur" [ngStyle]="menuStyle()">
+          <button (click)="closeEmployeeMenu(); onToggleEmployeeStatus(menuEmp)" class="menu-item" role="menuitem">
+            <lucide-icon [name]="menuEmp.statut === 'ACTIF' ? 'user-x' : 'user-check'" size="13"
+              class="menu-item-icon"></lucide-icon>
+            <span>{{ menuEmp.statut === 'ACTIF' ? 'Désactiver' : 'Activer' }}</span>
+          </button>
+          <button (click)="closeEmployeeMenu(); openAssignManager(selectedTeam()!)" class="menu-item" role="menuitem">
+            <lucide-icon name="user-cog" size="13" class="menu-item-icon"></lucide-icon>
+            <span>Changer manager</span>
+          </button>
+          <div class="menu-separator"></div>
+          <button (click)="closeEmployeeMenu(); confirmDeleteEmployee(menuEmp)" class="menu-item menu-item-danger"
+            role="menuitem">
+            <lucide-icon name="trash-2" size="13" class="menu-item-icon"></lucide-icon>
+            <span>Supprimer</span>
+          </button>
+        </div>
+        }
+
+        } @else {
+
+        <!-- Department Empty / Selector Card -->
+        <div class="premium-card p-12 text-center space-y-4">
+          <lucide-icon name="building" size="48"
+            class="text-indigo-500 dark:text-indigo-400 mx-auto mb-2"></lucide-icon>
+          <h2 class="text-lg font-black text-slate-800 dark:text-white">Sélectionnez une équipe</h2>
+          <p class="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">Veuillez sélectionner une équipe dans
+            l'arborescence à gauche pour visualiser ses membres, son manager et gérer ses informations.</p>
+        </div>
+
+        }
+
+      </div>
+
+      <!-- ========================================= -->
+      <!-- RIGHT COLUMN: Validation Activity Center (30% / col-span-3) -->
+      <!-- ========================================= -->
+      <div class="lg:col-span-3 space-y-6 right-secondary-sidebar">
+
+        <!-- Timeline Activity Feed Panel -->
+        <div class="premium-card p-5 space-y-4">
+          <h3 class="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+              <lucide-icon name="zap" size="12"></lucide-icon>
+            </span>
+            <span>Activité récente</span>
+          </h3>
+
+          <hr class="border-slate-100 dark:border-slate-800/80">
+
+          <!-- Timeline feed -->
+          <div
+            class="relative pl-4 space-y-4 before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800/60">
+
+            <!-- Timeline Item 1 -->
+            <div class="relative">
+              <span
+                class="absolute left-[-15px] top-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 border border-white dark:border-slate-900"></span>
+              <div class="text-left text-[10px] font-semibold text-slate-700 dark:text-slate-200">
+                <span class="font-black text-slate-800 dark:text-white">Molka Bouallegue</span> a rejoint l'équipe
+                Backend.
+              </div>
+              <div class="text-[8px] text-slate-400 font-bold mt-0.5">Il y a 10 min</div>
+            </div>
+
+            <!-- Timeline Item 2 -->
+            <div class="relative">
+              <span
+                class="absolute left-[-15px] top-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 border border-white dark:border-slate-900"></span>
+              <div class="text-left text-[10px] font-semibold text-slate-700 dark:text-slate-200">
+                Département <span class="font-black text-slate-800 dark:text-white">Informatique</span> au complet.
+              </div>
+              <div class="text-[8px] text-slate-400 font-bold mt-0.5">Il y a 1 heure</div>
+            </div>
+
+            <!-- Timeline Item 3 -->
+            <div class="relative">
+              <span
+                class="absolute left-[-15px] top-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 border border-white dark:border-slate-900"></span>
+              <div class="text-left text-[10px] font-semibold text-slate-700 dark:text-slate-200">
+                Nouvelle demande reçue de <span class="font-black text-slate-800 dark:text-white">Hiba Boulifa</span>.
+              </div>
+              <div class="text-[8px] text-slate-400 font-bold mt-0.5">Il y a 2 heures</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    }
+
+  </main>
+</div>
+
+<!-- DRAWERS & FORM COMPONENTS -->
+
+<!-- Manager Assignment Modal -->
+@if (showAssignManagerModal()) {
+<app-manager-form [manager]="getManagerForTeam(teamToAssignManager())!"
+  [equipesSansManager]="structureStore.equipesSansManager()" (close)="showAssignManagerModal.set(false)"
+  (assigned)="onManagerAssigned()" />
+}
+
+<!-- FULL INTERACTIVE ORGANIGRAMME OVERLAY -->
+<!-- ========================================= -->
+@if (showOrgChartComingSoon()) {
+<div class="orgchart-overlay">
+
+  <!-- ── Header Bar ── -->
+  <div class="orgchart-header">
+    <div class="flex items-center gap-6">
+      <!-- Back button -->
+      <button (click)="showOrgChartComingSoon.set(false)"
+        class="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm">
+        <lucide-icon name="arrow-left" size="16"></lucide-icon>
+      </button>
+      <div>
+        <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">Organigramme</h1>
+        <p class="text-xs text-slate-400 font-semibold mt-0.5">Visualisez la structure organisationnelle de l'entreprise
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2.5">
+      <!-- Search -->
+      <div class="relative hidden sm:block">
+        <lucide-icon name="search" size="13"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
+        <input type="text" [ngModel]="orgSearchQuery()" (ngModelChange)="orgSearchQuery.set($event)"
+          placeholder="Rechercher un employé, une équipe..."
+          class="pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all w-64 shadow-sm">
+      </div>
+      <!-- Filters -->
+      <button
+        class="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm">
+        <lucide-icon name="filter" size="13"></lucide-icon>
+        <span>Filtres</span>
+      </button>
+      <!-- Expand All -->
+      <button (click)="toggleOrgExpandAll()"
+        class="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm">
+        <lucide-icon [name]="orgAllExpanded() ? 'minimize-2' : 'maximize-2'" size="13"></lucide-icon>
+        <span>{{ orgAllExpanded() ? 'Réduire' : 'Déplier tout' }}</span>
+      </button>
+      <!-- Export PDF -->
+      <button (click)="exportOrgChartToPdf()"
+        class="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm border border-indigo-600 hover:border-indigo-700">
+        <lucide-icon name="download" size="13"></lucide-icon>
+        <span>Exporter PDF</span>
+      </button>
     </div>
   </div>
 
-  <!-- Content Area -->
-  <div class="max-w-7xl mx-auto px-8 mt-10">
-    @if (!hasEntreprise) {
-      <div class="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 p-20 flex flex-col items-center justify-center text-center gap-6 shadow-2xl shadow-slate-200/50 dark:shadow-none">
-        <div class="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center animate-bounce">
-          <lucide-icon name="alert-circle" size="40"></lucide-icon>
-        </div>
-        <div class="space-y-2">
-          <h2 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight text-center">Aucune entreprise assignée ⚠️</h2>
-          <p class="text-sm font-medium text-slate-400 max-w-sm mx-auto">Votre compte n'est pas encore lié à une structure organisationnelle. Contactez votre administrateur pour régulariser votre situation.</p>
-        </div>
-      </div>
-    } @else {
-      <div class="animate-in fade-in slide-in-from-bottom-6 duration-700">
-        <router-outlet />
-      </div>
-    }
+  <!-- ── Zoom Toolbar (floating) ── -->
+  <div class="orgchart-zoom-bar">
+    <button (click)="orgZoom.set(Math.max(0.3, orgZoom() - 0.1))" class="org-zoom-btn">
+      <lucide-icon name="minus" size="15"></lucide-icon>
+    </button>
+    <span class="text-[11px] font-black text-slate-600 dark:text-slate-300 w-12 text-center select-none">{{ (orgZoom() *
+      100).toFixed(0) }}%</span>
+    <button (click)="orgZoom.set(Math.min(1.5, orgZoom() + 0.1))" class="org-zoom-btn">
+      <lucide-icon name="plus" size="15"></lucide-icon>
+    </button>
+    <div class="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
+    <button (click)="orgZoom.set(1)" class="org-zoom-btn" title="Réinitialiser le zoom">
+      <lucide-icon name="maximize-2" size="15"></lucide-icon>
+    </button>
   </div>
+
+  <!-- ── Main Content: Canvas + Optional Sidebar ── -->
+  <div class="orgchart-body">
+
+    <!-- Canvas (scrollable) -->
+    <div class="orgchart-canvas" [class.has-sidebar]="selectedOrgTeam()">
+      <div class="orgchart-tree-wrapper" [style.transform]="'scale(' + orgZoom() + ')'"
+        style="transform-origin: top center">
+
+        <!-- ╔═══════════════════════════╗ -->
+        <!-- ║  ROOT: Direction Générale  ║ -->
+        <!-- ╚═══════════════════════════╝ -->
+        <div class="org-col-center">
+          <div class="org-root-node">
+            <div class="org-root-avatar">
+              <lucide-icon name="building-2" size="24"></lucide-icon>
+            </div>
+            <div class="org-root-info">
+              <div class="org-root-name">{{ entrepriseNom }}</div>
+              <div class="org-root-role">Direction Générale</div>
+            </div>
+            <div class="org-root-badge">CEO</div>
+          </div>
+
+          <!-- Vertical line from root to departments -->
+          <div class="org-vline" style="height: 40px"></div>
+
+          <!-- Horizontal bar connecting departments -->
+          @if (getFilteredOrgDepts().length > 1) {
+          <div class="org-hline-bar">
+            <div class="org-hline"></div>
+          </div>
+          }
+
+          <!-- ╔═══════════════════════════════════════╗ -->
+          <!-- ║  DEPARTMENTS ROW (horizontally laid)   ║ -->
+          <!-- ╚═══════════════════════════════════════╝ -->
+          <div class="org-dept-row">
+            @for (dept of getFilteredOrgDepts(); track dept.id; let i = $index) {
+            <div class="org-dept-column">
+              <!-- Vertical connector from horizontal bar into department -->
+              <div class="org-vline" style="height: 24px"></div>
+
+              <!-- Department Card -->
+              <div class="org-dept-card" [style.--dept-accent]="getOrgDeptColor(i)" (click)="toggleOrgDept(dept.id)"
+                [class.org-highlight]="isOrgHighlighted(dept.nom)">
+                <div class="org-dept-accent"></div>
+                <div class="org-dept-body">
+                  <div class="org-dept-title">{{ dept.nom }}</div>
+                  <div class="org-dept-manager">
+                    <div class="org-dept-manager-avatar" [style.background-color]="getAvatarColor(dept.nom)">
+                      {{ dept.nom.substring(0,1).toUpperCase() }}
+                    </div>
+                    <span>{{ getOrgDeptManagerName(dept.id) }}</span>
+                  </div>
+                  <div class="org-dept-role-badge" [style.color]="getOrgDeptColor(i)"
+                    [style.background]="getOrgDeptColor(i) + '18'">
+                    {{ getOrgDeptManagerRole(dept.id) }}
+                  </div>
+                  <div class="org-dept-stats">
+                    <lucide-icon name="git-branch" size="10"></lucide-icon>
+                    {{ getOrgDeptTeams(dept.id).length }} équipes · {{ getOrgDeptEmployees(dept.id).length }} employés
+                  </div>
+                </div>
+                <lucide-icon [name]="orgExpandedDepts().has(dept.id) ? 'chevron-up' : 'chevron-down'" size="14"
+                  class="org-dept-chevron"></lucide-icon>
+              </div>
+
+              <!-- ╔═══════════════════════════════╗ -->
+              <!-- ║  TEAMS (vertically stacked)    ║ -->
+              <!-- ╚═══════════════════════════════╝ -->
+              @if (orgExpandedDepts().has(dept.id)) {
+              <div class="org-teams-stack">
+                @for (team of getFilteredOrgTeams(dept.id); track team.id) {
+                <!-- Vertical connector to team -->
+                <div class="org-vline-thin" style="height: 16px"></div>
+
+                <!-- Team Card -->
+                <div
+                  class="org-team-card flex flex-col items-start gap-2.5 p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl cursor-pointer transition-all duration-200"
+                  [class.org-team-selected]="selectedOrgTeam()?.id === team.id"
+                  [class.org-highlight]="isOrgHighlighted(team.nom)"
+                  (click)="selectOrgTeam(team); $event.stopPropagation()">
+
+                  <div class="flex items-center gap-3 w-full">
+                    <div class="org-team-icon w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      [style.background]="getOrgDeptColor(i) + '15'" [style.color]="getOrgDeptColor(i)">
+                      <lucide-icon name="users" size="14"></lucide-icon>
+                    </div>
+                    <div class="org-team-info flex-1 min-w-0 text-left">
+                      <div
+                        class="org-team-name text-xs font-black text-slate-800 dark:text-white truncate leading-tight">
+                        {{ team.nom }}</div>
+                      <div
+                        class="org-team-meta text-[10px] text-slate-400 dark:text-slate-500 font-semibold truncate mt-0.5">
+                        @if (team.managerNom) {
+                        <span>{{ team.managerNom }}</span>
+                        } @else {
+                        <span class="italic text-slate-300 dark:text-slate-600">Sans manager</span>
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Avatar stack preview of team members -->
+                  <div
+                    class="flex items-center justify-between mt-0.5 w-full border-t border-slate-50 dark:border-slate-800/60 pt-2.5">
+                    <div class="flex items-center -space-x-1.5 overflow-hidden">
+                      @for (emp of getOrgTeamEmployees(team.id).slice(0, 3); track emp.id) {
+                      <div
+                        class="w-5 h-5 rounded-full border border-white dark:border-slate-950 flex items-center justify-center text-[7px] font-black text-white shadow-sm"
+                        [style.background-color]="getAvatarColor(emp.prenom + emp.nom)"
+                        [title]="emp.prenom + ' ' + emp.nom">
+                        {{ getInitials(emp.prenom, emp.nom) }}
+                      </div>
+                      }
+                      @if (getOrgTeamEmployees(team.id).length > 3) {
+                      <div
+                        class="w-5 h-5 rounded-full border border-white dark:border-slate-950 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[7px] font-black text-slate-500 dark:text-slate-400 shadow-sm">
+                        +{{ getOrgTeamEmployees(team.id).length - 3 }}
+                      </div>
+                      }
+                      @if (getOrgTeamEmployees(team.id).length === 0) {
+                      <span class="text-[8px] text-slate-300 dark:text-slate-600 font-bold">Aucun membre</span>
+                      }
+                    </div>
+                    <div class="org-team-count text-[9px] font-black text-slate-400">
+                      {{ getOrgTeamEmployees(team.id).length }} coll.
+                    </div>
+                  </div>
+                </div>
+                }
+              </div>
+              }
+            </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════════════════════╗ -->
+    <!-- ║  RIGHT SIDEBAR: Team Details       ║ -->
+    <!-- ╚═══════════════════════════════════╝ -->
+    @if (selectedOrgTeam(); as team) {
+    <div class="orgchart-sidebar">
+      <!-- Sidebar Header -->
+      <div class="org-sb-header">
+        <div class="org-sb-team-icon" [style.background-color]="getAvatarColor(team.nom)">
+          <lucide-icon name="users" size="18" class="text-white"></lucide-icon>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-black text-slate-800 dark:text-white truncate">Équipe {{ team.nom }}</div>
+          <div class="text-[10px] text-slate-400 font-bold">Département {{ team.departementNom }}</div>
+        </div>
+        <button (click)="selectedOrgTeam.set(null)"
+          class="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+          <lucide-icon name="x" size="16"></lucide-icon>
+        </button>
+      </div>
+
+      <hr class="border-slate-100 dark:border-slate-800/80">
+
+      <!-- Tabs -->
+      <div class="org-sb-tabs">
+        <button class="org-sb-tab active">Résumé</button>
+        <button class="org-sb-tab">Membres ({{ getOrgTeamEmployees(team.id).length }})</button>
+        <button class="org-sb-tab">Activité</button>
+      </div>
+
+      <!-- Manager -->
+      <div class="org-sb-section">
+        <div class="org-sb-section-title">Manager</div>
+        @if (team.managerNom) {
+        <div class="org-sb-manager-card">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-black"
+            [style.background-color]="getAvatarColor(team.managerNom)">
+            {{ getInitials(team.managerNom.split(' ')[0] || '', team.managerNom.split(' ')[1] || '') }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-black text-slate-800 dark:text-white">{{ team.managerNom }}</div>
+            <div class="text-[10px] text-slate-400 font-semibold">Manager d'équipe</div>
+          </div>
+          <button
+            class="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors">
+            <lucide-icon name="mail" size="14"></lucide-icon>
+          </button>
+        </div>
+        } @else {
+        <div class="text-xs text-slate-400 font-semibold py-3 text-center bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+          Aucun manager assigné</div>
+        }
+      </div>
+
+      <!-- KPI Stats -->
+      <div class="org-sb-section">
+        <div class="org-sb-kpi-grid">
+          <div class="org-sb-kpi">
+            <div class="org-sb-kpi-value text-indigo-600">{{ getOrgTeamEmployees(team.id).length }}</div>
+            <div class="org-sb-kpi-label">Employés</div>
+          </div>
+          <div class="org-sb-kpi">
+            <div class="org-sb-kpi-value text-emerald-600">100%</div>
+            <div class="org-sb-kpi-label">Taux de présence</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Informations -->
+      <div class="org-sb-section">
+        <div class="org-sb-section-title">Informations</div>
+        <div class="org-sb-info-list">
+          <div class="org-sb-info-row">
+            <lucide-icon name="building" size="12" class="text-slate-400"></lucide-icon>
+            <span class="org-sb-info-label">Département</span>
+            <span class="org-sb-info-value">{{ team.departementNom }}</span>
+          </div>
+          <div class="org-sb-info-row">
+            <lucide-icon name="users" size="12" class="text-slate-400"></lucide-icon>
+            <span class="org-sb-info-label">Effectif</span>
+            <span class="org-sb-info-value">{{ getOrgTeamEmployees(team.id).length }} / {{ team.effectifMaximum || '∞'
+              }}</span>
+          </div>
+          @if (team.description) {
+          <div class="org-sb-info-row">
+            <lucide-icon name="file-text" size="12" class="text-slate-400"></lucide-icon>
+            <span class="org-sb-info-label">Description</span>
+            <span class="org-sb-info-value">{{ team.description }}</span>
+          </div>
+          }
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="org-sb-section">
+        <div class="org-sb-section-title">Actions rapides</div>
+        <div class="org-sb-actions">
+          <button (click)="openEditTeam(team); showOrgChartComingSoon.set(false)" class="org-sb-action-btn">
+            <lucide-icon name="edit-2" size="14" class="text-indigo-500"></lucide-icon>
+            <span>Modifier l'équipe</span>
+          </button>
+          <button (click)="openCreateEmployee(); showOrgChartComingSoon.set(false)" class="org-sb-action-btn">
+            <lucide-icon name="user-plus" size="14" class="text-emerald-500"></lucide-icon>
+            <span>Ajouter un employé</span>
+          </button>
+          <button (click)="confirmDeleteTeam(team); showOrgChartComingSoon.set(false)"
+            class="org-sb-action-btn org-sb-action-danger">
+            <lucide-icon name="trash-2" size="14" class="text-rose-500"></lucide-icon>
+            <span>Supprimer l'équipe</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+    }
+
+  </div>
+
+  <!-- ── Bottom floating hint ── -->
+  <div class="orgchart-hint">
+    <lucide-icon name="maximize-2" size="14" class="text-slate-400"></lucide-icon>
+    <span>Glisser pour déplacer · Scroll pour zoomer</span>
+  </div>
+
 </div>
+}

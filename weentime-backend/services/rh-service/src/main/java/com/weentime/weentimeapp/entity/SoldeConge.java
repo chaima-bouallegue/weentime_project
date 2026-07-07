@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
                 columnNames = {"utilisateur_id", "type_conge_id", "annee"}
         )
 )
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

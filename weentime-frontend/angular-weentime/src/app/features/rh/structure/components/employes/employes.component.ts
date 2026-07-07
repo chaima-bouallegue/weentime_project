@@ -9,11 +9,13 @@ import { EmployeRH } from '../../models/structure.model';
 import { EmployeFormComponent } from './employe-form/employe-form.component';
 import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { OverlayDrawerService } from '../../../../../core/services/overlay-drawer.service';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-employes',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, EmployeFormComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './employes.component.html',
   styleUrl: './employes.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -27,6 +29,7 @@ export class EmployesComponent {
   private structureService = inject(StructureService);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
+  private drawerService = inject(OverlayDrawerService);
 
   employes = this.structureStore.employes;
   pendingEmployes = this.structureStore.pendingEmployes;
@@ -35,10 +38,6 @@ export class EmployesComponent {
   managers = this.structureStore.managers;
   isLoading = this.structureStore.isLoading;
   
-  showDrawer = signal(false);
-  isValidationMode = signal(false);
-  selectedPendingUser = signal<EmployeRH | null>(null);
-  selectedRejectUser = signal<EmployeRH | null>(null);
   isRejecting = signal(false);
   
   searchQuery = signal('');
@@ -114,66 +113,79 @@ export class EmployesComponent {
     this.structureService.toggleEmployeStatus(id).subscribe(() => this.refresh());
   }
 
-  onOpenValidation(user: EmployeRH): void {
-    this.selectedPendingUser.set(user);
-    this.isValidationMode.set(true);
-    this.showDrawer.set(true);
+  openCreateEmployee(): void {
+    const ref = this.drawerService.open<EmployeFormComponent>({
+      component: EmployeFormComponent,
+      inputs: {
+        employee: null,
+        embedded: true,
+        departements: this.departements(),
+        equipes: this.equipes(),
+        managers: this.managers(),
+      } as unknown as Partial<EmployeFormComponent>,
+      panelClass: ['overlay-drawer-panel', 'width-md'],
+    });
+    (ref.componentRef.instance as any).close?.subscribe(() => this.drawerService.close());
+    (ref.componentRef.instance as any).saved?.subscribe(() => { this.drawerService.close(); this.refresh(); });
   }
 
-  onValidate(id: number, request: any): void {
-    this.structureService.validateUser(id, request).subscribe({
-      next: () => {
-        this.showDrawer.set(false);
-        this.selectedPendingUser.set(null);
-        this.isValidationMode.set(false);
-        this.toastService.success('Le collaborateur a été validé avec succès.');
-        this.refresh();
-      },
-      error: () => {
-        this.toastService.error('Une erreur est survenue lors de la validation.');
-      }
+  onOpenValidation(user: EmployeRH): void {
+    const ref = this.drawerService.open<EmployeFormComponent>({
+      component: EmployeFormComponent,
+      inputs: {
+        pendingUser: user,
+        employee: null,
+        isValidationMode: true,
+        embedded: true,
+        departements: this.departements(),
+        equipes: this.equipes(),
+        managers: this.managers(),
+      } as unknown as Partial<EmployeFormComponent>,
+      panelClass: ['overlay-drawer-panel', 'width-md'],
+    });
+    (ref.componentRef.instance as any).close?.subscribe(() => this.drawerService.close());
+    (ref.componentRef.instance as any).saved?.subscribe(() => { this.drawerService.close(); this.refresh(); });
+    (ref.componentRef.instance as any).validate?.subscribe((ev: { id: number; request: any }) => {
+      this.structureService.validateUser(ev.id, ev.request).subscribe({
+        next: () => {
+          this.drawerService.close();
+          this.toastService.success('Le collaborateur a été validé avec succès.');
+          this.refresh();
+        },
+        error: () => {
+          this.toastService.error('Une erreur est survenue lors de la validation.');
+        }
+      });
     });
   }
 
   onOpenReject(user: EmployeRH): void {
-    this.selectedRejectUser.set(user);
-  }
-
-  onCancelReject(): void {
-    this.selectedRejectUser.set(null);
-    this.isRejecting.set(false);
-  }
-
-  confirmReject(): void {
-    const user = this.selectedRejectUser();
-    if (!user) return;
-    
-    this.isRejecting.set(true);
-    this.structureService.rejectUser(user.id).subscribe({
-      next: () => {
-        this.selectedRejectUser.set(null);
-        this.isRejecting.set(false);
-        this.toastService.success('La demande d\'inscription a été rejetée et supprimée.');
-        this.refresh();
+    const ref = this.drawerService.openModal<ConfirmDialogComponent>({
+      component: ConfirmDialogComponent,
+      inputs: {
+        title: `Rejeter l'inscription de « ${user.prenom} ${user.nom} » ?`,
+        message: 'Cette action supprimera définitivement le compte en attente.',
+        confirmText: 'Rejeter',
+        iconName: 'x',
+        type: 'danger',
       },
-      error: () => {
-        this.isRejecting.set(false);
-        this.toastService.error('Une erreur est survenue lors du rejet.');
-      }
+      panelClass: 'overlay-modal-panel',
     });
-  }
-
-  onFormSaved(): void {
-    this.showDrawer.set(false);
-    this.isValidationMode.set(false);
-    this.selectedPendingUser.set(null);
-    this.refresh();
-  }
-
-  onCloseDrawer(): void {
-    this.showDrawer.set(false);
-    this.isValidationMode.set(false);
-    this.selectedPendingUser.set(null);
+    (ref.componentRef.instance as any).confirm.subscribe(() => {
+      this.drawerService.close();
+      this.isRejecting.set(true);
+      this.structureService.rejectUser(user.id).subscribe({
+        next: () => {
+          this.isRejecting.set(false);
+          this.toastService.success("La demande d'inscription a été rejetée et supprimée.");
+          this.refresh();
+        },
+        error: () => {
+          this.isRejecting.set(false);
+          this.toastService.error('Une erreur est survenue lors du rejet.');
+        }
+      });
+    });
   }
 
   getManagersForForm(): EmployeRH[] {

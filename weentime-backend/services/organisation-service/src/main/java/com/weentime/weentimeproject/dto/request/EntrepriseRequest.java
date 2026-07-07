@@ -27,6 +27,8 @@ public class EntrepriseRequest {
     private Integer maxUsers;
     private Boolean estActive;
     private String logo;
+    private String primaryColor;
+    private String secondaryColor;
 
     // ── Champs anglais — alias frontend (name, sector, employeesCount, status)
     // Résolus dans le service via getEffectiveXxx() pour éviter deux champs

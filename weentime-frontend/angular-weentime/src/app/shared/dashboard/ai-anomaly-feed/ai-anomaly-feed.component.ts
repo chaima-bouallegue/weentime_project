@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, HostListener, Input, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, Input, inject, signal, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule, ChevronLeft, ChevronRight } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AnomalyRecord, AnomalyRisk } from '../../../core/services/ml-anomaly.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { CommunicationApiService } from '../../../features/communication/services/communication-api.service';
 import { AnomalyAction, AnomalyAlertCardComponent } from '../../components/anomaly-alert-card/anomaly-alert-card.component';
 import { AiRiskBadgeComponent } from '../../components/ai-risk-badge/ai-risk-badge.component';
+
 
 type AnomalyFeedLayout = 'list' | 'cards';
 type AnomalyFeedScope = 'RH' | 'MANAGER' | 'ADMIN';
@@ -64,14 +66,20 @@ const IGNORE_REASONS: IgnoreReason[] = [
 @Component({
   selector: 'ui-ai-anomaly-feed',
   standalone: true,
-  imports: [CommonModule, FormsModule, AnomalyAlertCardComponent, AiRiskBadgeComponent],
+  imports: [CommonModule, FormsModule, AnomalyAlertCardComponent, AiRiskBadgeComponent, LucideAngularModule],
   templateUrl: './ai-anomaly-feed.component.html',
   styleUrls: ['./ai-anomaly-feed.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AiAnomalyFeedComponent {
+export class AiAnomalyFeedComponent implements AfterViewInit {
   private readonly toast = inject(ToastService);
   private readonly communicationApi = inject(CommunicationApiService);
+
+  @ViewChild('cardGrid') cardGrid?: ElementRef<HTMLDivElement>;
+  readonly showLeftBtn = signal(false);
+  readonly showRightBtn = signal(false);
+  readonly iconChevronLeft = ChevronLeft;
+  readonly iconChevronRight = ChevronRight;
 
   @Input() loading = false;
   @Input() title = 'Anomalies de présence';
@@ -82,7 +90,7 @@ export class AiAnomalyFeedComponent {
   @Input() set maxVisible(value: number | string | null | undefined) {
     const parsed = Number(value);
     this._maxVisible = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : Number.POSITIVE_INFINITY;
-    this.showAll = false;
+    this.showAll.set(false);
   }
   get maxVisible(): number {
     return Number.isFinite(this._maxVisible) ? this._maxVisible : 0;
@@ -113,6 +121,7 @@ export class AiAnomalyFeedComponent {
         return true;
       });
     this.loadIgnoredKeys();
+    setTimeout(() => this.updateScrollButtons(), 200);
   }
   get anomalies(): AnomalyRecord[] {
     return this._anomalies;
@@ -129,7 +138,7 @@ export class AiAnomalyFeedComponent {
   readonly ignoreReasons = IGNORE_REASONS;
   riskFilter: AnomalyRiskFilter = 'ALL';
   sortMode: AnomalySort = 'SCORE_DESC';
-  showAll = false;
+  readonly showAll = signal(false);
 
   detailsAnomaly: AnomalyRecord | null = null;
   contactAnomaly: AnomalyRecord | null = null;
@@ -146,7 +155,7 @@ export class AiAnomalyFeedComponent {
 
   get visibleAnomalies(): AnomalyRecord[] {
     if (this.collapsed()) return [];
-    const limit = this.showAll || !Number.isFinite(this._maxVisible)
+    const limit = this.showAll() || !Number.isFinite(this._maxVisible)
       ? this.filteredAnomalies.length
       : this._maxVisible;
     return this.filteredAnomalies.slice(0, limit);
@@ -291,7 +300,7 @@ export class AiAnomalyFeedComponent {
   }
 
   toggleShowAll(): void {
-    this.showAll = !this.showAll;
+    this.showAll.update(val => !val);
   }
 
   setRiskFilter(value: string): void {
@@ -299,7 +308,8 @@ export class AiAnomalyFeedComponent {
     this.riskFilter = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(normalized)
       ? normalized as AnomalyRisk
       : 'ALL';
-    this.showAll = false;
+    this.showAll.set(false);
+    setTimeout(() => this.updateScrollButtons(), 200);
   }
 
   setSortMode(value: string): void {
@@ -518,5 +528,36 @@ export class AiAnomalyFeedComponent {
 
   private createClientMessageId(): string {
     return `anomaly-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => this.updateScrollButtons(), 200);
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    this.updateScrollButtons();
+  }
+
+  updateScrollButtons(): void {
+    const grid = this.cardGrid?.nativeElement;
+    if (!grid) {
+      this.showLeftBtn.set(false);
+      this.showRightBtn.set(false);
+      return;
+    }
+    this.showLeftBtn.set(grid.scrollLeft > 5);
+    this.showRightBtn.set(grid.scrollWidth > grid.clientWidth + grid.scrollLeft + 5);
+  }
+
+  onGridScroll(): void {
+    this.updateScrollButtons();
+  }
+
+  scrollCards(direction: number): void {
+    const grid = this.cardGrid?.nativeElement;
+    if (!grid) return;
+    const scrollAmount = grid.clientWidth * 0.75;
+    grid.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
   }
 }

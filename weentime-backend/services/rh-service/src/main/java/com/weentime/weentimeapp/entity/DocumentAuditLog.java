@@ -2,6 +2,7 @@ package com.weentime.weentimeapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -17,6 +18,7 @@ import java.util.Map;
     @Index(name = "idx_audit_entreprise", columnList = "entreprise_id"),
     @Index(name = "idx_audit_document", columnList = "document_id")
 })
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -1,16 +1,8 @@
 server:
-  port: 8222
+  port: ${SERVER_PORT:8222}
 
 spring:
-  application:
-    name: gateway
-
-  config:
-    import: optional:configserver:http://localhost:8988
-
   cloud:
-    config:
-      enabled: false
     gateway:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials RETAIN_FIRST
@@ -19,8 +11,8 @@ spring:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:4200"
-              - "http://127.0.0.1:4200"
+              - ${FRONTEND_ORIGIN:http://localhost:4200}
+              - ${FRONTEND_ORIGIN_ALT:http://127.0.0.1:4200}
             allowedMethods:
               - GET
               - POST
@@ -51,66 +43,82 @@ spring:
           enabled: false
       routes:
         - id: auth-service
-          uri: http://localhost:8181
+          uri: ${AUTH_SERVICE_URI:http://localhost:8181}
           predicates:
             - Path=/api/v1/auth/**
-
         - id: organisation-service
-          uri: http://localhost:8190
+          uri: ${ORGANISATION_SERVICE_URI:http://localhost:8190}
           predicates:
             - Path=/api/v1/admin/**, /api/v1/organisations/**, /api/v1/users/**, /api/v1/notifications/**, /api/v1/structure/**
-
         - id: rh-service
-          uri: http://localhost:8192
+          uri: ${RH_SERVICE_URI:http://localhost:8192}
           predicates:
             - Path=/api/v1/rh/**, /api/v1/demandes/**, /api/v1/conges/**, /api/v1/solde-conges/**, /api/v1/documents/**, /api/v1/absences/**, /api/v1/autorisations/**, /api/v1/manager/**, /api/v1/leave-balances, /api/v1/leave-balances/**, /api/v1/teletravail, /api/v1/teletravail/**, /api/v1/recrutement/**, /api/v1/public/recrutement/**, /api/v1/internal/recruitment/**
-
         - id: presence-service
-          uri: http://localhost:8193
+          uri: ${PRESENCE_SERVICE_URI:http://localhost:8193}
           predicates:
-            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
-
+            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**, /api/v1/overtime/**
         - id: communication-service
-          uri: http://localhost:8194
+          uri: ${COMMUNICATION_SERVICE_URI:http://localhost:8194}
           predicates:
             - Path=/api/v1/communication/**
-
         - id: ai-service-api
-          uri: http://localhost:8000
+          uri: ${AI_SERVICE_URI:http://localhost:8000}
           predicates:
             - Path=/api/v1/ai/**
           filters:
             - StripPrefix=3
-
         - id: ai-service-audio-stream
-          uri: http://localhost:8000
+          uri: ${AI_SERVICE_URI:http://localhost:8000}
           predicates:
             - Path=/audio-stream, /audio-stream/**
-
         - id: ml-service
-          uri: http://localhost:8001
+          uri: ${ML_SERVICE_URI:http://localhost:8001}
           predicates:
             - Path=/api/ml/**
-
         - id: organisation-ws
-          uri: http://localhost:8190
+          uri: ${ORGANISATION_SERVICE_URI:http://localhost:8190}
           predicates:
             - Path=/ws/**, /ws-org/**
-
         - id: rh-ws
-          uri: http://localhost:8192
+          uri: ${RH_SERVICE_URI:http://localhost:8192}
           predicates:
             - Path=/ws-rh/**
-
         - id: presence-ws
-          uri: http://localhost:8193
+          uri: ${PRESENCE_SERVICE_URI:http://localhost:8193}
           predicates:
             - Path=/ws-presence/**
-
         - id: communication-ws
-          uri: http://localhost:8194
+          uri: ${COMMUNICATION_SERVICE_URI:http://localhost:8194}
           predicates:
             - Path=/ws-communication, /ws-communication/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Auth Service
+        url: ${AUTH_SERVICE_DOCS_URL:http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8181}/v3/api-docs}
+      - name: Organisation Service
+        url: ${ORGANISATION_SERVICE_DOCS_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}/v3/api-docs}
+      - name: RH Service
+        url: ${RH_SERVICE_DOCS_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}/v3/api-docs}
+      - name: Presence Service
+        url: ${PRESENCE_SERVICE_DOCS_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8193}/v3/api-docs}
+      - name: Communication Service
+        url: ${COMMUNICATION_SERVICE_DOCS_URL:http://${COMMUNICATION_SERVICE_HOST:localhost}:${COMMUNICATION_SERVICE_PORT:8194}/v3/api-docs}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
 
 eureka:
   instance:
@@ -120,36 +128,4 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-  server:
-    enable-self-preservation: false
-
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "*"
-  endpoint:
-    gateway:
-      enabled: true
-
-springdoc:
-  swagger-ui:
-    urls:
-      - name: Auth Service
-        url: http://localhost:8181/v3/api-docs
-      - name: Organisation Service
-        url: http://localhost:8190/v3/api-docs
-      - name: RH Service
-        url: http://localhost:8192/v3/api-docs
-      - name: Presence Service
-        url: http://localhost:8193/v3/api-docs
-      - name: Communication Service
-        url: http://localhost:8194/v3/api-docs
-
-logging:
-  level:
-    org.springframework.cloud.gateway: INFO
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}

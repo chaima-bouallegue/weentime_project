@@ -5,6 +5,8 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -62,6 +64,11 @@ public class GlobalExceptionHandler {
             return build(HttpStatus.CONFLICT, "ATTENDANCE_ON_HOLIDAY_FORBIDDEN", message);
         }
         return build(HttpStatus.CONFLICT, "STATE_CONFLICT", message);
+    }
+
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(RuntimeException exception) {
+        return build(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Vous n'avez pas les droits pour effectuer cette operation.");
     }
 
     @ExceptionHandler(Exception.class)

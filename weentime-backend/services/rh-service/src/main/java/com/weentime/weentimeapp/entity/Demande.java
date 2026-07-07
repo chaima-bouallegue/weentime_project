@@ -5,12 +5,20 @@ import com.weentime.weentimeapp.persistence.StatutDemandeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "demandes")
 @Inheritance(strategy = InheritanceType.JOINED)
+@FilterDef(
+    name = "entrepriseFilter",
+    parameters = @ParamDef(name = "entrepriseId", type = Long.class)
+)
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @SuperBuilder
 @NoArgsConstructor

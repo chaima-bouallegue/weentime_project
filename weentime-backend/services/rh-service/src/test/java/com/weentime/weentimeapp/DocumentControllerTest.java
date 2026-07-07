@@ -39,6 +39,15 @@ class DocumentControllerTest {
     @MockBean
     private AiService aiService;
 
+    @MockBean
+    private com.weentime.weentimeapp.repository.DocumentRepository documentRepository;
+
+    @MockBean
+    private com.weentime.weentimeapp.service.DocumentGeneratorService documentGeneratorService;
+
+    @MockBean
+    private com.weentime.weentimeapp.service.TemplateResolver templateResolver;
+
     @Test
     @WithMockUser(username = "rh@weentime.com", roles = "RH")
     void testDocumentsEmpty() throws Exception {

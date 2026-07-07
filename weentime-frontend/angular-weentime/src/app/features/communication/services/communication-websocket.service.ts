@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, Subject, Subscription } from 'rxjs';
+import { Observable, Subject, Subscription, firstValueFrom } from 'rxjs';
 import type { IMessage, RxStomp } from '@stomp/rx-stomp';
 import { ApiConfigService } from '@app/core/services/api-config.service';
 import { AuthService } from '@app/core/services/auth.service';
@@ -31,8 +31,8 @@ export class CommunicationWebSocketService {
   readonly events$: Observable<CommunicationSocketEvent> = this.eventsSubject.asObservable();
 
   connect(): void {
-    if (!this.authService.getToken()) {
-      console.debug('[communication-ws] CONNECT skipped: no JWT is available');
+    if (!this.authService.isAuthenticated()) {
+      console.debug('[communication-ws] CONNECT skipped: not authenticated');
       this.connectionError.set(null);
       this.disconnect();
       return;
@@ -51,69 +51,71 @@ export class CommunicationWebSocketService {
     this.manualDisconnect = false;
     this.connectionState.set('connecting');
     console.debug('[communication-ws] CONNECT', { url: this.socketUrl });
-    this.clientPromise = Promise.all([
-      import('@stomp/rx-stomp'),
-      import('sockjs-client')
-    ]).then(([rxStompModule, sockJsModule]) => {
-      const client = new rxStompModule.RxStomp();
-      const SockJS = sockJsModule.default;
+    this.clientPromise = firstValueFrom(this.authService.fetchWsToken()).then(wsToken => {
+      return Promise.all([
+        import('@stomp/rx-stomp'),
+        import('sockjs-client')
+      ]).then(([rxStompModule, sockJsModule]) => {
+        const client = new rxStompModule.RxStomp();
+        const SockJS = sockJsModule.default;
 
-      client.connectionState$.subscribe((state: number) => {
-        if (state === rxStompModule.RxStompState.OPEN) {
-          console.debug('[communication-ws] CONNECTED', { url: this.socketUrl });
-          this.connectionState.set('connected');
-          this.connectionError.set(null);
-          this.hadOpenConnection = true;
-          this.reconnectAttempt = 0;
-          this.clearReconnectTimer();
-          this.ensureUserQueue(client);
-          this.resubscribeChannels(client);
-          return;
-        }
-
-        if (state === rxStompModule.RxStompState.CLOSED) {
-          console.debug('[communication-ws] DISCONNECTED', {
-            manual: this.manualDisconnect,
-            hadOpenConnection: this.hadOpenConnection
-          });
-          this.connectionState.set('disconnected');
-          this.teardownLiveSubscriptions();
-          this.client = null;
-          this.clientPromise = null;
-          if (!this.manualDisconnect) {
-            this.scheduleReconnect();
+        client.connectionState$.subscribe((state: number) => {
+          if (state === rxStompModule.RxStompState.OPEN) {
+            console.debug('[communication-ws] CONNECTED', { url: this.socketUrl });
+            this.connectionState.set('connected');
+            this.connectionError.set(null);
+            this.hadOpenConnection = true;
+            this.reconnectAttempt = 0;
+            this.clearReconnectTimer();
+            this.ensureUserQueue(client);
+            this.resubscribeChannels(client);
+            return;
           }
-          return;
-        }
 
-        this.connectionState.set('connecting');
-      });
+          if (state === rxStompModule.RxStompState.CLOSED) {
+            console.debug('[communication-ws] DISCONNECTED', {
+              manual: this.manualDisconnect,
+              hadOpenConnection: this.hadOpenConnection
+            });
+            this.connectionState.set('disconnected');
+            this.teardownLiveSubscriptions();
+            this.client = null;
+            this.clientPromise = null;
+            if (!this.manualDisconnect) {
+              this.scheduleReconnect();
+            }
+            return;
+          }
 
-      client.configure({
-        webSocketFactory: () => new SockJS(this.socketUrl),
-        connectHeaders: this.buildConnectHeaders(),
-        heartbeatIncoming: 20000,
-        heartbeatOutgoing: 20000,
-        reconnectDelay: 0,
-        debug: (message: string) => console.debug('[communication-ws]', message)
-      });
-
-      client.stompErrors$.subscribe(frame => {
-        const brokerMessage = frame.headers?.['message'] ?? frame.body ?? 'STOMP connection rejected';
-        console.error('[communication-ws] AUTH/STOMP FAILURE', {
-          message: brokerMessage,
-          command: frame.command
+          this.connectionState.set('connecting');
         });
-        this.connectionError.set('Authentification temps reel refusee');
-      });
-      client.webSocketErrors$.subscribe(error => {
-        console.error('[communication-ws] TRANSPORT FAILURE', error);
-        this.connectionError.set('Connexion temps reel indisponible');
-      });
 
-      client.activate();
-      this.client = client;
-      return client;
+        client.configure({
+          webSocketFactory: () => new SockJS(this.socketUrl),
+          connectHeaders: { Authorization: `Bearer ${wsToken}` },
+          heartbeatIncoming: 20000,
+          heartbeatOutgoing: 20000,
+          reconnectDelay: 0,
+          debug: (message: string) => console.debug('[communication-ws]', message)
+        });
+
+        client.stompErrors$.subscribe(frame => {
+          const brokerMessage = frame.headers?.['message'] ?? frame.body ?? 'STOMP connection rejected';
+          console.error('[communication-ws] AUTH/STOMP FAILURE', {
+            message: brokerMessage,
+            command: frame.command
+          });
+          this.connectionError.set('Authentification temps reel refusee');
+        });
+        client.webSocketErrors$.subscribe(error => {
+          console.error('[communication-ws] TRANSPORT FAILURE', error);
+          this.connectionError.set('Connexion temps reel indisponible');
+        });
+
+        client.activate();
+        this.client = client;
+        return client;
+      });
     }).catch(error => {
       console.error('[communication-ws] CONNECT FAILURE', error);
       this.clientPromise = null;
@@ -219,7 +221,7 @@ export class CommunicationWebSocketService {
   }
 
   private scheduleReconnect(): void {
-    if (this.manualDisconnect || this.reconnectTimer || !this.authService.getToken() || !this.hasTenantContext()) {
+    if (this.manualDisconnect || this.reconnectTimer || !this.authService.isAuthenticated() || !this.hasTenantContext()) {
       return;
     }
     if (this.reconnectAttempt >= this.maxReconnectAttempts) {
@@ -251,11 +253,6 @@ export class CommunicationWebSocketService {
     this.userQueueSubscription = null;
     this.channelSubscriptions.forEach(subscription => subscription.unsubscribe());
     this.channelSubscriptions.clear();
-  }
-
-  private buildConnectHeaders(): Record<string, string> {
-    const token = this.authService.getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   private hasTenantContext(): boolean {

@@ -3,6 +3,7 @@ package com.weentime.communication.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -11,6 +12,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Table(name = "comm_attachments", schema = "communication")
 public class CommAttachment {
 

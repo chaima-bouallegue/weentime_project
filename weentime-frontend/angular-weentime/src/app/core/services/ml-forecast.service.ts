@@ -322,7 +322,7 @@ function buildParams(filters: ForecastFilters = {}): HttpParams {
 @Injectable({ providedIn: 'root' })
 export class MlForecastService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${(environment.gatewayUrl ?? environment.mlServiceUrl ?? 'http://localhost:8322').replace(/\/+$/, '')}/api/ml/forecast`;
+  private readonly baseUrl = `${(environment.gatewayUrl ?? environment.mlServiceUrl ?? 'http://localhost:8222').replace(/\/+$/, '')}/api/ml/forecast`;
 
   getDashboard(filters: ForecastFilters = {}): Observable<ForecastDashboardResponse> {
     return this.http.get<RawObject>(`${this.baseUrl}/dashboard`, {

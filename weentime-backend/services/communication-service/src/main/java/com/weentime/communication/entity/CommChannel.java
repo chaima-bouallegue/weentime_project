@@ -8,6 +8,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -16,6 +19,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@FilterDef(name = "entrepriseFilter", parameters = @ParamDef(name = "entrepriseId", type = Long.class))
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Table(name = "comm_channels", schema = "communication")
 public class CommChannel {
 

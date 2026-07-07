@@ -18,12 +18,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "horaire_affectations")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

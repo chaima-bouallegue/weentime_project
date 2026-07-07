@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, AlertTriangle, X, Loader2 } from 'lucide-angular';
-import { DemandeConge } from '../../models/conge.model';
+import { DemandeConge, TypeConge } from '../../models/conge.model';
 
 @Component({
   selector: 'app-annulation-modal',
@@ -26,5 +26,17 @@ export class AnnulationModalComponent {
     if (this.demande) {
       this.confirm.emit(this.demande.id);
     }
+  }
+
+  getTypeLabel(type: TypeConge): string {
+    const labels: Record<TypeConge, string> = {
+      ANNUEL: 'Congé annuel',
+      MALADIE: 'Congé maladie',
+      RTT: 'RTT',
+      MATERNITE_PATERNITE: 'Maternité / Paternité',
+      EXCEPTIONNEL: 'Congé exceptionnel',
+      SANS_SOLDE: 'Sans solde'
+    };
+    return labels[type] || 'Congé';
   }
 }

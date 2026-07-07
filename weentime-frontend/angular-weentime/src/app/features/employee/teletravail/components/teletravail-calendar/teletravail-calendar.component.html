@@ -1,69 +1,56 @@
-<div class="calendar-wrapper select-none">
-  <!-- Calendar Header -->
-  <div class="flex items-center justify-between mb-6 px-1">
-    <button (click)="prevMonth()" class="nav-btn">
-      <lucide-angular [img]="iconChevronLeft" size="18"></lucide-angular>
-    </button>
-    
-    <div class="text-center">
-      <h4 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">
-        {{ getMonthLabel() }}
-      </h4>
-    </div>
+<div class="calendar-card">
 
-    <button (click)="nextMonth()" class="nav-btn">
-      <lucide-angular [img]="iconChevronRight" size="18"></lucide-angular>
+  <!-- Nav header with month + today button -->
+  <div class="calendar-header">
+    <button class="nav-extra-btn" (click)="prevMonth()" title="Mois précédent">
+      <lucide-angular [img]="iconChevronLeft" size="16"></lucide-angular>
     </button>
+    <h3 class="month-label">{{ viewDate() | date:'MMMM yyyy':'':'fr' }}</h3>
+    <button class="nav-extra-btn" (click)="nextMonth()" title="Mois suivant">
+      <lucide-angular [img]="iconChevronRight" size="16"></lucide-angular>
+    </button>
+    <button class="today-btn" (click)="goToToday()">Aujourd'hui</button>
   </div>
 
-  <!-- Weekdays -->
-  <div class="grid grid-cols-7 gap-1 mb-2">
+  <!-- Grid -->
+  <div class="calendar-grid">
     @for (day of ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; track day) {
-      <div class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase text-center py-2">
-        {{ day }}
-      </div>
+      <div class="weekday-label">{{ day }}</div>
     }
-  </div>
 
-  <!-- Days Grid -->
-  <div class="grid grid-cols-7 gap-1">
-    @for (day of days(); track day.date) {
-      <div 
-        class="calendar-day-cell relative"
-        [class.other-month]="!day.isCurrentMonth"
-        [class.is-today]="day.isToday"
+    @for (day of days(); track day.date.getTime()) {
+      <div
+        class="calendar-day"
+        [class.outside]="!day.isCurrentMonth"
+        [class.today]="day.isToday"
         [class.weekend]="day.isWeekend"
         [class.is-holiday]="day.isHoliday"
         [class.is-remote]="day.isRemote"
       >
-        <span class="day-number">{{ day.date.getDate() }}</span>
-        
-        @if (day.isRemote) {
-          <div class="remote-indicator" [class.half-day]="day.isHalfDay">
-            <lucide-angular [img]="iconMonitor" size="10"></lucide-angular>
-          </div>
-        }
+        <span class="day-number">{{ day.date | date:'d' }}</span>
 
-        @if (day.isHoliday) {
-          <div class="holiday-dot"></div>
-        }
+        <div class="indicators">
+          @if (day.isHoliday) {
+            <span class="holiday-dot" title="Jour férié"></span>
+          }
+          @if (day.isRemote) {
+            <span class="remote-dot" [class.half-day]="day.isHalfDay" title="Télétravail"></span>
+          }
+        </div>
       </div>
     }
   </div>
 
   <!-- Legend -->
-  <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800/50 flex flex-wrap gap-4">
-    <div class="flex items-center gap-2">
-      <div class="w-3 h-3 rounded-full bg-indigo-500 shadow-sm shadow-indigo-200 dark:shadow-none"></div>
-      <span class="text-[10px] font-black text-slate-500 uppercase tracking-tight">Télétravail</span>
+  <div class="calendar-legend">
+    <div class="legend-item">
+      <span class="dot" style="background:#f59e0b"></span>
+      <span>Férié</span>
     </div>
-    <div class="flex items-center gap-2">
-      <div class="w-3 h-3 rounded-full bg-rose-400/20 border border-rose-400"></div>
-      <span class="text-[10px] font-black text-slate-500 uppercase tracking-tight">Férié</span>
-    </div>
-    <div class="flex items-center gap-2">
-      <div class="w-3 h-3 rounded-md bg-slate-100 dark:bg-slate-800"></div>
-      <span class="text-[10px] font-black text-slate-500 uppercase tracking-tight">Weekend</span>
+    <div class="legend-item">
+      <span class="dot" style="background:#6366f1"></span>
+      <span>Télétravail</span>
     </div>
   </div>
+
 </div>

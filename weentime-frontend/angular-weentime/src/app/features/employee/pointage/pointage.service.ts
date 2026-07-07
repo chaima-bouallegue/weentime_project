@@ -676,7 +676,7 @@ export class PointageService {
     const safeLatitude = this.toFiniteNumber(latitude);
     const safeLongitude = this.toFiniteNumber(longitude);
     const safeAccuracy = this.toFiniteNumber(accuracy);
-    const hasCoordinates = safeLatitude !== undefined && safeLongitude !== undefined;
+    const hasCoordinates = safeLatitude !== undefined && safeLongitude !== undefined && (safeLatitude !== 0 || safeLongitude !== 0);
     const hasReadableLocation = [address, city, region, country].some(value => typeof value === 'string' && value.trim().length > 0);
 
     if (!hasCoordinates && !hasReadableLocation) {

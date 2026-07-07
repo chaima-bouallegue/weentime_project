@@ -1,6 +1,6 @@
 import { Component, signal, computed, inject, OnInit, OnDestroy, ChangeDetectionStrategy, DestroyRef, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, FileText, Download, Clock, Loader2, Plus, Info, AlertCircle, FileCheck, Search, Filter } from 'lucide-angular';
+import { LucideAngularModule, FileText, Download, Clock, Loader2, Plus, Info, AlertCircle, FileCheck, Search, Filter, ChevronDown, ChevronRight, ArrowRight, ArrowUp, Shield, Lock, MoreVertical } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DocumentService } from './document.service';
 import { TypeDocumentConfig, DemandeDocument, StatutDocument, TypeDocument, NouvelleDemandeDocumentRequest } from './models/document.model';
@@ -53,6 +53,13 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   readonly iconCheck = FileCheck;
   readonly iconSearch = Search;
   readonly iconFilter = Filter;
+  readonly iconChevronDown = ChevronDown;
+  readonly iconChevronRight = ChevronRight;
+  readonly iconArrowRight = ArrowRight;
+  readonly iconArrowUp = ArrowUp;
+  readonly iconShield = Shield;
+  readonly iconLock = Lock;
+  readonly iconMoreVertical = MoreVertical;
 
   types = signal<TypeDocumentConfig[]>([]);
   historique = signal<DemandeDocument[]>([]);
@@ -64,6 +71,7 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   isSubmittingRequest = signal(false);
   filtreStatut = signal<StatutDocument | 'TOUS'>('TOUS');
   currentDate = signal<string>('');
+  showAll = signal(false);
 
   historiqueFiltre = computed(() => {
     const historique = this.historique();
@@ -77,6 +85,19 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
       ? historique
       : historique.filter(d => d.statut === filtre);
   });
+
+  historiqueLimitee = computed(() => {
+    const filtre = this.historiqueFiltre();
+    const show = this.showAll();
+    if (!Array.isArray(filtre)) {
+      return [];
+    }
+    return show ? filtre : filtre.slice(0, 5);
+  });
+
+  toggleShowAll(): void {
+    this.showAll.update(val => !val);
+  }
 
   countByStatut(statut: StatutDocument): number {
     const historique = this.historique();
@@ -109,7 +130,7 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
         }
       });
 
-    if (this.authService.getToken()) {
+    if (this.authService.isAuthenticated()) {
       this.wsSub = this.wsService.watch<DocumentStatusChangedEvent>('/user/queue/notifications')
         .subscribe(event => {
           if (event?.type === 'DOCUMENT_STATUS_CHANGED') {
@@ -156,6 +177,11 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
     this.filtreStatut.set(filter);
   }
 
+  onFilterChangeSelect(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as StatutDocument | 'TOUS';
+    this.onFilterChange(value);
+  }
+
   onCancelRequest(demande: DemandeDocument): void {
     this.demandeAnnuler.set(demande);
   }
@@ -199,12 +225,24 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
       });
   }
 
+  private extractFilename(disposition: string | null): string | null {
+    if (!disposition) return null;
+    const starMatch = disposition.match(/filename\*=(?:UTF-8|ISO-8859-1)''(.+?)(?=;|$)/i);
+    if (starMatch) return decodeURIComponent(starMatch[1]);
+    const plainMatch = disposition.match(/filename="?(.+?)"?\s*(?:;|$)/i);
+    if (plainMatch) return plainMatch[1];
+    return null;
+  }
+
   onDownloadRequest(demande: DemandeDocument): void {
     this.documentService.telechargerDocument(demande.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(blob => {
+      .subscribe(response => {
+        const blob = response.body;
         if (!blob) return;
-        const fileName = this.generateFileName(demande);
+        const disposition = response.headers.get('Content-Disposition');
+        const serverName = this.extractFilename(disposition);
+        const fileName = serverName || this.generateFileName(demande);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -216,9 +254,6 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   }
 
   private generateFileName(demande: DemandeDocument): string {
-    if (demande.originalFileName) {
-      return demande.originalFileName;
-    }
     const label = demande.label
       .toLowerCase()
       .normalize('NFD')

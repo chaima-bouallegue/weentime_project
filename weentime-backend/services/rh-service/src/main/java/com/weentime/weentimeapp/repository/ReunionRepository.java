@@ -16,7 +16,13 @@ public interface ReunionRepository extends JpaRepository<Reunion, Long> {
 
        Optional<Reunion> findByUuid(String uuid);
 
-       @Query("SELECT r FROM Reunion r JOIN r.participants p WHERE p.utilisateurId = :userId ORDER BY r.dateReunion DESC, r.heureDebut DESC")
+       @Query("""
+           SELECT DISTINCT r
+           FROM Reunion r
+           JOIN FETCH r.participants p
+           WHERE p.utilisateurId = :userId
+           ORDER BY r.dateReunion DESC, r.heureDebut DESC
+           """)
        List<Reunion> findByParticipantIdOrderByDateDesc(@Param("userId") Long userId);
 
        @Query("SELECT r FROM Reunion r JOIN r.participants p " +

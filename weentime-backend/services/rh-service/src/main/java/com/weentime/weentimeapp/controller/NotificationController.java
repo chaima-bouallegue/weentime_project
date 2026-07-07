@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/rh/notifications")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class NotificationController {
 
     private final NotificationService notificationService;

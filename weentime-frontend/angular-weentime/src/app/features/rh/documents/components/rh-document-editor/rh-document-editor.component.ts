@@ -77,6 +77,7 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
     if (this.demande.contenuIA) {
       this.rawHtml = this.demande.contenuIA;
       this.contentHtml = this.sanitizer.bypassSecurityTrustHtml(this.rawHtml);
+      this.syncEditorDom();
     }
   }
 
@@ -86,6 +87,7 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
       if (this.demande.contenuIA && this.demande.contenuIA !== this.rawHtml) {
         this.rawHtml = this.demande.contenuIA;
         this.contentHtml = this.sanitizer.bypassSecurityTrustHtml(this.rawHtml);
+        this.syncEditorDom();
       }
       if (this.layoutMode === 'split') {
         this.schedulePreviewRefresh();
@@ -246,10 +248,25 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
     if (this.demande.contenuIA && this.demande.contenuIA !== this.rawHtml) {
       this.rawHtml = this.demande.contenuIA;
       this.contentHtml = this.sanitizer.bypassSecurityTrustHtml(this.rawHtml);
+      this.syncEditorDom();
     }
     if (this.layoutMode === 'split') {
       this.schedulePreviewRefresh();
     }
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Manually sync the contenteditable div's innerHTML with rawHtml.
+   * Angular's [innerHTML] binding does not reliably update contenteditable
+   * elements after the browser has taken control of the DOM.
+   */
+  private syncEditorDom(): void {
+    setTimeout(() => {
+      if (this.editorContent?.nativeElement) {
+        this.editorContent.nativeElement.innerHTML = this.rawHtml;
+        this.cdr.markForCheck();
+      }
+    });
   }
 }

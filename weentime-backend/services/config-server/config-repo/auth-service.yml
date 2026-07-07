@@ -45,5 +45,9 @@ eureka:
     service-url:
       defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
+app:
+  cookie:
+    secure: ${APP_COOKIE_SECURE:true}
+
 integration:
   internal-api-key: ${INTERNAL_API_KEY:communication-service-local}

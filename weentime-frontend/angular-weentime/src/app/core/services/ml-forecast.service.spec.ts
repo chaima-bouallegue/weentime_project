@@ -42,7 +42,7 @@ describe('MlForecastService', () => {
     });
 
     const req = httpMock.expectOne(
-      'http://localhost:8322/api/ml/forecast/dashboard?period=next_week&departmentId=3&teamId=7',
+      'http://localhost:8222/api/ml/forecast/dashboard?period=next_week&departmentId=3&teamId=7',
     );
     expect(req.request.method).toBe('GET');
     expect(req.request.headers.has('Authorization')).toBe(false);

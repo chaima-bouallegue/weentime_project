@@ -36,7 +36,7 @@
       </tr>
     </thead>
     <tbody>
-      @for (d of sortedDemandes(); track d.id) {
+      @for (d of paginatedDemandes(); track d.id) {
         <tr (click)="selectDemande.emit(d)">
           <td>
             <div class="employe-cell">
@@ -110,4 +110,29 @@
       }
     </tbody>
   </table>
+
+  @if (totalPages() > 1) {
+    <div class="pagination">
+      <span class="page-info">
+        Affichage de {{ (currentPage() - 1) * pageSize() + 1 }} à {{ Math.min(currentPage() * pageSize(), sortedDemandes().length) }} sur {{ sortedDemandes().length }} demandes
+      </span>
+      <div class="page-btns">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)">
+          <lucide-icon name="chevron-left" size="16"></lucide-icon>
+        </button>
+        @for (p of [].constructor(totalPages()); track $index) {
+          <button
+            class="page-num"
+            [class.active]="currentPage() === $index + 1"
+            (click)="currentPage.set($index + 1)"
+          >
+            {{ $index + 1 }}
+          </button>
+        }
+        <button [disabled]="currentPage() === totalPages()" (click)="currentPage.set(currentPage() + 1)">
+          <lucide-icon name="chevron-right" size="16"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  }
 </div>

@@ -2,11 +2,13 @@ package com.weentime.weentimeapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "jours_feries")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Getter
 @Setter
 @NoArgsConstructor

@@ -1,8 +1,10 @@
-<div class="drawer-overlay" (click)="close.emit()">
+<div class="drawer-overlay" [class.embedded]="embedded" (click)="close.emit()">
   <div class="drawer-content" (click)="$event.stopPropagation()">
     <header class="drawer-header">
       <div class="header-info">
-        <h2 class="drawer-title">{{ isValidationMode ? 'Validation d\'inscription' : title }}</h2>
+        <h2 class="drawer-title">
+          {{ isValidationMode ? 'Validation d\'inscription' : (employee ? 'Modifier le collaborateur' : title) }}
+        </h2>
         <p class="drawer-subtitle">Etape {{ step() }}/2 - {{ step() === 1 ? 'Informations personnelles' : 'Affectation' }}</p>
       </div>
       <button class="close-btn" (click)="close.emit()">
@@ -154,7 +156,7 @@
             }
           </section>
 
-          @if (!isValidationMode) {
+          @if (!isValidationMode && !employee) {
             <section class="form-section">
               <h3 class="section-title">Mot de passe temporaire</h3>
               <div class="readonly-password">
@@ -178,7 +180,7 @@
             </button>
             <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
               <lucide-icon [name]="isSubmitting() ? 'loader-2' : 'check'" size="20" [class.animate-spin]="isSubmitting()"></lucide-icon>
-              <span>{{ isValidationMode ? 'Valider le compte' : submitLabel }}</span>
+              <span>{{ isValidationMode ? 'Valider le compte' : (employee ? 'Enregistrer' : submitLabel) }}</span>
             </button>
           </div>
         }

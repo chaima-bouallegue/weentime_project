@@ -2,9 +2,11 @@ package com.weentime.weentimeapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 @Entity
 @Table(name = "type_autorisations")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

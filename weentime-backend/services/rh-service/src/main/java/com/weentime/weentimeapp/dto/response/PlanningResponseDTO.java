@@ -18,4 +18,5 @@ public class PlanningResponseDTO {
     private Double presenceRate;
     private String presenceText; // e.g. "7/10"
     private boolean isRestDay;
+    private String dateType; // "PAST" | "TODAY" | "FUTURE"
 }

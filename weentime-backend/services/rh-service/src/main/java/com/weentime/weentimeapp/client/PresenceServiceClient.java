@@ -46,13 +46,13 @@ public interface PresenceServiceClient {
     @AllArgsConstructor
     @Builder
     class MemberStatus {
-        private Long id;
-        private String name;
+        private Long utilisateurId;
+        private String nomComplet;
         private String avatar;
         private String jobTitle;
         private String status;
-        private String arrivalTime;
-        private String departureTime;
+        private String heureEntree;
+        private String heureSortie;
         private long totalMinutes;
         private long overtimeMinutes;
         private String lastActivity;

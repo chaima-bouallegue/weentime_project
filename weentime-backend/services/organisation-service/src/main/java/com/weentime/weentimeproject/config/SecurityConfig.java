@@ -75,6 +75,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/organisations/users/register").permitAll()
                         // Endpoints internes inter-services
                         .requestMatchers("/api/v1/organisations/internal/**").permitAll()
+                        .requestMatchers("/api/v1/notifications/internal/**").permitAll()
                         // RH & Rôles
                         .requestMatchers("/api/v1/organisations/rh/**").permitAll()
                         .requestMatchers("/api/v1/organisations/roles/**").permitAll()

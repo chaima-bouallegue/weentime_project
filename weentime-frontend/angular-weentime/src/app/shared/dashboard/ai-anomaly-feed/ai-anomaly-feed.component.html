@@ -14,18 +14,45 @@
     </div>
 
     <div class="feed__counters" *ngIf="!loading">
-      <span class="counter" data-tone="critical">
+      <button
+        type="button"
+        class="counter-btn"
+        [class.counter-btn--active]="riskFilter === 'CRITICAL'"
+        [attr.data-tone]="'critical'"
+        (click)="setRiskFilter('CRITICAL')"
+      >
+        <span class="counter-dot counter-dot--critical"></span>
         {{ activeCritical }} Critique{{ activeCritical > 1 ? 's' : '' }}
-      </span>
-      <span class="counter" data-tone="high">
+      </button>
+      <button
+        type="button"
+        class="counter-btn"
+        [class.counter-btn--active]="riskFilter === 'HIGH'"
+        [attr.data-tone]="'high'"
+        (click)="setRiskFilter('HIGH')"
+      >
+        <span class="counter-dot counter-dot--high"></span>
         {{ activeHigh }} Élevé{{ activeHigh > 1 ? 's' : '' }}
-      </span>
-      <span class="counter" data-tone="medium">
+      </button>
+      <button
+        type="button"
+        class="counter-btn"
+        [class.counter-btn--active]="riskFilter === 'MEDIUM'"
+        [attr.data-tone]="'medium'"
+        (click)="setRiskFilter('MEDIUM')"
+      >
+        <span class="counter-dot counter-dot--medium"></span>
         {{ activeMedium }} Modéré{{ activeMedium > 1 ? 's' : '' }}
-      </span>
-      <span class="counter counter--total">
-        {{ activeTotal }} Total
-      </span>
+      </button>
+      <button
+        type="button"
+        class="counter-btn"
+        [class.counter-btn--active]="riskFilter === 'ALL'"
+        [attr.data-tone]="'total'"
+        (click)="setRiskFilter('ALL')"
+      >
+        {{ activeTotal }} Totales
+      </button>
     </div>
 
     <button
@@ -113,18 +140,41 @@
       </li>
     </ul>
 
-    <div class="feed__card-grid" *ngIf="!loading && layout === 'cards' && activeTotal > 0">
-      <ui-anomaly-alert-card
-        *ngFor="let anomaly of visibleAnomalies; trackBy: trackByAnomaly"
-        [anomaly]="anomaly"
-        (action)="handleAction($event)"
-      />
+    <div class="feed__cards-container" *ngIf="!loading && layout === 'cards' && activeTotal > 0">
+      <button
+        type="button"
+        class="feed__scroll-btn feed__scroll-btn--left"
+        (click)="scrollCards(-1)"
+        *ngIf="showLeftBtn()"
+        aria-label="Défiler à gauche"
+      >
+        <lucide-angular [img]="iconChevronLeft" size="20"></lucide-angular>
+      </button>
+
+      <div class="feed__card-grid" #cardGrid (scroll)="onGridScroll()">
+        <ui-anomaly-alert-card
+          *ngFor="let anomaly of visibleAnomalies; trackBy: trackByAnomaly"
+          [anomaly]="anomaly"
+          [compact]="true"
+          (action)="handleAction($event)"
+        />
+      </div>
+
+      <button
+        type="button"
+        class="feed__scroll-btn feed__scroll-btn--right"
+        (click)="scrollCards(1)"
+        *ngIf="showRightBtn()"
+        aria-label="Défiler à droite"
+      >
+        <lucide-angular [img]="iconChevronRight" size="20"></lucide-angular>
+      </button>
     </div>
 
     <div class="feed__more" *ngIf="!loading && controlsVisible && filteredAnomalies.length > maxVisible">
       <span>{{ displayedCount }} / {{ filteredAnomalies.length }} affichées</span>
       <button type="button" (click)="toggleShowAll()">
-        {{ showAll ? 'Voir moins' : 'Voir plus' }}
+        {{ showAll() ? 'Voir moins' : 'Voir plus' }}
       </button>
     </div>
 

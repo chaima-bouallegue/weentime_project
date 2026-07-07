@@ -18,6 +18,7 @@ class DocumentGenerationRequest(BaseModel):
     max_tokens: int = Field(default=2000, le=4000)
     language: str = "fr"
     provider: str = "gemini"  # gemini | ollama | openai
+    output_format: str = "html"  # "html" (default, legacy) | "text" (plain text, no HTML injection)
 
 class DocumentGenerationResponse(BaseModel):
     content: str
@@ -31,7 +32,11 @@ async def generate_document(request: DocumentGenerationRequest):
     Génère du contenu documentaire RH via IA.
     Tente Gemini (Cloud) en priorité, avec fallback vers Ollama (Local) en cas d'erreur.
     """
-    html_rules = """
+    # Only inject HTML formatting rules when output_format is "html" (default behavior).
+    # When output_format is "text", the system prompt is passed through as-is,
+    # allowing the caller to control the output format (e.g. plain text templates).
+    if request.output_format == "html":
+        html_rules = """
 Génère le contenu du document en HTML propre et structuré.
 Le rendu doit ressembler à un document RH officiel imprimable.
 
@@ -66,7 +71,7 @@ N'utilise JAMAIS de balises markdown comme ```html ou ```.
 Ne mets aucun texte avant ou après le HTML.
 Commence directement par la première balise HTML et termine par la dernière balise HTML.
 """
-    request.system_prompt = f"{request.system_prompt}\n\n{html_rules}"
+        request.system_prompt = f"{request.system_prompt}\n\n{html_rules}"
     provider = request.provider or settings.default_ai_provider
     
     if provider == "gemini":
@@ -133,8 +138,8 @@ async def _generate_gemini(
     
     last_call_time = time.time()
 
-    # Modèle recommandé en mai 2026 pour le Free Tier : gemini-2.5-flash-lite
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+    # Modèle Free Tier : gemini-2.5-flash
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     headers = {
         "x-goog-api-key": settings.gemini_api_key,
     }
@@ -183,7 +188,7 @@ async def _generate_gemini(
 
             return DocumentGenerationResponse(
                 content=text,
-                model_used="gemini-2.5-flash-lite",
+                model_used="gemini-2.5-flash",
                 tokens_used=tokens,
                 provider="gemini",
             )

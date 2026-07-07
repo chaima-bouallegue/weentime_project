@@ -12,6 +12,7 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Table(name = "comm_channel_members", schema = "communication")
 public class CommChannelMember {
 

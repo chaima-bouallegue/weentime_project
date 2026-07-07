@@ -1,6 +1,6 @@
 :host {
   display: block;
-  background: #ffffff;
+  background: transparent;
 }
 
 .page-container {
@@ -8,12 +8,12 @@
   max-width: 1400px;
   margin: 0 auto;
   min-height: 100vh;
-  background: #ffffff;
+  background: transparent;
 
   &.kanban-page {
     max-width: none;
     padding: 24px 28px 32px;
-    background: #ffffff;
+    background: transparent;
   }
 }
 
@@ -167,7 +167,7 @@
   &--kanban {
     padding: 0;
     margin: 0;
-    background: #ffffff;
+    background: transparent;
   }
 }
 
@@ -183,11 +183,11 @@
 }
 
 :host-context(.dark) {
-  background: #0f172a;
+  background: transparent;
 
   .page-container,
   .page-container.kanban-page {
-    background: #0f172a;
+    background: transparent;
   }
 
   .page-title {
@@ -233,7 +233,7 @@
   }
 
   .content-area--kanban {
-    background: #0f172a;
+    background: transparent;
   }
 }
 

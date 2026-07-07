@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, FileText, ArrowRight, Loader2, Sparkles, Shield, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse } from 'lucide-angular';
+import { LucideAngularModule, FileText, ArrowRight, Loader2, Sparkles, Shield, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, ChevronRight } from 'lucide-angular';
 import { TypeDocumentConfig, TypeDocument } from '../../models/document.model';
 
 @Component({
@@ -20,7 +20,7 @@ export class DocumentTypeGridComponent {
 
   // Icons
   readonly iconFile = FileText;
-  readonly iconArrow = ArrowRight;
+  readonly iconArrow = ChevronRight;
   readonly iconLoader = Loader2;
 
   readonly icons: Record<string, any> = {

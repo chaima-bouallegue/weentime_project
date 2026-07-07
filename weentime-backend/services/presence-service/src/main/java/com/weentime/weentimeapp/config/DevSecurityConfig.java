@@ -17,6 +17,10 @@ public class DevSecurityConfig {
     // TEMPORARY: Disable security for development testing
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        String appEnv = System.getenv("APP_ENV");
+        if ("production".equalsIgnoreCase(appEnv)) {
+            throw new IllegalStateException("SÉCURITÉ : profil 'dev' activé en production. Arrêt immédiat du service.");
+        }
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(org.springframework.security.config.Customizer.withDefaults())

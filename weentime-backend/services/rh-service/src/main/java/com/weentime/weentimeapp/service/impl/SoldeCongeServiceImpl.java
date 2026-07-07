@@ -36,10 +36,13 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
         if (entrepriseId == null) {
             return defaultSolde(utilisateurId, typeCongeId, targetYear);
         }
-        return soldeCongeRepository.findByUtilisateurIdAndTypeCongeIdAndAnnee(utilisateurId, typeCongeId, targetYear)
+        SoldeCongeDTO dto = soldeCongeRepository.findByUtilisateurIdAndTypeCongeIdAndAnnee(utilisateurId, typeCongeId, targetYear)
                 .filter(solde -> canAccessSolde(solde, entrepriseId))
                 .map(soldeCongeMapper::toDto)
                 .orElseGet(() -> defaultSolde(utilisateurId, typeCongeId, targetYear));
+        
+        typeCongeRepository.findById(typeCongeId).ifPresent(t -> dto.setTypeCongeNom(t.getLibelle()));
+        return dto;
     }
 
     @Override
@@ -50,11 +53,18 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
         if (entrepriseId == null) {
             return List.of();
         }
-        return soldeCongeMapper.toDtoList(
+        
+        List<SoldeCongeDTO> dtos = soldeCongeMapper.toDtoList(
                 soldeCongeRepository.findByUtilisateurIdInAndAnnee(List.of(utilisateurId), targetYear).stream()
                         .filter(solde -> canAccessSolde(solde, entrepriseId))
                         .toList()
         );
+        
+        java.util.Map<Long, String> typeMap = typeCongeRepository.findAllByEntrepriseId(entrepriseId).stream()
+                .collect(java.util.stream.Collectors.toMap(TypeConge::getId, TypeConge::getLibelle));
+                
+        dtos.forEach(dto -> dto.setTypeCongeNom(typeMap.getOrDefault(dto.getTypeCongeId(), "Inconnu")));
+        return dtos;
     }
 
     private SoldeCongeDTO defaultSolde(Long utilisateurId, Long typeCongeId, Integer annee) {

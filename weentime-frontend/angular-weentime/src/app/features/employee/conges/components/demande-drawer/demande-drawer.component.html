@@ -37,7 +37,7 @@
                 (click)="selectType(type)"
               >
                 <div class="type-icon-wrapper" [class]="type.libelle.toLowerCase()">
-                  <lucide-icon [name]="type.libelle === 'ANNUEL' ? 'umbrella' : type.libelle === 'MALADIE' ? 'heart' : type.libelle === 'SANS_SOLDE' ? 'minus-circle' : type.libelle === 'MATERNITE_PATERNITE' ? 'baby' : type.libelle === 'EXCEPTIONNEL' ? 'star' : 'clock'" size="24"></lucide-icon>
+                  <lucide-icon [name]="type.libelle === 'ANNUEL' ? 'Umbrella' : type.libelle === 'MALADIE' ? 'Heart' : type.libelle === 'SANS_SOLDE' ? 'MinusCircle' : type.libelle === 'MATERNITE_PATERNITE' ? 'Baby' : type.libelle === 'EXCEPTIONNEL' ? 'Star' : 'Clock'" size="24"></lucide-icon>
                 </div>
                 <div class="type-info">
                   <span class="type-label">{{ type.libelle }}</span>

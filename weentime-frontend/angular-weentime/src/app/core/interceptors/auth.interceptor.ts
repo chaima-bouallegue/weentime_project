@@ -1,49 +1,49 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 import { SKIP_AUTH_REDIRECT } from '../http/request-context.tokens';
 import { AuthService } from '../services/auth.service';
 import { extractErrorMessage, logWarn } from '../utils/logger';
+import { environment } from '../../../environments/environment';
 
-/**
- * Functional HTTP Interceptor for:
- * 1. Attaching JWT Bearer token to every request
- * 2. Handling 401 with auto-logout + redirect to login
- * 3. Handling network errors with a clear toast message
- */
+let isRefreshing = false;
+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const authService = inject(AuthService);
   const skipAuthRedirect = req.context.get(SKIP_AUTH_REDIRECT);
 
-  const token = authService.getToken();
-  const isAuthRequest =
-    req.url.includes('/api/v1/auth/login') ||
-    req.url.includes('/api/v1/auth/mfa/verify') ||
-    req.url.includes('/api/v1/auth/register');
+  const isBackendCall = req.url.startsWith(environment.apiUrl)
+                     || req.url.includes('localhost:8');
+  const isRefreshCall = req.url.includes('/auth/refresh');
 
-  let clonedRequest = req;
-  if (token && !req.headers.has('Authorization')) {
-    clonedRequest = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  let clonedRequest: HttpRequest<unknown> = req;
+  if (isBackendCall) {
+    clonedRequest = req.clone({ withCredentials: true });
   }
 
   return next(clonedRequest).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !isAuthRequest) {
-        logWarn(skipAuthRedirect ? 'Protected request unauthorized' : 'Authentication expired', {
-          url: req.url,
-          status: error.status,
-          message: extractErrorMessage(error)
-        });
-        if (!skipAuthRedirect) {
-          authService.clearAuthState();
-          void router.navigate(['/login'], { replaceUrl: true });
-        }
+      if (error.status === 401 && !isRefreshCall && !req.url.includes('/auth/ws-token') && !isRefreshing) {
+        isRefreshing = true;
+        return authService.refreshToken().pipe(
+          switchMap(success => {
+            isRefreshing = false;
+            if (success) {
+              return next(clonedRequest);
+            }
+            if (!skipAuthRedirect) {
+              authService.clearAuthState();
+              void router.navigate(['/login'], { replaceUrl: true });
+            }
+            return throwError(() => error);
+          })
+        );
+      }
+      if (error.status === 401 && !isRefreshing && !skipAuthRedirect) {
+        authService.clearAuthState();
+        void router.navigate(['/login'], { replaceUrl: true });
       }
       return throwError(() => error);
     })

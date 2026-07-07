@@ -6,6 +6,7 @@ import com.weentime.weentimeapp.enums.ReunionType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "reunions")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Getter
 @Setter
 @NoArgsConstructor

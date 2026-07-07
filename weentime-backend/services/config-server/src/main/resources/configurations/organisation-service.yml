@@ -1,40 +1,36 @@
 server:
-  port: 8190
+  port: ${SERVER_PORT:8190}
 
 spring:
-  application:
-    name: organisation-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/organisation_db
-    username: weentime
-    password: 170502
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${ORGANISATION_DB_NAME:${DB_NAME:organisation_db}}
+    username: ${ORGANISATION_DB_USERNAME:${DB_USERNAME:weentime}}
+    password: ${ORGANISATION_DB_PASSWORD:${DB_PASSWORD:170502}}
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 5000
-      initialization-fail-timeout: 1
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
-      idle-timeout: 10000
-      max-lifetime: 30000
-  cloud:
-    config:
-      enabled: false
-  config:
-    import: optional:configserver:http://localhost:8988
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
   flyway:
-    baseline-on-migrate: true
-    validate-on-migrate: false
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    connect-retries: 2
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
-    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+        format_sql: false
 
 eureka:
   instance:
@@ -43,63 +39,32 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-  server:
-    enable-self-preservation: false
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 management:
-  endpoint:
-    gateway:
+  health:
+    db:
       enabled: true
-  endpoints:
-    web:
-      exposure:
-        include: "gateway,health,info,metrics,prometheus"
-    health:
-      show-details: always
 
 application:
   config:
-    rh-service: ${RH_SERVICE_URL:http://localhost:8192}
-
-spring.cloud.openfeign.client.config:
-  default:
-    connect-timeout: 5000
-    read-timeout: 5000
-    logger-level: full
-
-logging:
-  level:
-    root: INFO
-    com.weentime.weentimeproject: DEBUG
-    org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.netflix.discovery: WARN
-    com.netflix.eureka: WARN
+    rh-service: ${RH_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}/api/v1/rh}
 
 resilience4j:
   circuitbreaker:
     instances:
       rhService:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        permittedNumberOfCallsInHalfOpenState: 3
-        slidingWindowType: TIME_BASED
-        minimumNumberOfCalls: 5
-        waitDurationInOpenState: 5s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-      organisationService:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        permittedNumberOfCallsInHalfOpenState: 3
-        minimumNumberOfCalls: 5
-        waitDurationInOpenState: 5s
-        failureRateThreshold: 50
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
   timelimiter:
     instances:
       rhService:
-        timeoutDuration: 2s
-      organisationService:
-        timeoutDuration: 2s
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.weentimeproject: INFO

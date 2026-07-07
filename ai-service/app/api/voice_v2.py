@@ -33,6 +33,7 @@ POSITIVE_CONFIRMATIONS = {
     "oui",
     "confirme",
     "confirm",
+    "confirmer",
     "d accord",
     "d'accord",
     "yes",
@@ -99,7 +100,7 @@ def _voice_workflow_metadata(
 
 
 def _set_voice_language_metadata(metadata: dict[str, Any], language: str) -> dict[str, Any]:
-    metadata["language"] = language
+    metadata["response_language"] = language
     metadata["requested_language"] = language
     metadata["requestedLanguage"] = language
     metadata["response_language"] = language
@@ -216,8 +217,8 @@ async def voice_v2(
                 _set_voice_language_metadata(parsed_metadata, response_language)
                 parsed_metadata["stt_language"] = stt_result.language
                 parsed_metadata["sttLanguage"] = stt_result.language
-                context.language = response_language
-                context.metadata["language"] = response_language
+                context.metadata["stt_language"] = stt_result.language
+                context.metadata["response_language"] = response_language
                 apply_safe_request_metadata(context, parsed_metadata, language=response_language)
                 context.metadata["voice_language_confidence"] = stt_result.language_confidence
                 if stt_result.status == "no_input":

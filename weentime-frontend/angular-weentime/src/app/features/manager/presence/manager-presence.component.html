@@ -1,345 +1,370 @@
-<div class="min-h-screen bg-slate-50/50 dark:bg-slate-950/20 pb-12 transition-colors duration-500">
+<div class="mp-page">
 
-  <!-- Page Header -->
-  <header
-    class="page-header bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-8 mb-8 transition-colors">
-    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <div class="mp-content">
 
-      <!-- Left: Title & Navigation -->
-      <div class="space-y-4">
-        <div class="flex items-center gap-2">
-          <span
-            class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold border border-indigo-100 dark:border-indigo-500/20 uppercase tracking-widest">
-            Manager View
-          </span>
-          <span class="text-slate-300 dark:text-slate-700">•</span>
-          <span class="text-slate-500 dark:text-slate-400 text-sm font-medium">Présence Équipe</span>
+    <!-- ═══════════ GROUPED HEADER CARD (WHITE & ROUNDED) ═══════════ -->
+    <div class="mp-header-card">
+      <div class="mp-header-card__top">
+        <div class="mp-header-card__title-container">
+          <h1 class="mp-header-card__title">Suivi de Présence en Temps Réel</h1>
+          <span class="mp-header-card__badge">Manager view</span>
         </div>
-        <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Suivi de Présence Temps Réel
-        </h1>
       </div>
-
-      <!-- Right: Date Navigator -->
-      <div
-        class="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-        <button (click)="prevDay()"
-          class="p-2.5 rounded-xl hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all active:scale-90">
-          <lucide-angular [img]="iconLeft" size="20"></lucide-angular>
-        </button>
-
-        <div class="px-6 py-2 min-w-[200px] text-center">
-          <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mb-0.5">Planning du
-          </p>
-          <p class="text-sm font-bold text-slate-900 dark:text-white">{{ displayDate() }}</p>
+      
+      <div class="mp-header-card__bottom">
+        <div class="mp-header-card__left">
+          <span class="mp-header-card__dot-dash"></span>
+          <span class="mp-header-card__subtitle">Présence équipe</span>
         </div>
-
-        <button (click)="nextDay()"
-          class="p-2.5 rounded-xl hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all active:scale-90">
-          <lucide-angular [img]="iconRight" size="20"></lucide-angular>
-        </button>
-
-        <div class="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-        <button (click)="today()"
-          class="px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all active:scale-90">
-          Aujourd'hui
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <div class="max-w-7xl mx-auto px-6 space-y-8">
-
-    <!-- KPI Dashboard -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
-      <!-- Card: Total Present -->
-      <div class="premium-card group p-6 border-l-4 border-emerald-500">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl text-emerald-600 dark:text-emerald-400">
-            <lucide-angular [img]="iconUsers" size="24"></lucide-angular>
+        
+        <div class="mp-header-card__right">
+          <div class="mp-date-navigator">
+            <button class="mp-btn mp-btn--icon" (click)="prevDay()" aria-label="Jour précédent">
+              <lucide-angular [img]="iconLeft" size="14"></lucide-angular>
+            </button>
+            <button class="mp-btn mp-btn--date">
+              {{ displayDate() }}
+              <lucide-angular [img]="iconCalendar" size="14" class="mp-btn__icon-right"></lucide-angular>
+            </button>
+            <button class="mp-btn mp-btn--icon" (click)="nextDay()" aria-label="Jour suivant">
+              <lucide-angular [img]="iconRight" size="14"></lucide-angular>
+            </button>
           </div>
-          <span
-            class="text-xs bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">+2
-            Today</span>
-        </div>
-        <h3 class="text-slate-500 dark:text-slate-400 text-sm font-medium">Présents / Effectif</h3>
-        <div class="flex items-end gap-2 mt-1">
-          <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">{{ kpis()?.presentCount || 0
-            }}</span>
-          <span class="text-lg font-bold text-slate-300 dark:text-slate-600 mb-1">/ {{ kpis()?.totalMembers || 0
-            }}</span>
-        </div>
-      </div>
 
-      <!-- Card: Late Count -->
-      <div class="premium-card group p-6 border-l-4 border-amber-500">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-3 bg-amber-50 dark:bg-amber-500/10 rounded-2xl text-amber-600 dark:text-amber-400">
-            <lucide-angular [img]="iconClock" size="24"></lucide-angular>
-          </div>
-          <span
-            class="text-xs bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">Attention</span>
-        </div>
-        <h3 class="text-slate-500 dark:text-slate-400 text-sm font-medium">Collaborateurs en Retard</h3>
-        <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1 tabular-nums">{{ kpis()?.lateCount || 0 }}
-        </p>
-      </div>
+          <button class="mp-btn mp-btn--today" (click)="today()">
+            Aujourd'hui
+            <lucide-angular [img]="iconCalendar" size="14" class="mp-btn__icon-right"></lucide-angular>
+          </button>
 
-      <!-- Card: Absent Count -->
-      <div class="premium-card group p-6 border-l-4 border-rose-500">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-3 bg-rose-50 dark:bg-rose-500/10 rounded-2xl text-rose-600 dark:text-rose-400">
-            <lucide-angular [img]="iconAlert" size="24"></lucide-angular>
-          </div>
-          <span
-            class="text-xs bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold">Inactif</span>
+          <button class="mp-btn mp-btn--filter">
+            <lucide-angular [img]="iconFilter" size="14" class="mp-btn__icon-left"></lucide-angular>
+            Filtres
+            <span *ngIf="activeFiltersCount() > 0" class="mp-btn__filter-count">({{ activeFiltersCount() }})</span>
+          </button>
         </div>
-        <h3 class="text-slate-500 dark:text-slate-400 text-sm font-medium">Absents / Congés</h3>
-        <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1 tabular-nums">{{ kpis()?.absentCount || 0
-          }}</p>
-      </div>
-
-      <!-- Card: Punctuality -->
-      <div class="premium-card group p-6 border-l-4 border-indigo-500">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl text-indigo-600 dark:text-indigo-400">
-            <lucide-angular [img]="iconTrend" size="24"></lucide-angular>
-          </div>
-          <span
-            class="text-xs bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold">Objectif
-            95%</span>
-        </div>
-        <h3 class="text-slate-500 dark:text-slate-400 text-sm font-medium">Taux de Ponctualité</h3>
-        <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1 tabular-nums">{{
-          kpis()?.averagePunctuality || 0 }}%</p>
       </div>
     </div>
 
-    <section class="premium-card p-6 border border-indigo-100 dark:border-indigo-500/20">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-        <div>
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">Heures supplementaires en attente</h2>
-          <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Demandes creees automatiquement apres pointage sortie.</p>
-        </div>
-        <button (click)="loadPendingOvertime()"
-          class="px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase">
-          Actualiser
-        </button>
-      </div>
+    <!-- Alert: No team assigned -->
+    <div *ngIf="!authService.currentUser()?.equipe" class="mp-alert">
+      <lucide-angular [img]="iconAlert" size="18"></lucide-angular>
+      <p>Aucune équipe n'est actuellement assignée à votre profil manager. Contactez votre administrateur RH.</p>
+    </div>
 
-      <div *ngIf="overtimeLoading()" class="py-8 text-center text-sm font-bold text-slate-400">
-        Chargement des heures supplementaires...
+    <!-- ═══════════ KPI CARDS (Redesigned) ═══════════ -->
+    @if (isLoading()) {
+    <div class="mp-kpis mp-kpis--skeleton">
+      <div class="mp-kpi-skeleton" *ngFor="let i of [1,2,3,4]">
+        <div class="mp-skel mp-skel--icon"></div>
+        <div class="mp-skel mp-skel--label"></div>
+        <div class="mp-skel mp-skel--value"></div>
+        <div class="mp-skel mp-skel--trend"></div>
       </div>
+    </div>
+    } @else {
+    <div class="mp-kpis">
 
-      <div *ngIf="!overtimeLoading() && pendingOvertime().length === 0" class="py-8 text-center text-sm font-bold text-slate-400">
-        Aucune demande en attente.
-      </div>
-
-      <div *ngIf="!overtimeLoading() && pendingOvertime().length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <article *ngFor="let request of pendingOvertime()" class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/40">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-black text-slate-900 dark:text-white">Collaborateur #{{ request.utilisateurId }}</p>
-              <p class="text-xs font-bold text-slate-400">{{ request.date }} - {{ formatOvertimeStatus(request.status) }}</p>
+      <!-- Card 1: Présence aujourd'hui -->
+      <div class="mp-kpi mp-kpi--emerald mp-kpi--story"
+           [class.mp-kpi--active]="activeKpiFilter() === 'present'"
+           (click)="toggleKpiFilter('present')">
+        <div class="mp-kpi__main">
+          <div class="mp-kpi__header">
+            <div class="mp-kpi__icon mp-kpi__icon--emerald">
+              <lucide-angular [img]="iconUsers" size="16"></lucide-angular>
             </div>
-            <span class="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">
-              {{ formatOvertimeDuration(request.overtimeMinutes) }}
+            <span class="mp-kpi__label">Présence aujourd'hui</span>
+          </div>
+          <div class="mp-kpi__body">
+            <div class="mp-kpi__value">
+              <span class="mp-kpi__number">{{ getAttendanceRate() }}%</span>
+            </div>
+            <div class="mp-kpi-progress">
+              <div class="mp-kpi-progress__track">
+                <div class="mp-kpi-progress__bar" [style.width.%]="getAttendanceRate()"></div>
+              </div>
+            </div>
+            <div class="mp-kpi-subdetails">
+              <span>{{ getMembersCountByStatus('ACTIVE') }} présents</span>
+              <span>•</span>
+              <span>{{ getMembersCountByStatus('ABSENT') }} absents</span>
+              <span>•</span>
+              <span>{{ getMembersCountByStatus('LATE') }} retards</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Ponctualité -->
+      <div class="mp-kpi mp-kpi--amber mp-kpi--story"
+           [class.mp-kpi--active]="activeKpiFilter() === 'late'"
+           (click)="toggleKpiFilter('late')">
+        <div class="mp-kpi__main">
+          <div class="mp-kpi__header">
+            <div class="mp-kpi__icon mp-kpi__icon--amber">
+              <lucide-angular [img]="iconClock" size="16"></lucide-angular>
+            </div>
+            <span class="mp-kpi__label">Ponctualité</span>
+          </div>
+          <div class="mp-kpi__body">
+            <div class="mp-kpi__value">
+              <span class="mp-kpi__number">{{ kpis()?.averagePunctuality || 0 }}%</span>
+            </div>
+            <span class="mp-kpi__trend mp-kpi__trend--up">↗ +4% vs hier</span>
+          </div>
+        </div>
+        <div class="mp-kpi__graph">
+          <svg class="mp-kpi__sparkline" viewBox="0 0 100 40" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="gradient-amber" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M 0,25 Q 20,30 40,18 T 80,22 T 100,12" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+            <path d="M 0,25 Q 20,30 40,18 T 80,22 T 100,12 L 100,40 L 0,40 Z" fill="url(#gradient-amber)"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Card 3: Congés -->
+      <div class="mp-kpi mp-kpi--purple mp-kpi--story"
+           [class.mp-kpi--active]="activeKpiFilter() === 'leave'"
+           (click)="toggleKpiFilter('leave')">
+        <div class="mp-kpi__main">
+          <div class="mp-kpi__header">
+            <div class="mp-kpi__icon mp-kpi__icon--purple">
+              <lucide-angular [img]="iconUsers" size="16"></lucide-angular>
+            </div>
+            <span class="mp-kpi__label">Congés</span>
+          </div>
+          <div class="mp-kpi__body">
+            <div class="mp-kpi__value">
+              <span class="mp-kpi__number">{{ getMembersCountByStatus('OFF') }}</span>
+            </div>
+            <span class="mp-kpi__trend mp-kpi__trend--purple">
+              {{ getMembersCountByStatus('OFF') }} collaborateur{{ getMembersCountByStatus('OFF') > 1 ? 's' : '' }} en congé
             </span>
           </div>
-          <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-            <div>
-              <span class="block text-[10px] font-black uppercase text-slate-400">Horaire</span>
-              <strong>{{ formatOvertimeTimestamp(request.scheduledStart) }} - {{ formatOvertimeTimestamp(request.scheduledEnd) }}</strong>
-            </div>
-            <div>
-              <span class="block text-[10px] font-black uppercase text-slate-400">Pointage</span>
-              <strong>{{ formatOvertimeTimestamp(request.checkInTime) }} - {{ formatOvertimeTimestamp(request.checkOutTime || request.actualCheckOut) }}</strong>
-            </div>
-            <div>
-              <span class="block text-[10px] font-black uppercase text-slate-400">Debut supp.</span>
-              <strong>{{ formatOvertimeTimestamp(request.overtimeStart) }}</strong>
-            </div>
-            <div>
-              <span class="block text-[10px] font-black uppercase text-slate-400">Statut</span>
-              <strong>{{ formatOvertimeStatus(request.status) }}</strong>
-            </div>
-          </div>
-          <p *ngIf="request.reason" class="mt-3 text-xs font-semibold text-slate-600 dark:text-slate-300">{{ request.reason }}</p>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <button (click)="approveOvertime(request)" [disabled]="reviewingOvertimeId() === request.id"
-              class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black">
-              Approuver
-            </button>
-            <button (click)="rejectOvertime(request)" [disabled]="reviewingOvertimeId() === request.id"
-              class="px-3 py-2 rounded-xl bg-rose-600 text-white text-xs font-black">
-              Refuser
-            </button>
-            <button (click)="requestOvertimeJustification(request)" [disabled]="reviewingOvertimeId() === request.id"
-              class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-black">
-              Justification
-            </button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- Main Content Area -->
-    <div @listAnimation class="pb-12">
-
-      <!-- Message si aucune équipe assignée -->
-      <div *ngIf="!authService.currentUser()?.equipe"
-        class="w-full p-4 mb-8 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 text-amber-800">
-        <lucide-angular [img]="iconAlert" size="20"></lucide-angular>
-        <p class="font-medium">Aucune équipe n'est actuellement assignée à votre profil manager. Contactez votre
-          administrateur RH.</p>
+        </div>
       </div>
 
-      <!-- Table Filter Header -->
-      <div class="toolbar-container">
-        <!-- Group 1: Search -->
-        <div class="search-group">
-          <lucide-angular [img]="iconSearch" size="18" class="search-icon"></lucide-angular>
-          <input type="text" placeholder="Rechercher un collaborateur..." (input)="onSearch($event)">
+      <!-- Card 4: Tendances de la semaine -->
+      <div class="mp-kpi mp-kpi--indigo mp-kpi--story mp-kpi--trend-card">
+        <div class="mp-kpi__main">
+          <div class="mp-kpi__header">
+            <div class="mp-kpi__icon mp-kpi__icon--indigo">
+              <lucide-angular [img]="iconBarChart" size="16"></lucide-angular>
+            </div>
+            <span class="mp-kpi__label">Présence équipe</span>
+          </div>
+          <div class="mp-trends-bars">
+            <div class="mp-trend-col" *ngFor="let day of weeklyTrends">
+              <div class="mp-trend-bar-container">
+                <div class="mp-trend-bar-fill" [style.height.%]="day.rate" [title]="day.label + ': ' + day.rate + '%'"></div>
+              </div>
+              <span class="mp-trend-label">{{ day.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    }
+
+    <!-- 🚨 Barre de synthèse d'alertes manager -->
+    <div class="mp-synthesis-bar" *ngIf="!isLoading()">
+      <div class="mp-synthesis-title">
+        <lucide-angular [img]="iconAlertTriangle" size="14" class="mp-synthesis-alert-lucide-icon"></lucide-angular>
+        Attention aujourd'hui
+      </div>
+      <div class="mp-synthesis-items">
+        <span class="mp-synthesis-item" [class.mp-synthesis-item--alert]="getMembersCountByStatus('ABSENT') > 0">
+          • {{ getMembersCountByStatus('ABSENT') }} collaborateur{{ getMembersCountByStatus('ABSENT') > 1 ? 's' : '' }} absent{{ getMembersCountByStatus('ABSENT') > 1 ? 's' : '' }}
+        </span>
+        <span class="mp-synthesis-item" [class.mp-synthesis-item--warning]="getMembersCountByStatus('LATE') > 0">
+          • {{ getMembersCountByStatus('LATE') }} retard{{ getMembersCountByStatus('LATE') > 1 ? 's' : '' }}
+        </span>
+        <span class="mp-synthesis-item">
+          • {{ getMembersCountByStatus('OFF') }} congé{{ getMembersCountByStatus('OFF') > 1 ? 's' : '' }} validé{{ getMembersCountByStatus('OFF') > 1 ? 's' : '' }}
+        </span>
+        <span class="mp-synthesis-item mp-synthesis-item--ok" *ngIf="getMembersCountByStatus('ABSENT') === 0 && getMembersCountByStatus('LATE') === 0">
+          • Aucun point bloquant
+        </span>
+        <span class="mp-synthesis-item mp-synthesis-item--info" *ngIf="getMembersCountByStatus('ABSENT') > 0 || getMembersCountByStatus('LATE') > 0">
+          • Nécessite votre attention
+        </span>
+      </div>
+    </div>
+
+    <!-- ═══════════ MAIN TABLE AREA ═══════════ -->
+    <div class="mp-main-card" @listAnimation>
+      
+      <!-- Toolbar -->
+      <div class="mp-toolbar">
+        <div class="mp-toolbar__search">
+          <lucide-angular [img]="iconSearch" size="16" class="mp-toolbar__search-icon"></lucide-angular>
+          <input type="text"
+                 class="mp-toolbar__search-input"
+                 placeholder="Rechercher un collaborateur..."
+                 (input)="onSearch($event)">
         </div>
 
-        <!-- Group 2: View Switcher (Pill) -->
-        <div class="view-toggle">
-          <button (click)="viewMode.set('table')" [class.active]="viewMode() === 'table'">
-            <lucide-angular [img]="iconTable" size="16"></lucide-angular>
-            Tableau
-          </button>
-          <button (click)="viewMode.set('kanban')" [class.active]="viewMode() === 'kanban'">
-            <lucide-angular [img]="iconKanban" size="16"></lucide-angular>
-            Kanban
-          </button>
-        </div>
+        <div class="mp-toolbar__actions">
+          <!-- Compact View Mode Switcher -->
+          <div class="mp-toolbar__toggle">
+            <button (click)="viewMode.set('table')" [class.active]="viewMode() === 'table'" title="Vue tableau">
+              <lucide-angular [img]="iconTable" size="14"></lucide-angular>
+            </button>
+            <button (click)="viewMode.set('kanban')" [class.active]="viewMode() === 'kanban'" title="Vue kanban">
+              <lucide-angular [img]="iconKanban" size="14"></lucide-angular>
+            </button>
+          </div>
 
-        <!-- Group 3: Export (Merged buttons) -->
-        <div class="export-group">
-          <button (click)="onExport('pdf')">
-            <lucide-angular [img]="iconPdf" size="16"></lucide-angular>
+          <button class="mp-toolbar__btn" (click)="onExport('pdf')">
+            <lucide-angular [img]="iconPdf" size="14"></lucide-angular>
             PDF
           </button>
-          <button (click)="onExport('excel')">
-            <lucide-angular [img]="iconExcel" size="16"></lucide-angular>
+          <button class="mp-toolbar__btn" (click)="onExport('excel')">
+            <lucide-angular [img]="iconExcel" size="14"></lucide-angular>
             Excel
+          </button>
+          <button class="mp-toolbar__btn mp-toolbar__btn--icon" aria-label="Plus d'actions">
+            <lucide-angular [img]="iconMore" size="14"></lucide-angular>
           </button>
         </div>
       </div>
 
-      <!-- Table View -->
+      <!-- Quick Filter Chips -->
+      <div class="mp-quick-filters" *ngIf="!isLoading()">
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === null" (click)="toggleKpiFilter(null)">
+          Tous <span class="mp-chip-badge">{{ teamStatus().length }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'present'" (click)="toggleKpiFilter('present')">
+          Présents <span class="mp-chip-badge mp-chip-badge--emerald">{{ getOfficePresentCount() }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'teletravail'" (click)="toggleKpiFilter('teletravail')">
+          Télétravail <span class="mp-chip-badge mp-chip-badge--blue">{{ getTeleworkCount() }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'late'" (click)="toggleKpiFilter('late')">
+          Retards <span class="mp-chip-badge mp-chip-badge--amber">{{ getMembersCountByStatus('LATE') }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'absent'" (click)="toggleKpiFilter('absent')">
+          Absents <span class="mp-chip-badge mp-chip-badge--rose">{{ getMembersCountByStatus('ABSENT') }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'leave'" (click)="toggleKpiFilter('leave')">
+          Congés <span class="mp-chip-badge mp-chip-badge--purple">{{ getMembersCountByStatus('OFF') }}</span>
+        </button>
+      </div>
+
+      <!-- ═══════════ TABLE VIEW ═══════════ -->
       @if (viewMode() === 'table') {
-      <div class="premium-card overflow-hidden" @fadeIn>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left">
-            <thead>
-              <tr
-                class="text-[11px] uppercase tracking-widest font-bold text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                <th class="px-8 py-5">Collaborateur</th>
-                <th class="px-8 py-5">Statut</th>
-                <th class="px-8 py-5">Détails de Session</th>
-                <th class="px-8 py-5">Total Travail</th>
-                <th class="px-8 py-5 text-right">Dernière Activité</th>
+      <div class="mp-table-wrap" @fadeIn>
+        <div class="mp-table-scroll">
+          <table class="mp-table">
+            <thead class="mp-table__head">
+              <tr>
+                <th>Collaborateur</th>
+                <th>Statut</th>
+                <th>Arrivée</th>
+                <th>Temps</th>
+                <th>Localisation</th>
+                <th class="mp-table__action-col"></th>
               </tr>
             </thead>
-            <tbody @listAnimation>
-              <!-- Loading State -->
+            <tbody class="mp-table__body" @listAnimation>
+
+              <!-- Loading -->
               <tr *ngIf="isLoading()" @fadeIn>
-                <td colspan="5" class="px-8 py-24 text-center">
-                  <div
-                    class="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4">
-                  </div>
-                  <p class="text-sm font-bold text-slate-400 opacity-60">Synchronisation des présences...</p>
+                <td colspan="6" class="mp-table__loading">
+                  <div class="mp-spinner"></div>
+                  <p class="mp-table__loading-text">Synchronisation des présences...</p>
                 </td>
               </tr>
 
               <!-- Member Rows -->
-              <tr *ngFor="let member of filteredTeam()"
-                class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 border-b border-slate-50 dark:border-slate-800/50 transition-colors">
-                <td class="px-8 py-5">
-                  <div class="flex items-center gap-4">
-                    <div class="relative">
-                      <img *ngIf="member.avatar" [src]="member.avatar"
-                        class="w-12 h-12 rounded-2xl object-cover border-2 border-white dark:border-slate-900 shadow-md transform group-hover:scale-105 transition-transform duration-300">
-                      <div *ngIf="!member.avatar"
-                        class="w-12 h-12 rounded-2xl border-2 border-white dark:border-slate-900 shadow-md flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-sm transform group-hover:scale-105 transition-transform duration-300">
+              <tr *ngFor="let member of filteredTeam()">
+                <!-- Collaborateur -->
+                <td>
+                  <div class="mp-member">
+                    <div class="mp-member__avatar-wrapper">
+                      <img *ngIf="member.avatar" [src]="member.avatar" class="mp-member__img" [alt]="member.name">
+                      <div *ngIf="!member.avatar" class="mp-member__initials" [style.background]="getAvatarBgColor(member.jobTitle)">
                         {{ getInitials(member.name) }}
                       </div>
-                      <span
-                        class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-sm"
-                        [ngClass]="'bg-'+getStatusColor(member.status)+'-500'">
-                      </span>
                     </div>
-                    <div>
-                      <p
-                        class="font-bold text-slate-900 dark:text-white leading-tight mb-0.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        {{ member.name }}</p>
-                      <p class="text-xs font-semibold text-slate-400 dark:text-slate-500">{{ member.jobTitle }}</p>
+                    <div class="mp-member__info">
+                      <p class="mp-member__name">
+                        {{ member.name }}
+                      </p>
+                      <p class="mp-member__job">{{ member.jobTitle }}</p>
                     </div>
                   </div>
                 </td>
 
-                <td class="px-8 py-5">
-                  <span class="badge-modern flex items-center gap-2" [ngClass]="'badge-'+getStatusColor(member.status)">
-                    <span class="w-1.5 h-1.5 rounded-full"
-                      [ngClass]="member.status === 'ACTIVE' ? 'animate-pulse bg-emerald-500' : 'bg-current'"></span>
-                    {{ formatStatus(member.status) }}
+                <!-- Statut -->
+                <td>
+                  <span class="mp-badge mp-badge--{{ getStatusColor(member.status, member) }}" [title]="'Dernière activité : ' + member.lastActivity">
+                    <span class="mp-badge__dot" [class.mp-badge__dot--pulse]="member.status === 'ACTIVE'"></span>
+                    {{ formatStatus(member.status, member) }}
                   </span>
                 </td>
 
-                <td class="px-8 py-5">
-                  <div class="space-y-1">
-                    <div class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <span class="text-slate-400 w-12 font-medium">Entrée:</span>
-                      <span [class.empty-time]="!member.arrivalTime" class="tabular-nums">{{ member.arrivalTime || '--:--' }}</span>
-                      <span *ngIf="member.status === 'LATE'"
-                        class="text-[10px] bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 rounded uppercase font-bold tracking-tighter">Retard</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <span class="text-slate-400 w-12 font-medium">Sortie:</span>
-                      <span [class.empty-time]="!member.departureTime" class="tabular-nums text-slate-400">{{ member.departureTime || '--:--' }}</span>
-                    </div>
-                    <div *ngIf="member.checkInLocation"
-                      class="flex items-start gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                      <span class="text-slate-400 w-12 font-medium shrink-0">Lieu:</span>
-                      <span class="break-words">📍 {{ member.checkInLocation }}</span>
-                    </div>
-                    <div *ngIf="member.checkOutLocation"
-                      class="flex items-start gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                      <span class="text-slate-400 w-12 font-medium shrink-0">Sortie:</span>
-                      <span class="break-words">📍 {{ member.checkOutLocation }}</span>
-                    </div>
+                <!-- Arrivée -->
+                <td>
+                  <div class="mp-session-arrival">
+                    <span class="mp-session__time" [class.mp-session__time--empty]="!member.arrivalTime">
+                      {{ member.arrivalTime || '--:--' }}
+                    </span>
+                    <span *ngIf="member.status === 'LATE'" class="mp-session__late-badge">Retard</span>
                   </div>
                 </td>
 
-                <td class="px-8 py-5">
-                  <div class="flex flex-col gap-1">
-                    <span [class.empty-time]="member.totalMinutes === 0" class="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{{
-                      formatDuration(member.totalMinutes) }}</span>
-                    <span *ngIf="member.overtimeMinutes > 0"
-                      class="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-widest">+{{
-                      member.overtimeMinutes }} MIN SUPP.</span>
+                <!-- Temps -->
+                <td>
+                  <div class="mp-work">
+                    <span class="mp-work__time" [class.mp-work__time--empty]="member.totalMinutes === 0">
+                      {{ formatDuration(member.totalMinutes) }}
+                    </span>
+                    <span *ngIf="member.overtimeMinutes > 0" class="mp-work__overtime">
+                      +{{ formatDuration(member.overtimeMinutes) }} supp.
+                    </span>
                   </div>
                 </td>
 
-                <td class="px-8 py-5 text-right">
-                  <span
-                    class="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 tabular-nums">
-                    {{ member.lastActivity }}
-                  </span>
+                <!-- Localisation -->
+                <td>
+                  <div class="mp-location-container" *ngIf="member.checkInLocation; else noLocation">
+                    <div class="mp-location-main mp-location-main--{{ getLocationType(member.checkInLocation).type }}">
+                      <span class="mp-location-icon">{{ getLocationType(member.checkInLocation).icon }}</span>
+                      <span class="mp-location-text">{{ getLocationType(member.checkInLocation).label }}</span>
+                    </div>
+                    <span class="mp-location-sub" *ngIf="getLocationType(member.checkInLocation).type !== 'unknown'">
+                      <app-location-display [locationText]="member.checkInLocation"></app-location-display>
+                    </span>
+                  </div>
+                  <ng-template #noLocation>
+                    <span class="mp-location-none">—</span>
+                  </ng-template>
+                </td>
+
+                <!-- Action Button -->
+                <td class="mp-table__action-cell">
+                  <button class="mp-action-btn" aria-label="Actions">
+                    <lucide-angular [img]="iconMore" size="14"></lucide-angular>
+                  </button>
                 </td>
               </tr>
 
               <!-- No Results -->
               <tr *ngIf="!isLoading() && filteredTeam().length === 0" @fadeIn>
-                <td colspan="5" class="px-8 py-24 text-center">
-                  <div
-                    class="p-6 bg-slate-100 dark:bg-slate-800 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 text-slate-300">
-                    <lucide-angular [img]="iconSearch" size="40"></lucide-angular>
+                <td colspan="6" class="mp-table__empty">
+                  <div class="mp-table__empty-icon">
+                    <lucide-angular [img]="iconSearch" size="24"></lucide-angular>
                   </div>
-                  <p class="text-lg font-bold text-slate-900 dark:text-white mb-1">Aucun résultat</p>
-                  <p class="text-sm text-slate-400">Désolé, nous n'avons rien trouvé pour "{{ searchQuery() }}"</p>
+                  <p class="mp-table__empty-title">Aucun résultat</p>
+                  <p class="mp-table__empty-text">Désolé, nous n'avons rien trouvé pour "{{ searchQuery() }}"</p>
                 </td>
               </tr>
             </tbody>
@@ -348,95 +373,73 @@
       </div>
       }
 
-      <!-- Kanban View -->
+      <!-- ═══════════ KANBAN VIEW ═══════════ -->
       @else {
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start" @fadeIn>
+      <div class="mp-kanban" @fadeIn>
+        <div *ngFor="let status of statuses" class="mp-kanban__col">
 
-        <!-- Column for each status -->
-        <div *ngFor="let status of statuses"
-          class="flex flex-col gap-4 bg-slate-100/30 dark:bg-slate-900/30 p-2 rounded-[2.5rem]">
-
-          <div class="flex items-center justify-between px-4 py-3">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full" [ngClass]="'bg-' + getStatusColor(status) + '-500'"></span>
-              <h4
-                class="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-[0.2em] shadow-glow">
-                {{ formatStatus(status) }}
-              </h4>
+          <div class="mp-kanban__col-header">
+            <div class="mp-kanban__col-title">
+              <span class="mp-kanban__col-dot dot--{{ getStatusColor(status) }}"></span>
+              <span class="mp-kanban__col-name">{{ formatStatus(status) }}</span>
             </div>
-            <span
-              class="text-[10px] font-black text-slate-400 bg-white dark:bg-slate-900 px-3 py-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-              {{ getMembersByStatus(status).length }}
-            </span>
+            <span class="mp-kanban__col-count">{{ getMembersByStatus(status).length }}</span>
           </div>
 
-          <div class="flex flex-col gap-3 min-h-[500px]">
-            <!-- Empty State for Column -->
-            <div *ngIf="getMembersByStatus(status).length === 0"
-              class="m-2 py-12 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center opacity-30">
-              <lucide-angular [img]="iconUsers" size="20" class="mb-2"></lucide-angular>
-              <p class="text-[9px] font-black uppercase tracking-widest text-center">Aucun membre</p>
+          <div class="mp-kanban__col-body">
+            <!-- Empty -->
+            <div *ngIf="getMembersByStatus(status).length === 0" class="mp-kanban__empty">
+              <lucide-angular [img]="iconUsers" size="18"></lucide-angular>
+              <p class="mp-kanban__empty-text">Aucun membre</p>
             </div>
 
-            <!-- Kanban Cards -->
-            <div *ngFor="let member of getMembersByStatus(status)" class="kanban-card group">
-              <div class="flex items-center gap-3 mb-4">
-                <div class="relative">
-                  <img *ngIf="member.avatar" [src]="member.avatar"
-                    class="w-10 h-10 rounded-2xl object-cover border-2 border-white dark:border-slate-900 shadow-lg">
-                  <div *ngIf="!member.avatar"
-                    class="w-10 h-10 rounded-2xl border-2 border-white dark:border-slate-900 shadow-lg flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-xs">
+            <!-- Cards -->
+            <div *ngFor="let member of getMembersByStatus(status)" class="mp-kanban-card">
+              <div class="mp-kanban-card__header">
+                <div class="mp-kanban-card__avatar">
+                  <img *ngIf="member.avatar" [src]="member.avatar" class="mp-kanban-card__img" [alt]="member.name">
+                  <div *ngIf="!member.avatar" class="mp-kanban-card__initials">
                     {{ getInitials(member.name) }}
                   </div>
-                  <span
-                    class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900"
-                    [ngClass]="'bg-' + getStatusColor(status) + '-500'"></span>
+                  <span class="mp-kanban-card__dot dot--{{ getStatusColor(status, member) }}"></span>
                 </div>
-                <div class="min-w-0">
-                  <p class="text-xs font-black text-slate-900 dark:text-white truncate tracking-tight">{{ member.name }}
+                <div class="mp-kanban-card__info">
+                  <p class="mp-kanban-card__name">{{ member.name }}</p>
+                  <p class="mp-kanban-card__job">{{ member.jobTitle }}</p>
+                </div>
+              </div>
+
+              <div class="mp-kanban-card__metrics">
+                <div class="mp-kanban-card__metric">
+                  <p class="mp-kanban-card__metric-label">Arrivée</p>
+                  <p class="mp-kanban-card__metric-value"
+                     [class.mp-kanban-card__metric-value--empty]="!member.arrivalTime">
+                    {{ member.arrivalTime || '--:--' }}
                   </p>
-                  <p class="text-[10px] text-slate-400 font-bold truncate opacity-80">{{ member.jobTitle }}</p>
+                </div>
+                <div class="mp-kanban-card__metric">
+                  <p class="mp-kanban-card__metric-label">Total</p>
+                  <p class="mp-kanban-card__metric-value"
+                     [class.mp-kanban-card__metric-value--empty]="member.totalMinutes === 0">
+                    {{ formatDuration(member.totalMinutes) }}
+                  </p>
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2 mb-4">
-                <div
-                  class="bg-white/60 dark:bg-slate-800/60 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <p class="text-[8px] text-slate-400 font-black uppercase mb-1 tracking-tighter opacity-70">Arrivée</p>
-                  <p [class.empty-time]="!member.arrivalTime" class="text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{{ member.arrivalTime ||
-                    '--:--' }}</p>
-                </div>
-                <div
-                  class="bg-white/60 dark:bg-slate-800/60 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <p class="text-[8px] text-slate-400 font-black uppercase mb-1 tracking-tighter opacity-70">Total</p>
-                  <p [class.empty-time]="member.totalMinutes === 0" class="text-[11px] font-black text-slate-900 dark:text-white tabular-nums">{{
-                    formatDuration(member.totalMinutes) }}</p>
-                </div>
+              <div *ngIf="member.checkInLocation || member.checkOutLocation" class="mp-kanban-card__location">
+                <span *ngIf="member.checkInLocation">📍 Entrée: <app-location-display [locationText]="member.checkInLocation"></app-location-display></span>
+                <br *ngIf="member.checkInLocation && member.checkOutLocation">
+                <span *ngIf="member.checkOutLocation">📍 Sortie: <app-location-display [locationText]="member.checkOutLocation"></app-location-display></span>
               </div>
 
-              <div *ngIf="member.checkInLocation || member.checkOutLocation"
-                class="mb-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-3 space-y-1.5">
-                <p *ngIf="member.checkInLocation"
-                  class="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-snug break-words">
-                  📍 Entrée: {{ member.checkInLocation }}
-                </p>
-                <p *ngIf="member.checkOutLocation"
-                  class="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-snug break-words">
-                  📍 Sortie: {{ member.checkOutLocation }}
-                </p>
-              </div>
-
-              <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div class="flex items-center gap-1.5">
-                  <span *ngIf="member.overtimeMinutes > 0"
-                    class="text-[9px] font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-500/20">
-                    +{{ member.overtimeMinutes }}m
-                  </span>
-                  <span *ngIf="member.overtimeMinutes <= 0"
-                    class="text-[9px] font-bold text-slate-300 dark:text-slate-600">--</span>
-                </div>
-                <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">Vu à {{
-                  member.lastActivity }}</span>
+              <div class="mp-kanban-card__footer">
+                <span *ngIf="member.overtimeMinutes > 0" class="mp-kanban-card__overtime">
+                  +{{ member.overtimeMinutes }}m
+                </span>
+                <span *ngIf="member.overtimeMinutes <= 0" class="mp-kanban-card__overtime mp-kanban-card__overtime--none">
+                  --
+                </span>
+                <span class="mp-kanban-card__time">{{ member.lastActivity }}</span>
               </div>
             </div>
           </div>
@@ -444,5 +447,214 @@
       </div>
       }
     </div>
+
+    <!-- ═══════════ BOTTOM WIDGETS (HORIZONTAL GRID OF 3 CARDS) ═══════════ -->
+    <div class="mp-bottom-grid">
+
+      <!-- WIDGET 1: Heures Supplémentaires en attente -->
+      <div class="mp-widget">
+        <div class="mp-widget__header">
+          <div class="mp-widget__header-left">
+            <span class="mp-widget__title">Heures supplémentaires en attente</span>
+            <span class="mp-widget__count">{{ pendingOvertime().length }}</span>
+          </div>
+          <div class="mp-widget__header-actions">
+            <button class="mp-widget__action-btn" (click)="loadPendingOvertime()" aria-label="Actualiser">
+              <lucide-angular [img]="iconRefresh" size="14"></lucide-angular>
+              Actualiser
+            </button>
+            <button class="mp-widget__action-btn mp-widget__action-btn--icon" aria-label="Options">
+              <lucide-angular [img]="iconMore" size="14"></lucide-angular>
+            </button>
+          </div>
+        </div>
+        
+        <p class="mp-widget__subtitle">Demandes créées automatiquement après pointage sortie.</p>
+
+        <div class="mp-widget__body">
+          <!-- Loading -->
+          <div *ngIf="overtimeLoading()" class="mp-widget__loading">
+            <div class="mp-spinner mp-spinner--small"></div>
+          </div>
+
+          <!-- Empty -->
+          <div *ngIf="!overtimeLoading() && pendingOvertime().length === 0" class="mp-widget__empty">
+            Aucune demande en attente.
+          </div>
+
+          <!-- List -->
+          <ng-container *ngIf="!overtimeLoading() && pendingOvertime().length > 0">
+            <div *ngFor="let request of pendingOvertime().slice(0, 4)" class="mp-ot-item">
+              
+              <!-- Member avatar and identity resolved from utilisateurId -->
+              <div class="mp-ot-member">
+                <ng-container *ngIf="getMemberByUserId(request.utilisateurId) as member; else fallback">
+                  <div class="mp-ot-avatar">
+                    <img *ngIf="member.avatar" [src]="member.avatar" class="mp-ot-avatar__img" [alt]="member.name">
+                    <div *ngIf="!member.avatar" class="mp-ot-avatar__initials">
+                      {{ getInitials(member.name) }}
+                    </div>
+                  </div>
+                  <div class="mp-ot-info">
+                    <p class="mp-ot-name">{{ member.name }}</p>
+                    <p class="mp-ot-job">{{ member.jobTitle }}</p>
+                  </div>
+                </ng-container>
+                <ng-template #fallback>
+                  <div class="mp-ot-avatar">
+                    <div class="mp-ot-avatar__initials">?</div>
+                  </div>
+                  <div class="mp-ot-info">
+                    <p class="mp-ot-name">Collaborateur #{{ request.utilisateurId }}</p>
+                    <p class="mp-ot-job">Équipe</p>
+                  </div>
+                </ng-template>
+              </div>
+
+              <!-- Overtime Hours -->
+              <div class="mp-ot-time">
+                <span class="mp-ot-duration">+{{ formatOvertimeDuration(request.overtimeMinutes) }}</span>
+              </div>
+
+              <!-- Date -->
+              <div class="mp-ot-date">
+                {{ request.date }}
+              </div>
+
+              <!-- Priority and Actions Container -->
+              <div class="mp-ot-status-container">
+                <!-- Priority Badge -->
+                <span class="mp-ot-priority mp-ot-priority--{{ getOvertimePriority(request.overtimeMinutes) | lowercase }}">
+                  {{ getOvertimePriority(request.overtimeMinutes) }}
+                </span>
+
+                <!-- Actions overlaid on hover -->
+                <div class="mp-ot-actions">
+                  <button class="mp-ot-btn mp-ot-btn--approve"
+                          (click)="approveOvertime(request)"
+                          [disabled]="reviewingOvertimeId() === request.id"
+                          title="Approuver">
+                    Approuver
+                  </button>
+                  <button class="mp-ot-btn mp-ot-btn--reject"
+                          (click)="rejectOvertime(request)"
+                          [disabled]="reviewingOvertimeId() === request.id"
+                          title="Refuser">
+                    Refuser
+                  </button>
+                  <button class="mp-ot-btn mp-ot-btn--justify"
+                          (click)="requestOvertimeJustification(request)"
+                          [disabled]="reviewingOvertimeId() === request.id"
+                          title="Justifier">
+                    Justifier
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </ng-container>
+        </div>
+
+        <div *ngIf="pendingOvertime().length > 0" class="mp-widget__footer" (click)="loadPendingOvertime()">
+          Voir toutes les demandes
+          <lucide-angular [img]="iconArrowRight" size="14" class="mp-widget__footer-icon"></lucide-angular>
+        </div>
+      </div>
+
+      <!-- WIDGET 2: Résumé de la journée (with dynamic SVG circular gauge) -->
+      <div class="mp-widget">
+        <div class="mp-widget__header">
+          <span class="mp-widget__title">Résumé de la journée</span>
+        </div>
+        
+        <div class="mp-widget__body">
+          <div class="mp-summary-container">
+            <!-- Left Side Gauge -->
+            <div class="mp-summary-left">
+              <div class="mp-summary-gauge">
+                <svg class="mp-summary-gauge__svg" viewBox="0 0 100 100">
+                  <circle class="mp-summary-gauge__bg" cx="50" cy="50" r="42" fill="none" stroke="#E2E8F0" stroke-width="8" />
+                  <circle class="mp-summary-gauge__fill" cx="50" cy="50" r="42" fill="none" stroke="#10B981" stroke-width="8"
+                          stroke-dasharray="263.89" [attr.stroke-dashoffset]="263.89 * (1 - getAttendanceRate() / 100)"
+                          stroke-linecap="round" />
+                </svg>
+                <div class="mp-summary-gauge__text">
+                  <span class="mp-summary-gauge__number">{{ getAttendanceRate() }}%</span>
+                </div>
+              </div>
+              <div class="mp-summary-gauge-labels">
+                <p class="mp-summary-gauge-title">Journée en cours</p>
+                <p class="mp-summary-gauge-subtitle">Objectif 95%</p>
+              </div>
+            </div>
+
+            <!-- Right Side Stats -->
+            <div class="mp-summary-right">
+              <div class="mp-summary-row">
+                <span class="mp-summary-label">Temps travaillé</span>
+                <span class="mp-summary-val">{{ daySummary().totalWorkedFormatted }}</span>
+              </div>
+              <div class="mp-summary-row">
+                <span class="mp-summary-label">Heures supp. validées</span>
+                <span class="mp-summary-val">05h30</span>
+              </div>
+              <div class="mp-summary-row">
+                <span class="mp-summary-label">Heures supp. en attente</span>
+                <span class="mp-summary-val">{{ daySummary().overtimeTotalFormatted }}</span>
+              </div>
+              <div class="mp-summary-row">
+                <span class="mp-summary-label">Absences</span>
+                <span class="mp-summary-val">{{ daySummary().absentCount | number:'2.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mp-widget__footer" (click)="today()">
+          Voir le rapport complet
+          <lucide-angular [img]="iconArrowRight" size="14" class="mp-widget__footer-icon"></lucide-angular>
+        </div>
+      </div>
+
+      <!-- WIDGET 3: Activité en temps réel -->
+      <div class="mp-widget">
+        <div class="mp-widget__header">
+          <span class="mp-widget__title">Activité en temps réel</span>
+        </div>
+        
+        <div class="mp-widget__body">
+          <div class="mp-activity-timeline">
+            <!-- Empty state -->
+            <div *ngIf="realtimeActivity().length === 0" class="mp-widget__empty">
+              Aucune activité récente.
+            </div>
+
+            <!-- Timeline items -->
+            <div *ngFor="let event of realtimeActivity().slice(0, 5); let last = last" class="mp-timeline-item">
+              <div class="mp-timeline-indicator">
+                <div class="mp-timeline-dot mp-timeline-dot--{{ event.statusColor }}">
+                  <lucide-angular [img]="iconMapPin" size="8" class="mp-timeline-dot-icon" *ngIf="event.actionType !== 'absent'"></lucide-angular>
+                </div>
+                <div class="mp-timeline-line" *ngIf="!last"></div>
+              </div>
+              <div class="mp-timeline-content">
+                <p class="mp-timeline-text">
+                  <span class="mp-timeline-name">{{ event.name }}</span>
+                  <span class="mp-timeline-action"> {{ event.action }}</span>
+                </p>
+                <span class="mp-timeline-time">{{ event.time }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mp-widget__footer" (click)="today()">
+          Voir toute l'activité
+          <lucide-angular [img]="iconArrowRight" size="14" class="mp-widget__footer-icon"></lucide-angular>
+        </div>
+      </div>
+
+    </div>
+
   </div>
 </div>

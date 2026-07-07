@@ -61,6 +61,27 @@ public class DocumentGeneratorService {
     }
 
     /**
+     * Génère uniquement le contenu (HTML) sans PDF.
+     * Utilisé par l'éditeur RH pour l'aperçu et la régénération.
+     */
+    public GeneratedDocument generateContentOnly(Document document, TypeDocument typeDoc) {
+        UserResponse user = organisationClient.getUtilisateurById(document.getUtilisateurId());
+        Map<String, String> variables = templateResolver.buildVariables(user, document);
+
+        String mode = typeDoc.getModeGeneration() != null ? typeDoc.getModeGeneration() : "TEMPLATE_ONLY";
+
+        log.info("Generating content (no PDF): type={}, mode={}, user={}",
+            typeDoc.getCode(), mode, document.getUtilisateurId());
+
+        return switch (mode) {
+            case "TEMPLATE_ONLY" -> generateContentFromTemplate(typeDoc, variables);
+            case "AI_HYBRID"     -> generateHybridContent(typeDoc, variables);
+            case "AI_FULL"       -> generateFullAIContent(typeDoc, variables);
+            default              -> generateContentFromTemplate(typeDoc, variables);
+        };
+    }
+
+    /**
      * TEMPLATE_ONLY — Coût = 0€
      * Remplace les variables {{...}} dans le template et génère le PDF.
      */
@@ -149,6 +170,55 @@ public class DocumentGeneratorService {
         return new GeneratedDocument(content, pdfPath, aiRes.model(), aiRes.tokens(), true);
     }
 
+    // ── Content-only generation methods (no PDF) ────────────────────────────
+
+    private GeneratedDocument generateContentFromTemplate(TypeDocument typeDoc, Map<String, String> vars) {
+        String template = typeDoc.getContentTemplate();
+        if (template == null || template.isBlank()) {
+            template = buildDefaultTemplate(typeDoc, vars);
+        }
+        String content = templateResolver.resolve(template, vars);
+        log.info("Template-only content generated (no PDF): type={}", typeDoc.getCode());
+        return new GeneratedDocument(content, null, "none", 0, false);
+    }
+
+    private GeneratedDocument generateHybridContent(TypeDocument typeDoc, Map<String, String> vars) {
+        String template = typeDoc.getContentTemplate();
+        String partialContent = template != null ? templateResolver.resolve(template, vars) : "";
+
+        String aiPrompt = typeDoc.getAiPromptTemplate();
+        if (aiPrompt == null || aiPrompt.isBlank()) {
+            aiPrompt = "Génère le corps principal du document de type '"
+                + typeDoc.getLibelle() + "' pour l'employé "
+                + vars.getOrDefault("employee.nomComplet", "") + ".";
+        }
+        String resolvedPrompt = templateResolver.resolve(aiPrompt, vars);
+        String systemPrompt = buildSystemPrompt(typeDoc);
+        float temperature = typeDoc.getAiTemperature() != null ? typeDoc.getAiTemperature() : 0.2f;
+
+        AiService.AiResponse aiRes = aiService.generateWithGemini(systemPrompt, resolvedPrompt, temperature);
+        String finalContent = partialContent.contains("{{AI_CONTENT}}")
+            ? partialContent.replace("{{AI_CONTENT}}", aiRes.text())
+            : partialContent + "\n\n" + aiRes.text();
+
+        log.info("Hybrid content generated (no PDF): type={}", typeDoc.getCode());
+        return new GeneratedDocument(finalContent, null, aiRes.model(), aiRes.tokens(), true);
+    }
+
+    private GeneratedDocument generateFullAIContent(TypeDocument typeDoc, Map<String, String> vars) {
+        String aiPrompt = typeDoc.getAiPromptTemplate();
+        if (aiPrompt == null || aiPrompt.isBlank()) {
+            aiPrompt = buildDefaultAIPrompt(typeDoc, vars);
+        }
+        String resolvedPrompt = templateResolver.resolve(aiPrompt, vars);
+        String systemPrompt = buildSystemPrompt(typeDoc);
+        float temperature = typeDoc.getAiTemperature() != null ? typeDoc.getAiTemperature() : 0.3f;
+
+        AiService.AiResponse aiRes = aiService.generateWithGemini(systemPrompt, resolvedPrompt, temperature);
+        log.info("Full AI content generated (no PDF): type={}", typeDoc.getCode());
+        return new GeneratedDocument(aiRes.text(), null, aiRes.model(), aiRes.tokens(), true);
+    }
+
     /**
      * Construit le system prompt avec les règles de sécurité anti-hallucination.
      */
@@ -184,10 +254,6 @@ public class DocumentGeneratorService {
      */
     private String buildDefaultTemplate(TypeDocument typeDoc, Map<String, String> vars) {
         return """
-            WEEN TIME HR SOLUTIONS
-            
-            %s
-            
             Le soussigné, {{company.name}}, certifie par la présente que
             {{employee.prenom}} {{employee.nom}}, occupe le poste de
             {{employee.poste}} au sein du département {{employee.departement}}
@@ -199,7 +265,7 @@ public class DocumentGeneratorService {
             Fait à {{company.city}}, le {{document.date}}
             
             Direction des Ressources Humaines
-            """.formatted(typeDoc.getLibelle().toUpperCase());
+            """;
     }
 
     /**

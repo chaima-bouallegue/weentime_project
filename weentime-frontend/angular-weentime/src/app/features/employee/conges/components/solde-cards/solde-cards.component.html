@@ -1,54 +1,53 @@
-<div class="soldes-grid">
+<!-- Horizontal strip of leave-type vertical chips (matching mockup) -->
+<div class="types-strip">
   @if (isLoading) {
-    <!-- Skeleton Loaders -->
-    @for (i of [1,2,3,4]; track i) {
-      <div class="solde-card skeleton">
-        <div class="skeleton-header">
-          <div class="skeleton-icon"></div>
-          <div class="skeleton-title"></div>
-        </div>
-        <div class="skeleton-value"></div>
-        <div class="skeleton-progress"></div>
-        <div class="skeleton-footer"></div>
+    @for (i of [1, 2, 3, 4, 5]; track i) {
+      <div class="type-chip skeleton">
+        <div class="sk-icon"></div>
+        <div class="sk-name"></div>
+        <div class="sk-val"></div>
+        <div class="chip-bar"><div class="chip-bar-fill"></div></div>
       </div>
+      @if (i < 5) { <div class="type-sep"></div> }
     }
   } @else {
-    @for (solde of soldes; track solde.type; let i = $index) {
-      <div
-        class="solde-card animate-in"
-        [style.animation-delay]="i * 100 + 'ms'"
+    @for (solde of soldes; track solde.type; let i = $index; let last = $last) {
+      <button
+        class="type-chip animate-chip"
+        [style.animation-delay]="i * 55 + 'ms'"
         (click)="filterByType.emit(solde.type)"
+        [title]="solde.label + ' : ' + solde.disponible + ' jours disponibles'"
       >
-        <div class="card-header">
-          <div class="icon-wrapper" [style.background-color]="solde.couleur + '15'" [style.color]="solde.couleur">
-            <lucide-icon [name]="solde.icone" size="18"></lucide-icon>
-          </div>
-          <span class="type-label">{{ solde.label }}</span>
+        <!-- Icon -->
+        <div class="chip-icon" [style.background]="chipBg(solde)" [style.color]="solde.couleur">
+          <lucide-icon [name]="getIcon(solde)" size="18"></lucide-icon>
         </div>
+        <!-- Name -->
+        <span class="chip-name">{{ solde.label }}</span>
+        <!-- Value -->
+        <div class="chip-value-row">
+          <span class="chip-val" [style.color]="solde.couleur">{{ solde.disponible }}</span>
+          <span class="chip-val-unit">jours</span>
+        </div>
+        <!-- Progress bar at bottom -->
+        <div class="chip-bar">
+          <div
+            class="chip-bar-fill"
+            [style.width.%]="calculatePercentage(solde)"
+            [style.background]="solde.couleur"
+          ></div>
+        </div>
+      </button>
 
-        <div class="card-main">
-          <span class="available-value">{{ solde.disponible }}</span>
-          <span class="unit-label">jours dispos.</span>
-        </div>
+      @if (!last) { <div class="type-sep"></div> }
+    }
 
-        <div class="progress-section">
-          <div class="progress-bar-bg">
-            <div
-              class="progress-bar-fill"
-              [style.width.%]="calculatePercentage(solde)"
-              [style.background-color]="solde.couleur"
-            ></div>
-          </div>
-          <div class="progress-stats">
-            <span class="stat-item">
-              <strong>{{ solde.pris }}</strong> pris
-            </span>
-            <span class="stat-item" *ngIf="solde.enAttente > 0">
-              <strong>{{ solde.enAttente }}</strong> en attente
-            </span>
-          </div>
-        </div>
-      </div>
+    <!-- "Voir tout" link at end (only shown if there are many leave types) -->
+    @if (soldes && soldes.length > 4) {
+      <button class="voir-tout-link" (click)="emitVoirTout()">
+        <span>Voir tout</span>
+        <lucide-icon name="chevron-right" size="14"></lucide-icon>
+      </button>
     }
   }
 </div>

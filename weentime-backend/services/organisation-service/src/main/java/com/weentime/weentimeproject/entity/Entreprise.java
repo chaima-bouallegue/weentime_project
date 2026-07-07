@@ -37,6 +37,12 @@ public class Entreprise {
     @Column(name = "logo", columnDefinition = "TEXT")
     private String logo;
 
+    @Column(name = "primary_color")
+    private String primaryColor;
+
+    @Column(name = "secondary_color")
+    private String secondaryColor;
+
     @Column(name = "code_invitation", unique = true, nullable = false)
     private String codeInvitation;
 
@@ -97,6 +103,12 @@ public class Entreprise {
         }
         if (this.status == null) {
             this.status = "ACTIVE";
+        }
+        if (this.primaryColor == null) {
+            this.primaryColor = "#1a73e8";
+        }
+        if (this.secondaryColor == null) {
+            this.secondaryColor = "#34a853";
         }
         syncEstActive();
     }

@@ -1,43 +1,72 @@
-<div class="dash-wrapper fade-in" style="padding-top: 24px; max-width: 1400px; margin: 0 auto; padding-inline: 24px;">
-  
-  <div class="flex items-center justify-between mb-8">
-    <div>
-      <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Mes Congés</h1>
-      <p class="text-slate-500 dark:text-slate-400 font-medium">Gérez vos absences et consultez vos soldes</p>
+<div class="conges-page">
+
+  <!-- ══ PAGE HEADER ══ -->
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Mes Congés</h1>
+      <p class="page-subtitle">Gérez vos absences et consultez vos soldes</p>
     </div>
-    <button class="btn-primary-bento" (click)="showDrawer.set(true)">
-      <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
+    <button class="btn-new-request" (click)="showDrawer.set(true)">
+      <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
       <span>Nouvelle demande</span>
     </button>
-  </div>
+  </header>
 
-  <!-- Bento Grid -->
-  <div class="conge-bento-layout">
-    <!-- Left Column: Soldes & Historique -->
-    <div class="left-col space-y-8">
-      
-      <!-- Mes Soldes Section -->
-      <section>
-        <div class="flex items-center gap-3 mb-6">
-          <div class="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-          <h2 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Mes Soldes</h2>
+  <!-- ══ SOLDES CARD ══ -->
+  <div class="soldes-card">
+    <div class="soldes-card-top">
+      <div class="soldes-title-row">
+        <div class="soldes-title-icon">
+          <lucide-angular [img]="iconCalendar" size="18"></lucide-angular>
         </div>
-        <app-solde-cards 
-          [soldes]="soldes()" 
+        <h2 class="soldes-title">Mes soldes de congés</h2>
+      </div>
+    </div>
+
+    <div class="soldes-card-body">
+      <!-- KPI left -->
+      <div class="kpi-left">
+        <span class="kpi-label">Solde total disponible</span>
+        @if (isLoading()) {
+          <div class="kpi-skeleton"></div>
+        } @else {
+          <div class="kpi-value-row">
+            <span class="kpi-number">{{ totalDisponible() }}</span>
+            <span class="kpi-unit">jours</span>
+          </div>
+          <span class="kpi-sub">sur l'ensemble de vos congés</span>
+        }
+      </div>
+
+      <div class="kpi-sep"></div>
+
+      <!-- Type chips strip -->
+      <div class="soldes-types-area">
+        <app-solde-cards
+          [soldes]="soldes()"
           [isLoading]="isLoading()"
           (filterByType)="onFilterChange('TOUS')"
         ></app-solde-cards>
-      </section>
+      </div>
+    </div>
+  </div>
 
-      <!-- Historique Section -->
-      <section>
-        <div class="flex items-center justify-between mb-6">
-          <div class="flex items-center gap-3">
-            <div class="w-1.5 h-6 bg-purple-500 rounded-full"></div>
-            <h2 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Historique des demandes</h2>
-          </div>
-          <div class="h-px flex-1 bg-slate-200 dark:bg-slate-800 ml-6 hidden md:block opacity-30"></div>
+  <!-- ══ MAIN LAYOUT ══ -->
+  <div class="page-layout">
+
+    <!-- ─── LEFT — Demandes ─── -->
+    <main class="main-col">
+      <div class="section-card">
+
+        <div class="section-card-header">
+          <h2 class="section-card-title">Mes demandes récentes</h2>
+          @if (historique().length > 5 && !afficherTout()) {
+            <button class="link-btn" (click)="afficherTout.set(true)">
+              Voir toutes &rsaquo;
+            </button>
+          }
         </div>
+
 
         <app-historique-list
           [demandes]="historiqueFiltre()"
@@ -45,43 +74,32 @@
           [currentFilter]="filtreStatut()"
           (filterChange)="onFilterChange($event)"
           (cancelRequest)="onCancelRequest($event)"
+          (viewRequest)="demandeConsulter.set($event)"
         ></app-historique-list>
-      </section>
-    </div>
+      </div>
+    </main>
 
-    <!-- Right Column: Sidebar (Calendar & Info) -->
-    <aside class="right-col space-y-8">
-      <!-- Calendar Card -->
-      <div class="bento-card calendar-bento p-6">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-          <lucide-angular [img]="iconCalendar" size="20" class="text-indigo-500"></lucide-angular>
-          Calendrier des absences
-        </h3>
+    <!-- ─── RIGHT — Sidebar ─── -->
+    <aside class="sidebar-col">
+
+      <div class="section-card calendar-section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title">Calendrier des absences</h2>
+        </div>
         <app-conge-calendar
           [demandes]="historique()"
           [joursFeries]="joursFeries()"
         ></app-conge-calendar>
       </div>
 
-      <!-- Policy Card -->
-      <div class="bento-card p-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
-        <div class="flex gap-4">
-          <div class="w-12 h-12 flex-shrink-0 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
-            <lucide-angular [img]="iconInfo" size="24"></lucide-angular>
-          </div>
-          <div class="space-y-1">
-            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Politique de congés</h4>
-            <p class="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-              Les demandes doivent être soumises au moins <strong>48h à l'avance</strong> pour permettre leur validation.
-            </p>
-          </div>
-        </div>
-      </div>
+
     </aside>
+
   </div>
+
 </div>
 
-<!-- Drawer & Modals -->
+<!-- ══ DRAWERS & MODALS ══ -->
 @if (showDrawer()) {
   <app-demande-drawer
     [soldes]="soldes()"
@@ -100,4 +118,11 @@
     (close)="demandeAnnuler.set(null)"
     (confirm)="confirmAnnulation($event)"
   ></app-annulation-modal>
+}
+
+@if (demandeConsulter()) {
+  <app-consultation-modal
+    [demande]="demandeConsulter()"
+    (close)="demandeConsulter.set(null)"
+  ></app-consultation-modal>
 }

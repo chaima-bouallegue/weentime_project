@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable, of, catchError, map, throwError } from 'rxjs';
 import {
   TypeDocumentConfig,
@@ -114,8 +114,11 @@ export class DocumentService {
     );
   }
 
-  telechargerDocument(id: number): Observable<Blob> {
-    return this.http.get(this.apiConfig.RH.DOWNLOAD_DOCUMENT(id), { responseType: 'blob' });
+  telechargerDocument(id: number): Observable<HttpResponse<Blob>> {
+    return this.http.get(this.apiConfig.RH.DOWNLOAD_DOCUMENT(id), {
+      responseType: 'blob',
+      observe: 'response'
+    });
   }
 
   getConfigForType(type: TypeDocument): TypeDocumentConfig | undefined {

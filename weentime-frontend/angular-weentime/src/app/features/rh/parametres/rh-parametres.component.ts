@@ -39,7 +39,7 @@ import { RhConfigStore } from '../../../core/services/rh-config.store';
           </div>
           
           <!-- Quick stats -->
-          <div class="hidden lg:flex items-center gap-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-2 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+          <div class="parametres-page-header hidden lg:flex items-center gap-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-2 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
              <div class="px-4 py-2 text-center border-r border-slate-200 dark:border-slate-700">
                 <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Modules</span>
                 <span class="text-lg font-bold text-slate-700 dark:text-slate-200">5</span>
@@ -287,20 +287,22 @@ export class RhParametresComponent implements OnInit {
       options: [
         { value: 'TEMPLATE_ONLY', label: 'Modèle fixe (0€)' },
         { value: 'AI_HYBRID', label: 'IA Hybride (Corps IA)' },
-        { value: 'AI_FULL', label: 'IA Totale (Libre)' },
-        { value: 'MANUAL_UPLOAD', label: 'Upload manuel' }
+        { value: 'AI_FULL', label: 'IA Totale (Libre)' }
       ]
     },
     { 
-      key: 'workflowType', 
-      label: 'Workflow', 
-      type: 'enum', 
-      required: true,
-      options: [
-        { value: 'RH_VALIDATION', label: 'Validation RH requise' },
-        { value: 'AUTO_APPROVE', label: 'Auto-approbation immédiate' },
-        { value: 'MANAGER_VALIDATION', label: 'Validation Manager' }
-      ]
+      key: 'contentTemplate', 
+      label: 'Modèle de document', 
+      type: 'textarea', 
+      placeholder: "Saisissez ou collez le texte brut du modèle...",
+      hideInTable: true
+    },
+    { 
+      key: 'aiPromptTemplate', 
+      label: 'Instructions IA', 
+      type: 'textarea', 
+      placeholder: "Générez un document RH professionnel pour...",
+      hideInTable: true
     },
     { key: 'delaiTraitementJours', label: 'Délai (jours)', type: 'number', required: true },
     { key: 'maxDemandesParMois', label: 'Quota mensuel', type: 'number' }

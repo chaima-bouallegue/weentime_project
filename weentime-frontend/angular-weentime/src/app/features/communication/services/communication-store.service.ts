@@ -155,11 +155,16 @@ export class CommunicationStoreService {
         return;
       }
       this.ensureAdminBootstrapOnce();
+
+      if (this.websocket.connectionState() !== 'connected'
+          && this.websocket.connectionState() !== 'connecting') {
+        this.bootstrapUnreadTracking();
+      }
     });
   }
 
   bootstrapUnreadTracking(): void {
-    if (!this.authService.getToken() || !this.hasTenantContext()) {
+    if (!this.authService.isAuthenticated() || !this.hasTenantContext()) {
       return;
     }
 

@@ -1,9 +1,9 @@
 <div class="bento-container fade-in">
   
-  <!-- Header Section (page-header: FIX z-index pour bouton cliquable) -->
+  <!-- Header Section -->
   <div class="page-header flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
     <div>
-      <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Documents Externes</h1>
+      <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Documents externes</h1>
       <p class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
         <lucide-angular [img]="iconClock" size="16"></lucide-angular>
         {{ currentDate() }}
@@ -24,60 +24,84 @@
   <div class="bento-layout">
     
     <!-- Stats Row (KPIs) -->
-    <div class="stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="stats-row grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       
       <!-- KPI: Prêts -->
-      <div class="bento-card kpi-card group" style="--card-color: #10b981">
+      <div class="bento-card kpi-card group cursor-pointer" style="--card-color: #10b981" (click)="onFilterChange('PRET')">
         <div class="card-mesh"></div>
-        <div class="card-content flex items-center gap-5">
-          <div class="kpi-icon-wrapper">
-            <lucide-angular [img]="iconCheck" size="24"></lucide-angular>
+        <div class="card-content flex flex-col justify-between h-full">
+          <div class="flex items-center gap-4">
+            <div class="kpi-icon-wrapper">
+              <lucide-angular [img]="iconCheck" size="24"></lucide-angular>
+            </div>
+            <div>
+              <div class="kpi-value">{{ countByStatut('PRET') }}</div>
+              <div class="kpi-label">Prêts à télécharger</div>
+            </div>
           </div>
-          <div>
-            <div class="kpi-value">{{ countByStatut('PRET') }}</div>
-            <div class="kpi-label">Prêts à télécharger</div>
+          <div class="kpi-footer-link flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-3 group-hover:translate-x-1 transition-transform">
+            <span>Voir les documents</span>
+            <lucide-angular [img]="iconArrowRight" size="12"></lucide-angular>
           </div>
         </div>
       </div>
 
       <!-- KPI: En attente -->
-      <div class="bento-card kpi-card group" style="--card-color: #f59e0b">
+      <div class="bento-card kpi-card group cursor-pointer" style="--card-color: #f59e0b" (click)="onFilterChange('EN_ATTENTE')">
         <div class="card-mesh"></div>
-        <div class="card-content flex items-center gap-5">
-          <div class="kpi-icon-wrapper">
-            <lucide-angular [img]="iconClock" size="24"></lucide-angular>
+        <div class="card-content flex flex-col justify-between h-full">
+          <div class="flex items-center gap-4">
+            <div class="kpi-icon-wrapper">
+              <lucide-angular [img]="iconClock" size="24"></lucide-angular>
+            </div>
+            <div>
+              <div class="kpi-value">{{ countByStatut('EN_ATTENTE') }}</div>
+              <div class="kpi-label">En attente RH</div>
+            </div>
           </div>
-          <div>
-            <div class="kpi-value">{{ countByStatut('EN_ATTENTE') }}</div>
-            <div class="kpi-label">En attente RH</div>
+          <div class="kpi-footer-link flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 group-hover:translate-x-1 transition-transform">
+            <span>Voir les demandes</span>
+            <lucide-angular [img]="iconArrowRight" size="12"></lucide-angular>
           </div>
         </div>
       </div>
 
       <!-- KPI: En cours -->
-      <div class="bento-card kpi-card group" style="--card-color: #6366f1">
+      <div class="bento-card kpi-card group cursor-pointer" style="--card-color: #6366f1" (click)="onFilterChange('EN_COURS')">
         <div class="card-mesh"></div>
-        <div class="card-content flex items-center gap-5">
-          <div class="kpi-icon-wrapper">
-            <lucide-angular [img]="iconLoader" size="24" [class.animate-spin]="countByStatut('EN_COURS') > 0"></lucide-angular>
+        <div class="card-content flex flex-col justify-between h-full">
+          <div class="flex items-center gap-4">
+            <div class="kpi-icon-wrapper">
+              <lucide-angular [img]="iconLoader" size="24" [class.animate-spin]="countByStatut('EN_COURS') > 0"></lucide-angular>
+            </div>
+            <div>
+              <div class="kpi-value">{{ countByStatut('EN_COURS') }}</div>
+              <div class="kpi-label">En cours de traitement</div>
+            </div>
           </div>
-          <div>
-            <div class="kpi-value">{{ countByStatut('EN_COURS') }}</div>
-            <div class="kpi-label">En cours de traitement</div>
+          <div class="kpi-footer-link flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-3 group-hover:translate-x-1 transition-transform">
+            <span>Voir les demandes</span>
+            <lucide-angular [img]="iconArrowRight" size="12"></lucide-angular>
           </div>
         </div>
       </div>
 
       <!-- KPI: Total -->
-      <div class="bento-card kpi-card group" style="--card-color: #8b5cf6">
+      <div class="bento-card kpi-card group cursor-pointer" style="--card-color: #8b5cf6" (click)="onFilterChange('TOUS')">
         <div class="card-mesh"></div>
-        <div class="card-content flex items-center gap-5">
-          <div class="kpi-icon-wrapper">
-            <lucide-angular [img]="iconFile" size="24"></lucide-angular>
+        <div class="card-content flex flex-col justify-between h-full">
+          <div class="flex items-center gap-4">
+            <div class="kpi-icon-wrapper">
+              <lucide-angular [img]="iconFile" size="24"></lucide-angular>
+            </div>
+            <div>
+              <div class="kpi-value">{{ historique().length }}</div>
+              <div class="kpi-label">Total des demandes</div>
+            </div>
           </div>
-          <div>
-            <div class="kpi-value">{{ historique().length }}</div>
-            <div class="kpi-label">Total des demandes</div>
+          <div class="kpi-footer-link flex items-center gap-1 text-xs font-bold text-violet-600 dark:text-violet-400 mt-3 group-hover:translate-x-1 transition-transform">
+            <span>Voir l'historique</span>
+            <lucide-angular [img]="iconArrowRight" size="12"></lucide-angular>
           </div>
         </div>
       </div>
@@ -85,19 +109,66 @@
     </div>
 
     <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 align-start">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       
-      <!-- Left: Document Types (Bento Block) -->
-      <div class="xl:col-span-12">
+      <!-- Left: Mes demandes récentes (Timeline Bento Block) -->
+      <div class="lg:col-span-7 xl:col-span-8">
         <div class="bento-card main-section p-8">
-          <div class="flex items-center justify-between mb-8">
+          <div class="flex flex-row items-center justify-between mb-8 gap-4">
             <h2 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
-              Types de documents disponibles
+              <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
+              Mes demandes récentes
             </h2>
-            <div class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl border border-indigo-100 dark:border-indigo-500/20 text-sm font-bold">
-              {{ types().length }} Catégories
+            
+            <!-- Sleek Dropdown Filter -->
+            <div class="relative status-filter-dropdown flex-shrink-0">
+              <select [value]="filtreStatut()" (change)="onFilterChangeSelect($event)" class="status-select bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer transition-all">
+                <option value="TOUS">Tous les statuts</option>
+                <option value="EN_ATTENTE">En attente RH</option>
+                <option value="EN_COURS">En cours</option>
+                <option value="PRET">Prêts</option>
+                <option value="REFUSE">Refusés</option>
+                <option value="ANNULE">Annulés</option>
+              </select>
+              <lucide-angular [img]="iconChevronDown" class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" size="16"></lucide-angular>
             </div>
+          </div>
+          
+          <app-document-historique
+            [demandes]="historiqueLimitee()"
+            [allDemandes]="historique()"
+            [isLoading]="isLoading()"
+            [currentFilter]="filtreStatut()"
+            [typesConfig]="types()"
+            (cancelRequest)="onCancelRequest($event)"
+            (downloadRequest)="onDownloadRequest($event)"
+          ></app-document-historique>
+
+          <!-- Show All / Show Less action -->
+          @if (!isLoading() && historiqueFiltre().length > 5) {
+            <div class="card-footer-action mt-6 border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-center">
+              <button (click)="toggleShowAll()" class="see-all-button text-indigo-600 dark:text-indigo-400 font-bold hover:text-indigo-700 hover:underline flex items-center gap-2">
+                <span>{{ showAll() ? 'Voir moins' : 'Voir toutes mes demandes' }}</span>
+                <lucide-angular [img]="showAll() ? iconArrowUp : iconArrowRight" size="16"></lucide-angular>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Right: Demander un document + Security block -->
+      <div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+        
+        <!-- Document Types Bento Block -->
+        <div class="bento-card main-section p-6">
+          <div class="mb-4">
+            <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <span class="w-2 h-6 bg-indigo-500 rounded-full"></span>
+              Demander un document
+            </h2>
+            <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold mt-1">
+              Sélectionnez le type de document souhaité pour faire votre demande.
+            </p>
           </div>
           
           <app-document-type-grid
@@ -106,29 +177,31 @@
             (demander)="onDemanderType($event)"
           ></app-document-type-grid>
         </div>
-      </div>
 
-      <!-- Bottom: Historique (Full Width Bento Block) -->
-      <div class="xl:col-span-12">
-        <div class="bento-card main-section p-8">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <h2 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
-              Historique des demandes
-            </h2>
+        <!-- Security block -->
+        <div class="bento-card security-card p-6">
+          <div class="flex items-center gap-5 justify-between">
+            <div class="flex items-start gap-4">
+              <div class="security-icon-wrapper bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 p-3 rounded-2xl">
+                <lucide-angular [img]="iconShield" size="24"></lucide-angular>
+              </div>
+              <div>
+                <h4 class="security-title text-base font-bold text-slate-800 dark:text-slate-200 mb-1">Vos données sont sécurisées</h4>
+                <p class="security-desc text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-2">
+                  Vos demandes et documents sont confidentiels et protégés.
+                </p>
+                <a href="#" class="security-link text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1" (click)="$event.preventDefault()">
+                  <span>En savoir plus</span>
+                  <lucide-angular [img]="iconArrowRight" size="12"></lucide-angular>
+                </a>
+              </div>
+            </div>
+            <div class="security-illustration flex-shrink-0 text-slate-300 dark:text-slate-700">
+              <lucide-angular [img]="iconLock" size="40" strokeWidth="1.5"></lucide-angular>
+            </div>
           </div>
-          
-          <app-document-historique
-            [demandes]="historiqueFiltre()"
-            [allDemandes]="historique()"
-            [isLoading]="isLoading()"
-            [currentFilter]="filtreStatut()"
-            [typesConfig]="types()"
-            (filterChange)="onFilterChange($event)"
-            (cancelRequest)="onCancelRequest($event)"
-            (downloadRequest)="onDownloadRequest($event)"
-          ></app-document-historique>
         </div>
+
       </div>
 
     </div>
@@ -155,4 +228,4 @@
     (close)="demandeAnnuler.set(null)"
     (confirm)="confirmAnnulation($event)"
   ></app-annulation-document-modal>
-}
+}

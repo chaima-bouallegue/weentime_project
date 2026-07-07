@@ -37,7 +37,6 @@
     @if (activeTab() === 'MODELS') {
       @if (horaires().length === 0) {
         <div class="empty-state">
-          <!-- ... existant ... -->
           <div class="icon-wrapper">
             <lucide-icon name="clock" size="48"></lucide-icon>
           </div>
@@ -48,58 +47,166 @@
           </button>
         </div>
       } @else {
-        <div class="grid-cards">
-          @for (horaire of horaires(); track horaire.id) {
-            <div class="horaire-card" [class.inactive]="horaire.statut === 'INACTIF'">
-              <div class="card-header">
-                <div class="card-title-group">
-                  <h3 class="card-title">{{ horaire.nom }}</h3>
-                  @if (horaire.isDefaut) {
-                    <span class="badge default-badge"><lucide-icon name="star" size="12"></lucide-icon> Défaut</span>
-                  }
-                  <span class="badge" [class.badge-active]="horaire.statut === 'ACTIF'" [class.badge-inactive]="horaire.statut === 'INACTIF'">
-                    {{ horaire.statut }}
-                  </span>
+        <div class="horaires-layout">
+
+          <!-- ── MAIN SCHEDULE (first/default) displayed full screen style ── -->
+          <section class="section-card main-horaire-card">
+
+            <!-- Card Header Info -->
+            <div class="horaire-card-header">
+              <div class="horaire-profile-row">
+                <div class="horaire-icon-box">
+                  <lucide-icon name="clock" size="22"></lucide-icon>
                 </div>
-                <p class="card-meta">
-                  <span><lucide-icon name="timer" size="14"></lucide-icon> {{ horaire.heuresHebdo }}h / semaine</span>
-                  <span class="dot-separator">•</span>
-                  <span>Type: {{ horaire.type }}</span>
-                </p>
-              </div>
-              <div class="card-body">
-                <div class="timeline">
-                  @for (jour of horaire.jours; track jour.jourSemaine) {
-                    <div class="timeline-day" [class.worked]="jour.estTravaille">
-                      <span class="day-label">{{ jour.jourSemaine.substring(0, 3) }}.</span>
-                      @if (jour.estTravaille && jour.plages && jour.plages.length > 0) {
-                        <div class="plages-container">
-                          @for (plage of jour.plages; track $index) {
-                            <span class="plage-badge"
-                                  [class.travail]="plage.type === 'TRAVAIL'"
-                                  [class.pause]="plage.type === 'PAUSE'"
-                                  [class.repos]="plage.type === 'REPOS'">
-                              {{ plage.heureDebut | slice:0:5 }} – {{ plage.heureFin | slice:0:5 }}
-                            </span>
-                          }
-                        </div>
-                      } @else {
-                        <span class="day-hours text-muted">Repos</span>
+
+                <div class="horaire-meta">
+                  <div class="horaire-title-row">
+                    <h2 class="horaire-name">{{ horaires()[0].nom }}</h2>
+
+                    <div class="badges-row">
+                      @if (horaires()[0].isDefaut) {
+                        <span class="badge badge-default">
+                          <lucide-icon name="Star" size="10"></lucide-icon>
+                          DÉFAUT
+                        </span>
                       }
+                      <span class="badge" [class.badge-active]="horaires()[0].statut === 'ACTIF'" [class.badge-inactive]="horaires()[0].statut !== 'ACTIF'">
+                        {{ horaires()[0].statut }}
+                      </span>
                     </div>
-                  }
+                  </div>
+
+                  <p class="horaire-subinfo">
+                    {{ horaires()[0].heuresHebdo }}h / semaine <span class="sep">•</span> Type : {{ horaires()[0].type || 'Fixe' }}
+                  </p>
                 </div>
               </div>
-              <div class="card-footer">
-                <button class="btn-icon" title="Modifier" (click)="editHoraire(horaire.id)">
+
+              <!-- Card actions -->
+              <div class="card-header-actions">
+                <button class="btn-icon" title="Modifier" (click)="editHoraire(horaires()[0].id)">
                   <lucide-icon name="edit-2" size="16"></lucide-icon>
                 </button>
-                <button class="btn-icon text-red" title="Supprimer" (click)="promptDelete(horaire)">
+                <button class="btn-icon text-red" title="Supprimer" (click)="promptDelete(horaires()[0])">
                   <lucide-icon name="trash-2" size="16"></lucide-icon>
                 </button>
               </div>
             </div>
+
+            <!-- Weekly Schedule Grid -->
+            <div class="schedule-grid-container">
+
+              <!-- Hours scale column on the left -->
+              <div class="hours-scale-col">
+                <div class="hour-mark">08:00</div>
+                <div class="hour-mark">10:00</div>
+                <div class="hour-mark">12:00</div>
+                <div class="hour-mark">14:00</div>
+                <div class="hour-mark">16:00</div>
+                <div class="hour-mark">18:00</div>
+              </div>
+
+              <!-- Day Columns -->
+              <div class="days-columns-wrapper">
+                @for (jour of getSortedJours(horaires()[0]); track jour.jourSemaine) {
+                  <div class="day-column">
+
+                    <!-- Day Label -->
+                    <div class="day-column-header">
+                      <span class="day-label">{{ jour.jourSemaine | slice:0:3 }}.</span>
+                    </div>
+
+                    <!-- Plages Stack -->
+                    <div class="day-plages-stack">
+                      @if (jour.estTravaille && jour.plages && jour.plages.length > 0) {
+                        @for (plage of getSortedPlages(jour); track plage.id; let i = $index) {
+                          <div class="plage-block" [class]="getPlageColorClass(plage.type, i)">
+                            <span class="plage-label">{{ plage.type === 'PAUSE' ? 'Pause' : 'Travail' }}</span>
+                            <span class="plage-time">
+                              {{ plage.heureDebut | slice:0:5 }} - {{ plage.heureFin | slice:0:5 }}
+                            </span>
+                          </div>
+                        }
+                      } @else {
+                        <div class="plage-block repos">
+                          <lucide-icon name="home" size="14" class="repos-icon"></lucide-icon>
+                          <span class="repos-text">Repos</span>
+                        </div>
+                      }
+                    </div>
+
+                  </div>
+                }
+              </div>
+
+            </div>
+
+          </section>
+
+          <!-- ── OTHER SCHEDULES (compact cards) ── -->
+          @if (horaires().length > 1) {
+            <section class="others-section">
+              <h3 class="others-title">Autres modèles d'horaires</h3>
+
+              <div class="others-grid">
+                @for (horaire of horaires().slice(1); track horaire.id) {
+                  <div class="other-schedule-card" [class.inactive]="horaire.statut === 'INACTIF'">
+                    <div class="other-header">
+                      <div class="other-title-info">
+                        <div class="other-name-row">
+                          <h4 class="other-name">{{ horaire.nom }}</h4>
+                          @if (horaire.isDefaut) {
+                            <span class="badge badge-default compact">
+                              <lucide-icon name="Star" size="9"></lucide-icon>
+                              DÉFAUT
+                            </span>
+                          }
+                          <span class="badge compact" [class.badge-active]="horaire.statut === 'ACTIF'" [class.badge-inactive]="horaire.statut !== 'ACTIF'">
+                            {{ horaire.statut }}
+                          </span>
+                        </div>
+                        <span class="other-subtitle">{{ horaire.heuresHebdo }}h / semaine • {{ horaire.type || 'Fixe' }}</span>
+                      </div>
+
+                      <div class="other-card-actions">
+                        <button class="btn-icon small" title="Modifier" (click)="editHoraire(horaire.id)">
+                          <lucide-icon name="edit-2" size="13"></lucide-icon>
+                        </button>
+                        <button class="btn-icon small text-red" title="Supprimer" (click)="promptDelete(horaire)">
+                          <lucide-icon name="trash-2" size="13"></lucide-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Mini inline schedule grid -->
+                    <div class="schedule-mini-grid">
+                      @for (jour of getSortedJours(horaire); track jour.jourSemaine) {
+                        <div class="mini-day-column" [class.is-repos]="!jour.estTravaille">
+                          <span class="mini-day-label">{{ jour.jourSemaine | slice:0:3 }}</span>
+
+                          <div class="mini-plages-stack">
+                            @if (jour.estTravaille && jour.plages && jour.plages.length > 0) {
+                              @for (plage of getSortedPlages(jour); track plage.id; let i = $index) {
+                                <div class="mini-plage-block" [class]="getPlageColorClass(plage.type, i)" [title]="(plage.type === 'PAUSE' ? 'Pause: ' : 'Travail: ') + (plage.heureDebut | slice:0:5) + ' - ' + (plage.heureFin | slice:0:5)">
+                                  <span class="p-type">{{ plage.type === 'PAUSE' ? 'Pause' : 'Travail' }}</span>
+                                  <span class="p-time">{{ plage.heureDebut | slice:0:5 }} - {{ plage.heureFin | slice:0:5 }}</span>
+                                </div>
+                              }
+                            } @else {
+                              <div class="mini-plage-block repos">
+                                <span>Repos</span>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
           }
+
         </div>
       }
     } @else {

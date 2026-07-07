@@ -1,0 +1,89 @@
+<div class="fixed inset-0 z-[9999] flex justify-end p-4">
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[5px]" (click)="close.emit()"></div>
+
+  <!-- Drawer content panel -->
+  <div class="drawer-panel relative bg-white dark:bg-slate-900 shadow-2xl h-full w-[420px] max-w-[90vw] flex flex-col" (click)="$event.stopPropagation()">
+    @if (demande) {
+      <header class="panel-header">
+        <div class="header-top">
+          <h2 class="panel-title">Détails de la demande</h2>
+          <button type="button" class="close-btn" (click)="close.emit()" aria-label="Fermer">
+            <lucide-icon name="x" size="20"></lucide-icon>
+          </button>
+        </div>
+        <div class="statut-indicator" [ngClass]="getStatutClass(demande.statut)">
+          <lucide-icon [name]="getStatutIcon(demande.statut)" size="16"></lucide-icon>
+          <span>{{ getStatutLabel(demande.statut) }}</span>
+        </div>
+      </header>
+
+      <div class="panel-body">
+        <section class="panel-section">
+          <h3 class="section-title">Collaborateur</h3>
+          <div class="employe-card">
+            <div class="avatar" [style.background]="getAvatarColor(demande.userName)">
+              {{ getInitials(demande.userName) }}
+            </div>
+            <div class="info">
+              <p class="name">{{ demande.userName || '—' }}</p>
+              @if (demande.userEmail) {
+                <p class="role">{{ demande.userEmail }}</p>
+              }
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h3 class="section-title">Détails du congé</h3>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="label">Type</span>
+              <span class="value highlight">{{ demande.typeCongeNom || demande.label }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Période</span>
+              <span class="value">
+                @if (demande.dateDebut === demande.dateFin) {
+                  {{ demande.dateDebut | date:'dd MMMM yyyy':'':'fr' }}
+                } @else {
+                  {{ demande.dateDebut | date:'dd MMM yyyy':'':'fr' }} → {{ demande.dateFin | date:'dd MMM yyyy':'':'fr' }}
+                }
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Durée</span>
+              <span class="value">{{ demande.nombreJours }} jour{{ demande.nombreJours > 1 ? 's' : '' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Date de demande</span>
+              <span class="value">{{ demande.dateCreation | date:'dd MMMM yyyy HH:mm':'':'fr' }}</span>
+            </div>
+            @if (demande.motif) {
+              <div class="detail-item">
+                <span class="label">Motif</span>
+                <p class="text-block">{{ demande.motif }}</p>
+              </div>
+            }
+            @if (demande.commentaireManager) {
+              <div class="detail-item">
+                <span class="label">Commentaire manager</span>
+                <p class="text-block">{{ demande.commentaireManager }}</p>
+              </div>
+            }
+            @if (demande.commentaireValidateur) {
+              <div class="detail-item">
+                <span class="label">Commentaire RH</span>
+                <p class="text-block">{{ demande.commentaireValidateur }}</p>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+
+      <footer class="panel-footer">
+        <button type="button" class="btn-secondary full" (click)="close.emit()">Fermer</button>
+      </footer>
+    }
+  </div>
+</div>

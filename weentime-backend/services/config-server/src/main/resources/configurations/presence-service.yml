@@ -1,27 +1,36 @@
 server:
-  port: 8193
+  port: ${SERVER_PORT:8193}
 
 spring:
-  application:
-    name: presence-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/presence_db
-    username: weentime
-    password: 170502
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${PRESENCE_DB_NAME:${DB_NAME:presence_db}}
+    username: ${PRESENCE_DB_USERNAME:${DB_USERNAME:weentime}}
+    password: ${PRESENCE_DB_PASSWORD:${DB_PASSWORD:170502}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    connect-retries: 2
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-  cloud:
-    config:
-      enabled: false
-  config:
-    import: optional:configserver:http://localhost:8988
+        format_sql: false
 
 eureka:
   instance:
@@ -30,33 +39,64 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-  server:
-    enable-self-preservation: false
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
+management:
+  health:
+    db:
+      enabled: true
 
 presence:
   default:
-    start-time: "09:00"
-    end-time: "18:00"
-    tolerance-minutes: 10
+    start-time: ${PRESENCE_DEFAULT_START_TIME:09:00}
+    end-time: ${PRESENCE_DEFAULT_END_TIME:18:00}
+    tolerance-minutes: ${PRESENCE_TOLERANCE_MINUTES:10}
     working-days:
       - MONDAY
       - TUESDAY
       - WEDNESDAY
       - THURSDAY
       - FRIDAY
-  half-day-threshold-hours: 4.0
+  half-day-threshold-hours: ${PRESENCE_HALF_DAY_THRESHOLD_HOURS:4.0}
+  timezone: ${PRESENCE_TIMEZONE:Africa/Tunis}
   absence-detection:
-    cron: "0 55 23 * * *"
+    cron: ${PRESENCE_ABSENCE_CRON:0 55 23 * * *}
 
 integration:
+  organisation-service:
+    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}
   user-service:
-    url: http://localhost:8190
+    url: ${USER_SERVICE_URL:${integration.organisation-service.url}}
   leave-service:
-    url: http://localhost:8192
+    url: ${LEAVE_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}}
   telework-service:
-    url: http://localhost:8192
+    url: ${TELEWORK_SERVICE_URL:http://${RH_SERVICE_HOST:localhost}:${RH_SERVICE_PORT:8192}}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      organisationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+      rhService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      organisationService:
+        timeout-duration: 3s
+      rhService:
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.presenceservice: INFO
+    com.weentime.weentimeapp: INFO

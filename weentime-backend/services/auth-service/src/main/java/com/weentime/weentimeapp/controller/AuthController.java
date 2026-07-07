@@ -22,11 +22,17 @@ import com.weentime.weentimeapp.security.services.EmailService;
 import com.weentime.weentimeapp.security.services.SmsOtpSender;
 import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
+import com.weentime.weentimeapp.service.RefreshTokenService;
+import com.weentime.weentimeapp.service.TokenBlacklistService;
 import feign.FeignException;
+import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +47,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +66,14 @@ public class AuthController {
     private final TwoFactorService twoFactorService;
     private final EmailService emailService;
     private final SmsOtpSender smsOtpSender;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final RefreshTokenService refreshTokenService;
+
+    @Value("${jwt.expirationMs}")
+    private long jwtExpirationMs;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -131,9 +146,14 @@ public class AuthController {
             }
         }
 
-        JwtResponse jwtResponse = new JwtResponse(jwt, userDetails.getId(), userDetails.getEmail(), userDetails.getEntrepriseId(), roles, false, null);
         log.info("LOGIN success for userId={}", userDetails.getId());
-        return ResponseEntity.ok(ApiResponse.success(jwtResponse, "Authentification reussie"));
+        String refreshToken = refreshTokenService.generate(
+                userDetails.getEmail(), userDetails.getId(),
+                userDetails.getEntrepriseId(), roles);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildJwtCookie(jwt))
+                .header("Set-Cookie", buildRefreshCookie(refreshToken))
+                .body(ApiResponse.success(new JwtResponse(null, userDetails.getId(), userDetails.getEmail(), userDetails.getEntrepriseId(), roles, false, null), "Authentification reussie"));
     }
 
     @PostMapping("/mfa/setup")
@@ -317,9 +337,13 @@ public class AuthController {
             log.debug("2FA verification extracted {} roles", roles.size());
 
             String jwt = jwtUtils.generateToken(dto.getId(), email, dto.getEntrepriseId(), roles);
-            JwtResponse response = new JwtResponse(jwt, dto.getId(), dto.getEmail(), dto.getEntrepriseId(), roles, false, null);
+            String refreshToken = refreshTokenService.generate(
+                    email, dto.getId(), dto.getEntrepriseId(), roles);
             log.info("2FA success for userId={}", dto.getId());
-            return ResponseEntity.ok(ApiResponse.success(response, "2FA verifie avec succes"));
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, buildJwtCookie(jwt))
+                    .header("Set-Cookie", buildRefreshCookie(refreshToken))
+                    .body(ApiResponse.success(new JwtResponse(null, dto.getId(), dto.getEmail(), dto.getEntrepriseId(), roles, false, null), "2FA verifie avec succes"));
         }
 
         long attempts = twoFactorService.incrementAttempts(email);
@@ -461,14 +485,16 @@ public class AuthController {
                     .toList();
 
             RegisterResponse registerResponse = new RegisterResponse(
-                    jwt,
+                    null,
                     userDetails.getId(),
                     userDetails.getEmail(),
                     roles,
                     "Inscription reussie"
             );
 
-            return new ResponseEntity<>(ApiResponse.success(registerResponse, "Inscription reussie"), HttpStatus.CREATED);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .header(HttpHeaders.SET_COOKIE, buildJwtCookie(jwt))
+                    .body(ApiResponse.success(registerResponse, "Inscription reussie"));
         } catch (AuthenticationException e) {
             log.warn("Auto-login failed after registration for {}: {}", registerRequest.getEmail(), e.getMessage());
             RegisterResponse fallbackResponse = new RegisterResponse(
@@ -489,6 +515,120 @@ public class AuthController {
         }
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure("INVALID_TOKEN", "Token is invalid"));
+    }
+
+    @GetMapping("/ws-token")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, String>> getWsToken(
+            Authentication authentication,
+            jakarta.servlet.http.HttpServletRequest request) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Extract claims from the JWT in the Authorization header
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String jwt = authHeader.substring(7);
+
+        String email = jwtUtils.getUserNameFromJwtToken(jwt);
+        Long userId = jwtUtils.getUserIdFromJwtToken(jwt);
+        Long entrepriseId = jwtUtils.getEntrepriseIdFromJwtToken(jwt);
+        List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
+
+        String wsToken = jwtUtils.generateWsToken(userId, email, entrepriseId, roles, Duration.ofMinutes(5));
+        return ResponseEntity.ok(Map.of("wsToken", wsToken));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(jakarta.servlet.http.HttpServletRequest request,
+                                     jakarta.servlet.http.HttpServletResponse response) {
+        String refreshTokenValue = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refresh_token".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isEmpty()) {
+                    refreshTokenValue = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (refreshTokenValue == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("REFRESH_TOKEN_MISSING", "Refresh token manquant"));
+        }
+        Map<String, Object> data = refreshTokenService.validate(refreshTokenValue);
+        if (data == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("REFRESH_TOKEN_INVALID", "Refresh token invalide ou expire"));
+        }
+        String email = (String) data.get("email");
+        Number userId = (Number) data.get("userId");
+        Number entrepriseId = (Number) data.get("entrepriseId");
+        @SuppressWarnings("unchecked")
+        List<String> roles = (List<String>) data.get("roles");
+        if (email == null || userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("REFRESH_TOKEN_INVALID", "Refresh token invalide"));
+        }
+        refreshTokenService.revoke(refreshTokenValue);
+        String newJwt = jwtUtils.generateToken(userId.longValue(), email, entrepriseId != null ? entrepriseId.longValue() : null, roles);
+        String newRefreshToken = refreshTokenService.generate(email, userId.longValue(), entrepriseId != null ? entrepriseId.longValue() : null, roles);
+        log.info("Token refresh success for userId={}", userId.longValue());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildJwtCookie(newJwt))
+                .header("Set-Cookie", buildRefreshCookie(newRefreshToken))
+                .body(ApiResponse.success(Map.of("email", email, "userId", userId.longValue(), "entrepriseId", entrepriseId != null ? entrepriseId.longValue() : null, "roles", roles), "Token rafraichi avec succes"));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(jakarta.servlet.http.HttpServletRequest request,
+                                       jakarta.servlet.http.HttpServletResponse response) {
+        String refreshTokenValue = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("jwt".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isEmpty()) {
+                    String jti = jwtUtils.extractJti(cookie.getValue());
+                    if (jti != null) {
+                        long remaining = jwtUtils.getRemainingTtlSeconds(cookie.getValue());
+                        tokenBlacklistService.blacklist(jti, remaining);
+                        log.info("JWT with jti {} blacklisted for {} seconds", jti, remaining);
+                    }
+                }
+                if ("refresh_token".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isEmpty()) {
+                    refreshTokenValue = cookie.getValue();
+                }
+            }
+        }
+        if (refreshTokenValue != null) {
+            refreshTokenService.revoke(refreshTokenValue);
+            log.info("Refresh token revoked on logout");
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, ResponseCookie.from("jwt", "")
+                        .httpOnly(true).secure(cookieSecure).sameSite("Strict").path("/").maxAge(0).build().toString())
+                .header("Set-Cookie", ResponseCookie.from("refresh_token", "")
+                        .httpOnly(true).secure(cookieSecure).sameSite("Strict").path("/api/v1/auth/refresh").maxAge(0).build().toString())
+                .build();
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> currentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof UserDetailsImpl userDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.failure("UNAUTHORIZED", "Non authentifie"));
+        }
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "id", userDetails.getId(),
+                "email", userDetails.getEmail(),
+                "entrepriseId", userDetails.getEntrepriseId(),
+                "roles", roles
+        ), "OK"));
     }
 
     private ResponseEntity<?> setupOtpForAuthenticatedUser(Authentication authentication, String method, String purpose, String ipAddress) {
@@ -721,6 +861,26 @@ public class AuthController {
         return dto.getRoles().stream()
                 .map(UtilisateurAuthDTO.RoleDTO::getNom)
                 .toList();
+    }
+
+    private String buildJwtCookie(String token) {
+        return ResponseCookie.from("jwt", token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(Duration.ofMillis(jwtExpirationMs))
+                .build().toString();
+    }
+
+    private String buildRefreshCookie(String token) {
+        return ResponseCookie.from("refresh_token", token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Strict")
+                .path("/api/v1/auth/refresh")
+                .maxAge(Duration.ofDays(30))
+                .build().toString();
     }
 
     private String getEmailFromAuthentication(Authentication authentication) {

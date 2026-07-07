@@ -27,6 +27,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.weentime.weentimeapp.repository.DocumentRepository;
+import com.weentime.weentimeapp.entity.Document;
+import com.weentime.weentimeapp.service.DocumentGeneratorService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,6 +56,9 @@ public class DocumentController {
     private final DocumentService service;
     private final OrganisationServiceClient organisationServiceClient;
     private final AiService aiService;
+    private final DocumentRepository documentRepository;
+    private final DocumentGeneratorService documentGeneratorService;
+    private final com.weentime.weentimeapp.service.TemplateResolver templateResolver;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
@@ -194,6 +200,29 @@ public class DocumentController {
     @PostMapping("/rh/generate-ai")
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<AIGenerationResult> generateAIDocument(@RequestBody AIGenerationRequest request) {
+        // Try document-aware generation using TypeDocument configuration
+        if (request.getDocumentId() != null) {
+            Document document = documentRepository.findByIdWithTypeDocument(request.getDocumentId()).orElse(null);
+            if (document != null && document.getTypeDocument() != null) {
+                log.info("Génération via DocumentGeneratorService: mode={}, type={}",
+                    document.getTypeDocument().getModeGeneration(), document.getTypeDocument().getCode());
+                DocumentGeneratorService.GeneratedDocument generated =
+                    documentGeneratorService.generateContentOnly(document, document.getTypeDocument());
+                service.logAiGeneration(request.getDocumentId(), getUserId(),
+                    "Génération — " + document.getTypeDocument().getLibelle()
+                    + " (mode=" + document.getTypeDocument().getModeGeneration() + ")");
+                return ResponseEntity.ok(AIGenerationResult.builder()
+                    .contenu(generated.content())
+                    .tokensUsed(generated.tokensUsed())
+                    .modelUsed(generated.modelUsed())
+                    .type(request.getType())
+                    .employeNom(request.getEmployePrenom() + " " + request.getEmployeNom())
+                    .dateGeneration(java.time.LocalDateTime.now().toString())
+                    .build());
+            }
+        }
+
+        // Fallback: legacy AI-only generation (no TypeDocument found)
         String prompt = String.format(
                 "Tu es un assistant RH professionnel. Genere une %s officielle pour l'employe suivant :\n" +
                         "- Nom complet : %s %s\n" +
@@ -253,6 +282,65 @@ public class DocumentController {
                 .employeNom(request.getEmployeNom())
                 .dateGeneration(java.time.LocalDateTime.now().toString())
                 .build());
+    }
+
+    @GetMapping("/rh/template-variables")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<List<Map<String, String>>> getTemplateVariables() {
+        log.info("Fetching available document template variables.");
+        return ResponseEntity.ok(templateResolver.getAvailableVariables());
+    }
+
+    /**
+     * Génère un modèle de document via l'IA à partir d'une description en langage naturel.
+     * L'IA reçoit la liste exhaustive des variables disponibles et ne doit utiliser que celles-ci.
+     */
+    @PostMapping("/rh/generate-template-ai")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<Map<String, Object>> generateTemplateWithAI(@RequestBody Map<String, String> request) {
+        String description = request.get("description");
+        if (description == null || description.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La description du document est requise.");
+        }
+
+        log.info("Génération de modèle IA à partir de la description : {}", description);
+
+        // Build the list of available variables for the system prompt
+        StringBuilder variablesList = new StringBuilder();
+        for (Map<String, String> v : templateResolver.getAvailableVariables()) {
+            variablesList.append("  - {{").append(v.get("key")).append("}} → ").append(v.get("label")).append("\n");
+        }
+
+        String systemPrompt = """
+            Tu es un expert en rédaction de documents RH administratifs français.
+            
+            MISSION : Génère un MODÈLE de document (template) à partir de la description de l'utilisateur.
+            
+            RÈGLES CRITIQUES :
+            1. Utilise UNIQUEMENT les variables suivantes entourées de doubles accolades {{variable}} :
+            %s
+            2. N'invente JAMAIS de nouvelles variables. Si une donnée n'a pas de variable correspondante, écris le texte en dur ou utilise [À COMPLÉTER].
+            3. Le document doit être formel, professionnel, en français.
+            4. Retourne UNIQUEMENT le texte brut du modèle, sans balises markdown, sans titres avec #, sans explication.
+            5. Utilise des retours à la ligne pour structurer le document.
+            6. Inclus les formules de politesse et mentions légales appropriées.
+            7. RÈGLE D'OR : Assure-toi de clore proprement toutes les balises HTML ouvertes (comme <table>, <tr>, <td>, <div>, etc.) pour éviter tout contenu tronqué.
+            """.formatted(variablesList.toString());
+
+        String userPrompt = "Génère un modèle de document pour : " + description;
+
+        try {
+            AiService.AiResponse aiResponse = aiService.generatePlainText(systemPrompt, userPrompt, 0.3f);
+            return ResponseEntity.ok(Map.of(
+                "template", aiResponse.text(),
+                "tokensUsed", aiResponse.tokens(),
+                "modelUsed", aiResponse.model()
+            ));
+        } catch (Exception e) {
+            log.error("Erreur lors de la génération IA du modèle : {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Le service IA est momentanément indisponible. Veuillez réessayer.", e);
+        }
     }
 
     private Long getRhEntrepriseId() {

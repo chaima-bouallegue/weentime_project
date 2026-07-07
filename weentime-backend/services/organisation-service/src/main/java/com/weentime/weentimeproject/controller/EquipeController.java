@@ -20,28 +20,28 @@ public class EquipeController {
     private final EquipeService equipeService;
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<EquipeResponse> createEquipe(
             @Valid @RequestBody EquipeRequest request) {
         return new ResponseEntity<>(equipeService.createEquipe(request), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
     public ResponseEntity<EquipeResponse> getEquipeById(
             @PathVariable Long id) {
         return ResponseEntity.ok(equipeService.getEquipeById(id));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
     public ResponseEntity<Page<EquipeResponse>> getAllEquipes(
             @Valid PageParams params) {
         return ResponseEntity.ok(equipeService.getAllEquipes(params.toPageable()));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<EquipeResponse> updateEquipe(
             @PathVariable Long id,
             @Valid @RequestBody EquipeRequest request) {
@@ -49,7 +49,7 @@ public class EquipeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<EquipeResponse> replaceEquipe(
             @PathVariable Long id,
             @Valid @RequestBody EquipeRequest request) {
@@ -57,14 +57,14 @@ public class EquipeController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<Void> deleteEquipe(@PathVariable Long id) {
         equipeService.deleteEquipe(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/members")
-    @PreAuthorize("hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('RH', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Page<?>> getEquipeMembers(
             @PathVariable Long id,
             @Valid PageParams params) {
@@ -72,7 +72,7 @@ public class EquipeController {
     }
 
     @GetMapping("/responsable/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
     public ResponseEntity<java.util.List<EquipeResponse>> getEquipesByResponsable(
             @PathVariable Long id) {
         return ResponseEntity.ok(equipeService.getEquipesByResponsable(id));

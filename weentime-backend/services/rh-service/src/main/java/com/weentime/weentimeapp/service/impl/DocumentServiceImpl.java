@@ -562,7 +562,13 @@ public class DocumentServiceImpl implements DocumentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Le fichier n'existe plus sur le serveur.");
         }
 
-        return new FileSystemResource(file);
+        String displayName = pdfGenerator.buildDisplayFilename(document);
+        return new FileSystemResource(file) {
+            @Override
+            public String getFilename() {
+                return displayName;
+            }
+        };
     }
 
     private String storeUploadedPdf(Document document, MultipartFile file) throws IOException {

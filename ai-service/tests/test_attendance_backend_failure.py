@@ -98,7 +98,7 @@ async def test_backend_client_timeout_returns_failure(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _timeout)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").post(
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").post(
         "/presence/me/check-in",
         context=verified_context(),
         json={"source": "AI_CHATBOT"},
@@ -119,7 +119,7 @@ async def test_backend_client_connection_refused_returns_failure(monkeypatch: py
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _refused)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").post(
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").post(
         "/presence/me/check-in",
         context=verified_context(),
         json={"source": "AI_CHATBOT"},

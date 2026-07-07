@@ -14,6 +14,7 @@ import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.CongeService;
 import com.weentime.weentimeapp.service.DemandeService;
 import com.weentime.weentimeapp.service.RhDashboardService;
+import com.weentime.weentimeapp.service.UserCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class RhDashboardServiceImpl implements RhDashboardService {
     private final PresenceServiceClient presenceServiceClient;
     private final DemandeService demandeService;
     private final CongeService congeService;
+    private final UserCacheService userCacheService;
 
     @Override
     public RhDashboardDTO getDashboard() {
@@ -52,6 +54,7 @@ public class RhDashboardServiceImpl implements RhDashboardService {
         Map<Long, UserResponse> employeesById = employees.stream()
                 .filter(user -> user.getId() != null)
                 .collect(Collectors.toMap(UserResponse::getId, user -> user, (left, right) -> left, LinkedHashMap::new));
+        userCacheService.seedAll(employees);
 
         TeamStatusClientDto companyToday = loadCompanyToday();
         PresenceStatsClientDto companyStats = loadCompanyStats();

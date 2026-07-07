@@ -1,118 +1,651 @@
-.bento-container {
-  max-width: 1400px;
+// ══════════════════════════════════════════════════
+//  Employee Horaires — Full screen schedule (matches mockup)
+// ══════════════════════════════════════════════════
+
+.horaires-page-container {
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// ─── Header ────────────────────────────────────────
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.date-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+
+  .icon {
+    color: #4361EE;
+  }
+  .date-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+  }
+}
+
+.dark .date-chip {
+  background: #141821;
+  border-color: #1e293b;
+  .date-text { color: #94a3b8; }
+}
+
+// ─── Layout ────────────────────────────────────────
+.horaires-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.section-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.dark .section-card {
+  background: #141821;
+  border-color: #1e293b;
+}
+
+// ─── Active Schedule Card Header ───────────────────
+.main-horaire-card {
+  padding: 24px;
+}
+
+.horaire-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f8fafc;
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.dark .horaire-card-header { border-bottom-color: #1e293b; }
+
+.horaire-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.horaire-icon-box {
+  width: 48px;
+  height: 48px;
+  background: #eff6ff;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+}
+
+.dark .horaire-icon-box {
+  background: rgba(37, 99, 235, 0.15);
+  color: #3b82f6;
+}
+
+.horaire-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.horaire-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.horaire-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.dark .horaire-name { color: #f8fafc; }
+
+.badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+
+  &.badge-default {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+  &.badge-active {
+    background: #dcfce7;
+    color: #166534;
+  }
+}
+
+.dark .badge {
+  &.badge-default { background: rgba(251, 146, 60, 0.15); color: #fdba74; }
+  &.badge-active { background: rgba(22, 163, 74, 0.15); color: #86efac; }
+}
+
+.horaire-subinfo {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .sep {
+    color: #cbd5e1;
+  }
+}
+
+.dark .horaire-subinfo .sep { color: #334155; }
+
+.btn-more-actions {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #cbd5e1;
+  }
+}
+
+.dark .btn-more-actions {
+  background: #1e293b;
+  border-color: #334155;
+  color: #64748b;
+  &:hover { background: #334155; color: #94a3b8; }
+}
+
+// ─── Weekly Schedule Grid ───────────────────────────
+.schedule-grid-container {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+// Hours vertical scale
+.hours-scale-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 300px;
+  padding: 44px 0 10px; // align top hour with the first block
+  text-align: right;
+  border-right: 1px dashed #e2e8f0;
+  padding-right: 12px;
+}
+
+.dark .hours-scale-col { border-right-color: #334155; }
+
+.hour-mark {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+// Days columns wrapper
+.days-columns-wrapper {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.day-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: transparent;
+  border-radius: 12px;
+  padding: 6px;
+  transition: background 0.15s;
+
+  &.today {
+    background: rgba(67, 97, 238, 0.03);
+  }
+}
+
+.dark .day-column.today {
+  background: rgba(99, 102, 241, 0.03);
+}
+
+// Column Header
+.day-column-header {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+  padding-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  .today & {
+    color: #4361EE;
+  }
+}
+
+.dark .day-column.today .day-column-header {
+  color: #818cf8;
+}
+
+.today-dot-indicator {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4361EE;
+}
+
+.dark .today-dot-indicator { background: #818cf8; }
+
+// Plages Stack
+.day-plages-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 300px;
+}
+
+// Plage block
+.plage-block {
+  border-radius: 10px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+  transition: all 0.2s;
+  cursor: default;
+
+  .plage-label {
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .plage-time {
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  // Work block 1 (indigo/blue)
+  &.plage-travail-1 {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    flex: 1.2;
+
+    &:hover {
+      background: #dbeafe;
+      transform: translateY(-1px);
+    }
+  }
+
+  // Work block 2 (green)
+  &.plage-travail-2 {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid rgba(5, 150, 105, 0.15);
+    flex: 1.2;
+
+    &:hover {
+      background: #d1fae5;
+      transform: translateY(-1px);
+    }
+  }
+
+  // Pause block (purple)
+  &.plage-pause {
+    background: #faf5ff;
+    color: #7c3aed;
+    border: 1px solid rgba(124, 58, 237, 0.15);
+    flex: 0.7;
+
+    &:hover {
+      background: #f3e8ff;
+      transform: translateY(-1px);
+    }
+  }
+
+  // Repos block (gray stretching card)
+  &.repos {
+    background: #f8fafc;
+    color: #94a3b8;
+    border: 1px dashed #cbd5e1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+
+    .repos-icon {
+      opacity: 0.6;
+    }
+    .repos-text {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+}
+
+.dark .plage-block {
+  &.plage-travail-1 {
+    background: rgba(37, 99, 235, 0.1);
+    color: #60a5fa;
+    border-color: rgba(37, 99, 235, 0.2);
+    &:hover { background: rgba(37, 99, 235, 0.15); }
+  }
+  &.plage-travail-2 {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.2);
+    &:hover { background: rgba(16, 185, 129, 0.15); }
+  }
+  &.plage-pause {
+    background: rgba(124, 58, 237, 0.1);
+    color: #c084fc;
+    border-color: rgba(124, 58, 237, 0.2);
+    &:hover { background: rgba(124, 58, 237, 0.15); }
+  }
+  &.repos {
+    background: rgba(255, 255, 255, 0.02);
+    color: #64748b;
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+// ─── Other Schedules Section ───────────────────────
+.others-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.others-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.dark .others-title { color: #f8fafc; }
+
+.others-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.other-schedule-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #f1f5f9;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01);
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    transform: translateY(-1px);
+  }
+}
+
+.dark .other-schedule-card {
+  background: #141821;
+  border-color: #1e293b;
+  &:hover { border-color: #334155; }
+}
+
+.other-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.other-title-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.other-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.dark .other-name { color: #f1f5f9; }
+
+.other-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.badge.compact {
+  padding: 1px 6px;
+  font-size: 8px;
+}
+
+.mini-days-strip {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-day-chip {
+  flex: 1;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 9px;
+  font-weight: 800;
+  transition: all 0.15s;
+
+  &.worked {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 900;
+  }
+}
+
+.dark .mini-day-chip {
+  background: rgba(255, 255, 255, 0.02);
+  color: #475569;
+
+  &.worked {
+    background: rgba(37, 99, 235, 0.15);
+    color: #60a5fa;
+  }
+}
+
+// ─── Responsive Styles ─────────────────────────────
+@media (max-width: 900px) {
+  .schedule-grid-container {
+    grid-template-columns: 1fr;
+  }
+
+  .hours-scale-col {
+    display: none;
+  }
+
+  .days-columns-wrapper {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .day-column {
+    padding: 12px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .dark .day-column {
+    border-color: #1e293b;
+  }
+
+  .day-plages-stack {
+    height: auto;
+  }
+
+  .plage-block.repos {
+    height: 60px;
+    flex-direction: row;
+  }
+}
+
+// ─── Skeleton Loading ──────────────────────────────
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.sk-header {
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 20px;
+}
+
+.sk-grid {
+  height: 360px;
+  background: #e2e8f0;
+  border-radius: 20px;
+}
+
+.dark .sk-header,
+.dark .sk-grid {
+  background: #1e293b;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+// Empty state
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 20px;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+
+  .empty-icon {
+    color: #cbd5e1;
+    margin-bottom: 16px;
+  }
+
+  .empty-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #475569;
+    margin: 0 0 4px;
+  }
+
+  .empty-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0;
+  }
+}
+
+.dark .empty-state {
+  border-color: #1e293b;
+  .empty-icon { color: #334155; }
 }
 
 .fade-in {
-  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.bento-layout {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 2rem;
-}
-
-/* --- Bento Card Base --- */
-.bento-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 40px;
-  box-shadow: 0 10px 40px -15px rgba(0, 0, 0, 0.05);
-  position: relative;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &.bg-indigo-600 { background: #4f46e5; border: none; }
-}
-
-.dark .bento-card {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.4);
-}
-
-/* --- Hero Card --- */
-.hero-card {
-  .card-mesh {
-    position: absolute;
-    inset: 0;
-    opacity: 0.1;
-    background: radial-gradient(circle at top right, var(--mesh-color), transparent 60%),
-                radial-gradient(circle at bottom left, #8b5cf6, transparent 50%);
-    filter: blur(40px);
-  }
-}
-
-.status-visual {
-  z-index: 1;
-  
-  .visual-ring {
-    position: absolute;
-    inset: -12px;
-    border-radius: 50%;
-    border: 2px dashed rgba(99, 102, 241, 0.2);
-    animation: rotate 20s linear infinite;
-    
-    &.active {
-      border-color: rgba(99, 102, 241, 0.5);
-      border-style: solid;
-      border-width: 1px;
-    }
-  }
-
-  .visual-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* --- Day Cards --- */
-.day-card {
-  &.active {
-    .flex-col {
-      background: rgba(79, 70, 229, 0.05);
-      border-color: rgba(79, 70, 229, 0.2);
-      transform: scale(1.05);
-      box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.2);
-    }
-  }
-
-  &.is-repos {
-    .flex-col {
-      background: rgba(0, 0, 0, 0.01);
-      border-style: dashed;
-    }
-  }
-}
-
-.dark .day-card {
-  &.active .flex-col { background: rgba(79, 70, 229, 0.1); border-color: rgba(79, 70, 229, 0.4); }
-  &.is-repos .flex-col { background: rgba(255, 255, 255, 0.02); }
-}
-
-/* --- Mobile Fixes --- */
-@media (max-width: 1024px) {
-  .bento-layout {
-    grid-template-columns: 1fr;
-    .lg\:col-span-8, .lg\:col-span-4 {
-      grid-column: span 1 / span 1;
-    }
-  }
 }

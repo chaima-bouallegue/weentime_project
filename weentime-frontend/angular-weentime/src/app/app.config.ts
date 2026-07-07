@@ -1,4 +1,4 @@
-import { ApplicationConfig, importProvidersFrom, LOCALE_ID } from '@angular/core';
+import { ApplicationConfig, LOCALE_ID } from '@angular/core';
 import { PreloadAllModules, provideRouter, withComponentInputBinding, withPreloading, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -108,6 +108,8 @@ import {
   LogIn,
   LogOut,
   List,
+  LUCIDE_ICONS,
+  LucideIconProvider,
   LucideAngularModule,
   Mail,
   MapPin,
@@ -272,6 +274,7 @@ const allIcons = {
   HelpCircle,
   Heart,
   Home,
+  home: Home,
   Hourglass,
   History,
   Inbox,
@@ -388,6 +391,6 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideHttpClient(withInterceptors([loadingInterceptorFn, authInterceptor, apiErrorInterceptor])),
     { provide: LOCALE_ID, useValue: 'fr' },
-    importProvidersFrom(LucideAngularModule.pick(allIcons))
+    { provide: LUCIDE_ICONS, multi: true, useValue: new LucideIconProvider(allIcons) }
   ]
 };

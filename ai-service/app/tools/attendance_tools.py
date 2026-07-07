@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -532,11 +532,26 @@ def _attendance_write_body(context: CurrentUserContext, *, action: str) -> dict[
         candidate = context.metadata.get("channel")
         if isinstance(candidate, str) and candidate.strip():
             channel = candidate.strip()
-    return {
+    body: dict[str, Any] = {
         "source": "AI_CHATBOT",
         "channel": channel,
         "action": action,
     }
+    # Forward browser GPS coordinates when the chat widget injected them into
+    # the confirmation metadata.  This mirrors the manual check-in flow where
+    # the Angular frontend sends lat/lon directly.
+    if isinstance(context.metadata, dict):
+        lat = context.metadata.get("latitude")
+        lon = context.metadata.get("longitude")
+        if lat is not None and lon is not None:
+            try:
+                body["latitude"] = float(lat)
+                body["longitude"] = float(lon)
+                body["accuracy"] = float(context.metadata.get("accuracy") or 0)
+                body["source"] = "COPILOT_GPS"
+            except (TypeError, ValueError):
+                pass  # silently skip malformed coordinates
+    return body
 
 
 def _attendance_write_result(result: ToolResult, tool_name: str, summary: str) -> ToolResult:

@@ -21,6 +21,7 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "horaire_modeles")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

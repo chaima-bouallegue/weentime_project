@@ -157,7 +157,7 @@ export function getRouteTitle(router: Router): string {
       box-shadow: 0 1px 0 #E5E7EB;
       height: 56px;
       position: relative;
-      z-index: 1200;
+      z-index: 50;
     }
 
     .notif-container {

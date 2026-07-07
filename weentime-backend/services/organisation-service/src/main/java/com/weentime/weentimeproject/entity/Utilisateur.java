@@ -4,6 +4,9 @@ import com.weentime.weentimeproject.enums.StatutUtilisateurEnum;
 import com.weentime.weentimeproject.enums.TwoFactorTypeEnum;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -18,6 +21,8 @@ import java.util.Set;
 @Builder
 @Entity
 @Table(name = "utilisateurs")
+@FilterDef(name = "entrepriseFilter", parameters = @ParamDef(name = "entrepriseId", type = Long.class))
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @EntityListeners(AuditingEntityListener.class)
 public class Utilisateur {
 

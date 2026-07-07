@@ -1,11 +1,9 @@
-import { inject } from '@angular/core';
 import { ResolveFn } from '@angular/router';
-import { PresenceStore } from '../services/presence.store';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 
 /**
- * presenceResolver — Ensures presence data is loaded before entering pointage view.
+ * presenceResolver — Returns immediately to prevent blocking navigation.
  */
 export const presenceResolver: ResolveFn<any> = (): Observable<any> => {
-  return inject(PresenceStore).prefetch();
+  return of(true);
 };

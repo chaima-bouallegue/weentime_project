@@ -1,22 +1,8 @@
-<!-- Filter chips -->
-<div class="filter-chips">
-  @for (f of filters; track f.value) {
-    <button
-      class="chip"
-      [class.active]="currentFilter === f.value"
-      (click)="filterChange.emit(f.value)"
-    >
-      {{ f.label }}
-      <span class="chip-count">{{ getCountForFilter(f.value) }}</span>
-    </button>
-  }
-</div>
-
 <!-- Loading skeleton -->
 @if (isLoading) {
-  <div class="history-list">
+  <div class="timeline-list skeleton-list">
     @for (item of [1,2,3]; track item) {
-      <div class="history-item skeleton">
+      <div class="timeline-item skeleton">
         <div class="skel-icon"></div>
         <div class="skel-body">
           <div class="skel-line skel-title"></div>
@@ -35,72 +21,120 @@
     <p class="empty-message">{{ getEmptyMessage() }}</p>
   </div>
 } @else {
-  <!-- History list -->
-  <div class="history-list">
+  <!-- History list as Timeline -->
+  <div class="timeline-list">
     @for (d of demandes; track d.id; let i = $index) {
-      <div class="history-item animate-stagger" [style.animation-delay]="(i * 60) + 'ms'">
-        <!-- Type icon -->
-        <div
-          class="item-icon"
-          [style.background]="(getConfigForType(d)?.couleur ?? '#64748b') + '14'"
-          [style.color]="getConfigForType(d)?.couleur ?? '#64748b'"
-        >
-          <lucide-icon [name]="getConfigForType(d)?.icone ?? 'file-text'" size="20"></lucide-icon>
+      <div class="timeline-item animate-stagger" [style.animation-delay]="(i * 60) + 'ms'">
+        
+        <!-- Timeline node circle -->
+        <div class="timeline-node" [ngClass]="d.statut.toLowerCase()">
+          @switch (d.statut) {
+            @case ('PRET') { <lucide-icon [name]="'check'" size="16"></lucide-icon> }
+            @case ('READY') { <lucide-icon [name]="'check'" size="16"></lucide-icon> }
+            @case ('EN_ATTENTE') { <lucide-icon [name]="'clock'" size="16"></lucide-icon> }
+            @case ('PENDING') { <lucide-icon [name]="'clock'" size="16"></lucide-icon> }
+            @case ('EN_COURS') { <lucide-icon [name]="'loader-2'" size="16" class="animate-spin"></lucide-icon> }
+            @case ('GENERATING') { <lucide-icon [name]="'loader-2'" size="16" class="animate-spin"></lucide-icon> }
+            @case ('REFUSE') { <lucide-icon [name]="'x'" size="16"></lucide-icon> }
+            @case ('REJECTED') { <lucide-icon [name]="'x'" size="16"></lucide-icon> }
+            @case ('ANNULE') { <lucide-icon [name]="'minus-circle'" size="16"></lucide-icon> }
+            @default { <lucide-icon [name]="'file-text'" size="16"></lucide-icon> }
+          }
         </div>
 
-        <!-- Info -->
-        <div class="item-info">
-          <div class="item-header-row">
-            <h4 class="item-label">{{ d.label }}</h4>
-            <app-document-status-badge [statut]="d.statut"></app-document-status-badge>
-          </div>
-          <div class="item-meta">
-            <span class="meta-date">
-              <lucide-icon name="calendar" size="12"></lucide-icon>
-              Demandé le {{ d.dateCreation | date:'dd MMM yyyy':'':'fr' }}
-            </span>
-            <span class="meta-delay">
-              <lucide-icon name="clock" size="12"></lucide-icon>
-              Délai : {{ d.delaiEstime }}
-            </span>
-            @if (d.moisConcerne) {
-              <span class="meta-mois">
-                <lucide-icon name="calendar-days" size="12"></lucide-icon>
-                {{ d.moisConcerne }}
+        <!-- Info Card content -->
+        <div class="timeline-content">
+          <div class="info-body">
+            <div class="flex items-center gap-3 flex-wrap">
+              <h4 class="document-label">{{ d.label }}</h4>
+              <app-document-status-badge [statut]="d.statut"></app-document-status-badge>
+            </div>
+            
+            <div class="document-meta flex items-center gap-4 flex-wrap mt-1">
+              <span class="meta-item">
+                <lucide-icon name="calendar" size="12"></lucide-icon>
+                Demandé le {{ d.dateCreation | date:'dd/MM/yyyy à HH:mm':'':'fr' }}
               </span>
+              @if (d.moisConcerne) {
+                <span class="meta-item">
+                  <lucide-icon name="calendar-days" size="12"></lucide-icon>
+                  {{ d.moisConcerne }}
+                </span>
+              }
+            </div>
+
+            <!-- RH Comment for refused requests -->
+            @if ((d.statut === 'REFUSE' || d.statut === 'REJECTED') && d.commentaireRH) {
+              <div class="rh-comment mt-2">
+                <lucide-icon name="alert-circle" size="14"></lucide-icon>
+                <span>Motif : {{ d.commentaireRH }}</span>
+              </div>
             }
           </div>
 
-          <!-- RH comment for refused -->
-          @if (d.statut === 'REFUSE' && d.commentaireRH) {
-            <div class="rh-comment">
-              <lucide-icon name="alert-circle" size="14"></lucide-icon>
-              <span>{{ d.commentaireRH }}</span>
+          <!-- Actions & Menu block -->
+          <div class="actions-wrapper">
+            
+            <!-- Quick Action Button (Download if ready) -->
+            <div class="quick-action">
+              @if (d.statut === 'PRET' || d.statut === 'READY') {
+                <button class="btn-download" (click)="downloadRequest.emit(d)" title="Télécharger le document">
+                  <lucide-icon name="download" size="16"></lucide-icon>
+                  <span>Télécharger</span>
+                </button>
+              } @else {
+                <span class="no-action-placeholder">&mdash;</span>
+              }
             </div>
-          }
+
+            <!-- Contextual Menu Trigger -->
+            <div class="relative menu-trigger-container">
+              <button class="btn-more-options" (click)="toggleMenu(d.id, $event)" [class.active]="activeMenuId() === d.id" title="Options">
+                <lucide-angular [img]="iconMoreVertical" size="18"></lucide-angular>
+              </button>
+
+              <!-- Dropdown Menu -->
+              @if (activeMenuId() === d.id) {
+                <div class="dropdown-menu-box animate-scale-in">
+                  @if (d.statut === 'PRET' || d.statut === 'READY') {
+                    <button class="dropdown-item" (click)="downloadRequest.emit(d); activeMenuId.set(null)">
+                      <lucide-icon name="download" size="14"></lucide-icon>
+                      <span>Télécharger le document</span>
+                    </button>
+                  }
+                  @if (d.statut === 'EN_ATTENTE' || d.statut === 'PENDING') {
+                    <button class="dropdown-item cancel text-rose-600 dark:text-rose-400" (click)="cancelRequest.emit(d); activeMenuId.set(null)">
+                      <lucide-icon name="trash-2" size="14"></lucide-icon>
+                      <span>Annuler la demande</span>
+                    </button>
+                  }
+                  @if ((d.statut === 'REFUSE' || d.statut === 'REJECTED') && d.commentaireRH) {
+                    <div class="dropdown-info-item text-xs text-slate-500 dark:text-slate-400 p-3">
+                      <strong>Motif de refus :</strong>
+                      <p class="mt-1 font-medium leading-relaxed">{{ d.commentaireRH }}</p>
+                    </div>
+                  }
+                  @if (d.statut === 'EN_COURS' || d.statut === 'GENERATING') {
+                    <div class="dropdown-info-item text-xs text-indigo-500 p-3 font-semibold flex items-center gap-2">
+                      <lucide-icon name="loader-2" size="12" class="animate-spin"></lucide-icon>
+                      <span>Traitement en cours...</span>
+                    </div>
+                  }
+                  @if (d.statut === 'ANNULE') {
+                    <div class="dropdown-info-item text-xs text-slate-400 p-3 font-medium">
+                      <span>Demande annulée</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+          </div>
+
         </div>
 
-        <!-- Actions -->
-        <div class="item-actions">
-          @if (d.statut === 'EN_ATTENTE') {
-            <button class="btn-cancel" (click)="cancelRequest.emit(d)">
-              <lucide-icon name="trash-2" size="15"></lucide-icon>
-              Annuler
-            </button>
-          }
-          @if (d.statut === 'EN_COURS') {
-            <div class="progress-indicator">
-              <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
-            </div>
-          }
-          @if (d.statut === 'PRET') {
-            <button class="btn-download" (click)="downloadRequest.emit(d)">
-              <lucide-icon name="download" size="16"></lucide-icon>
-              Télécharger
-            </button>
-          }
-        </div>
       </div>
     }
   </div>
 }
+

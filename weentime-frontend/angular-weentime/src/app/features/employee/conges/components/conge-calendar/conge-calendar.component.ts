@@ -1,7 +1,7 @@
 import { Component, Input, signal, computed, ChangeDetectionStrategy, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, ChevronLeft, ChevronRight } from 'lucide-angular';
-import { DemandeConge, JourFerie } from '../../models/conge.model';
+import { DemandeConge, JourFerie, TypeConge } from '../../models/conge.model';
 
 interface CalendarDay {
   date: Date;
@@ -44,6 +44,10 @@ export class CongeCalendarComponent implements OnInit {
     const d = new Date(this.viewDate());
     d.setMonth(d.getMonth() + 1);
     this.viewDate.set(d);
+  }
+
+  goToToday() {
+    this.viewDate.set(new Date());
   }
 
   private generateDays(date: Date): CalendarDay[] {
@@ -92,14 +96,15 @@ export class CongeCalendarComponent implements OnInit {
     return days;
   }
 
-  getAbsenceColor(typeNom: string): string {
-    const name = typeNom.toLowerCase();
-    if (name.includes('annuel')) return '#6366f1';
-    if (name.includes('maladie')) return '#f59e0b';
-    if (name.includes('rtt')) return '#10b981';
-    if (name.includes('exceptionnel')) return '#f97316';
-    if (name.includes('sans solde')) return '#94a3b8';
-    if (name.includes('maternite') || name.includes('paternite')) return '#ec4899';
-    return '#cbd5e1';
+  getAbsenceColor(type: TypeConge): string {
+    const colors: Record<TypeConge, string> = {
+      ANNUEL: '#6366f1',
+      MALADIE: '#f59e0b',
+      RTT: '#10b981',
+      EXCEPTIONNEL: '#f97316',
+      SANS_SOLDE: '#94a3b8',
+      MATERNITE_PATERNITE: '#ec4899'
+    };
+    return colors[type] || '#cbd5e1';
   }
 }

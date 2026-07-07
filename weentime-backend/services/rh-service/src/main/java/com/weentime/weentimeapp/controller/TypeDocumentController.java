@@ -13,6 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/rh/parametres/types-documents")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('RH', 'ADMIN')")
 public class TypeDocumentController {
 
     private final TypeDocumentService typeDocumentService;

@@ -244,17 +244,17 @@
           <div class="chips-scroll-track" #chipsScrollTrack>
             <!-- Primary chip (first action) -->
             <button *ngFor="let item of quickActions() | slice:0:1" type="button"
-              class="chat-panel__quick-action chat-panel__quick-action--primary" (click)="sendQuickAction(item.action)"
+              class="chat-panel__quick-action chat-panel__quick-action--primary" (click)="sendQuickAction(item)"
               [disabled]="loading() || recording()" style="--chip-delay: 0ms">
-              {{ item.label }}
+              {{ item.displayLabel }}
             </button>
 
             <!-- Secondary chips (rest of actions) -->
             <button *ngFor="let item of quickActions() | slice:1; let idx = index" type="button"
               class="chat-panel__quick-action chat-panel__quick-action--secondary"
-              (click)="sendQuickAction(item.action)" [disabled]="loading() || recording()"
+              (click)="sendQuickAction(item)" [disabled]="loading() || recording()"
               [style.--chip-delay]="(80 + idx * 80) + 'ms'">
-              {{ item.label }}
+              {{ item.displayLabel }}
             </button>
           </div>
 

@@ -21,7 +21,7 @@ public class DepartementController {
     private final DepartementService departementService;
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<DepartementResponse> createDepartement(
             @Valid @RequestBody DepartementRequest request) {
         return new ResponseEntity<>(
@@ -31,21 +31,21 @@ public class DepartementController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
     public ResponseEntity<DepartementResponse> getDepartementById(
             @PathVariable Long id) {
         return ResponseEntity.ok(departementService.getDepartementById(id));
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_RH') or hasAuthority('ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'MANAGER')")
     public ResponseEntity<Page<DepartementResponse>> getAllDepartements(
             @ModelAttribute PageParams params) {
         return ResponseEntity.ok(departementService.getAllDepartements(params.toPageable()));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<DepartementResponse> updateDepartement(
             @PathVariable Long id,
             @RequestBody DepartementRequest request) {
@@ -53,7 +53,7 @@ public class DepartementController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<DepartementResponse> replaceDepartement(
             @PathVariable Long id,
             @RequestBody DepartementRequest request) {
@@ -61,7 +61,7 @@ public class DepartementController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_RH')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH')")
     public ResponseEntity<Void> deleteDepartement(@PathVariable Long id) {
         departementService.deleteDepartement(id);
         return ResponseEntity.noContent().build();

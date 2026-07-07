@@ -20,7 +20,7 @@
         <div class="request-preview">
           <div class="preview-item">
             <span class="label">Type de congé</span>
-            <span class="value">{{ demande.typeCongeNom }}</span>
+            <span class="value">{{ getTypeLabel(demande.type) }}</span>
           </div>
           <div class="preview-item">
             <span class="label">Dates</span>
@@ -28,7 +28,7 @@
           </div>
           <div class="preview-item">
             <span class="label">Durée totale</span>
-            <span class="value font-black text-indigo-500">{{ demande.nombreJours }} jours</span>
+            <span class="value font-black text-indigo-500">{{ demande.nombreJours }} {{ demande.nombreJours > 1 ? 'jours' : 'jour' }}</span>
           </div>
         </div>
       </div>

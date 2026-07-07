@@ -2,10 +2,12 @@ package com.weentime.weentimeapp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "candidate_notes")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

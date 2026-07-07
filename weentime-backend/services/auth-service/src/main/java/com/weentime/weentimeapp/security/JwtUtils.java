@@ -11,8 +11,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class JwtUtils {
@@ -30,6 +32,7 @@ public class JwtUtils {
         }
 
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(userPrincipal.getUsername())
                 .claim("userId", userPrincipal.getId())
                 .claim("role", userPrincipal.getAuthorities().stream()
@@ -50,6 +53,7 @@ public class JwtUtils {
 
     public String generateToken(Long userId, String email, Long entrepriseId, List<String> roles) {
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(email)
                 .claim("roles", roles)
                 .claim("role", roles == null || roles.isEmpty() ? null : roles.get(0))
@@ -61,6 +65,52 @@ public class JwtUtils {
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public String generateWsToken(UserDetailsImpl userDetails, Duration maxAge) {
+        return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setSubject(userDetails.getEmail())
+                .claim("userId", userDetails.getId())
+                .claim("role", userDetails.getAuthorities().stream()
+                        .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                        .findFirst().orElse(null))
+                .claim("entrepriseId", userDetails.getEntrepriseId())
+                .claim("roles", userDetails.getAuthorities().stream()
+                        .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                        .toList())
+                .claim("tokenPurpose", "WS")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + maxAge.toMillis()))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateWsToken(Long userId, String email, Long entrepriseId, List<String> roles, Duration maxAge) {
+        return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setSubject(email)
+                .claim("userId", userId)
+                .claim("role", roles == null || roles.isEmpty() ? null : roles.get(0))
+                .claim("entrepriseId", entrepriseId)
+                .claim("roles", roles != null ? roles : List.of())
+                .claim("tokenPurpose", "WS")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + maxAge.toMillis()))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Long getUserIdFromJwtToken(String token) {
+        Claims claims = getClaims(token);
+        Object userId = claims.get("userId");
+        return userId == null ? null : Long.valueOf(userId.toString());
+    }
+
+    public Long getEntrepriseIdFromJwtToken(String token) {
+        Claims claims = getClaims(token);
+        Object entrepriseId = claims.get("entrepriseId");
+        return entrepriseId == null ? null : Long.valueOf(entrepriseId.toString());
     }
 
     public String generateTokenFor2FA(String email, String type) {
@@ -111,6 +161,34 @@ public class JwtUtils {
     public String getTokenPurpose(String token) {
         Object purpose = getClaims(token).get("tokenPurpose");
         return purpose == null ? null : String.valueOf(purpose);
+    }
+
+    public String extractJti(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getId();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public long getRemainingTtlSeconds(String token) {
+        try {
+            Date expiration = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getExpiration();
+            long remaining = (expiration.getTime() - System.currentTimeMillis()) / 1000;
+            return Math.max(0, remaining);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private Key getSigningKey() {

@@ -1,73 +1,45 @@
-<div class="bento-container fade-in">
-  <!-- Header Section -->
-  <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <div>
-      <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Télétravail</h1>
-      <p class="text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-2xl">
-        Gérez vos jours de travail à distance et consultez votre planning.
-      </p>
-    </div>
+<div class="teletravail-page">
 
-    <div class="flex items-center gap-4">
-      <!-- Refreshing Indicator -->
+  <!-- ══ PAGE HEADER ══ -->
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Télétravail</h1>
+      <p class="page-subtitle">Gérez vos jours de travail à distance et consultez votre planning</p>
+    </div>
+    <div class="header-right">
       @if (store.isRefreshing()) {
-        <div class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-full border border-indigo-100 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-          <lucide-angular [img]="iconClock" size="14" class="animate-spin"></lucide-angular>
-          <span class="text-[10px] font-black uppercase tracking-wider">Mise à jour...</span>
+        <div class="refreshing-chip">
+          <lucide-angular [img]="iconClock" size="12" class="spin-icon"></lucide-angular>
+          <span>Mise à jour...</span>
         </div>
       }
-
-      <div class="date-chip hidden md:flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700">
-        <lucide-angular [img]="iconCalendar" size="16" class="text-indigo-500"></lucide-angular>
-        <span class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ currentDate() }}</span>
-      </div>
-
-      <button
-        (click)="showDrawer.set(true)"
-        class="action-button primary group"
-      >
-        <div class="button-content">
-          <div class="icon-box">
-            <lucide-angular [img]="iconPlus" size="20"></lucide-angular>
-          </div>
-          <span>Nouvelle demande</span>
-        </div>
-        <div class="button-glow"></div>
+      <button class="btn-new-request" (click)="showDrawer.set(true)">
+        <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
+        <span>Nouvelle demande</span>
       </button>
     </div>
   </header>
 
-  <!-- Dashboard Overview -->
-  <div class="bento-layout">
-    <!-- Left Column: Quota & History (65%) -->
-    <div class="flex flex-col gap-8 md:col-span-8">
+  <!-- ══ QUOTA CARD ══ -->
+  <app-quota-card
+    [quota]="quota()"
+    [isLoading]="isLoading()"
+  ></app-quota-card>
 
-      <!-- Quota Section -->
-      <section>
-        <app-quota-card
-          [quota]="quota()"
-          [isLoading]="isLoading()"
-        ></app-quota-card>
-      </section>
+  <!-- ══ MAIN LAYOUT ══ -->
+  <div class="page-layout">
 
-      <!-- History Section -->
-      <section class="bento-card p-8">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <h2 class="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-            <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
-            Historique & Suivi
-          </h2>
+    <!-- ─── LEFT — Historique ─── -->
+    <main class="main-col">
+      <div class="section-card">
 
-          <div class="flex items-center gap-2">
-            <div class="search-box relative">
-              <lucide-angular [img]="iconSearch" size="18" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></lucide-angular>
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                class="pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all w-64"
-              >
-            </div>
-          </div>
+        <div class="section-card-header">
+          <h2 class="section-card-title">Mes demandes récentes</h2>
+          @if (historique().length > 5 && !afficherTout()) {
+            <button class="link-btn" (click)="afficherTout.set(true)">
+              Voir toutes &rsaquo;
+            </button>
+          }
         </div>
 
         <app-teletravail-historique
@@ -77,67 +49,55 @@
           [currentFilter]="filtreStatut()"
           (filterChange)="onFilterChange($event)"
           (cancelRequest)="onCancelRequest($event)"
+          (viewRequest)="demandeConsulter.set($event)"
+          (editRequest)="onEditRequest($event)"
         ></app-teletravail-historique>
-      </section>
-    </div>
 
-    <!-- Right Column: Calendar & Rules (35%) -->
-    <div class="flex flex-col gap-8 md:col-span-4">
-      <!-- Calendar Section -->
-      <section class="bento-card p-6 sticky-sidebar">
-        <div class="mb-6 px-2">
-          <h3 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <lucide-angular [img]="iconMonitor" size="20" class="text-indigo-500"></lucide-angular>
-            Vue Calendrier
-          </h3>
+      </div>
+    </main>
+
+    <!-- ─── RIGHT — Sidebar Calendrier ─── -->
+    <aside class="sidebar-col">
+      <div class="section-card calendar-section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title">Calendrier</h2>
+          <span class="today-chip">{{ currentDate() }}</span>
         </div>
-
         <app-teletravail-calendar
           [approvedDates]="approvedDates()"
           [halfDayDates]="halfDayDates()"
           [holidayDates]="holidayDates()"
         ></app-teletravail-calendar>
+      </div>
 
-        <!-- Rules Info Box -->
-        <div class="mt-8 p-6 rounded-3xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/10">
-          <div class="flex items-start gap-4 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-500 shadow-sm">
-              <lucide-angular [img]="iconInfo" size="20"></lucide-angular>
-            </div>
-            <div>
-              <h4 class="font-black text-slate-900 dark:text-white">Règles en vigueur</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Politique de l'entreprise</p>
-            </div>
-          </div>
-
-          <ul class="space-y-3">
-            <li class="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
-              <div class="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-              Max 10 jours / mois
-            </li>
-            <li class="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
-              <div class="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-              Délai de prévenance : 48h
-            </li>
-            <li class="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
-              <div class="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-              Validation Manager + RH
-            </li>
-          </ul>
-
-          <div class="mt-6 pt-6 border-t border-indigo-100 dark:border-indigo-500/10">
-            <div class="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-              <span>Besoin d'aide ?</span>
-              <lucide-angular [img]="iconSparkles" size="14"></lucide-angular>
-            </div>
-          </div>
+      <!-- Rules card -->
+      <div class="section-card rules-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title">Règles en vigueur</h2>
+          <lucide-angular [img]="iconInfo" size="16" class="rules-info-icon"></lucide-angular>
         </div>
-      </section>
-    </div>
+        <ul class="rules-list">
+          <li class="rules-item">
+            <div class="rules-dot"></div>
+            <span>Maximum <strong>10 jours</strong> par mois</span>
+          </li>
+          <li class="rules-item">
+            <div class="rules-dot"></div>
+            <span>Délai de prévenance <strong>48h</strong></span>
+          </li>
+          <li class="rules-item">
+            <div class="rules-dot"></div>
+            <span>Validation <strong>Manager + RH</strong></span>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
   </div>
+
 </div>
 
-<!-- Adaptative Drawer -->
+<!-- ══ DRAWERS & MODALS ══ -->
 @if (showDrawer()) {
   <app-demande-teletravail-drawer
     [joursRestants]="joursRestants()"
@@ -148,7 +108,6 @@
   ></app-demande-teletravail-drawer>
 }
 
-<!-- Annulation Modal -->
 @if (demandeAnnuler()) {
   <app-annulation-teletravail-modal
     [demande]="demandeAnnuler()"
@@ -156,4 +115,11 @@
     (close)="demandeAnnuler.set(null)"
     (confirm)="confirmAnnulation($event)"
   ></app-annulation-teletravail-modal>
+}
+
+@if (demandeConsulter()) {
+  <app-consultation-teletravail-modal
+    [demande]="demandeConsulter()"
+    (close)="demandeConsulter.set(null)"
+  ></app-consultation-teletravail-modal>
 }

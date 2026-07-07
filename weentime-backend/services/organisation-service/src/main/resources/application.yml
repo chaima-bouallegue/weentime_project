@@ -19,11 +19,16 @@ spring:
     password: 170502
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 5000
-      initialization-fail-timeout: 1
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
-      idle-timeout: 10000
-      max-lifetime: 30000
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
 
   cloud:
     config:
@@ -44,7 +49,7 @@ spring:
 
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  secret: ${JWT_SECRET}
 
 eureka:
   instance:
@@ -74,7 +79,7 @@ application:
     rh-service: ${RH_SERVICE_URL:http://localhost:8192}
 
 integration:
-  internal-api-key: communication-service-local
+  internal-api-key: ${INTERNAL_API_KEY}
 
 spring.cloud.openfeign.client.config:
   default:

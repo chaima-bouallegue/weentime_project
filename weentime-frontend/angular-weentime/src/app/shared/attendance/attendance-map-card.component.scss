@@ -6,11 +6,13 @@
 .attendance-map-card {
   min-width: 0;
   min-height: 340px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.7);
   border-radius: 20px;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.07);
-  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-head {
@@ -19,20 +21,63 @@
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.9rem;
-  color: #1e293b;
+  color: #0f172a;
+}
+
+.title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .card-head h2 {
   margin: 0;
   color: inherit;
-  font-size: 1rem;
-  font-weight: 900;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #10b981;
+  border-radius: 50%;
+  position: relative;
+}
+
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes live-ping {
+  75%, 100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
 }
 
 .map-provider {
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f1f5f9;
+  color: #64748b;
   padding: 0.2rem 0.55rem;
   font-size: 0.7rem;
   font-weight: 800;
@@ -43,22 +88,30 @@
   height: 245px;
   min-height: 245px;
   border-radius: 12px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #e2e8f0;
   overflow: hidden;
-  background: #e2e8f0;
+  background: #f8fafc;
+  z-index: 1;
 }
 
 .map-legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.65rem;
-  color: #475569;
-  font-size: 0.78rem;
-  font-weight: 800;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
 }
 
-.map-legend span {
+.legend-items {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.legend-items span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -77,6 +130,15 @@
 
 .legend-dot-out {
   background: #6366f1;
+}
+
+.precision-indicator {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background-color: #f8fafc;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
 }
 
 .map-empty {
@@ -109,8 +171,8 @@
 }
 
 :host-context(.dark) .map-provider {
-  background: rgba(14, 165, 233, 0.18);
-  color: #7dd3fc;
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
 }
 
 :host-context(.dark) .map-empty {
@@ -119,14 +181,23 @@
   color: #94a3b8;
 }
 
-:host-context(.dark) .map-legend {
+:host-context(.dark) .legend-items {
   color: #cbd5e1;
+}
+
+:host-context(.dark) .precision-indicator {
+  background-color: rgba(30, 41, 59, 0.4);
+  color: #64748b;
 }
 
 ::ng-deep .attendance-map-marker {
   border-radius: 999px;
   border: 3px solid #ffffff;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 ::ng-deep .attendance-map-marker span {
@@ -136,12 +207,41 @@
   border-radius: 999px;
 }
 
+::ng-deep .attendance-map-marker::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px solid currentColor;
+  opacity: 0.4;
+  animation: marker-pulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+::ng-deep .attendance-map-marker--in {
+  color: #10b981;
+}
+
+::ng-deep .attendance-map-marker--out {
+  color: #6366f1;
+}
+
 ::ng-deep .attendance-map-marker--in span {
-  background: #10b981;
+  background-color: #10b981;
 }
 
 ::ng-deep .attendance-map-marker--out span {
-  background: #6366f1;
+  background-color: #6366f1;
+}
+
+@keyframes marker-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 
 ::ng-deep .leaflet-popup-content {

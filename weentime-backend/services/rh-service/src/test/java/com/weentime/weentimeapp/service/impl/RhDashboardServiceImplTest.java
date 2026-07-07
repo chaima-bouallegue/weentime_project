@@ -13,6 +13,7 @@ import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.enums.TypeDemandeEnum;
 import com.weentime.weentimeapp.service.CongeService;
 import com.weentime.weentimeapp.service.DemandeService;
+import com.weentime.weentimeapp.service.UserCacheService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class RhDashboardServiceImplTest {
     @Mock
     private CongeService congeService;
 
+    @Mock
+    private UserCacheService userCacheService;
+
     private RhDashboardServiceImpl service;
 
     @BeforeEach
@@ -55,7 +59,8 @@ class RhDashboardServiceImplTest {
                 organisationServiceClient,
                 presenceServiceClient,
                 demandeService,
-                congeService
+                congeService,
+                userCacheService
         );
 
         Map<String, Object> details = new HashMap<>();

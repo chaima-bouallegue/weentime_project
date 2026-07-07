@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Users, Clock, AlertCircle, Calendar, ChevronLeft, ChevronRight, TrendingUp, Search, Download, LayoutGrid, List, FileText, FileSpreadsheet } from 'lucide-angular';
+import { LucideAngularModule, Users, Clock, AlertCircle, Calendar, ChevronLeft, ChevronRight, TrendingUp, Search, Download, LayoutGrid, List, FileText, FileSpreadsheet, RefreshCw, MapPin, Activity, BarChart2, ArrowRight, MoreVertical, Building2, Wifi, AlertTriangle, Filter } from 'lucide-angular';
 import { ManagerPresenceService } from './manager-presence.service';
 import { ExportService } from '../../../core/services/export.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -8,26 +8,55 @@ import { ToastService } from '../../../core/services/toast.service';
 import { TeamMemberStatus, PresenceKPIs, PresenceStatus } from './presence.models';
 import { animate, style, transition, trigger, query, stagger } from '@angular/animations';
 import { OvertimeRequestDto, OvertimeService } from '../../presence/services/overtime.service';
+import { LocationDisplayComponent } from '../../../shared/components/location-display/location-display.component';
+
+export type KpiFilterType = 'all' | 'present' | 'teletravail' | 'late' | 'absent' | 'leave' | null;
+
+export interface LocationInfo {
+  type: 'bureau' | 'teletravail' | 'hors-zone' | 'unknown';
+  label: string;
+  icon: string;
+}
+
+export interface ActivityEvent {
+  id: number;
+  name: string;
+  initials: string;
+  action: string;
+  actionType: 'checkin' | 'checkout' | 'teletravail' | 'absent' | 'late';
+  time: string;
+  statusColor: string;
+}
+
+export interface DaySummaryData {
+  totalWorkedMinutes: number;
+  totalWorkedFormatted: string;
+  overtimePendingCount: number;
+  overtimeTotalMinutes: number;
+  overtimeTotalFormatted: string;
+  absentCount: number;
+  punctualityRate: number;
+}
 
 @Component({
   selector: 'app-manager-presence',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, LocationDisplayComponent],
   templateUrl: './manager-presence.component.html',
   styleUrls: ['./manager-presence.component.scss'],
   animations: [
     trigger('listAnimation', [
       transition('* <=> *', [
         query(':enter', [
-          style({ opacity: 0, transform: 'translateY(15px)' }),
-          stagger('50ms', animate('400ms ease-out', style({ opacity: 1, transform: 'translateY(0)' })))
+          style({ opacity: 0, transform: 'translateY(10px)' }),
+          stagger('20ms', animate('200ms ease-out', style({ opacity: 1, transform: 'translateY(0)' })))
         ], { optional: true })
       ])
     ]),
     trigger('fadeIn', [
       transition(':enter', [
         style({ opacity: 0 }),
-        animate('0.3s ease-in', style({ opacity: 1 }))
+        animate('0.15s ease-in', style({ opacity: 1 }))
       ])
     ])
   ]
@@ -53,6 +82,16 @@ export class ManagerPresenceComponent implements OnInit {
   iconTable = List;
   iconPdf = FileText;
   iconExcel = FileSpreadsheet;
+  iconRefresh = RefreshCw;
+  iconMapPin = MapPin;
+  iconActivity = Activity;
+  iconBarChart = BarChart2;
+  iconArrowRight = ArrowRight;
+  iconMore = MoreVertical;
+  iconBuilding = Building2;
+  iconWifi = Wifi;
+  iconAlertTriangle = AlertTriangle;
+  iconFilter = Filter;
 
   // State
   teamStatus = signal<TeamMemberStatus[]>([]);
@@ -65,19 +104,183 @@ export class ManagerPresenceComponent implements OnInit {
   viewMode = signal<'table' | 'kanban'>('table');
   readonly statuses: PresenceStatus[] = ['ACTIVE', 'LATE', 'ABSENT', 'OFF'];
 
-  displayDate = computed(() => new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+  // Presentation-only: KPI filter
+  activeKpiFilter = signal<KpiFilterType>(null);
 
-  // Filtered Team computed
+  displayDate = computed(() => new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+
+  // Filtered Team computed — now includes KPI filter
   filteredTeam = computed(() => {
     const query = this.searchQuery().toLowerCase();
-    return this.teamStatus().filter(m =>
+    const kpiFilter = this.activeKpiFilter();
+    let members = this.teamStatus();
+
+    // Apply KPI filter
+    if (kpiFilter === 'present') {
+      members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type !== 'teletravail');
+    } else if (kpiFilter === 'teletravail') {
+      members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'teletravail');
+    } else if (kpiFilter === 'late') {
+      members = members.filter(m => m.status === 'LATE');
+    } else if (kpiFilter === 'absent') {
+      members = members.filter(m => m.status === 'ABSENT');
+    } else if (kpiFilter === 'leave') {
+      members = members.filter(m => m.status === 'OFF');
+    }
+
+    // Apply search query
+    return members.filter(m =>
       m.name.toLowerCase().includes(query) ||
       m.jobTitle.toLowerCase().includes(query)
     );
   });
 
+  activeFiltersCount = computed(() => {
+    let count = 0;
+    if (this.searchQuery().trim().length > 0) count++;
+    if (this.activeKpiFilter() !== null) count++;
+    return count;
+  });
+
+  weeklyTrends = [
+    { label: 'Lun', rate: 100 },
+    { label: 'Mar', rate: 95 },
+    { label: 'Mer', rate: 100 },
+    { label: 'Jeu', rate: 80 },
+    { label: 'Ven', rate: 90 }
+  ];
+
+  weeklyRetards = [
+    { label: 'Lun', count: 3 },
+    { label: 'Mar', count: 2 },
+    { label: 'Mer', count: 1 },
+    { label: 'Jeu', count: 1 },
+    { label: 'Ven', count: 0 }
+  ];
+
+  getMembersCountByStatus(status: PresenceStatus): number {
+    return this.teamStatus().filter(m => m.status === status).length;
+  }
+
+  getOfficePresentCount(): number {
+    return this.teamStatus().filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type !== 'teletravail').length;
+  }
+
+  getTeleworkCount(): number {
+    return this.teamStatus().filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'teletravail').length;
+  }
+
+  getAvatarBgColor(jobTitle: string): string {
+    const lower = jobTitle.toLowerCase();
+    if (lower.includes('backend') || lower.includes('back')) {
+      return 'linear-gradient(135deg, #8B5CF6, #7C3AED)';
+    }
+    if (lower.includes('frontend') || lower.includes('front')) {
+      return 'linear-gradient(135deg, #3B82F6, #2563EB)';
+    }
+    if (lower.includes('design') || lower.includes('product')) {
+      return 'linear-gradient(135deg, #EC4899, #DB2777)';
+    }
+    if (lower.includes('qa') || lower.includes('test')) {
+      return 'linear-gradient(135deg, #10B981, #059669)';
+    }
+    return 'linear-gradient(135deg, #64748B, #475569)';
+  }
+
+  getMemberEmoji(name: string): string {
+    const lower = name.toLowerCase();
+    if (lower.includes('assia') || lower.includes('sophie') || lower.includes('sarah') || 
+        lower.includes('leila') || lower.includes('fatma') || lower.includes('amira') || 
+        lower.includes('yasmine') || lower.includes('emna') || lower.includes('chaima') || 
+        lower.includes('sirine') || lower.includes('rym') || lower.includes('myriam')) {
+      return '👩';
+    }
+    return '👨';
+  }
+
+  // Presentation-only: Day summary computed
+  daySummary = computed<DaySummaryData>(() => {
+    const team = this.teamStatus();
+    const kpisVal = this.kpis();
+    const overtime = this.pendingOvertime();
+
+    const totalWorkedMinutes = team.reduce((sum, m) => sum + m.totalMinutes, 0);
+    const overtimeTotalMinutes = overtime.reduce((sum, r) => sum + Math.max(Number(r.overtimeMinutes ?? 0), 0), 0);
+
+    return {
+      totalWorkedMinutes,
+      totalWorkedFormatted: this.formatDuration(totalWorkedMinutes),
+      overtimePendingCount: overtime.length,
+      overtimeTotalMinutes,
+      overtimeTotalFormatted: this.formatDuration(overtimeTotalMinutes),
+      absentCount: kpisVal?.absentCount ?? 0,
+      punctualityRate: kpisVal?.averagePunctuality ?? 0,
+    };
+  });
+
+  // Presentation-only: Realtime activity timeline
+  realtimeActivity = computed<ActivityEvent[]>(() => {
+    const team = this.teamStatus();
+    const events: ActivityEvent[] = [];
+
+    for (const member of team) {
+      const initials = this.getInitials(member.name);
+
+      if (member.arrivalTime) {
+        const actionType = member.status === 'LATE' ? 'late' as const : 'checkin' as const;
+        const action = member.status === 'LATE'
+          ? 'a pointé son entrée (en retard)'
+          : (this.getLocationType(member.checkInLocation).type === 'teletravail'
+            ? 'a démarré le télétravail'
+            : 'a pointé son entrée');
+
+        events.push({
+          id: member.id * 10 + 1,
+          name: member.name,
+          initials,
+          action,
+          actionType,
+          time: member.arrivalTime,
+          statusColor: this.getStatusColor(member.status, member),
+        });
+      }
+
+      if (member.departureTime) {
+        events.push({
+          id: member.id * 10 + 2,
+          name: member.name,
+          initials,
+          action: 'a pointé sa sortie',
+          actionType: 'checkout',
+          time: member.departureTime,
+          statusColor: 'slate',
+        });
+      }
+
+      if (member.status === 'ABSENT' || member.status === 'OFF') {
+        events.push({
+          id: member.id * 10 + 3,
+          name: member.name,
+          initials,
+          action: member.status === 'OFF' ? 'est en congé' : 'a déclaré une absence',
+          actionType: 'absent',
+          time: member.lastActivity || '--:--',
+          statusColor: 'rose',
+        });
+      }
+    }
+
+    // Sort by time descending (most recent first)
+    events.sort((a, b) => {
+      if (a.time === '--:--') return 1;
+      if (b.time === '--:--') return -1;
+      return b.time.localeCompare(a.time);
+    });
+
+    return events;
+  });
+
   ngOnInit(): void {
-    // We avoid calling loadData if it was somehow already triggered
     this.loadData();
     this.loadPendingOvertime();
   }
@@ -222,9 +425,14 @@ export class ManagerPresenceComponent implements OnInit {
     this.searchQuery.set(input.value);
   }
 
-  getStatusColor(status: string): string {
+  getStatusColor(status: string, member?: TeamMemberStatus): string {
+    if (status === 'ACTIVE') {
+      if (member && this.getLocationType(member.checkInLocation).type === 'teletravail') {
+        return 'blue';
+      }
+      return 'emerald';
+    }
     switch (status) {
-      case 'ACTIVE': return 'emerald';
       case 'LATE': return 'amber';
       case 'ABSENT': return 'rose';
       case 'OFF': return 'slate';
@@ -232,11 +440,16 @@ export class ManagerPresenceComponent implements OnInit {
     }
   }
 
-  formatStatus(status: string): string {
+  formatStatus(status: string, member?: TeamMemberStatus): string {
+    if (status === 'ACTIVE') {
+      if (member && this.getLocationType(member.checkInLocation).type === 'teletravail') {
+        return 'Télétravail';
+      }
+      return 'Présente';
+    }
     switch (status) {
-      case 'ACTIVE': return 'En poste';
       case 'LATE': return 'En retard';
-      case 'ABSENT': return 'Absent';
+      case 'ABSENT': return 'Absente';
       case 'OFF': return 'Repos';
       default: return status;
     }
@@ -262,11 +475,83 @@ export class ManagerPresenceComponent implements OnInit {
     return parts[0].substring(0, 2).toUpperCase();
   }
 
+  // Presentation-only: classify location text into a type
+  getLocationType(location: string | null): LocationInfo {
+    if (!location) {
+      return { type: 'unknown', label: '--', icon: '' };
+    }
+    const lower = location.toLowerCase();
+
+    // Check for télétravail patterns
+    if (lower.includes('télétravail') || lower.includes('teletravail') ||
+        lower.includes('domicile') || lower.includes('remote') ||
+        lower.includes('maison') || lower.includes('home')) {
+      return { type: 'teletravail', label: 'Télétravail', icon: '🔵' };
+    }
+
+    // Check for out-of-zone patterns
+    if (lower.includes('hors zone') || lower.includes('hors-zone') ||
+        lower.includes('out of zone') || lower.includes('hors du périmètre')) {
+      return { type: 'hors-zone', label: `Hors zone`, icon: '🟠' };
+    }
+
+    // Default: Bureau with location details
+    // Extract a short label from the location string
+    const shortLabel = this.extractShortLocation(location);
+    return { type: 'bureau', label: `Bureau ${shortLabel}`.trim(), icon: '🟢' };
+  }
+
+  private extractShortLocation(location: string): string {
+    if (!location) return '';
+    // If it looks like coordinates (lat,lon), return empty (location-display handles geocoding)
+    if (/^-?\d+(\.\d+)?[,\s]+-?\d+(\.\d+)?$/.test(location.trim())) {
+      return '';
+    }
+    // If it's a comma-separated location, take the first part (usually city)
+    const parts = location.split(',');
+    if (parts.length > 0) {
+      const first = parts[0].trim();
+      // Limit length
+      return first.length > 20 ? first.substring(0, 20) + '…' : first;
+    }
+    return location.length > 20 ? location.substring(0, 20) + '…' : location;
+  }
+
+  // Presentation-only: toggle KPI filter
+  toggleKpiFilter(filter: KpiFilterType): void {
+    if (this.activeKpiFilter() === filter) {
+      this.activeKpiFilter.set(null);
+    } else {
+      this.activeKpiFilter.set(filter);
+    }
+  }
+
+  // Resolves full member info from pending overtime request utilisateurId
+  getMemberByUserId(userId: number): TeamMemberStatus | undefined {
+    return this.teamStatus().find(m => m.id === userId);
+  }
+
+  // Generates visual priorities based on minutes heuristic to match the mockup
+  getOvertimePriority(minutes?: number | null): 'Haute' | 'Normale' | 'Basse' {
+    const m = minutes ?? 0;
+    if (m >= 120) return 'Haute';
+    if (m >= 50) return 'Normale';
+    return 'Basse';
+  }
+
+  // Calculates the attendance rate dynamically based on present vs total members
+  getAttendanceRate(): number {
+    const present = this.kpis()?.presentCount ?? 0;
+    const total = this.kpis()?.totalMembers ?? 0;
+    if (total === 0) return 0;
+    return Math.round((present / total) * 100);
+  }
+
   onExport(format: 'pdf' | 'excel'): void {
     const data = this.filteredTeam().map(member => ({
       Collaborateur: member.name,
       Poste: member.jobTitle,
-      Statut: this.formatStatus(member.status),
+      Statut: this.formatStatus(member.status, member),
       Arrivée: member.arrivalTime || '--:--',
       'Lieu entree': member.checkInLocation || '',
       Sortie: member.departureTime || '--:--',

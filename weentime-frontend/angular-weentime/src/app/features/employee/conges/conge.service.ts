@@ -179,11 +179,23 @@ export class CongeService {
         pris,
         enAttente,
         disponible: Math.max(joursRestants - enAttente, 0),
-        couleur: '#6366f1',
+        couleur: this.getColorForType(type),
         icone: 'umbrella',
         typeCongeId: this.optionalNumber(source['typeCongeId'])
       };
     });
+  }
+
+  private getColorForType(type: TypeConge): string {
+    const colors: Record<TypeConge, string> = {
+      ANNUEL: '#6366f1',
+      MALADIE: '#ef4444',
+      RTT: '#10b981',
+      MATERNITE_PATERNITE: '#ec4899',
+      EXCEPTIONNEL: '#8b5cf6',
+      SANS_SOLDE: '#64748b'
+    };
+    return colors[type] || '#4361EE';
   }
 
   private mapJourFerie(source: unknown): JourFerie {

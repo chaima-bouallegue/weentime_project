@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit, OnDestroy, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, ChangeDetectionStrategy, DestroyRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -78,6 +78,16 @@ export class RhDocumentsComponent implements OnInit, OnDestroy {
       d.label.toLowerCase().includes(query)
     );
   });
+
+  constructor() {
+    effect(() => {
+      if (this.showEditor()) {
+        document.body.classList.add('editor-open');
+      } else {
+        document.body.classList.remove('editor-open');
+      }
+    });
+  }
 
   ngOnInit() {
     this.refreshData();
@@ -281,9 +291,18 @@ export class RhDocumentsComponent implements OnInit, OnDestroy {
       });
   }
 
+  private extractFilename(disposition: string | null): string | null {
+    if (!disposition) return null;
+    const starMatch = disposition.match(/filename\*=(?:UTF-8|ISO-8859-1)''(.+?)(?=;|$)/i);
+    if (starMatch) return decodeURIComponent(starMatch[1]);
+    const plainMatch = disposition.match(/filename="?(.+?)"?\s*(?:;|$)/i);
+    if (plainMatch) return plainMatch[1];
+    return null;
+  }
+
   onViewDoc(demande: DemandeDocumentRH) {
-    this.documentService.getDocumentFile(demande.id).subscribe(blob => {
-      const url = window.URL.createObjectURL(blob);
+    this.documentService.getDocumentFile(demande.id).subscribe(response => {
+      const url = window.URL.createObjectURL(response.body!);
       window.open(url, '_blank', 'noopener,noreferrer');
       window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
     });
@@ -291,12 +310,16 @@ export class RhDocumentsComponent implements OnInit, OnDestroy {
 
   onDownloadDoc(demande: DemandeDocumentRH) {
     this.documentService.getDocumentFile(demande.id).subscribe({
-      next: blob => {
+      next: response => {
+        const blob = response.body!;
+        const disposition = response.headers.get('Content-Disposition');
+        const serverName = this.extractFilename(disposition);
+        const safeName = serverName
+          || ((demande.label || 'document').replace(/[^\w\s-]/g, '').trim() || 'document') + '.pdf';
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
-        const safeName = (demande.label || 'document').replace(/[^\w\s-]/g, '').trim() || 'document';
         link.href = url;
-        link.download = `${safeName}.pdf`;
+        link.download = safeName;
         link.click();
         window.URL.revokeObjectURL(url);
       },

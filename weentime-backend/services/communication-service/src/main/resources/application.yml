@@ -10,9 +10,16 @@ spring:
     password: 170502
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 5000
-      initialization-fail-timeout: -1
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       ddl-auto: update
@@ -54,19 +61,19 @@ eureka:
     enable-self-preservation: false
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
+  secret: ${JWT_SECRET}
+  expirationMs: ${JWT_EXPIRATION_MS:86400000}
 
 integration:
   organisation-service:
     url: http://localhost:8190
-    internal-api-key: communication-service-local
+    internal-api-key: ${INTERNAL_API_KEY}
 
 cors:
   allowed-origins: http://localhost:4200,http://127.0.0.1:4200
 
 communication:
-  internal-api-key: communication-service-local
+  internal-api-key: ${INTERNAL_API_KEY}
   websocket:
     broker: simple
     typing-throttle-ms: 1000

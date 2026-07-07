@@ -11,6 +11,7 @@ import com.weentime.weentimeapp.repository.CongeRepository;
 import com.weentime.weentimeapp.repository.SoldeCongeRepository;
 import com.weentime.weentimeapp.repository.TypeCongeRepository;
 import com.weentime.weentimeapp.service.AsyncNotificationService;
+import com.weentime.weentimeapp.service.UserCacheService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,9 @@ class CongeServiceImplTest {
     @Mock
     private AsyncNotificationService asyncNotificationService;
 
+    @Mock
+    private UserCacheService userCacheService;
+
     private CongeServiceImpl service;
 
     @BeforeEach
@@ -65,7 +69,8 @@ class CongeServiceImplTest {
                 typeCongeRepository,
                 congeMapper,
                 organisationServiceClient,
-                asyncNotificationService
+                asyncNotificationService,
+                userCacheService
         );
         setSecurity(List.of());
     }

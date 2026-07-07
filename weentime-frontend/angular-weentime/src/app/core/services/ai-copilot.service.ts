@@ -296,12 +296,11 @@ export class AiCopilotService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
+  private readonly endpoint = environment.gatewayUrl + '/api/v1/ai';
 
   sendChatV2(message: string): Observable<AiCopilotEnvelope> {
     const user = this.authService.currentUser();
-    const token = this.authService.getToken();
-    if (this.requiresLogin(user, token)) {
+    if (!this.authService.isAuthenticated()) {
       return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
     }
     const requestId = this.createRequestId('chat');
@@ -315,13 +314,14 @@ export class AiCopilotService {
         currentPage: this.currentPage(),
         sessionId: resolveAiConversationId(),
       });
-    const headers = this.authHeaders(requestId, user, token);
+    const headers = this.authHeaders(requestId, user);
     this.debugChatRequest('chat.v2', requestId, url, payload, headers);
     return this.http.post<AiCopilotEnvelope>(
       url,
       payload,
       {
         headers,
+        withCredentials: true,
         context: withAiChatWidgetContext(),
         observe: 'response',
       },
@@ -343,15 +343,10 @@ export class AiCopilotService {
   }
 
   resetSession(sessionId?: string): Observable<AiCopilotEnvelope> {
-    // Calls /v2/chat/reset to drop any pending slot-fill flow and confirmation
-    // queue for the current user/session. The chat widget uses this for the
-    // "Effacer la conversation" header button so a stuck flow doesn't keep
-    // eating the user's next prompt across page reloads.
     const requestId = this.createRequestId('reset');
     this.debugRequest('chat.reset', requestId);
     const user = this.authService.currentUser();
-    const token = this.authService.getToken();
-    if (this.requiresLogin(user, token)) {
+    if (!this.authService.isAuthenticated()) {
       return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
     }
     const role = this.resolveRole(user);
@@ -394,18 +389,18 @@ export class AiCopilotService {
       `${this.endpoint}/v2/chat/reset`,
       { message: '', user_id: user?.id, session_id: sessionIdValue, language, detectedLanguage: language, requested_language: language, response_language: language, metadata },
       {
-        headers: this.authHeaders(requestId, user, token),
+        headers: this.authHeaders(requestId, user),
+        withCredentials: true,
         context: withAiChatWidgetContext(),
       },
     );
   }
 
-  confirmAction(confirmationId: string, approved: boolean): Observable<AiCopilotEnvelope> {
+  confirmAction(confirmationId: string, approved: boolean, extraMetadata?: Record<string, unknown>): Observable<AiCopilotEnvelope> {
     const requestId = this.createRequestId('confirm');
     this.debugRequest('chat.confirm', requestId);
     const user = this.authService.currentUser();
-    const token = this.authService.getToken();
-    if (this.requiresLogin(user, token)) {
+    if (!this.authService.isAuthenticated()) {
       return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
     }
     const role = this.resolveRole(user);
@@ -444,11 +439,16 @@ export class AiCopilotService {
       metadata['entrepriseId'] = entrepriseId;
       metadata['companyId'] = entrepriseId;
     }
+    // Merge caller-supplied metadata (e.g. GPS coordinates from check-in).
+    if (extraMetadata) {
+      Object.assign(metadata, extraMetadata);
+    }
     return this.http.post<AiCopilotEnvelope>(
       `${this.endpoint}/v2/chat/confirm`,
       { confirmation_id: confirmationId, approved, user_id: user?.id, language, detectedLanguage: language, requested_language: language, response_language: language, metadata },
       {
-        headers: this.authHeaders(requestId, user, token),
+        headers: this.authHeaders(requestId, user),
+        withCredentials: true,
         context: withAiChatWidgetContext(),
       },
     );
@@ -469,12 +469,8 @@ export class AiCopilotService {
   private authHeaders(
     requestId?: string,
     user: ReturnType<AuthService['currentUser']> = this.authService.currentUser(),
-    token: string | null = this.authService.getToken(),
   ): HttpHeaders {
     const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     if (requestId) {
       headers['X-Request-ID'] = requestId;
     }
@@ -490,27 +486,6 @@ export class AiCopilotService {
       headers['X-Tenant-Id'] = value;
     }
     return new HttpHeaders(headers);
-  }
-
-  private requiresLogin(user: ReturnType<AuthService['currentUser']>, token: string | null): boolean {
-    if (token) {
-      return false;
-    }
-    if (user?.id) {
-      return true;
-    }
-    if (this.hasPendingMfaChallenge()) {
-      return true;
-    }
-    return environment.chatbotPublicMode !== true;
-  }
-
-  private hasPendingMfaChallenge(): boolean {
-    const maybeAuth = this.authService as AuthService & { getMfaChallenge?: () => unknown };
-    if (typeof maybeAuth.getMfaChallenge !== 'function') {
-      return false;
-    }
-    return !!maybeAuth.getMfaChallenge();
   }
 
   private createRequestId(prefix: string): string {

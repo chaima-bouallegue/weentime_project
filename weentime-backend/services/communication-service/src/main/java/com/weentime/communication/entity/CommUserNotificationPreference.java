@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Table(name = "comm_user_notification_preferences", schema = "communication")
 public class CommUserNotificationPreference {
 

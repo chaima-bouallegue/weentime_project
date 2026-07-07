@@ -20,7 +20,7 @@ class Settings:
     redis_enabled = False
     redis_url = "redis://localhost:6379"
     redis_events_channel = "weentime.events"
-    backend_base_url = "http://localhost:8322/api/v1"
+    backend_base_url = "http://localhost:8222/api/v1"
     gemini_api_key = None
 
 

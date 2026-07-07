@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/communication/attachments")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AttachmentController {
 
     private final FileStorageService fileStorageService;

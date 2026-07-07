@@ -1,0 +1,92 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content animate-pop-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="icon-info">
+        <lucide-angular [img]="iconInfo" size="24"></lucide-angular>
+      </div>
+      <h3>Détails de la demande</h3>
+      <button class="close-modal-btn" (click)="close.emit()">
+        <lucide-angular [img]="iconX" size="20"></lucide-angular>
+      </button>
+    </div>
+
+    @if (demande) {
+      <div class="modal-body">
+        <div class="request-preview">
+
+          <!-- Type -->
+          <div class="preview-item">
+            <span class="label">Type</span>
+            <span class="value">{{ getTypeLabel(demande.type) }}</span>
+          </div>
+
+          <!-- Période -->
+          @if (demande.periode) {
+            <div class="preview-item">
+              <span class="label">Période</span>
+              <span class="value">{{ demande.periode === 'MATIN' ? 'Matin' : 'Après-midi' }}</span>
+            </div>
+          }
+
+          <!-- Dates -->
+          <div class="preview-item">
+            <span class="label">Dates</span>
+            <span class="value">
+              Du {{ demande.dateDebut | date:'dd/MM/yyyy' }}
+              @if (demande.dateDebut !== demande.dateFin) {
+                au {{ demande.dateFin | date:'dd/MM/yyyy' }}
+              }
+            </span>
+          </div>
+
+          <!-- Duration -->
+          <div class="preview-item">
+            <span class="label">Durée totale</span>
+            <span class="value accent">{{ demande.nombreJours }} {{ demande.nombreJours > 1 ? 'jours' : 'jour' }}</span>
+          </div>
+
+          <!-- Statut -->
+          <div class="preview-item">
+            <span class="label">Statut</span>
+            <span class="status-badge" [class]="demande.statut.toLowerCase()">
+              {{ getStatusLabel(demande.statut) }}
+            </span>
+          </div>
+
+          @if (demande.motif || demande.commentaireManager || demande.commentaireRH) {
+            <div class="preview-divider"></div>
+          }
+
+          <!-- Motif -->
+          @if (demande.motif) {
+            <div class="preview-item-vertical">
+              <span class="label">Motif</span>
+              <p class="text-value">{{ demande.motif }}</p>
+            </div>
+          }
+
+          <!-- Commentaire Manager -->
+          @if (demande.commentaireManager) {
+            <div class="preview-item-vertical">
+              <span class="label">Commentaire du manager</span>
+              <p class="text-value highlight-comment">{{ demande.commentaireManager }}</p>
+            </div>
+          }
+
+          <!-- Commentaire RH -->
+          @if (demande.commentaireRH) {
+            <div class="preview-item-vertical">
+              <span class="label">Commentaire RH</span>
+              <p class="text-value highlight-comment">{{ demande.commentaireRH }}</p>
+            </div>
+          }
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" (click)="close.emit()">Fermer</button>
+      </div>
+    }
+  </div>
+</div>

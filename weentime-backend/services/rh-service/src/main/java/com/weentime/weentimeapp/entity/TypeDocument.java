@@ -11,12 +11,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 
 @Entity
 @Table(name = "type_documents", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"entreprise_id", "code"}),
         @UniqueConstraint(columnNames = {"entreprise_id", "libelle"})
 })
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

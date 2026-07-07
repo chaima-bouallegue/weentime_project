@@ -1,27 +1,40 @@
-
-
 server:
-  port: 8181
+  port: ${SERVER_PORT:8181}
 
 spring:
-  application:
-    name: auth-service
-
-  cloud:
-    config:
-      enabled: false
-
   main:
     lazy-initialization: true
-
   data:
     redis:
-      host: localhost
-      port: 6380
-
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
   mail:
-    host: localhost
-    port: 1027
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1027}
+
+management:
+  health:
+    redis:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      organisationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      organisationService:
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.weentimeapp: INFO
 
 eureka:
   instance:
@@ -30,18 +43,7 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-  server:
-    enable-self-preservation: false
-
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
-
-logging:
-  level:
-    org.springframework.security: DEBUG
-    com.weentime: DEBUG
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 integration:
   internal-api-key: ${INTERNAL_API_KEY:communication-service-local}

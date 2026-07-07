@@ -1,27 +1,42 @@
 eureka:
   instance:
-    hostname: localhost
     prefer-ip-address: true
   client:
     register-with-eureka: true
     fetch-registry: true
+    registry-fetch-interval-seconds: 10
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-name:
-  value: weentime
-spring:
-  cloud:
-    config:
-      override-system-properties: false
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
 
 management:
-  tracing:
-    sampling:
-      probability: 1.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.netflix.discovery: WARN
+    com.netflix.eureka: WARN
+
+spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: ${FEIGN_CONNECT_TIMEOUT:5000}
+            read-timeout: ${FEIGN_READ_TIMEOUT:10000}
+            logger-level: basic
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expirationMs: ${JWT_EXPIRATION_MS:86400000}
 
-encryption:
-  secret: 12345678901234567890123456789012
+integration:
+  internal-api-key: ${INTERNAL_API_KEY:communication-service-local}
+

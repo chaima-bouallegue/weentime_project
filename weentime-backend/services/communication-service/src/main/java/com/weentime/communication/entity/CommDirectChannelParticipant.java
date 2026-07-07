@@ -6,12 +6,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Table(name = "comm_direct_channel_participants", schema = "communication")
 public class CommDirectChannelParticipant {
 

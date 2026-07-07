@@ -32,16 +32,16 @@ def context(language: str = "en") -> CurrentUserContext:
     )
 
 
-def test_backend_base_url_default_is_gateway_8322(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_backend_base_url_default_is_gateway_8222(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BACKEND_BASE_URL", raising=False)
 
-    assert Settings().backend_base_url == "http://localhost:8322/api/v1"
+    assert Settings().backend_base_url == "http://localhost:8222/api/v1"
 
 
 def test_backend_base_url_uses_env_and_normalizes_api_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BACKEND_BASE_URL", "http://localhost:8322")
+    monkeypatch.setenv("BACKEND_BASE_URL", "http://localhost:8222")
 
-    assert BackendClient().base_url == "http://localhost:8322/api/v1"
+    assert BackendClient().base_url == "http://localhost:8222/api/v1"
 
 
 def test_no_runtime_hardcoded_8222_remains() -> None:
@@ -66,7 +66,7 @@ async def test_backend_client_connection_error_returns_clean_structured_message(
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _request)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").get(
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").get(
         "/presence/me/today",
         context=context("en"),
         tool_name="attendance.status",
@@ -85,12 +85,12 @@ async def test_backend_client_connection_error_returns_clean_structured_message(
 async def test_gateway_health_200_marks_backend_available(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _get(self: Any, url: str, **kwargs: Any) -> httpx.Response:
         _ = self, kwargs
-        assert url == "http://localhost:8322/actuator/health"
+        assert url == "http://localhost:8222/actuator/health"
         return httpx.Response(200, json={"status": "UP"}, request=httpx.Request("GET", url))
 
     monkeypatch.setattr(httpx.AsyncClient, "get", _get)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").preflight(context("en"))
+    result = await BackendClient(base_url="http://localhost:822/api/v1").preflight(context("en"))
 
     assert result.success is True
     assert result.status_code == 200
@@ -109,13 +109,13 @@ async def test_preflight_fallback_401_is_reachable_not_unavailable(monkeypatch: 
 
     monkeypatch.setattr(httpx.AsyncClient, "get", _get)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").preflight(context("en"))
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").preflight(context("en"))
 
     assert result.success is True
     assert result.status_code == 401
     assert calls == [
-        "http://localhost:8322/actuator/health",
-        "http://localhost:8322/api/v1/users/me",
+        "http://localhost:8222/actuator/health",
+        "http://localhost:8222/api/v1/users/me",
     ]
 
 
@@ -127,7 +127,7 @@ async def test_backend_client_401_returns_auth_required_not_unavailable(monkeypa
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _request)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").get(
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").get(
         "/presence/me/today",
         context=context("en"),
         tool_name="attendance.status",
@@ -149,7 +149,7 @@ async def test_backend_client_403_returns_access_denied_not_unavailable(monkeypa
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _request)
 
-    result = await BackendClient(base_url="http://localhost:8322/api/v1").get(
+    result = await BackendClient(base_url="http://localhost:8222/api/v1").get(
         "/rh/statistics",
         context=context("en"),
         tool_name="rh.stats",
@@ -174,7 +174,7 @@ async def test_backend_client_forwards_authorization_and_tenant_headers(monkeypa
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _request)
 
-    await BackendClient(base_url="http://localhost:8322/api/v1").get(
+    await BackendClient(base_url="http://localhost:8222/api/v1").get(
         "/presence/me/today",
         context=context("en"),
         tool_name="attendance.status",

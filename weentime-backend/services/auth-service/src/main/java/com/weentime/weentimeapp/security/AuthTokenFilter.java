@@ -13,17 +13,20 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.weentime.weentimeapp.service.TokenBlacklistService;
 import java.io.IOException;
 import java.util.List;
 
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
+    private final TokenBlacklistService tokenBlacklistService;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthTokenFilter.class);
 
-    public AuthTokenFilter(JwtUtils jwtUtils) {
+    public AuthTokenFilter(JwtUtils jwtUtils, TokenBlacklistService tokenBlacklistService) {
         this.jwtUtils = jwtUtils;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -38,6 +41,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 || uri.equals("/api/v1/auth/2fa/verify")
                 || uri.equals("/api/v1/auth/2fa/send")
                 || uri.equals("/api/v1/auth/validate")
+                || uri.equals("/api/v1/auth/refresh")
+                || uri.equals("/api/v1/auth/logout")
                 || "/health".equals(uri)
                 || uri.startsWith("/v3/api-docs")
                 || uri.startsWith("/swagger-ui");
@@ -53,6 +58,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
 
             if (jwt != null && jwtUtils.validateJwtToken(jwt) && jwtUtils.isAccessToken(jwt)) {
+
+                String jti = jwtUtils.extractJti(jwt);
+                if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
+                    LOGGER.warn("JWT with jti {} is blacklisted", jti);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 String email = jwtUtils.getUserNameFromJwtToken(jwt);
                 List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);

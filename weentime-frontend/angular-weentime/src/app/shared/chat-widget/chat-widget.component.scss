@@ -104,13 +104,9 @@
 }
 
 .chat-toggle,
-.chat-panel,
-.chat-panel button,
-.chat-panel input,
-.chat-panel textarea {
-  pointer-events: auto;
-}
-
+.chat-panel--open button,
+.chat-panel--open input,
+.chat-panel--open textarea,
 .chat-panel-shell--open {
   pointer-events: auto;
 }

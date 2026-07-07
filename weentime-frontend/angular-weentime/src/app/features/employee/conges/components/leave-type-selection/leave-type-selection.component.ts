@@ -93,14 +93,14 @@ export class LeaveTypeSelectionComponent implements OnInit {
 
   getIconName(type: LeaveTypeUI): string {
     const iconMap: { [key: string]: string } = {
-      umbrella: 'umbrella',
-      heart: 'heart',
-      clock: 'clock',
-      baby: 'baby',
-      star: 'star',
-      'minus-circle': 'minus-circle'
+      Umbrella: 'Umbrella',
+      Heart: 'Heart',
+      Clock: 'Clock',
+      Baby: 'Baby',
+      Star: 'Star',
+      MinusCircle: 'MinusCircle'
     };
-    return iconMap[type.icon] || 'calendar-days';
+    return iconMap[type.icon] || 'CalendarDays';
   }
 
   retry(): void {

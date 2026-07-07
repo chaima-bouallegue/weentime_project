@@ -27,7 +27,7 @@
     </span>
   </div>
 
-  <p class="anomaly-card__explanation">
+  <p class="anomaly-card__explanation" *ngIf="!compact">
     {{ summary }}
   </p>
 

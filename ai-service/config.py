@@ -62,7 +62,7 @@ class Settings:
             os.getenv("GENERATED_DOCS_DIR", str(self.base_dir / "generated_docs"))
         )
 
-        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8322/api/v1").rstrip("/")
+        self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8222/api/v1").rstrip("/")
         self.java_rh_service_url = os.getenv("JAVA_RH_SERVICE_URL", "http://rh-service:8192").rstrip("/")
 
         # ML service (anomaly detection) -- separate port, no /api/v1 prefix.

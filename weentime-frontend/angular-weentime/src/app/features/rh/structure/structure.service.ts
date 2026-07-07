@@ -248,6 +248,47 @@ export class StructureService {
     );
   }
 
+  updateEmploye(id: number, request: any): Observable<EmployeRH> {
+    const entrepriseId = this.requireEntrepriseId();
+    if (!entrepriseId) {
+      return this.noEntrepriseError();
+    }
+
+    return this.resolveRoleIds(request.role).pipe(
+      switchMap(roleIds => this.http.put<UtilisateurResponse>(this.apiConfig.ORGANISATION.UPDATE_USER(id), {
+        nom: request.nom,
+        prenom: request.prenom,
+        email: request.email,
+        telephone: request.telephone?.trim() || '',
+        poste: request.poste,
+        statut: request.statut || 'ACTIF',
+        entrepriseId,
+        departementId: request.departementId,
+        equipeId: request.equipeId ?? null,
+        roleIds
+      })),
+      switchMap(updated => {
+        const managerIdVal = request.role === 'ROLE_MANAGER' ? null : (request.managerId ?? null);
+        const params = managerIdVal != null
+          ? new HttpParams().set('managerId', String(managerIdVal))
+          : new HttpParams();
+        return this.http.put<UtilisateurResponse>(
+          `${this.apiConfig.getApiBase()}/organisations/users/${id}/manager`,
+          null,
+          { params }
+        ).pipe(
+          map(() => updated),
+          catchError(() => of(updated))
+        );
+      }),
+      map(response => this.mapEmploye(response))
+    );
+  }
+
+  deleteEmploye(id: number): Observable<void> {
+    return this.http.delete<void>(this.apiConfig.ORGANISATION.DELETE_USER(id));
+  }
+
   getPendingUsers(): Observable<EmployeRH[]> {
     return this.http.get<UtilisateurResponse[]>(`${this.apiConfig.getApiBase()}/organisations/users/pending`).pipe(
       map(items => items.map(item => this.mapEmploye(item)))

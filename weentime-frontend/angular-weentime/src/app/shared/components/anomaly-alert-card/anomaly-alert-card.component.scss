@@ -37,7 +37,60 @@
   &--low::before { background: #10B981; }
 
   &--compact {
-    padding: 1rem 1rem 0.95rem 1.2rem;
+    padding: 0.85rem 1.15rem 0.8rem 1.25rem;
+    gap: 0.65rem;
+
+    .anomaly-card__header {
+      grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 0.6rem;
+    }
+
+    .anomaly-card__avatar {
+      width: 36px;
+      height: 36px;
+      font-size: 0.75rem;
+    }
+
+    .anomaly-card__name {
+      font-size: 0.9rem;
+    }
+
+    .anomaly-card__score-section {
+      gap: 0.3rem;
+    }
+
+    .anomaly-card__title {
+      font-size: 0.9rem;
+    }
+
+    .anomaly-card__reason {
+      min-height: auto;
+      padding: 0.45rem 0.55rem;
+      gap: 0.45rem;
+    }
+
+    .anomaly-card__reason-icon {
+      width: 16px;
+      height: 16px;
+      font-size: 0.68rem;
+    }
+
+    .anomaly-card__reason-copy {
+      strong {
+        font-size: 0.78rem;
+      }
+    }
+
+    .anomaly-card__actions {
+      gap: 0.45rem;
+    }
+
+    .anomaly-btn {
+      min-height: 30px;
+      font-size: 0.72rem;
+      padding: 0 0.65rem;
+      border-radius: 8px;
+    }
   }
 }
 

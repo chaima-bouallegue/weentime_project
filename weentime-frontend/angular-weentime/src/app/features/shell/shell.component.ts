@@ -93,17 +93,7 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
       overflow-y: auto;
       overflow-x: hidden;
       padding: 16px 24px 60px;
-      /* FIX: pas de position:relative ici — évite de créer un stacking context
-         qui confinerait tous les z-index enfants et bloquerait les clics sur les boutons */
-    }
-
-    /* FIX GLOBAL: tous les boutons doivent être cliquables
-       quelle que soit la profondeur du stacking context */
-    .shell-content button,
-    .shell-content a[role="button"],
-    .shell-content [class*="btn"] {
       position: relative;
-      z-index: 1;
     }
 
     .shell-content.no-padding {

@@ -1,0 +1,761 @@
+<div class="min-h-screen planning-bg pb-12">
+
+  <!-- Premium Header Section (matches Structure organisationnelle) -->
+  <header class="planning-header mt-4 rounded-3xl overflow-hidden">
+    <div class="max-w-[1600px] mx-auto px-6 sm:px-8 pt-6 pb-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+
+        <!-- Header Info -->
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg"
+            style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); box-shadow: 0 6px 20px -6px rgba(99,102,241,0.5)">
+            <lucide-icon name="calendar" size="22"></lucide-icon>
+          </div>
+          <div>
+            <h1 class="text-xl font-black tracking-tight"
+              style="background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text">
+              Workforce Planning</h1>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">Gérez vos plannings, présences et pointages en temps réel.</p>
+          </div>
+        </div>
+
+        <!-- Global Actions -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="header-search">
+            <lucide-icon name="search" size="14"></lucide-icon>
+            <input type="text" placeholder="Rechercher..." [value]="searchTerm()" (input)="onSearch($event)">
+          </div>
+          <div class="live-pip">
+            <span class="pip-dot"></span>
+            <span>AI Pilot</span>
+          </div>
+          <button class="export-btn" (click)="exportCsv()">
+            <lucide-icon name="download" size="12"></lucide-icon> Export
+          </button>
+        </div>
+
+      </div>
+
+      <!-- KPI Badges Row (matches Structure organisationnelle kpi-badge style) -->
+      <div class="kpi-stats-row flex flex-wrap items-center gap-3 mt-6">
+
+        <!-- Couverture -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #10b981">
+          <lucide-icon name="activity" size="13"></lucide-icon>
+          <span class="badge-value">{{ monthlyStats()?.avgPresence || 78 }}%</span>
+          <span class="badge-label">Couverture</span>
+        </div>
+
+        <!-- Conflits -->
+        <div class="kpi-badge cursor-pointer" [class.kpi-badge-alert]="conflicts().length > 0" style="--badge-color: #ef4444">
+          <lucide-icon name="alert-triangle" size="13"></lucide-icon>
+          <span class="badge-value">{{ conflicts().length }}</span>
+          <span class="badge-label">Conflits</span>
+        </div>
+
+        <!-- En attente -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #f59e0b">
+          <lucide-icon name="clock" size="13"></lucide-icon>
+          <span class="badge-value">{{ pendingRequests().length }}</span>
+          <span class="badge-label">En attente</span>
+        </div>
+
+        <!-- Télétravail -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #8b5cf6">
+          <lucide-icon name="home" size="13"></lucide-icon>
+          <span class="badge-value">{{ monthlyStats()?.totalRemote || 0 }}</span>
+          <span class="badge-label">Télétravail</span>
+        </div>
+
+        <!-- Collaborateurs -->
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #0ea5e9">
+          <lucide-icon name="users" size="13"></lucide-icon>
+          <span class="badge-value">{{ uniqueEmployees().length }}</span>
+          <span class="badge-label">Collaborateurs</span>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Content Area -->
+  <main class="max-w-[1600px] mx-auto mt-8">
+    <div class="planning-workspace" [class.panel-open]="isPanelOpen()">
+
+      <!-- LEFT: CALENDAR SURFACE (always visible) -->
+      <div class="calendar-surface">
+
+        <!-- AI INSIGHT BANNER -->
+        @if (conflicts().length > 0) {
+        <div class="ai-insight-strip">
+          <div class="insight-icon"><lucide-icon name="sparkles" size="16"></lucide-icon></div>
+          <div class="insight-body">
+            <span class="insight-highlight">{{ conflicts().length }} conflits</span> détectés ·
+            <span class="insight-highlight">{{ pendingRequests().length }} demandes</span> en attente ·
+            Couverture prévisionnelle en baisse jeudi
+          </div>
+          <button class="insight-action-btn" (click)="applyAIRecommendations()">
+            <lucide-icon name="zap" size="12"></lucide-icon> Appliquer
+          </button>
+        </div>
+        }
+
+        <!-- COMMAND BAR -->
+        <div class="command-bar">
+          <div class="command-left">
+            <div class="saved-views">
+              @for (view of savedViews; track view) {
+              <button class="view-chip" [class.active]="activeSavedView() === view" (click)="applySavedView(view)">{{ view }}</button>
+              }
+            </div>
+          </div>
+          <div class="command-right">
+            <!-- Smart Filters -->
+            <div class="filter-pill">
+              <lucide-icon name="filter" size="12"></lucide-icon>
+              <select [ngModel]="selectedTeam()" (ngModelChange)="selectedTeam.set($event); loadPlanning()">
+                <option [ngValue]="null">Équipes</option>
+                @for (team of teams(); track team.id) {
+                <option [value]="team.id">{{ team.nom }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="filter-pill">
+              <select [ngModel]="selectedDepartment()" (ngModelChange)="selectedDepartment.set($event)">
+                <option [ngValue]="null">Départements</option>
+                @for (dept of ['Direction', 'Operations', 'Design', 'R&D', 'Support']; track dept) {
+                <option [value]="dept">{{ dept }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="filter-pill">
+              <select [ngModel]="selectedStatusFilter()" (ngModelChange)="selectedStatusFilter.set($event)">
+                <option [ngValue]="null">Statuts</option>
+                @for (st of ['Tous', 'Présent', 'Télétravail', 'Planifié', 'En attente', 'Congé', 'Absence']; track st) {
+                <option [value]="st">{{ st }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="date-nav">
+              <button (click)="previousPeriod()"><lucide-icon name="chevron-left" size="14"></lucide-icon></button>
+              <span class="date-label" (click)="goToToday()">{{ currentMonthName() }} {{ currentYear() }}</span>
+              <button (click)="nextPeriod()"><lucide-icon name="chevron-right" size="14"></lucide-icon></button>
+            </div>
+
+            <div class="view-tabs">
+              <button [class.active]="viewMode() === 'month'" (click)="viewMode.set('month')">Mois</button>
+              <button [class.active]="viewMode() === 'week'" (click)="viewMode.set('week')">Semaine</button>
+              <button [class.active]="viewMode() === 'timeline'" (click)="viewMode.set('timeline')">Timeline</button>
+            </div>
+          </div>
+        </div>
+
+    <!-- CALENDAR GRID -->
+    <div class="calendar-content" [class.loading]="isLoading()">
+      @if (isLoading()) {
+      <div class="loader-bar"></div>
+      }
+
+      @switch (viewMode()) {
+
+      @case ('month') {
+      <div class="month-grid-wrapper">
+        <div class="weekday-row">
+          @for (d of ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim']; track d) {
+          <div class="weekday-label">{{ d }}</div>
+          }
+        </div>
+        <div class="month-grid">
+          @for (p of paddingDays(); track $index) {
+          <div class="day-cell empty"></div>
+          }
+          @for (day of processedDays(); track day.date) {
+           <div class="day-cell"
+                [class.today]="isToday(day.date)"
+                [class.future-day]="day.dateType === 'FUTURE'"
+                [class.holiday]="day.isHoliday"
+                [class.rest]="day.isRestDay"
+                [class.selected]="panelSelectedDate() === day.date && isPanelOpen()"
+                [class.low-coverage]="day.presenceRate < 0.6 && !day.isRestDay && !day.isHoliday && day.dateType === 'PAST'"
+                [class.has-conflict]="day.conflictsCount > 0"
+                (click)="toggleDay(day)">
+            
+            <!-- Cell Top Bar -->
+            <div class="cell-top">
+              <span class="cell-num">{{ getDateNum(day.date) }}</span>
+              
+              <!-- Mini Progress Circle / Ring -->
+              @if (!day.isRestDay) {
+              <div class="cell-progress-wrapper" [title]="(day.dateType === 'FUTURE' ? 'Prévisionnel: ' : day.dateType === 'TODAY' ? 'En cours: ' : 'Couverture: ') + (day.presenceRate * 100).toFixed(0) + '%'">
+                <svg class="progress-ring" [class.dashed]="day.dateType === 'FUTURE'" width="16" height="16">
+                  <circle class="progress-ring-circle-bg" stroke="#f1f5f9" stroke-width="2" fill="transparent" r="6" cx="8" cy="8"/>
+                  <circle class="progress-ring-circle" 
+                          [attr.stroke]="getHeatmapColorSolid(day.presenceRate, day.dateType)" 
+                          stroke-width="2" 
+                          fill="transparent" 
+                          r="6" 
+                          cx="8" 
+                          cy="8"
+                          [attr.stroke-dasharray]="37.7"
+                          [attr.stroke-dashoffset]="37.7 - (37.7 * day.presenceRate)"/>
+                </svg>
+                @if (day.dateType !== 'FUTURE') {
+                <span class="cell-pct" [style.color]="getHeatmapColorSolid(day.presenceRate, day.dateType)">{{ (day.presenceRate * 100).toFixed(0) }}%</span>
+                }
+              </div>
+              }
+              
+              @if (day.isHoliday) { <span class="cell-holiday-tag">Férié</span> }
+            </div>
+
+            @if (!day.isRestDay) {
+            <!-- Progress Line -->
+            <div class="cell-bar-track">
+              <div class="cell-bar-fill" [style.width]="(day.presenceRate * 100) + '%'" [style.background]="getHeatmapColorSolid(day.presenceRate, day.dateType)"></div>
+            </div>
+
+            <!-- Badges Summary Roster -->
+            <div class="cell-badges">
+              <span class="c-badge total" title="Total planifié"><lucide-icon name="users" size="10"></lucide-icon> {{ day.employees.length }}</span>
+              @if (day.dateType === 'TODAY') {
+              <span class="c-badge pending" title="En cours"><span class="dot blue"></span> ⏳ {{ day.presentsCount + day.remotesCount }}/{{ day.employees.length }}</span>
+              } @else if (day.dateType === 'FUTURE') {
+              <span class="c-badge scheduled" title="Planifiés"><span class="dot gray"></span> {{ day.scheduledCount }}</span>
+              } @else {
+              <span class="c-badge present" title="Présents"><span class="dot green"></span> {{ day.presentsCount }}</span>
+              }
+              <span class="c-badge remote" title="Télétravail"><span class="dot purple"></span> {{ day.remotesCount }}</span>
+              @if (!day.dateType || day.dateType === 'PAST') {
+              @if (day.leavesCount > 0) {
+              <span class="c-badge leave" title="En congé"><span class="dot orange"></span> {{ day.leavesCount }}</span>
+              }
+              @if (day.absentsCount > 0) {
+              <span class="c-badge absent" title="Absents"><span class="dot red"></span> {{ day.absentsCount }}</span>
+              }
+              }
+              @if (day.conflictsCount > 0) {
+              <span class="c-badge conflict" title="Conflits"><lucide-icon name="alert-triangle" size="10"></lucide-icon> {{ day.conflictsCount }}</span>
+              }
+            </div>
+
+            <!-- Avatar List Roster -->
+            <div class="cell-avatars">
+              @for (emp of day.employees.slice(0, 3); track emp.id) {
+              <div class="mini-avatar" [style.background-color]="getStatusColor(emp.status) + '20'" [style.color]="getStatusColor(emp.status)" [title]="emp.prenom + ' ' + emp.name + ' (' + getStatusLabel(emp.status) + ')'">
+                {{ getInitials(emp.prenom, emp.name) }}
+              </div>
+              }
+              @if (day.employees.length > 3) {
+              <div class="mini-avatar-more">+{{ day.employees.length - 3 }}</div>
+              }
+            </div>
+
+            <!-- AI Insight Annotation -->
+            @if (day.aiWarning; as warning) {
+            <div class="cell-ai-insight" [class.danger]="warning.includes('critique') || warning.includes('conflit')">
+              <lucide-icon name="sparkles" size="9"></lucide-icon>
+              <span>{{ warning }}</span>
+            </div>
+            }
+            } @else {
+            <div class="cell-weekend-placeholder">
+              <span>Repos</span>
+            </div>
+            }
+
+          </div>
+          }
+        </div>
+      </div>
+      }
+
+      @case ('week') {
+      <div class="week-grid-wrapper">
+        <table class="week-table">
+          <thead>
+            <tr>
+              <th class="emp-col-header">Collaborateur</th>
+              @for (wd of weekDays(); track wd.date) {
+              <th [class.today]="isToday(wd.date)">
+                <span class="wk-label">{{ wd.label }}</span>
+                <span class="wk-num">{{ wd.dayNum }}</span>
+              </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (emp of uniqueEmployees(); track emp.id) {
+            <tr (click)="openEmployeeDetail(emp)">
+              <td class="emp-cell">
+                <div class="emp-mini-row">
+                  <div class="avatar-sm">{{ getInitials(emp.prenom, emp.name) }}</div>
+                  <div class="emp-meta-sm">
+                    <span class="emp-name-sm">{{ emp.prenom }} {{ emp.name }}</span>
+                    <span class="emp-role-sm">{{ emp.poste }}</span>
+                  </div>
+                </div>
+              </td>
+              @for (wd of weekDays(); track wd.date) {
+              <td class="status-cell" [class.today]="isToday(wd.date)">
+                @let s = getEmployeeStatusOnDay(emp.id, wd.date);
+                <span class="status-dot" [style.background]="getStatusColor(s)" [title]="getStatusLabel(s)"></span>
+              </td>
+              }
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      }
+
+      @case ('timeline') {
+      <div class="timeline-wrapper">
+        <div class="timeline-head">
+          <div class="tl-emp-col">Collaborateur</div>
+          <div class="tl-days">
+            @for (wd of weekDays(); track wd.date) {
+            <div class="tl-day-header" [class.today]="isToday(wd.date)">{{ wd.label }} {{ wd.dayNum }}</div>
+            }
+          </div>
+        </div>
+        @for (emp of uniqueEmployees(); track emp.id) {
+        <div class="timeline-row" (click)="openEmployeeDetail(emp)">
+          <div class="tl-emp-label">
+            <div class="avatar-xs">{{ getInitials(emp.prenom, emp.name) }}</div>
+            <span>{{ emp.prenom }} {{ emp.name }}</span>
+          </div>
+          <div class="tl-bars">
+            @for (wd of weekDays(); track wd.date) {
+            @let s = getEmployeeStatusOnDay(emp.id, wd.date);
+            <div class="tl-bar-cell">
+              <div class="tl-bar" [style.background]="getStatusColor(s)"></div>
+            </div>
+            }
+          </div>
+        </div>
+        }
+      </div>
+      }
+      }
+    </div>
+
+    <!-- INTERACTIVE LEGEND -->
+    <div class="legend-strip">
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Présent'" (click)="toggleLegendFilter('Présent')">
+        <span class="legend-dot" style="background:#10b981"></span> Présent
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Télétravail'" (click)="toggleLegendFilter('Télétravail')">
+        <span class="legend-dot" style="background:#8b5cf6"></span> Télétravail
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Planifié'" (click)="toggleLegendFilter('Planifié')">
+        <span class="legend-dot" style="background:#94a3b8"></span> Planifié
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'En attente'" (click)="toggleLegendFilter('En attente')">
+        <span class="legend-dot" style="background:#60a5fa"></span> En attente
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Congé'" (click)="toggleLegendFilter('Congé')">
+        <span class="legend-dot" style="background:#3b82f6"></span> Congé
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Absence'" (click)="toggleLegendFilter('Absence')">
+        <span class="legend-dot" style="background:#ef4444"></span> Absence
+      </span>
+      <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Alerte'" (click)="toggleLegendFilter('Alerte')">
+        <span class="legend-dot" style="background:#b91c1c"></span> ⚠ Conflit
+      </span>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- RIGHT: INSPECTOR PANEL                          -->
+  <!-- ════════════════════════════════════════════════ -->
+  @if (isPanelOpen()) {
+  <aside class="inspector-panel" (click)="$event.stopPropagation()">
+
+    <!-- ─── DEPTH: DAY OVERVIEW ─── -->
+    @if (panelDepth() === 'day') {
+    <div class="panel-view day-overview">
+      <!-- Breadcrumb + Close -->
+      <div class="panel-topbar">
+        <div class="panel-breadcrumb">
+          <span class="bc-root">Planning</span>
+          <lucide-icon name="chevron-right" size="12"></lucide-icon>
+          <span class="bc-current">{{ formatDateShort(panelSelectedDate()) }}</span>
+        </div>
+        <button class="panel-close" (click)="closePanel()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      <!-- Presence Stat -->
+      <div class="day-stat-header">
+        <div class="stat-ring" [style.border-color]="getHeatmapColorSolid(panelDayData()?.presenceRate || 0, panelDayData()?.dateType || 'PAST')">
+          <span class="ring-value">{{ ((panelDayData()?.presenceRate || 0) * 100).toFixed(0) }}%</span>
+        </div>
+        <div class="stat-meta">
+          <h3>{{ panelDayData()?.dateType === 'FUTURE' ? 'Couverture prévisionnelle' : panelDayData()?.dateType === 'TODAY' ? 'Couverture en cours' : 'Couverture équipe' }}</h3>
+          <p>{{ panelDayData()?.employees?.length || 0 }} collaborateurs planifiés</p>
+        </div>
+      </div>
+
+      <!-- AI Summary -->
+      @if (conflicts().length > 0) {
+      <div class="ai-summary-card">
+        <div class="ai-summary-icon"><lucide-icon name="sparkles" size="14"></lucide-icon></div>
+        <div class="ai-summary-text">
+          {{ conflicts().length }} alerte(s) · Couverture critique entre 14h–16h
+        </div>
+      </div>
+      }
+
+      <!-- Team Coverage Bars -->
+      @if (panelTeamCoverage().length > 0) {
+      <div class="team-coverage-section">
+        <h4>Couverture par équipe</h4>
+        @for (tc of panelTeamCoverage(); track tc.name) {
+        <div class="team-bar-row">
+          <span class="team-bar-label">{{ tc.name }}</span>
+          <div class="team-bar-track">
+            <div class="team-bar-fill" [style.width]="tc.rate + '%'" [style.background]="getHeatmapColorSolid(tc.rate / 100, panelDayData()?.dateType || 'PAST')"></div>
+          </div>
+          <span class="team-bar-pct" [style.color]="getHeatmapColorSolid(tc.rate / 100, panelDayData()?.dateType || 'PAST')">{{ tc.rate }}%</span>
+          @if (tc.rate < 60) { <span class="team-bar-warn">⚠</span> }
+        </div>
+        }
+      </div>
+      }
+
+      <!-- Filter Chips -->
+      <div class="panel-filters">
+        @for (f of [['ALL','Tous'],['PRESENT','Présent'],['REMOTE','Télétravail'],['SCHEDULED','Planifié'],['PENDING','En attente'],['ABSENCE','Absent'],['LEAVE','Congé']]; track f[0]) {
+        <button class="filter-chip" [class.active]="panelStatusFilter() === f[0]" (click)="panelStatusFilter.set($any(f[0]))">{{ f[1] }}</button>
+        }
+      </div>
+
+      <!-- Search -->
+      <div class="panel-search">
+        <lucide-icon name="search" size="13"></lucide-icon>
+        <input type="text" placeholder="Rechercher un collaborateur..." [value]="panelSearchTerm()" (input)="onPanelSearch($event)">
+      </div>
+
+      <!-- Select toolbar -->
+      <div class="panel-select-toolbar">
+        <span class="select-count">{{ panelFilteredEmployees().length }} collaborateurs · scroll pour voir tous</span>
+        <button class="select-all-btn" (click)="selectAllVisible()">
+          {{ allVisibleSelected() ? 'Désélectionner' : 'Sélectionner' }} visible
+        </button>
+      </div>
+
+      <!-- Employee Card List -->
+      <div class="employee-card-list" #employeeCardList>
+        @for (emp of panelFilteredEmployees(); track emp.id) {
+        <div class="employee-card" [class.selected]="isSelected(emp.id)">
+          <div class="card-checkbox" (click)="$event.stopPropagation(); toggleSelection(emp.id)">
+            <div class="checkbox-box" [class.checked]="isSelected(emp.id)">
+              @if (isSelected(emp.id)) { <lucide-icon name="check" size="10"></lucide-icon> }
+            </div>
+          </div>
+          <div class="card-main" (click)="openEmployeeDetail(emp)">
+            <div class="card-avatar" [style.border-color]="getStatusColor(emp.status)">
+              {{ getInitials(emp.prenom, emp.name) }}
+            </div>
+            <div class="card-info">
+              <span class="card-name">{{ emp.prenom }} {{ emp.name }}</span>
+              <span class="card-role">{{ emp.poste }} · {{ emp.teamName }}</span>
+            </div>
+            <div class="card-status-badge" [style.background]="getStatusColor(emp.status) + '15'" [style.color]="getStatusColor(emp.status)">
+              {{ getStatusLabel(emp.status) }}
+            </div>
+          </div>
+          <div class="card-quick-actions">
+            <button title="Notifier" (click)="$event.stopPropagation(); openNotificationCenter([emp])"><lucide-icon name="bell" size="12"></lucide-icon></button>
+            <button title="Détail" (click)="$event.stopPropagation(); openEmployeeDetail(emp)"><lucide-icon name="eye" size="12"></lucide-icon></button>
+          </div>
+        </div>
+        }
+      </div>
+
+      <!-- Bulk Action Footer (sticky) -->
+      @if (selection().size > 0) {
+      <div class="bulk-action-footer">
+        <span class="bulk-count">{{ selection().size }} sélectionné(s)</span>
+        <div class="bulk-buttons">
+          <button (click)="openNotificationCenter()"><lucide-icon name="bell" size="12"></lucide-icon> Notifier</button>
+          <button (click)="toast.success('Action en cours')"><lucide-icon name="check" size="12"></lucide-icon> Approuver</button>
+          <button (click)="exportCsv()"><lucide-icon name="download" size="12"></lucide-icon> Export</button>
+        </div>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- ─── DEPTH: EMPLOYEE DETAIL ─── -->
+    @if (panelDepth() === 'employee') {
+    <div class="panel-view employee-detail">
+      <div class="panel-topbar">
+        <button class="panel-back" (click)="backToDay()">
+          <lucide-icon name="arrow-left" size="14"></lucide-icon>
+          <span>{{ formatDateShort(panelSelectedDate()) }}</span>
+        </button>
+        <button class="panel-close" (click)="closePanel()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      @if (panelSelectedEmployee(); as emp) {
+      <!-- Employee Header -->
+      <div class="detail-header">
+        <div class="detail-avatar" [style.border-color]="getStatusColor(emp.status)">
+          {{ getInitials(emp.prenom, emp.name) }}
+        </div>
+        <div class="detail-meta">
+          <h2>{{ emp.prenom }} {{ emp.name }}</h2>
+          <p class="detail-role">{{ emp.poste }} · {{ emp.teamName }}</p>
+          <div class="detail-contact">
+            <span><lucide-icon name="mail" size="11"></lucide-icon> {{ emp.email }}</span>
+          </div>
+        </div>
+        <div class="detail-status-badge" [style.background]="getStatusColor(emp.status) + '15'" [style.color]="getStatusColor(emp.status)">
+          {{ getStatusLabel(emp.status) }}
+        </div>
+      </div>
+
+      <!-- Detail Tabs -->
+      <div class="detail-tabs">
+        <button [class.active]="panelActiveTab() === 'overview'" (click)="panelActiveTab.set('overview')">Aperçu</button>
+        <button [class.active]="panelActiveTab() === 'attendance'" (click)="panelActiveTab.set('attendance')">Présence</button>
+        <button [class.active]="panelActiveTab() === 'leaves'" (click)="panelActiveTab.set('leaves')">Congés</button>
+        <button [class.active]="panelActiveTab() === 'tasks'" (click)="panelActiveTab.set('tasks')">Notes</button>
+      </div>
+
+      <div class="detail-tab-content">
+        @if (panelActiveTab() === 'overview') {
+        <div class="overview-grid">
+          <div class="ov-tile">
+            <span class="ov-label">Statut</span>
+            <span class="ov-value" [style.color]="getStatusColor(emp.status)">{{ getStatusLabel(emp.status) }}</span>
+          </div>
+          <div class="ov-tile">
+            <span class="ov-label">Solde congés</span>
+            <span class="ov-value">12.5 j</span>
+          </div>
+          <div class="ov-tile">
+            <span class="ov-label">Heures/sem</span>
+            <span class="ov-value">38.5 h</span>
+          </div>
+          <div class="ov-tile">
+            <span class="ov-label">Équipe</span>
+            <span class="ov-value">{{ emp.teamName }}</span>
+          </div>
+        </div>
+
+        <!-- Activity Data -->
+        <div class="detail-section">
+          <h4>Activité du {{ formatDateShort(panelSelectedDate()) }}</h4>
+          @if (detailLoading()) {
+          <p class="loading-text">Chargement...</p>
+          } @else if (detailedStatus(); as details) {
+          <div class="activity-rows">
+            <div class="activity-row"><span>Arrivée</span><strong>{{ details.arrivalTime }}</strong></div>
+            <div class="activity-row"><span>Départ</span><strong>{{ details.departureTime }}</strong></div>
+            <div class="activity-row"><span>Source</span><strong>{{ details.lastActivity }}</strong></div>
+          </div>
+          } @else {
+          <p class="empty-text">Aucune donnée de pointage.</p>
+          }
+        </div>
+
+        <!-- Recent Requests -->
+        <div class="detail-section">
+          <h4>Demandes récentes</h4>
+          @for (req of getEmployeeRequests(emp.id); track req.type) {
+          <div class="mini-request-row">
+            <span class="req-type">{{ req.type }}</span>
+            <span class="req-range">{{ req.range }}</span>
+            <span class="req-status" [class.pending]="req.status === 'En attente'" [class.approved]="req.status === 'Approuvé'">{{ req.status }}</span>
+          </div>
+          }
+        </div>
+
+        <!-- Notes -->
+        <div class="detail-section">
+          <h4>Notes internes</h4>
+          @for (note of getEmployeeNotes(emp.id); track note.date) {
+          <div class="note-card">
+            <p>"{{ note.text }}"</p>
+            <span class="note-author">— {{ note.author }}, {{ note.date }}</span>
+          </div>
+          }
+          <button class="add-note-btn"><lucide-icon name="plus" size="12"></lucide-icon> Ajouter une note</button>
+        </div>
+        }
+
+        @if (panelActiveTab() === 'attendance') {
+        <div class="placeholder-tab">
+          <lucide-icon name="activity" size="24"></lucide-icon>
+          <p>Historique de présence — disponible prochainement</p>
+        </div>
+        }
+
+        @if (panelActiveTab() === 'leaves') {
+        <div class="placeholder-tab">
+          <lucide-icon name="calendar" size="24"></lucide-icon>
+          <p>Historique des congés — disponible prochainement</p>
+        </div>
+        }
+
+        @if (panelActiveTab() === 'tasks') {
+        <div class="placeholder-tab">
+          <lucide-icon name="list" size="24"></lucide-icon>
+          <p>Tâches et notes — disponible prochainement</p>
+        </div>
+        }
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="detail-actions-bar">
+        <button (click)="openNotificationCenter([emp])"><lucide-icon name="bell" size="13"></lucide-icon> Notifier</button>
+        <button (click)="toast.info('Créer congé')"><lucide-icon name="calendar-days" size="13"></lucide-icon> Congé</button>
+        <button (click)="toast.info('Voir profil')"><lucide-icon name="user" size="13"></lucide-icon> Profil</button>
+        <button (click)="toast.info('Envoyer email')"><lucide-icon name="mail" size="13"></lucide-icon> Email</button>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- ─── DEPTH: NOTIFICATION CENTER ─── -->
+    @if (panelDepth() === 'notification') {
+    <div class="panel-view notification-center">
+      <div class="panel-topbar">
+        <button class="panel-back" (click)="backFromNotification()">
+          <lucide-icon name="arrow-left" size="14"></lucide-icon>
+          <span>Retour</span>
+        </button>
+        <span class="topbar-title">Notification Center</span>
+        <button class="panel-close" (click)="closePanel()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      <!-- Recipients -->
+      <div class="notif-section">
+        <label>Destinataires</label>
+        <div class="notif-recipients-list">
+          @for (r of notifRecipients(); track r.id) {
+          <span class="recipient-chip">{{ r.prenom }} {{ r.name }}</span>
+          }
+        </div>
+        <p class="notif-count">{{ notifRecipients().length }} destinataire(s)</p>
+      </div>
+
+      <!-- Channels -->
+      <div class="notif-section">
+        <label>Canaux</label>
+        <div class="channel-toggles">
+          @for (ch of ['email','push','sms','teams','slack']; track ch) {
+          <button class="channel-btn" [class.active]="notifChannels()[ch]" (click)="toggleNotifChannel(ch)">
+            {{ ch | titlecase }}
+          </button>
+          }
+        </div>
+      </div>
+
+      <!-- Template -->
+      <div class="notif-section">
+        <label>Modèle</label>
+        <select [(ngModel)]="notifTemplate" class="notif-select">
+          <option value="rappel_pointage">Rappel pointage</option>
+          <option value="demande_info">Demande d'information</option>
+          <option value="alerte_absence">Alerte absence</option>
+          <option value="custom">Personnalisé</option>
+        </select>
+      </div>
+
+      <!-- Message -->
+      <div class="notif-section">
+        <label>Message</label>
+        <textarea [(ngModel)]="notifMessage" rows="4" class="notif-textarea"></textarea>
+      </div>
+
+      <!-- Preview -->
+      <div class="notif-section">
+        <label>Aperçu</label>
+        <div class="notif-preview-card">
+          {{ getNotifPreview() }}
+        </div>
+        <p class="notif-summary">
+          Envoi à {{ notifRecipients().length }} personne(s) via {{ getActiveChannels().join(', ') }}
+        </p>
+      </div>
+
+      <!-- Send Button -->
+      <div class="notif-send-bar">
+        <button class="btn-cancel" (click)="backFromNotification()">Annuler</button>
+        <button class="btn-send" (click)="sendNotification()">
+          <lucide-icon name="send" size="13"></lucide-icon>
+          Envoyer ({{ notifRecipients().length }})
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- ─── DEPTH: SENDING ─── -->
+    @if (panelDepth() === 'sending') {
+    <div class="panel-view sending-view">
+      <div class="panel-topbar">
+        <span class="topbar-title">Envoi en cours...</span>
+        <button class="panel-close" (click)="closePanel()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+      <div class="sending-content">
+        <div class="sending-progress-ring">
+          <span>{{ notifProgress() }}%</span>
+        </div>
+        <p>Envoi des notifications...</p>
+        <div class="sending-bar-track">
+          <div class="sending-bar-fill" [style.width]="notifProgress() + '%'"></div>
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- ─── DEPTH: SENT (Delivery Status) ─── -->
+    @if (panelDepth() === 'sent') {
+    <div class="panel-view sent-view">
+      <div class="panel-topbar">
+        <span class="topbar-title">Statut de livraison</span>
+        <button class="panel-close" (click)="closePanel()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+      <div class="delivery-content">
+        <div class="delivery-stat success">
+          <lucide-icon name="check-circle" size="16"></lucide-icon>
+          <span>Délivré ({{ notifDeliveryStatus().delivered.length }})</span>
+        </div>
+        @if (notifDeliveryStatus().pending.length > 0) {
+        <div class="delivery-stat pending">
+          <lucide-icon name="clock" size="16"></lucide-icon>
+          <span>En cours ({{ notifDeliveryStatus().pending.length }})</span>
+        </div>
+        }
+        @if (notifDeliveryStatus().failed.length > 0) {
+        <div class="delivery-stat failed">
+          <lucide-icon name="alert-circle" size="16"></lucide-icon>
+          <span>Échec ({{ notifDeliveryStatus().failed.length }})</span>
+        </div>
+        <div class="failed-list">
+          @for (f of notifDeliveryStatus().failed; track f.name) {
+          <div class="failed-item">
+            <span>{{ f.name }}</span>
+            <span class="failed-reason">{{ f.reason }}</span>
+          </div>
+          }
+        </div>
+        <button class="retry-btn" (click)="retryFailed()">
+          <lucide-icon name="refresh-cw" size="12"></lucide-icon> Réessayer les échecs
+        </button>
+        }
+
+        <button class="done-btn" (click)="closePanel()">Terminé</button>
+      </div>
+    </div>
+    }
+  </aside>
+  }
+  </div>
+  </main>
+</div>

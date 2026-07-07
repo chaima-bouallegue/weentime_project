@@ -8,6 +8,7 @@ import wave
 from contextlib import closing
 from pathlib import Path
 from threading import RLock
+from voice.text_normalizer import normalize_for_tts
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,30 @@ def _audio_cache_path(output_dir: Path, text: str, language: str) -> Path:
     return output_dir / f"response_{language}_{digest}.wav"
 
 
+def _finalize_audio_output(wav_path: Path) -> Path:
+    ogg_path = wav_path.with_suffix(".ogg")
+    if ogg_path.exists():
+        return ogg_path
+    try:
+        from voice.audio_conversion import resolve_ffmpeg_binary
+        ffmpeg_bin = resolve_ffmpeg_binary()
+        result = subprocess.run(
+            [ffmpeg_bin, "-y", "-i", str(wav_path),
+             "-c:a", "libopus", "-b:a", "32k",
+             "-vbr", "on", "-application", "voip", str(ogg_path)],
+            capture_output=True, timeout=15,
+        )
+        if result.returncode == 0 and ogg_path.exists():
+            logger.debug("tts_ogg_derived wav=%s ogg=%s", wav_path.name, ogg_path.name)
+            return ogg_path
+        logger.warning("tts_ogg_conversion_failed wav=%s returncode=%s",
+                       wav_path.name, getattr(result, 'returncode', 'N/A'))
+        return wav_path
+    except Exception as exc:
+        logger.debug("tts_ogg_skipped wav=%s reason=%s", wav_path.name, exc)
+        return wav_path
+
+
 def _split_text_for_tts(text: str, *, max_chars: int = _DEFAULT_MAX_CHARS_PER_CHUNK) -> list[str]:
     normalized = " ".join((text or "").split())
     if not normalized:
@@ -115,8 +140,9 @@ def _concatenate_wav_chunks(chunk_paths: list[Path], target_path: Path) -> bool:
         return False
 
 
-def _write_coqui_audio(engine: object, text: str, target_path: Path, *, max_chars_per_chunk: int) -> bool:
+def _write_coqui_audio(engine: object, text: str, target_path: Path, *, max_chars_per_chunk: int, language: str = "fr") -> bool:
     chunks = _split_text_for_tts(text, max_chars=max_chars_per_chunk)
+    chunks = [normalize_for_tts(chunk, language) for chunk in chunks]
     if not chunks:
         return False
     if len(chunks) == 1:
@@ -197,16 +223,17 @@ def generate_audio(
                     normalized,
                     target_path,
                     max_chars_per_chunk=max_chars_per_chunk,
+                    language=resolved_language,
                 )
             if generated:
+                final_path = _finalize_audio_output(target_path)
                 logger.info(
-                    "tts_generated language=%s model=%s text_length=%s path=%s",
+                    "tts_generated language=%s format=%s path=%s",
                     resolved_language,
-                    resolved_model,
-                    len(normalized),
-                    target_path,
+                    final_path.suffix,
+                    final_path.name,
                 )
-                return str(target_path)
+                return str(final_path)
         except Exception as exc:  # noqa: BLE001
             target_path.unlink(missing_ok=True)
             logger.warning("Coqui TTS generation failed for model=%s: %s", resolved_model, exc)

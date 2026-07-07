@@ -9,6 +9,8 @@ import com.weentime.weentimeapp.repository.DemandeRepository;
 import com.weentime.weentimeapp.repository.TypeCongeRepository;
 import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.DemandeService;
+import com.weentime.weentimeapp.service.UserCacheService;
+import com.weentime.weentimeapp.entity.TypeConge;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +36,7 @@ public class DemandeServiceImpl implements DemandeService {
     private final DemandeMapper demandeMapper;
     private final OrganisationServiceClient organisationServiceClient;
     private final TypeCongeRepository typeCongeRepository;
+    private final UserCacheService userCacheService;
 
     @Override
     @Transactional(readOnly = true)
@@ -94,7 +98,19 @@ public class DemandeServiceImpl implements DemandeService {
         if (demandes.size() != entities.size()) {
              return enrich(demandes); // Fallback if count mismatch
         }
-        
+
+        // Batch fetch TypeConge libellés avant la boucle
+        Set<Long> typeCongeIds = entities.stream()
+                .filter(Conge.class::isInstance)
+                .map(Conge.class::cast)
+                .map(Conge::getTypeCongeId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> typeCongeLibelles = typeCongeIds.isEmpty()
+                ? Map.of()
+                : typeCongeRepository.findAllById(typeCongeIds).stream()
+                        .collect(Collectors.toMap(TypeConge::getId, TypeConge::getLibelle, (a, b) -> a, LinkedHashMap::new));
+
         for (int i = 0; i < demandes.size(); i++) {
             DemandeDTO dto = demandes.get(i);
             Demande entity = entities.get(i);
@@ -104,11 +120,7 @@ public class DemandeServiceImpl implements DemandeService {
                 dto.setDateFin(c.getDateFin() != null ? c.getDateFin().atStartOfDay() : null);
                 dto.setNombreJours(c.getNombreJours() != null ? c.getNombreJours().doubleValue() : 0.0);
                 if (c.getTypeCongeId() != null) {
-                    try {
-                        typeCongeRepository.findById(c.getTypeCongeId()).ifPresent(t -> dto.setTypeCongeNom(t.getLibelle()));
-                    } catch (Exception exception) {
-                        log.warn("Unable to resolve type conge {} for demande {}: {}", c.getTypeCongeId(), dto.getId(), exception.getMessage());
-                    }
+                    dto.setTypeCongeNom(typeCongeLibelles.get(c.getTypeCongeId()));
                 }
             } else if (entity instanceof Teletravail t) {
                 dto.setDateDebut(t.getDateDebut() != null ? t.getDateDebut().atStartOfDay() : null);
@@ -153,11 +165,17 @@ public class DemandeServiceImpl implements DemandeService {
     }
 
     private UserResponse safeGetUser(Long userId) {
-        try {
-            return organisationServiceClient.getUtilisateurById(userId);
-        } catch (Exception exception) {
+        if (userId == null) {
             return null;
         }
+        return userCacheService.getOrLoad(userId, id -> {
+            try {
+                return organisationServiceClient.getUtilisateurById(id);
+            } catch (Exception e) {
+                log.warn("Impossible de récupérer l'utilisateur {}", id);
+                return null;
+            }
+        });
     }
 
     private Map<String, Object> toProfile(UserResponse user) {

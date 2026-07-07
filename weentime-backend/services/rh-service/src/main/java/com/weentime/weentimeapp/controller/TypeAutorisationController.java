@@ -13,6 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/rh/parametres/types-autorisations")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('RH', 'ADMIN')")
 public class TypeAutorisationController {
 
     private final TypeAutorisationService typeAutorisationService;

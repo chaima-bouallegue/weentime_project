@@ -1,8 +1,6 @@
 package com.weentime.weentimeapp.service;
 
-import com.weentime.weentimeapp.client.HolidayServiceClient;
-import com.weentime.weentimeapp.client.LeaveServiceClient;
-import com.weentime.weentimeapp.client.TeletravailServiceClient;
+import com.weentime.weentimeapp.client.RhServiceFeignClientWrapper;
 import com.weentime.weentimeapp.client.UserServiceClient;
 import com.weentime.weentimeapp.config.PresenceProperties;
 import com.weentime.weentimeapp.dto.AttendanceSessionDTO;
@@ -58,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -70,15 +69,40 @@ public class PresenceServiceImpl implements PresenceService {
     private final WorkScheduleRepository workScheduleRepository;
     private final OvertimeRepository overtimeRepository;
     private final AttendanceSessionMapper attendanceSessionMapper;
-    private final LeaveServiceClient leaveServiceClient;
-    private final HolidayServiceClient holidayServiceClient;
-    private final TeletravailServiceClient teletravailServiceClient;
+    private final RhServiceFeignClientWrapper rhServiceFeignClientWrapper;
     private final UserServiceClient userServiceClient;
     private final NotificationService notificationService;
     private final PresenceProperties presenceProperties;
     private final HoraireManagementService horaireManagementService;
     private final LocationResolverService locationResolverService;
+
+    // --- Manual Thread-Safe Cache with 15s TTL ---
+    private static class CacheEntry<T> {
+        final T value;
+        final long timestamp;
+        CacheEntry(T value) {
+            this.value = value;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired(long ttlMs) {
+            return System.currentTimeMillis() - timestamp > ttlMs;
+        }
+    }
+
+    private final java.util.Map<String, CacheEntry<Boolean>> leaveCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, CacheEntry<Boolean>> teleworkCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, CacheEntry<Boolean>> holidayCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Long, CacheEntry<UserSummaryDTO>> userCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MS = 15000L; // 15s TTL
+
     private Clock clock = Clock.systemUTC();
+
+    /**
+     * Allows tests to inject a fixed clock for deterministic time.
+     */
+    void setClock(Clock clock) {
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+    }
 
     @Override
     @Transactional
@@ -190,6 +214,16 @@ public class PresenceServiceImpl implements PresenceService {
                 savedSession.getId(),
                 savedSession.getCheckInTime()
         );
+
+        // Geocodage async si la ville n'est pas encore resolue
+        if (savedSession.getCheckInCity() == null && safeRequest.getLatitude() != null) {
+            locationResolverService.resolveCheckInAddressAsync(
+                    savedSession.getId(),
+                    safeRequest.getLatitude(),
+                    safeRequest.getLongitude(),
+                    safeRequest.getAddress());
+        }
+
         maybeNotifyLateArrival(utilisateurId, savedSession, lateArrival);
 
         List<AttendanceSession> updatedSessions = new ArrayList<>(todaySessions);
@@ -252,6 +286,20 @@ public class PresenceServiceImpl implements PresenceService {
                 ? resolveConfirmedOvertimeStart(openSession, now)
                 : null;
 
+        // Resolve actual overtime minutes based on the overtime mode.
+        // If the user was in ACTIVE overtime mode, compute from overtimeStartedAt.
+        // If the user was in WAITING_CONFIRMATION (declined overtime), zero out.
+        int resolvedOvertimeMinutes;
+        if (openSession.getOvertimeMode() == OvertimeMode.ACTIVE
+                && openSession.getOvertimeStartedAt() != null) {
+            resolvedOvertimeMinutes = Math.toIntExact(
+                    Math.max(Duration.between(openSession.getOvertimeStartedAt(), now).toMinutes(), 0L));
+        } else if (openSession.getOvertimeMode() == OvertimeMode.WAITING_CONFIRMATION) {
+            resolvedOvertimeMinutes = 0;
+        } else {
+            resolvedOvertimeMinutes = overtimeMinutes;
+        }
+
         openSession.setCheckOutTime(now);
         openSession.setDuration(duration);
         if (openSession.getLocalisation() == null) {
@@ -269,7 +317,7 @@ public class PresenceServiceImpl implements PresenceService {
         openSession.setScheduleId(openSession.getScheduleId() != null || schedule == null ? openSession.getScheduleId() : schedule.getId());
         openSession.setWorkedMinutes(workedMinutes);
         openSession.setExpectedMinutes(expectedMinutes);
-        openSession.setOvertimeMinutes(overtimeMinutes);
+        openSession.setOvertimeMinutes(resolvedOvertimeMinutes);
         openSession.setOvertimeMode(OvertimeMode.FINISHED);
         if (previousOvertimeMode == OvertimeMode.ACTIVE) {
             openSession.setOvertimeStartedAt(overtimeStart);
@@ -289,6 +337,16 @@ public class PresenceServiceImpl implements PresenceService {
                 openSession.getCheckOutTime(),
                 duration
         );
+
+        // Géocodage async si la ville n'est pas encore résolue
+        if (openSession.getCheckOutCity() == null && safeRequest.getLatitude() != null) {
+            locationResolverService.resolveCheckOutAddressAsync(
+                    openSession.getId(),
+                    safeRequest.getLatitude(),
+                    safeRequest.getLongitude(),
+                    safeRequest.getAddress());
+        }
+
         refreshOvertime(utilisateurId, openSession.getDate());
 
         return buildTodaySummary(
@@ -322,8 +380,8 @@ public class PresenceServiceImpl implements PresenceService {
             );
         }
 
-        WorkSchedule schedule = resolveSchedule(utilisateurId, openSession.getDate());
-        LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, openSession.getDate());
+        WorkSchedule schedule = resolveSchedule(utilisateurId, today);
+        LocalDateTime scheduledEnd = scheduledEndDateTime(schedule, today);
         if (scheduledEnd == null) {
             throw new PresenceBusinessException(
                     HttpStatus.CONFLICT,
@@ -353,7 +411,7 @@ public class PresenceServiceImpl implements PresenceService {
         OvertimeMode currentMode = normalizeOvertimeMode(openSession.getOvertimeMode());
         if (currentMode != OvertimeMode.ACTIVE) {
             openSession.setOvertimeMode(OvertimeMode.ACTIVE);
-            openSession.setOvertimeStartedAt(now);
+            openSession.setOvertimeStartedAt(scheduledEnd);
             openSession.setOvertimeConfirmedAt(now);
             if (openSession.getOvertimeConfirmationShownAt() == null) {
                 openSession.setOvertimeConfirmationShownAt(now);
@@ -511,8 +569,11 @@ public class PresenceServiceImpl implements PresenceService {
         long closedSessions = todaySessions.stream().filter(session -> session.getStatus() == AttendanceSessionStatus.CLOSED).count();
         long workedSeconds = 0;
 
-        for (UserSummaryDTO user : activeUsers) {
-            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
+        List<AttendanceSummaryDTO> summaries = activeUsers.parallelStream()
+                .map(user -> buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user, null, null, null))
+                .toList();
+
+        for (AttendanceSummaryDTO summary : summaries) {
             if (summary.getStatus() == AttendanceDayStatus.ABSENT) {
                 absentToday++;
             } else {
@@ -589,7 +650,7 @@ public class PresenceServiceImpl implements PresenceService {
 
             List<AttendanceSession> sessions = sessionsByDate.getOrDefault(date, List.of());
             if (!sessions.isEmpty()) {
-                AttendanceSummaryDTO daySummary = buildTodaySummary(utilisateurId, date, sessions);
+                AttendanceSummaryDTO daySummary = buildTodaySummary(utilisateurId, date, sessions, null, null, null, null);
                 totalPresent++;
                 AttendanceSession firstSession = sessions.stream()
                         .filter(session -> session.getCheckInTime() != null)
@@ -683,12 +744,15 @@ public class PresenceServiceImpl implements PresenceService {
                 .stream()
                 .collect(Collectors.groupingBy(AttendanceSession::getUtilisateurId));
 
-        List<UserSummaryDTO> absentUsers = activeUsers.stream()
+        List<UserSummaryDTO> absentUsers = activeUsers.parallelStream()
                 .filter(user -> buildTodaySummary(
                         user.getId(),
                         today,
                         sessionsByUser.getOrDefault(user.getId(), List.of()),
-                        user
+                        user,
+                        null,
+                        null,
+                        null
                 ).getStatus() == AttendanceDayStatus.ABSENT)
                 .toList();
 
@@ -822,10 +886,10 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions) {
-        return buildTodaySummary(utilisateurId, date, rawSessions, null);
+        return buildTodaySummary(utilisateurId, date, rawSessions, null, null, null, null);
     }
 
-    private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions, UserSummaryDTO user) {
+    private AttendanceSummaryDTO buildTodaySummary(Long utilisateurId, LocalDate date, List<AttendanceSession> rawSessions, UserSummaryDTO user, Boolean isHoliday, Set<Long> approvedLeaveUserIds, Set<Long> approvedTeleworkUserIds) {
         if (utilisateurId == null) {
             throw new IllegalStateException("Authenticated user not found");
         }
@@ -849,8 +913,11 @@ public class PresenceServiceImpl implements PresenceService {
         boolean lateArrival = sessions.stream().anyMatch(session -> Boolean.TRUE.equals(session.getLateArrival()));
         long totalDuration = sumSessionDurations(sessions);
         int workedMinutes = Math.toIntExact(totalDuration / 60L);
-        boolean leaveDay = !hasSessions && hasApprovedLeave(utilisateurId, effectiveDate);
-        boolean holiday = !hasSessions && entrepriseId != null && isPublicHoliday(entrepriseId, effectiveDate);
+        boolean leaveDay = !hasSessions && (
+                approvedLeaveUserIds != null && entrepriseId != null
+                        ? approvedLeaveUserIds.contains(utilisateurId)
+                        : hasApprovedLeave(utilisateurId, effectiveDate));
+        boolean holiday = !hasSessions && entrepriseId != null && (isHoliday != null ? isHoliday : isPublicHoliday(entrepriseId, effectiveDate));
 
         AttendanceSession firstCheckInSession = sessions.stream()
                 .filter(session -> session.getCheckInTime() != null)
@@ -877,7 +944,9 @@ public class PresenceServiceImpl implements PresenceService {
                 status = AttendanceDayStatus.ON_LEAVE;
             } else if (holiday) {
                 status = AttendanceDayStatus.HOLIDAY;
-            } else if (hasApprovedTelework(utilisateurId, effectiveDate)) {
+            } else if (approvedTeleworkUserIds != null && entrepriseId != null
+                    ? approvedTeleworkUserIds.contains(utilisateurId)
+                    : hasApprovedTelework(utilisateurId, effectiveDate)) {
                 status = AttendanceDayStatus.REMOTE;
             } else {
                 status = AttendanceDayStatus.ABSENT;
@@ -1031,9 +1100,38 @@ public class PresenceServiceImpl implements PresenceService {
                 .stream()
                 .collect(Collectors.groupingBy(AttendanceSession::getUtilisateurId));
 
-        List<TeamStatusResponse.MemberStatus> members = scopedUsers.stream()
+        Map<Long, Boolean> holidayByEnterprise = scopedUsers.stream()
+                .map(UserSummaryDTO::getEntrepriseId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(id -> id, id -> isPublicHoliday(id, today), (a, b) -> a, LinkedHashMap::new));
+
+        Map<Long, List<Long>> userIdsByEnterprise = scopedUsers.stream()
+                .filter(u -> u.getId() != null && u.getEntrepriseId() != null)
+                .collect(Collectors.groupingBy(UserSummaryDTO::getEntrepriseId,
+                        Collectors.mapping(UserSummaryDTO::getId, Collectors.toList())));
+
+        Set<Long> approvedLeaveUserIds = new HashSet<>();
+        Set<Long> approvedTeleworkUserIds = new HashSet<>();
+        for (Map.Entry<Long, List<Long>> entry : userIdsByEnterprise.entrySet()) {
+            try {
+                approvedLeaveUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedLeave(
+                        entry.getKey(), entry.getValue(), today));
+            } catch (Exception e) {
+                log.warn("Batch leave check failed for enterprise {}, falling back", entry.getKey());
+            }
+            try {
+                approvedTeleworkUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedTelework(
+                        entry.getKey(), entry.getValue(), today));
+            } catch (Exception e) {
+                log.warn("Batch telework check failed for enterprise {}, falling back", entry.getKey());
+            }
+        }
+
+        List<TeamStatusResponse.MemberStatus> members = scopedUsers.parallelStream()
                 .map(user -> {
-                    AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
+                    Boolean isHoliday = user.getEntrepriseId() != null ? holidayByEnterprise.get(user.getEntrepriseId()) : null;
+                    AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), today, sessionsByUser.getOrDefault(user.getId(), List.of()), user, isHoliday, approvedLeaveUserIds, approvedTeleworkUserIds);
                     return toMemberStatus(user, summary);
                 })
                 .toList();
@@ -1191,8 +1289,42 @@ public class PresenceServiceImpl implements PresenceService {
         long lateCount = 0;
         long workedSeconds = 0;
 
-        for (UserSummaryDTO user : users) {
-            AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), dateTo, sessionsByUser.getOrDefault(user.getId(), List.of()), user);
+        Map<Long, Boolean> holidayByEnterprise = users.stream()
+                .map(UserSummaryDTO::getEntrepriseId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(id -> id, id -> isPublicHoliday(id, dateTo), (a, b) -> a, LinkedHashMap::new));
+
+        Map<Long, List<Long>> userIdsByEnterprise = users.stream()
+                .filter(u -> u.getId() != null && u.getEntrepriseId() != null)
+                .collect(Collectors.groupingBy(UserSummaryDTO::getEntrepriseId,
+                        Collectors.mapping(UserSummaryDTO::getId, Collectors.toList())));
+
+        Set<Long> approvedLeaveUserIds = new HashSet<>();
+        Set<Long> approvedTeleworkUserIds = new HashSet<>();
+        for (Map.Entry<Long, List<Long>> entry : userIdsByEnterprise.entrySet()) {
+            try {
+                approvedLeaveUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedLeave(
+                        entry.getKey(), entry.getValue(), dateTo));
+            } catch (Exception e) {
+                log.warn("Batch leave check failed for enterprise {}, falling back", entry.getKey());
+            }
+            try {
+                approvedTeleworkUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedTelework(
+                        entry.getKey(), entry.getValue(), dateTo));
+            } catch (Exception e) {
+                log.warn("Batch telework check failed for enterprise {}, falling back", entry.getKey());
+            }
+        }
+
+        List<AttendanceSummaryDTO> summaries = users.parallelStream()
+                .map(user -> {
+                    Boolean isHoliday = user.getEntrepriseId() != null ? holidayByEnterprise.get(user.getEntrepriseId()) : null;
+                    return buildTodaySummary(user.getId(), dateTo, sessionsByUser.getOrDefault(user.getId(), List.of()), user, isHoliday, approvedLeaveUserIds, approvedTeleworkUserIds);
+                })
+                .toList();
+
+        for (AttendanceSummaryDTO summary : summaries) {
             AttendanceDayStatus status = summary.getStatus();
 
             if (status == AttendanceDayStatus.ABSENT) {
@@ -1344,13 +1476,41 @@ public class PresenceServiceImpl implements PresenceService {
         LocalDate today = currentDate();
         LocalDateTime now = currentDateTime();
 
+        Map<Long, Boolean> holidayByEnterprise = activeUsers.stream()
+                .map(UserSummaryDTO::getEntrepriseId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(id -> id, id -> isPublicHoliday(id, today), (a, b) -> a, LinkedHashMap::new));
+
+        Map<Long, List<Long>> userIdsByEnterprise = activeUsers.stream()
+                .filter(u -> u.getId() != null && u.getEntrepriseId() != null)
+                .collect(Collectors.groupingBy(UserSummaryDTO::getEntrepriseId,
+                        Collectors.mapping(UserSummaryDTO::getId, Collectors.toList())));
+
+        Set<Long> approvedLeaveUserIds = new HashSet<>();
+        Set<Long> approvedTeleworkUserIds = new HashSet<>();
+        for (Map.Entry<Long, List<Long>> entry : userIdsByEnterprise.entrySet()) {
+            try {
+                approvedLeaveUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedLeave(
+                        entry.getKey(), entry.getValue(), today));
+            } catch (Exception e) {
+                log.warn("Batch leave check failed for enterprise {}, falling back", entry.getKey());
+            }
+            try {
+                approvedTeleworkUserIds.addAll(rhServiceFeignClientWrapper.callGetUsersWithApprovedTelework(
+                        entry.getKey(), entry.getValue(), today));
+            } catch (Exception e) {
+                log.warn("Batch telework check failed for enterprise {}, falling back", entry.getKey());
+            }
+        }
+
         for (UserSummaryDTO user : activeUsers) {
             if (user.getId() == null || user.getEntrepriseId() == null) {
                 continue;
             }
             WorkSchedule schedule = resolveSchedule(user.getId(), today);
-            if (!isWorkingDay(schedule, today) || hasApprovedLeave(user.getId(), today)
-                    || hasApprovedTelework(user.getId(), today) || isPublicHoliday(user.getEntrepriseId(), today)) {
+            if (!isWorkingDay(schedule, today) || approvedLeaveUserIds.contains(user.getId())
+                    || approvedTeleworkUserIds.contains(user.getId()) || Boolean.TRUE.equals(holidayByEnterprise.get(user.getEntrepriseId()))) {
                 continue;
             }
             LocalDateTime alertAt = LocalDateTime.of(today, schedule.getHeureDebut())
@@ -1463,8 +1623,15 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private UserSummaryDTO fetchUserSummary(Long userId) {
+        if (userId == null) return null;
+        CacheEntry<UserSummaryDTO> entry = userCache.get(userId);
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            return entry.value;
+        }
         try {
-            return userServiceClient.getUserById(userId);
+            UserSummaryDTO user = userServiceClient.getUserById(userId);
+            userCache.put(userId, new CacheEntry<>(user));
+            return user;
         } catch (Exception exception) {
             log.warn("Unable to fetch user {} summary: {}", userId, exception.getMessage());
             return null;
@@ -1718,6 +1885,8 @@ public class PresenceServiceImpl implements PresenceService {
         return session.getDuration() != null ? session.getDuration() : 0L;
     }
 
+
+
     private void refreshOvertime(Long utilisateurId, LocalDate date) {
         WorkSchedule schedule = resolveSchedule(utilisateurId, date);
         List<AttendanceSession> sessions = attendanceSessionRepository.findByUtilisateurIdAndDateOrderByCheckInTimeAsc(utilisateurId, date);
@@ -1959,8 +2128,16 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private boolean hasApprovedLeave(Long utilisateurId, LocalDate date) {
+        if (utilisateurId == null || date == null) return false;
+        String key = utilisateurId + "_" + date;
+        CacheEntry<Boolean> entry = leaveCache.get(key);
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            return entry.value;
+        }
         try {
-            return Boolean.TRUE.equals(leaveServiceClient.hasApprovedLeave(utilisateurId, date));
+            boolean result = Boolean.TRUE.equals(rhServiceFeignClientWrapper.callHasApprovedLeave(utilisateurId, date));
+            leaveCache.put(key, new CacheEntry<>(result));
+            return result;
         } catch (Exception exception) {
             log.warn("Leave service unavailable for user {} on {}: {}", utilisateurId, date, exception.getMessage());
             return false;
@@ -1968,8 +2145,16 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private boolean hasApprovedTelework(Long utilisateurId, LocalDate date) {
+        if (utilisateurId == null || date == null) return false;
+        String key = utilisateurId + "_" + date;
+        CacheEntry<Boolean> entry = teleworkCache.get(key);
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            return entry.value;
+        }
         try {
-            return Boolean.TRUE.equals(teletravailServiceClient.hasApprovedTelework(utilisateurId, date));
+            boolean result = Boolean.TRUE.equals(rhServiceFeignClientWrapper.callHasApprovedTelework(utilisateurId, date));
+            teleworkCache.put(key, new CacheEntry<>(result));
+            return result;
         } catch (Exception exception) {
             log.warn("Telework service unavailable for user {} on {}: {}", utilisateurId, date, exception.getMessage());
             return false;
@@ -1980,8 +2165,15 @@ public class PresenceServiceImpl implements PresenceService {
         if (entrepriseId == null || date == null) {
             return false;
         }
+        String key = entrepriseId + "_" + date;
+        CacheEntry<Boolean> entry = holidayCache.get(key);
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            return entry.value;
+        }
         try {
-            return Boolean.TRUE.equals(holidayServiceClient.isPublicHoliday(entrepriseId, date));
+            boolean result = Boolean.TRUE.equals(rhServiceFeignClientWrapper.callIsPublicHoliday(entrepriseId, date));
+            holidayCache.put(key, new CacheEntry<>(result));
+            return result;
         } catch (Exception exception) {
             log.warn("Holiday service unavailable for enterprise {} on {}: {}", entrepriseId, date, exception.getMessage());
             return false;
@@ -2019,9 +2211,6 @@ public class PresenceServiceImpl implements PresenceService {
         return ZoneId.of(presenceProperties.getTimezone());
     }
 
-    void setClock(Clock clock) {
-        this.clock = clock == null ? Clock.systemUTC() : clock;
-    }
 
     @Override
     public Map<LocalDate, TeamStatusResponse> getStatusRange(Long entrepriseId, Long teamId, LocalDate start, LocalDate end) {
@@ -2109,9 +2298,9 @@ public class PresenceServiceImpl implements PresenceService {
             final LocalDate currentDate = date;
             Map<Long, List<AttendanceSession>> daySessionsByUser = sessionsByDateAndUser.getOrDefault(date, Collections.emptyMap());
 
-            List<TeamStatusResponse.MemberStatus> members = users.stream()
+            List<TeamStatusResponse.MemberStatus> members = users.parallelStream()
                     .map(user -> {
-                        AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()), user);
+                        AttendanceSummaryDTO summary = buildTodaySummary(user.getId(), currentDate, daySessionsByUser.getOrDefault(user.getId(), List.of()), user, null, null, null);
                         return toMemberStatus(user, summary);
                     })
                     .toList();

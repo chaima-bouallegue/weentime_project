@@ -6,7 +6,7 @@
       <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gérer et visualiser la structure de
         l'entreprise</p>
     </div>
-    <button class="btn-primary" (click)="showDrawer.set(true)">
+    <button class="btn-primary" (click)="openCreateEmployee()">
       <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
         <lucide-icon name="user-plus" size="16"></lucide-icon>
       </div>
@@ -185,66 +185,4 @@
   </div>
   }
 
-  <!-- Form Drawer -->
-  @if (showDrawer()) {
-  <app-employe-form 
-    [departements]="departements()" 
-    [equipes]="equipes()" 
-    [managers]="getManagersForForm()"
-    [pendingUser]="selectedPendingUser()"
-    [isValidationMode]="isValidationMode()"
-    (close)="onCloseDrawer()"
-    (saved)="onFormSaved()" 
-    (validate)="onValidate($any($event).id, $any($event).request)" />
-  }
-
-  <!-- Rejection Modal -->
-  @if (selectedRejectUser()) {
-    <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <!-- Overlay -->
-      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" (click)="onCancelReject()"></div>
-
-      <!-- Modal card -->
-      <div class="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 max-w-md w-full p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
-        
-        <!-- Icon -->
-        <div class="w-16 h-16 bg-rose-100 dark:bg-rose-500/20 rounded-2xl flex items-center justify-center text-rose-500 mx-auto shadow-inner">
-          <lucide-icon [img]="XIcon" size="32"></lucide-icon>
-        </div>
-
-        <!-- Title & Content -->
-        <div class="space-y-3">
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">
-            Rejeter la demande ?
-          </h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-            Êtes-vous sûr de vouloir rejeter l'inscription de <span class="font-black text-slate-700 dark:text-slate-200">{{ selectedRejectUser()?.prenom }} {{ selectedRejectUser()?.nom }}</span> ? 
-          </p>
-          <p class="text-xs text-rose-500/80 font-bold bg-rose-50 dark:bg-rose-500/10 p-3 rounded-xl">
-            Cette action est irréversible et supprimera définitivement le compte en attente.
-          </p>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex gap-3 pt-4">
-          <button
-            (click)="onCancelReject()"
-            [disabled]="isRejecting()"
-            class="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50">
-            Annuler
-          </button>
-          <button
-            (click)="confirmReject()"
-            [disabled]="isRejecting()"
-            class="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-sm shadow-lg shadow-rose-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-            @if (isRejecting()) {
-              <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
-            } @else {
-              Confirmer
-            }
-          </button>
-        </div>
-      </div>
-    </div>
-  }
 </div>

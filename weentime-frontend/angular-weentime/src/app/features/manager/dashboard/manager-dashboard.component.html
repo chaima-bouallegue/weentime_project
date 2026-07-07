@@ -171,6 +171,7 @@
     }
 
     <ui-ai-anomaly-feed
+      #feedComponent
       layout="cards"
       scope="MANAGER"
       [loading]="anomaliesLoading()"
@@ -186,8 +187,8 @@
     ></ui-ai-anomaly-feed>
 
     @if (!anomaliesLoading() && anomalies().length >= 5) {
-      <button type="button" class="ai-anomaly-section__see-all" routerLink="/app/manager/anomalies">
-        Voir toutes les anomalies &rarr;
+      <button type="button" class="ai-anomaly-section__see-all" (click)="feedComponent.toggleShowAll()">
+        {{ feedComponent.showAll() ? 'Masquer les anomalies' : 'Voir toutes les anomalies &rarr;' }}
       </button>
     }
   </section>

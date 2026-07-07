@@ -23,7 +23,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +40,11 @@ public class ReunionService {
     private final CongeRepository congeRepository;
     private final AsyncNotificationService notificationService;
     private final OrganisationServiceClient organisationClient;
+
+    private final Cache<Long, UserResponse> userCache = Caffeine.newBuilder()
+            .maximumSize(2000)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build();
 
     public ReunionDTO createReunion(ReunionCreateRequest request, Long organisateurId, Long entrepriseId) {
         Reunion reunion = Reunion.builder()
@@ -336,15 +345,21 @@ public class ReunionService {
                 .rappelMinutes(p.getRappelMinutes())
                 .build();
 
-        try {
-            UserResponse user = organisationClient.getUtilisateurById(p.getId().getUtilisateurId());
-            if (user != null) {
-                dto.setNom(user.getNom());
-                dto.setPrenom(user.getPrenom());
-                dto.setPhoto(user.getPhoto());
-            }
-        } catch (Exception e) {
-            log.warn("Impossible de récupérer les infos du participant {}", p.getId().getUtilisateurId());
+        UserResponse user = userCache.get(
+                p.getId().getUtilisateurId(),
+                id -> {
+                    try {
+                        return organisationClient.getUtilisateurById(id);
+                    } catch (Exception e) {
+                        log.warn("Impossible de récupérer les infos du participant {}", id);
+                        return null;
+                    }
+                }
+        );
+        if (user != null) {
+            dto.setNom(user.getNom());
+            dto.setPrenom(user.getPrenom());
+            dto.setPhoto(user.getPhoto());
         }
 
         return dto;

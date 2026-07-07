@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { AlertCircle, LucideAngularModule } from 'lucide-angular';
+import { GeocodingService } from '../../core/services/geocoding.service';
 
 export type AttendanceMapPointType = 'ENTREE' | 'SORTIE';
 
@@ -44,6 +45,9 @@ export class AttendanceMapCardComponent implements AfterViewInit, OnChanges, OnD
   @Input() emptyMessage = 'Aucune localisation GPS disponible.';
 
   readonly iconAlert = AlertCircle;
+  
+  private readonly geocodingService = inject(GeocodingService);
+  private geocodedPoints: AttendanceMapPoint[] = [];
 
   private mapCanvas?: ElementRef<HTMLDivElement>;
   private leaflet?: typeof import('leaflet');
@@ -67,16 +71,103 @@ export class AttendanceMapCardComponent implements AfterViewInit, OnChanges, OnD
     this.scheduleRender();
   }
 
-  ngOnChanges(_changes: SimpleChanges): void {
-    this.scheduleRender();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['points']) {
+      this.geocodeInputPoints();
+    } else {
+      this.scheduleRender();
+    }
   }
 
   ngOnDestroy(): void {
     this.destroyMap();
   }
 
+  private geocodeInputPoints(): void {
+    const rawPoints = this.points ?? [];
+    this.geocodedPoints = rawPoints.map(p => ({
+      ...p,
+      location: p.location ? { ...p.location } : null
+    }));
+
+    let needsRender = false;
+    const promises = this.geocodedPoints.map(point => {
+      const location = point.location;
+      const latitude = this.toFiniteNumber(location?.latitude) ?? this.toFiniteNumber(point.latitude);
+      const longitude = this.toFiniteNumber(location?.longitude) ?? this.toFiniteNumber(point.longitude);
+      
+      if (latitude == null || longitude == null) {
+        return Promise.resolve();
+      }
+
+      // Check if location already has readable info
+      const city = this.clean(location?.city);
+      const country = this.clean(location?.country);
+      const address = this.clean(location?.address);
+      
+      const coordRegex = /^-?\d+(\.\d+)?[,\s]+-?\d+(\.\d+)?$/;
+      const addressIsCoords = address && coordRegex.test(address);
+
+      if ((city || country || address) && !addressIsCoords) {
+        return Promise.resolve();
+      }
+
+      // We need to geocode this point!
+      needsRender = true;
+      return new Promise<void>(resolve => {
+        this.geocodingService.geocode(latitude, longitude).subscribe({
+          next: (res) => {
+            point.location = {
+              latitude,
+              longitude,
+              accuracy: location?.accuracy ?? null,
+              address: res.address,
+              city: res.city ?? null,
+              region: res.region ?? null,
+              country: res.country ?? null
+            };
+            resolve();
+          },
+          error: () => {
+            // Fallback: set coordinates as address if we don't even have that
+            if (!point.location) {
+              point.location = {
+                latitude,
+                longitude,
+                address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+              };
+            }
+            resolve();
+          }
+        });
+      });
+    });
+
+    if (needsRender) {
+      Promise.all(promises).then(() => {
+        this.scheduleRender();
+      });
+    } else {
+      this.scheduleRender();
+    }
+  }
+
   hasPoints(): boolean {
     return this.resolvedPoints().length > 0;
+  }
+
+  accuracyLabel(): string | null {
+    const pts = this.resolvedPoints();
+    if (pts.length === 0) {
+      return null;
+    }
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const acc = pts[i].location?.accuracy;
+      if (acc != null && acc > 0) {
+        return `${Math.round(acc)}m`;
+      }
+    }
+    return null;
   }
 
   private scheduleRender(): void {
@@ -166,7 +257,7 @@ export class AttendanceMapCardComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private resolvedPoints(): ResolvedMapPoint[] {
-    return (this.points ?? [])
+    return (this.geocodedPoints.length > 0 ? this.geocodedPoints : (this.points ?? []))
       .map(point => this.resolvePoint(point))
       .filter((point): point is ResolvedMapPoint => point !== null);
   }

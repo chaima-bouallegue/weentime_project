@@ -1,6 +1,6 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation, HostListener, ElementRef, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, MinusCircle, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse } from 'lucide-angular';
+import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, MinusCircle, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, MoreVertical } from 'lucide-angular';
 import { DemandeDocument, StatutDocument, TypeDocumentConfig } from '../../models/document.model';
 import { DocumentStatusBadgeComponent } from '../document-status-badge/document-status-badge.component';
 
@@ -19,6 +19,29 @@ interface FilterChip {
   encapsulation: ViewEncapsulation.None
 })
 export class DocumentHistoriqueComponent {
+  private elementRef = inject(ElementRef);
+  activeMenuId = signal<number | null>(null);
+
+  readonly iconMoreVertical = MoreVertical;
+
+  toggleMenu(id: number, event: Event): void {
+    event.stopPropagation();
+    if (this.activeMenuId() === id) {
+      this.activeMenuId.set(null);
+    } else {
+      this.activeMenuId.set(id);
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.activeMenuId() !== null) {
+      const clickedInside = this.elementRef.nativeElement.contains(event.target);
+      if (!clickedInside) {
+        this.activeMenuId.set(null);
+      }
+    }
+  }
   @Input() demandes: DemandeDocument[] = [];
   @Input() allDemandes: DemandeDocument[] = [];
   @Input() isLoading = false;

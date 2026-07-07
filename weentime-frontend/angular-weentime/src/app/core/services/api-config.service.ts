@@ -5,7 +5,7 @@ import { environment } from '../../../environments/environment';
  * Centralized API configuration for the WeenTime application.
  * All API endpoints are defined here for easy maintenance and consistency.
  * 
- * API Gateway: http://localhost:8322/api/v1/
+ * API Gateway: http://localhost:8222/api/v1/
  * 
  * Services routed through gateway:
  * - auth-service (8181)
@@ -89,7 +89,11 @@ export class ApiConfigService {
     SETUP_TOTP_2FA: `${this.API_BASE}/auth/mfa/setup`,
     CONFIRM_2FA: `${this.API_BASE}/auth/mfa/enable`,
     CONFIRM_TOTP_2FA: `${this.API_BASE}/auth/mfa/enable`,
-    DISABLE_2FA: `${this.API_BASE}/auth/mfa/disable`
+    DISABLE_2FA: `${this.API_BASE}/auth/mfa/disable`,
+    LOGOUT: `${this.API_BASE}/auth/logout`,
+    REFRESH: `${this.API_BASE}/auth/refresh`,
+    WS_TOKEN: `${this.API_BASE}/auth/ws-token`,
+    ME: `${this.API_BASE}/auth/me`
   };
 
   // ─────────────────────────────────────────────
@@ -356,5 +360,5 @@ export class ApiConfigService {
     APP_PREFIX: '/app'
   };
 
-  constructor() {}
+  constructor() { }
 }

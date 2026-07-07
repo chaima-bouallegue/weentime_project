@@ -36,6 +36,25 @@ export class RhHorairesComponent implements OnInit {
     // this.store.refresh();
   }
 
+  joursSemaineOrdre = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'];
+
+  getSortedJours(horaire: Horaire): any[] {
+    if (!horaire || !horaire.jours) return [];
+    return [...horaire.jours].sort((a, b) => {
+      return this.joursSemaineOrdre.indexOf(a.jourSemaine) - this.joursSemaineOrdre.indexOf(b.jourSemaine);
+    });
+  }
+
+  getSortedPlages(jour: any): any[] {
+    if (!jour || !jour.plages) return [];
+    return [...jour.plages].sort((a, b) => a.heureDebut.localeCompare(b.heureDebut));
+  }
+
+  getPlageColorClass(type: string, index: number): string {
+    if (type === 'PAUSE') return 'plage-pause';
+    return index === 0 ? 'plage-travail-1' : 'plage-travail-2';
+  }
+
   setTab(tab: 'MODELS' | 'ASSIGNMENTS'): void {
     this.activeTab.set(tab);
   }

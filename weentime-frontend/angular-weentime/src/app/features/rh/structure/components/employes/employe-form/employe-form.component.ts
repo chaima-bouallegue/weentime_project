@@ -24,6 +24,9 @@ export class EmployeFormComponent implements OnInit {
   @Input() allowRoleChange = true;
   @Input() pendingUser: EmployeRH | null = null;
   @Input() isValidationMode = false;
+  @Input() employee: EmployeRH | null = null;
+  /** When true, rendered inside CDK overlay — no own .drawer-overlay wrapper */
+  @Input() embedded = false;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
   @Output() validate = new EventEmitter<{id: number, request: any}>();
@@ -42,7 +45,6 @@ export class EmployeFormComponent implements OnInit {
   filteredEquipes = computed(() => {
     const deptId = this.selectedDeptId();
     if (!deptId) return [];
-    // Convert deptId to number in case it comes as string from select
     const deptIdNum = Number(deptId);
     return this.equipes.filter(e => e.departementId === deptIdNum);
   });
@@ -62,7 +64,20 @@ export class EmployeFormComponent implements OnInit {
       role: [this.defaultRole, [Validators.required]]
     });
 
-    if (this.isValidationMode && this.pendingUser) {
+    if (this.employee) {
+      this.form.patchValue({
+        prenom: this.employee.prenom,
+        nom: this.employee.nom,
+        email: this.employee.email,
+        telephone: this.employee.telephone || '',
+        poste: this.employee.poste,
+        departementId: this.employee.departementId,
+        equipeId: this.employee.equipeId || null,
+        managerId: this.employee['managerId'] || null,
+        role: this.employee.role || 'ROLE_EMPLOYEE'
+      });
+      this.selectedDeptId.set(this.employee.departementId);
+    } else if (this.isValidationMode && this.pendingUser) {
       this.form.patchValue({
         prenom: this.pendingUser.prenom,
         nom: this.pendingUser.nom,
@@ -73,7 +88,7 @@ export class EmployeFormComponent implements OnInit {
       this.step.set(2); // Skip to assignment step
     }
 
-    if (!this.isValidationMode) {
+    if (!this.isValidationMode && !this.employee) {
       this.generatePassword();
     }
   }
@@ -84,15 +99,14 @@ export class EmployeFormComponent implements OnInit {
     const digits = '0123456789';
     const specials = '@#$%&!?*';
 
-    // Format cible: Wt@2026Xk (10 caractères)
     let pwd = '';
     pwd += upper[Math.floor(Math.random() * upper.length)];
     pwd += letters[Math.floor(Math.random() * letters.length)];
     pwd += specials[Math.floor(Math.random() * specials.length)];
-    pwd += Math.floor(1000 + Math.random() * 9000).toString(); // 4 digits
+    pwd += Math.floor(1000 + Math.random() * 9000).toString();
     pwd += upper[Math.floor(Math.random() * upper.length)];
     pwd += letters[Math.floor(Math.random() * letters.length)];
-    pwd += letters[Math.floor(Math.random() * letters.length)]; // Total 10
+    pwd += letters[Math.floor(Math.random() * letters.length)];
 
     this.generatedPassword.set(pwd);
   }
@@ -149,6 +163,8 @@ export class EmployeFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.form.invalid) return;
+    this.isSubmitting.set(true);
+
     if (this.isValidationMode && this.pendingUser) {
       const validationData = {
         departementId: this.form.get('departementId')?.value,
@@ -159,8 +175,25 @@ export class EmployeFormComponent implements OnInit {
       return;
     }
 
+    const rawData = this.form.getRawValue();
+
+    if (this.employee) {
+      this.structureService.updateEmploye(this.employee.id, rawData).subscribe({
+        next: () => {
+          this.isSubmitting.set(false);
+          this.toastService.success('Collaborateur mis à jour');
+          this.saved.emit();
+        },
+        error: () => {
+          this.isSubmitting.set(false);
+          this.toastService.error('Une erreur est survenue lors de la mise à jour');
+        }
+      });
+      return;
+    }
+
     const data: CreateEmployeRequest = {
-      ...this.form.getRawValue(),
+      ...rawData,
       password: this.generatedPassword()
     };
 

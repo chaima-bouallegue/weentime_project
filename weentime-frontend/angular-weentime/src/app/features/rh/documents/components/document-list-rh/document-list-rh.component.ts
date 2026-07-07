@@ -14,7 +14,11 @@ type SortKey = 'employe' | 'type' | 'date' | 'delai' | 'statut';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DocumentListRhComponent {
-  @Input({ required: true }) demandes: DemandeDocumentRH[] = [];
+  private _demandes = signal<DemandeDocumentRH[]>([]);
+  @Input({ required: true }) set demandes(value: DemandeDocumentRH[]) {
+    this._demandes.set(value || []);
+    this.currentPage.set(1);
+  }
 
   @Output() selectDemande = new EventEmitter<DemandeDocumentRH>();
   @Output() generateAI = new EventEmitter<DemandeDocumentRH>();
@@ -24,11 +28,13 @@ export class DocumentListRhComponent {
 
   sortKey = signal<SortKey>('date');
   sortDirection = signal<'asc' | 'desc'>('desc');
+  currentPage = signal(1);
+  pageSize = signal(10);
 
   sortedDemandes = computed(() => {
     const key = this.sortKey();
     const dir = this.sortDirection();
-    const data = [...this.demandes];
+    const data = [...this._demandes()];
 
     return data.sort((a, b) => {
       let comparison = 0;
@@ -53,6 +59,15 @@ export class DocumentListRhComponent {
     });
   });
 
+  totalPages = computed(() => {
+    return Math.ceil(this.sortedDemandes().length / this.pageSize());
+  });
+
+  paginatedDemandes = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.sortedDemandes().slice(start, start + this.pageSize());
+  });
+
   toggleSort(key: SortKey) {
     if (this.sortKey() === key) {
       this.sortDirection.update(d => d === 'asc' ? 'desc' : 'asc');
@@ -60,6 +75,7 @@ export class DocumentListRhComponent {
       this.sortKey.set(key);
       this.sortDirection.set('asc');
     }
+    this.currentPage.set(1);
   }
 
   getStatutLabel(statut: string): string {
@@ -98,4 +114,6 @@ export class DocumentListRhComponent {
   getInitials(nom: string, prenom: string): string {
     return (prenom[0] + nom[0]).toUpperCase();
   }
+
+  protected readonly Math = Math;
 }

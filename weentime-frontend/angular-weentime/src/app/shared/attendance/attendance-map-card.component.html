@@ -1,20 +1,28 @@
 <article class="attendance-map-card">
   <div class="card-head">
-    <h2>Carte de pointage</h2>
+    <div class="title-group">
+      <h2>Localisation en temps réel</h2>
+      <span class="live-badge" *ngIf="hasPoints()">
+        <span class="live-dot"></span> Live
+      </span>
+    </div>
     <span class="map-provider">OpenStreetMap</span>
   </div>
 
   <ng-container *ngIf="hasPoints(); else noGpsLocation">
     <div #mapCanvas class="attendance-map" aria-label="Carte des positions de pointage"></div>
     <div class="map-legend">
-      <span><i class="legend-dot legend-dot-in"></i> Entrée</span>
-      <span><i class="legend-dot legend-dot-out"></i> Sortie</span>
+      <div class="legend-items">
+        <span><i class="legend-dot legend-dot-in"></i> Entrée</span>
+        <span><i class="legend-dot legend-dot-out"></i> Sortie</span>
+      </div>
+      <span *ngIf="accuracyLabel()" class="precision-indicator">Précision : {{ accuracyLabel() }}</span>
     </div>
   </ng-container>
 
   <ng-template #noGpsLocation>
     <div class="map-empty">
-      <lucide-angular [img]="iconAlert" size="22"></lucide-angular>
+      <lucide-angular *ngIf="iconAlert" [img]="iconAlert" size="22"></lucide-angular>
       <p>{{ emptyMessage }}</p>
     </div>
   </ng-template>

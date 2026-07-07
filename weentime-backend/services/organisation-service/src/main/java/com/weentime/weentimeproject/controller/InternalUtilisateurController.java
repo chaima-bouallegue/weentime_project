@@ -35,37 +35,57 @@ public class InternalUtilisateurController {
     private final InternalServiceKeyValidator internalServiceKeyValidator;
 
     @PostMapping("/create-rh")
-    public ResponseEntity<CreateRhResponse> createRhUser(@Valid @RequestBody CreateRhRequest request) {
+    public ResponseEntity<CreateRhResponse> createRhUser(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @Valid @RequestBody CreateRhRequest request) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return new ResponseEntity<>(utilisateurService.createRhUser(request), HttpStatus.CREATED);
     }
 
     @GetMapping("/users/{id}/summary")
-    public ResponseEntity<UserSummaryResponse> getUserSummary(@PathVariable Long id) {
+    public ResponseEntity<UserSummaryResponse> getUserSummary(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long id) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getUserSummaryById(id));
     }
 
     @PostMapping("/users/summaries")
-    public ResponseEntity<List<UserSummaryResponse>> getUserSummaries(@RequestBody Collection<Long> ids) {
+    public ResponseEntity<List<UserSummaryResponse>> getUserSummaries(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @RequestBody Collection<Long> ids) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getUserSummaries(ids));
     }
 
     @GetMapping("/users/{id}/manager")
-    public ResponseEntity<UserSummaryResponse> getManagerSummary(@PathVariable Long id) {
+    public ResponseEntity<UserSummaryResponse> getManagerSummary(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long id) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getManagerSummary(id));
     }
 
     @GetMapping("/users/{id}/roles")
-    public ResponseEntity<List<String>> getRoles(@PathVariable Long id) {
+    public ResponseEntity<List<String>> getRoles(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long id) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getRolesByUserId(id));
     }
 
     @GetMapping("/managers/{managerId}/team")
-    public ResponseEntity<List<UserSummaryResponse>> getTeamMembers(@PathVariable Long managerId) {
+    public ResponseEntity<List<UserSummaryResponse>> getTeamMembers(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long managerId) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getTeamMembers(managerId));
     }
 
     @GetMapping("/users/active")
-    public ResponseEntity<List<UserSummaryResponse>> getActiveUsers() {
+    public ResponseEntity<List<UserSummaryResponse>> getActiveUsers(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
         return ResponseEntity.ok(utilisateurService.getActiveUsers());
     }
 

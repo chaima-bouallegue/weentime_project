@@ -1,209 +1,656 @@
 <div class="pointage-page">
+  <!-- Top Breadcrumb & Title Section -->
   <header class="pointage-header">
-    <div>
-      <h1>{{ isAdminOrRh() ? 'Pointage' : 'Mon pointage' }}</h1>
-      <p>{{ currentDateTimeFormatted() }}</p>
+    <div class="header-breadcrumb-and-title">
+      <div class="title-with-badge">
+        <h1>{{ isAdminOrRh() ? 'Pointage' : 'Mon pointage' }}</h1>
+        <div *ngIf="isCheckedIn()" class="header-status-badge">
+          <span class="header-pulse-dot"></span> En activité
+        </div>
+      </div>
+      <p class="date-subtitle">{{ currentDateTimeFormatted() }}</p>
     </div>
   </header>
 
-  <app-attendance-card [currentTime]="currentTime()" [dailyDuration]="dailyDuration()" [checkInTime]="checkInTime()"
-    [checkOutTime]="checkOutTime()" [state]="attendanceState()" [roleLabel]="roleLabel()" [weeklyStats]="stats()"
-    [activityLogs]="history()" [isLoading]="isLoading()" (checkIn)="onCheckIn()" (checkOut)="onCheckOut()"
-    (refresh)="onRefresh()">
-  </app-attendance-card>
-
-  <section class="pointage-context">
-    <div class="context-item">
-      <span>Horaire du jour</span>
-      <strong>{{ scheduleLabel() }}</strong>
-    </div>
-    <div class="context-item" *ngIf="!isOutOfSchedulePointage(); else outOfScheduleStatus">
-      <span>Heures supplementaires</span>
-      <strong>{{ overtimePreviewLabel() }}</strong>
-    </div>
-    <ng-template #outOfScheduleStatus>
-      <div class="context-item">
-        <span>Statut pointage</span>
-        <strong>{{ outOfScheduleLabel() }}</strong>
-        <small>Heures supplementaires: 0 min</small>
-      </div>
-    </ng-template>
-    <div class="context-item">
-      <span>Localisation</span>
-      <strong *ngIf="latestLocationLabel(); else gpsStatusText">📍 {{ latestLocationLabel() }}</strong>
-      <ng-template #gpsStatusText>
-        <strong>{{ locationStatusLabel() }}</strong>
-      </ng-template>
-      <small *ngIf="latestCoordinatesLabel()">{{ latestCoordinatesLabel() }}</small>
-      <small *ngIf="gpsError()">{{ gpsError() }}</small>
-    </div>
-    <div class="context-item context-wide"
-      *ngIf="blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert">
-      <span>Statut</span>
-      <strong>{{ blockReason() || todaySummary()?.leaveOrHolidayInfo || todaySummary()?.latestAlert }}</strong>
-    </div>
-  </section>
-
+  <!-- Alerts and inline feedbacks -->
   <div *ngIf="statusMessage()" class="inline-feedback info-feedback">
-    <lucide-angular [img]="iconAlert" size="16"></lucide-angular>
+    <lucide-angular *ngIf="iconAlert" [img]="iconAlert" size="16"></lucide-angular>
     <span>{{ statusMessage() }}</span>
   </div>
 
   <div *ngIf="attendanceState() === 'ERROR' && serviceError()" class="inline-feedback error-feedback">
-    <lucide-angular [img]="iconAlert" size="16"></lucide-angular>
+    <lucide-angular *ngIf="iconAlert" [img]="iconAlert" size="16"></lucide-angular>
     <span>{{ serviceError() }}</span>
   </div>
 
-  <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
-    aria-labelledby="overtime-modal-title">
-    <section class="overtime-modal">
-      <div class="overtime-modal-icon">
-        <lucide-angular [img]="iconClock" size="22"></lucide-angular>
+  <ng-container *ngIf="isEmployeeOrManager(); else adminRhSections">
+
+    <!-- ═══════════ SKELETON DURING INITIAL LOAD ═══════════ -->
+    <section *ngIf="!pageReady()" class="hero-pointage-grid hero-pointage-grid--skeleton">
+      <div class="hero-skel-card hero-skel-card--session">
+        <div class="skel-bar skel-bar--tag"></div>
+        <div class="skel-bar skel-bar--timer"></div>
+        <div class="skel-circle"></div>
+        <div class="skel-bar skel-bar--meta"></div>
       </div>
-      <div class="overtime-modal-copy">
-        <h2 id="overtime-modal-title">Horaire terminé</h2>
-        <p>Votre horaire prévu est terminé. Souhaitez-vous clôturer votre journée ou continuer à travailler ?</p>
+      <div class="hero-skel-card">
+        <div class="skel-bar skel-bar--tag"></div>
+        <div class="skel-bar skel-bar--value"></div>
+        <div class="skel-bar skel-bar--sub"></div>
       </div>
-      <div class="overtime-modal-actions">
-        <button type="button" class="secondary-action" (click)="onCheckoutFromOvertimeModal()" [disabled]="isLoading()">
-          Pointer ma sortie
-        </button>
-        <button type="button" class="primary-action" (click)="onContinueOvertime()" [disabled]="isLoading()">
-          Continuer à travailler
-        </button>
+      <div class="hero-skel-card">
+        <div class="skel-bar skel-bar--tag"></div>
+        <div class="skel-bar skel-bar--value"></div>
+        <div class="skel-bar skel-bar--progress"></div>
+      </div>
+      <div class="hero-skel-card">
+        <div class="skel-bar skel-bar--tag"></div>
+        <div class="skel-bar skel-bar--value"></div>
+        <div class="skel-bar skel-bar--sub"></div>
+        <div class="skel-bar skel-bar--sub"></div>
       </div>
     </section>
-  </div>
 
-  <section *ngIf="latestOvertimeRequest() as overtime" class="surface-card overtime-card">
-    <div class="card-head">
-      <div>
-        <h2>Heures supplementaires</h2>
-        <p>Suivi automatique apres pointage sortie</p>
+    <!-- Hero Row: 4-blocks configuration -->
+    <section *ngIf="pageReady()" class="hero-pointage-grid">
+      <!-- Left Block: Session Card -->
+      <div class="hero-card session-card" [class.state-active]="isCheckedIn()"
+        [class.state-closed]="attendanceState() === 'CLOSED'">
+        <div class="card-noise"></div>
+        <div class="session-card-ambient"></div>
+        <div class="session-card-header">
+          <span class="card-tag">SESSION EN COURS</span>
+          <span class="session-state-chip" [class.chip-active]="isCheckedIn()"
+            [class.chip-closed]="attendanceState() === 'CLOSED'"
+            [class.chip-idle]="!isCheckedIn() && attendanceState() !== 'CLOSED'">
+            <span class="chip-dot"></span>
+            {{ isCheckedIn() ? 'En session' : (attendanceState() === 'CLOSED' ? 'Clôturée' : 'Non démarré') }}
+          </span>
+        </div>
+
+        <div class="session-card-body">
+          <div class="session-timer-text">
+            <span class="duration-digits">{{ dailyDuration() }}</span>
+            <span class="duration-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              Durée de la session
+            </span>
+          </div>
+
+          <div class="timer-interactive-wrapper">
+            <div class="pulse-rings" [class.rings-active]="isCheckedIn()">
+              <div class="pulse-ring ring-1"></div>
+              <div class="pulse-ring ring-2"></div>
+              <div class="pulse-ring ring-3"></div>
+            </div>
+            <button class="timer-trigger-btn" [class.btn-stop]="isCheckedIn()"
+              (click)="isCheckedIn() ? onCheckOut() : onCheckIn()" [disabled]="isLoading()"
+              [attr.aria-label]="isCheckedIn() ? 'Pointer ma sortie' : 'Pointer mon entrée'">
+              <span *ngIf="isLoading()" class="spinner-loader"></span>
+              <svg *ngIf="!isLoading() && !isCheckedIn()" xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              <svg *ngIf="!isLoading() && isCheckedIn()" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="session-meta-info" *ngIf="isCheckedIn(); else notStartedInfo">
+          <span class="session-started-time" *ngIf="checkInTime()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Démarrée à {{ formatTime(checkInTime()) }}
+          </span>
+          <div class="location-validation-pill" *ngIf="latestLocationLabel()">
+            <span class="pill-location">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <app-location-display [locationText]="latestLocationLabel()"></app-location-display>
+            </span>
+            <span class="pill-sep"></span>
+            <span class="pill-validation">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              GPS Actif
+            </span>
+          </div>
+          <div class="location-validation-pill pill-no-location" *ngIf="!latestLocationLabel()">
+            <span class="pill-validation">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Localisation en attente...
+            </span>
+          </div>
+        </div>
+        <ng-template #notStartedInfo>
+          <div class="session-meta-info not-started">
+            <span class="session-idle-hint">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              {{ attendanceState() === 'CLOSED' ? 'Journée clôturée · ' + formatTime(checkOutTime()) : 'Prêt pour le
+              pointage d\'entrée' }}
+            </span>
+          </div>
+        </ng-template>
       </div>
-      <span class="overtime-status">{{ latestOvertimeStatusLabel() }}</span>
-    </div>
 
-    <div class="overtime-grid">
-      <div>
-        <span>Date</span>
-        <strong>{{ overtime.date }}</strong>
+      <!-- Center Block: Latest Event -->
+      <div class="hero-card event-card">
+        <span class="card-tag">Dernier événement</span>
+        <div class="event-details-wrap" *ngIf="latestEvent(); else noEventState">
+          <div class="event-badge-row">
+            <span class="event-type-badge" [class.in]="latestEvent()?.type === 'ENTREE'"
+              [class.out]="latestEvent()?.type === 'SORTIE'">
+              <span class="badge-dot"></span>
+              {{ latestEvent()?.type === 'ENTREE' ? 'Entrée' : 'Sortie' }}
+            </span>
+            <span class="event-isok-badge" [class.ok]="latestEvent()?.isOk" [class.nok]="!latestEvent()?.isOk">
+              <svg *ngIf="latestEvent()?.isOk" xmlns="http://www.w3.org/2000/svg" width="10" height="10"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <svg *ngIf="!latestEvent()?.isOk" xmlns="http://www.w3.org/2000/svg" width="10" height="10"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              {{ latestEvent()?.badgeLabel }}
+            </span>
+          </div>
+          <span class="event-time-display">{{ latestEvent()?.time }}</span>
+          <span class="event-day-label">Aujourd'hui</span>
+          <div class="event-location" *ngIf="latestEvent()?.location">
+            <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="13"></lucide-angular>
+            <span>{{ latestEvent()?.location }}</span>
+          </div>
+        </div>
+        <ng-template #noEventState>
+          <div class="empty-state-event">
+            <div class="empty-icon-ring">
+              <lucide-angular *ngIf="iconClock" [img]="iconClock" size="28"></lucide-angular>
+            </div>
+            <p>Aucun pointage aujourd'hui</p>
+            <span class="empty-hint">Cliquez sur le bouton session</span>
+          </div>
+        </ng-template>
       </div>
-      <div>
-        <span>Temps declare</span>
-        <strong>{{ overtime.overtimeMinutes || 0 }} min</strong>
+
+      <!-- Center-Right Block: Today's Attendance -->
+      <div class="hero-card today-attendance-card">
+        <div class="attendance-header-row">
+          <span class="card-tag" style="margin-bottom:0">Pointage du jour</span>
+          <span class="today-date-chip">{{ scheduleLabel() }}</span>
+        </div>
+        <div class="attendance-rows-grid">
+          <div class="attendance-cell check-in-cell" [class.active]="checkInTime()">
+            <span class="cell-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <polyline points="5 12 12 19 19 12" />
+              </svg>
+              Entrée
+            </span>
+            <span class="cell-time">{{ checkInTime() ? formatTime(checkInTime()) : '--:--' }}</span>
+            <span class="cell-status" [class.active-status]="checkInTime()">{{ checkInTime() ? 'Enregistrée' : 'En
+              attente' }}</span>
+          </div>
+          <div class="attendance-cell check-out-cell" [class.active]="checkOutTime()">
+            <span class="cell-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="19 12 12 5 5 12" />
+              </svg>
+              Sortie
+            </span>
+            <span class="cell-time">{{ checkOutTime() ? formatTime(checkOutTime()) : '--:--' }}</span>
+            <span class="cell-status" [class.active-status]="checkOutTime()">{{ checkOutTime() ? 'Enregistrée' :
+              isCheckedIn() ? 'Session active' : 'En attente' }}</span>
+          </div>
+        </div>
+        <div class="horizontal-progress-timeline">
+          <div class="timeline-scale">
+            <span>{{ (todaySummary()?.scheduledStart ?? '09:00').slice(0, 5) }}</span>
+            <div class="timeline-bar-bg">
+              <div class="timeline-dot-start"></div>
+              <div class="timeline-bar-fill" [style.width.%]="timelineProgress()"></div>
+              
+              <!-- Planned break segment on progress bar -->
+              <div *ngIf="todayBreakWindow() && breakSegmentStyle()" 
+                   class="timeline-bar-break" 
+                   [style.left]="breakSegmentStyle()!.left" 
+                   [style.width]="breakSegmentStyle()!.width">
+              </div>
+              
+              <div class="timeline-dot-end"></div>
+            </div>
+            <span>{{ (todaySummary()?.scheduledEnd ?? '18:00').slice(0, 5) }}</span>
+          </div>
+          <div class="timeline-progress-label">
+            <span>{{ timelineProgress() | number:'1.0-0' }}% de la journée écoulée</span>
+          </div>
+          
+          <!-- Planned break details under progress bar -->
+          <div *ngIf="todayBreakWindow()" class="timeline-break-container">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="break-coffee-icon">
+              <path d="M17 8h1a4 4 0 1 1 0 8h-1"/>
+              <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/>
+              <line x1="6" y1="2" x2="6" y2="4"/>
+              <line x1="10" y1="2" x2="10" y2="4"/>
+              <line x1="14" y1="2" x2="14" y2="4"/>
+            </svg>
+            <span>Pause prévue : {{ todayBreakWindow()!.start.slice(0, 5) }} – {{ todayBreakWindow()!.end.slice(0, 5) }}</span>
+          </div>
+        </div>
+        <div class="control-segment-actions">
+          <button class="segment-btn trajet-mode-btn" [class.active]="isTrajetMode()"
+            (click)="isTrajetMode.set(!isTrajetMode())">
+            <lucide-angular *ngIf="iconCar" [img]="iconCar" size="16"></lucide-angular>
+            <div class="btn-texts">
+              <span class="btn-title">Mode trajet</span>
+              <span class="btn-state">{{ isTrajetMode() ? 'Activé' : 'Désactivé' }}</span>
+            </div>
+          </button>
+        </div>
       </div>
-      <div>
-        <span>Sortie</span>
-        <strong>{{ formatTime(overtime.checkOutTime || overtime.actualCheckOut || null) }}</strong>
+
+      <!-- Right Block: Weekly Summary (Bento Summary) -->
+      <div class="hero-card weekly-summary-card">
+        <div class="weekly-summary-header">
+          <span class="card-tag">Résumé hebdomadaire</span>
+          <div class="date-range-select">
+            <span>Cette semaine</span>
+            <lucide-angular *ngIf="iconChevronDown" [img]="iconChevronDown" size="12"></lucide-angular>
+          </div>
+        </div>
+        <div class="weekly-summary-grid">
+          <div class="weekly-stat-item">
+            <span class="stat-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              Heures travaillées
+            </span>
+            <strong class="stat-value">{{ stats()?.heuresSemaine || '0h00' }}</strong>
+            <span class="stat-sub">cette semaine</span>
+          </div>
+          <div class="weekly-stat-item">
+            <span class="stat-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+              Heures sup.
+            </span>
+            <strong class="stat-value">{{ overtimePreviewLabel() }}</strong>
+            <span class="stat-sub">cumulées</span>
+          </div>
+          <div class="weekly-stat-item">
+            <span class="stat-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Jours travaillés
+            </span>
+            <strong class="stat-value">{{ joursTravaillesCount() }}/5</strong>
+            <span class="stat-sub">cette semaine</span>
+          </div>
+          <div class="weekly-stat-item punctuality-item">
+            <span class="stat-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="16 12 12 8 8 12" />
+                <line x1="12" y1="16" x2="12" y2="8" />
+              </svg>
+              Ponctualité
+            </span>
+            <strong class="stat-value">{{ (stats()?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
+            <div class="stat-sparkline-row">
+              <div class="sparkline-container">
+                <svg class="sparkline-svg" viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="sparkline-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#10B981" stop-opacity="0.25" />
+                      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 0 25 C 20 23, 40 27, 60 15 C 80 5, 90 12, 100 8" fill="none" stroke="#10b981"
+                    stroke-width="2.5" stroke-linecap="round"></path>
+                  <path d="M 0 25 C 20 23, 40 27, 60 15 C 80 5, 90 12, 100 8 L 100 30 L 0 30 Z"
+                    fill="url(#sparkline-grad)"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <p *ngIf="overtime.reason" class="overtime-reason">
-      {{ overtime.reason }}
-    </p>
+    <!-- KPI Row: Three modern cards -->
+    <section class="kpi-row-grid">
+      <div class="kpi-row-card horaire-kpi">
+        <div class="kpi-card-icon calendar-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </div>
+        <div class="kpi-card-content">
+          <span class="kpi-label">Horaire du jour</span>
+          <strong class="kpi-val">{{ scheduleLabel() }}</strong>
+          <span class="kpi-meta">Planifié · 8h</span>
+        </div>
+      </div>
+      <div class="kpi-row-card hours-today-kpi">
+        <div class="kpi-card-icon clock-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <div class="kpi-card-content">
+          <span class="kpi-label">Heures aujourd'hui</span>
+          <strong class="kpi-val">{{ stats()?.heuresAujourdhui || '0h00' }}</strong>
+          <span class="kpi-meta">Total travaillé</span>
+        </div>
+      </div>
+      <div class="kpi-row-card leave-kpi">
+        <div class="kpi-card-icon calendardays-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="8" y1="14" x2="8" y2="14" />
+            <line x1="12" y1="14" x2="12" y2="14" />
+            <line x1="16" y1="14" x2="16" y2="14" />
+          </svg>
+        </div>
+        <div class="kpi-card-content">
+          <span class="kpi-label">Solde de congés</span>
+          <strong class="kpi-val">{{ stats()?.soldeConges ?? 0 }} jours</strong>
+          <span class="kpi-meta">Disponibles</span>
+        </div>
+      </div>
+    </section>
 
-    <div class="overtime-reason-form">
-      <textarea [value]="overtimeReasonDraft()" (input)="onOvertimeReasonInput($event)" rows="2"
-        placeholder="Ajouter une justification pour le manager"></textarea>
-      <button type="button" (click)="submitOvertimeReason(overtime)" [disabled]="isSavingOvertimeReason()">
-        Envoyer
-      </button>
-    </div>
-  </section>
-
-  <ng-container *ngIf="isEmployeeOrManager(); else adminRhSections">
-    <section class="content-grid">
+    <!-- Real-Time Map, Timeline and Success blocks -->
+    <div class="main-pointage-bento-grid">
+      <!-- Leaflet Interactive Map -->
       <app-attendance-map-card [points]="mapPoints()"></app-attendance-map-card>
 
-      <article class="surface-card">
+      <!-- Daily Activity Timeline -->
+      <article class="surface-card activity-timeline-card">
         <div class="card-head">
-          <h2>Apercu hebdomadaire</h2>
-          <lucide-angular [img]="iconTrend" size="18"></lucide-angular>
-        </div>
-
-        <div class="kpi-grid">
-          <div class="kpi-tile">
-            <span>Aujourd'hui</span>
-            <strong>{{ stats()?.heuresAujourdhui || '0h00' }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span>Cette semaine</span>
-            <strong>{{ stats()?.heuresSemaine || '0h00' }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span>Ponctualite</span>
-            <strong>{{ (stats()?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
-          </div>
-          <div class="kpi-tile">
-            <span>Solde conges</span>
-            <strong>{{ stats()?.soldeConges ?? 0 }}j</strong>
-          </div>
-        </div>
-      </article>
-
-      <article class="surface-card activity-card">
-        <div class="card-head">
-          <h2>Activite du jour</h2>
-          <div class="head-meta">
-            <lucide-angular [img]="iconActivity" size="16"></lucide-angular>
-            <span>{{ history().length }} logs</span>
+          <div class="title-wrap">
+            <h2>Activité du jour</h2>
+            <span class="log-count">{{ history().length }} événement{{ history().length > 1 ? 's' : '' }}</span>
           </div>
         </div>
 
         <div *ngIf="history().length === 0" class="empty-state">
-          <lucide-angular [img]="iconClock" size="38"></lucide-angular>
-          <p>Aucune activite de pointage pour le moment.</p>
+          <div class="empty-icon-ring">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <p>Aucune activité de pointage pour le moment.</p>
+          <span class="empty-hint">Vos pointages apparaîtront ici</span>
         </div>
 
-        <div *ngIf="history().length > 0" class="timeline">
-          <article *ngFor="let log of history(); let last = last" class="timeline-item">
-            <div class="timeline-dot" [class.dot-in]="log.type === 'ENTREE'" [class.dot-out]="log.type === 'SORTIE'">
-            </div>
-            <div class="timeline-body">
-              <div class="timeline-head">
-                <strong>{{ log.type === 'ENTREE' ? 'Pointage entrée' : 'Pointage sortie' }}</strong>
-                <span>{{ formatTime(log.timestamp) }}</span>
+        <div *ngIf="history().length > 0" class="activity-timeline">
+          <div *ngFor="let log of history(); let last = last" class="timeline-step">
+            <div class="step-line-indicator" *ngIf="!last"></div>
+            <div class="step-dot" [class.in]="log.type === 'ENTREE'" [class.out]="log.type === 'SORTIE'"></div>
+            <div class="step-body">
+              <div class="step-top">
+                <span class="step-type">{{ log.type === 'ENTREE' ? 'Entrée' : 'Sortie' }}</span>
+                <span class="step-time">{{ formatTime(log.timestamp) }}</span>
               </div>
-              <div class="timeline-tags">
-                <span *ngIf="log.estEnRetard" class="tag tag-alert">
-                  Retard{{ log.minutesRetard ? ': ' + log.minutesRetard + ' min' : '' }}
-                </span>
+              <div class="step-tags">
+                <span *ngIf="log.estEnRetard" class="tag tag-alert">Retard {{ log.minutesRetard ? log.minutesRetard + '
+                  min' : '' }}</span>
                 <span *ngIf="log.isAutoClosed" class="tag tag-warn">Fermeture auto</span>
                 <span *ngIf="log.overtimeMinutes && log.overtimeMinutes > 0" class="tag tag-info">+{{
-                  log.overtimeMinutes }} min supp.</span>
+                  log.overtimeMinutes }} min sup</span>
                 <span *ngIf="!log.estEnRetard && !log.isAutoClosed && !(log.overtimeMinutes && log.overtimeMinutes > 0)"
                   class="tag tag-ok">Ponctuel</span>
               </div>
-              <div *ngIf="timelineLocationLabel(log) || timelineCoordinateLabel(log)" class="timeline-location">
-                <p *ngIf="timelineLocationLabel(log)">📍 {{ timelineLocationLabel(log) }}</p>
-                <small *ngIf="timelineCoordinateLabel(log)">{{ timelineCoordinateLabel(log) }}</small>
+              <div class="step-details" *ngIf="timelineLocationLabel(log) || timelineCoordinateLabel(log)">
+                <p class="step-loc">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <app-location-display [locationText]="timelineLocationLabel(log)"></app-location-display>
+                </p>
+                <small class="step-coords" *ngIf="timelineCoordinateLabel(log)">{{ timelineCoordinateLabel(log)
+                  }}</small>
               </div>
             </div>
-            <div *ngIf="!last" class="timeline-line"></div>
-          </article>
+          </div>
         </div>
+      </article>
+
+      <!-- Bento Right Stack Column -->
+      <div class="bento-right-column">
+        <!-- Next Schedule Card -->
+        <article class="surface-card next-schedule-card">
+          <div class="card-head">
+            <h2>Prochain horaire</h2>
+            <div class="next-schedule-select">
+              <span>Demain</span>
+              <lucide-angular *ngIf="iconChevronDown" [img]="iconChevronDown" size="14"></lucide-angular>
+            </div>
+          </div>
+          <div class="next-schedule-body">
+            <div class="schedule-icon-wrap">
+              <lucide-angular *ngIf="iconCalendar" [img]="iconCalendar" size="24"></lucide-angular>
+            </div>
+            <div class="schedule-details">
+              <strong>{{ tomorrowScheduleLabel() }}</strong>
+              <span>8h de travail</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Success & achievements card -->
+        <article class="surface-card success-streak-card">
+          <div class="card-head">
+            <h2>Vos succès</h2>
+            <span class="view-all-link">Voir tout</span>
+          </div>
+          <div class="success-content">
+            <div class="streak-block">
+              <div class="streak-header">
+                <div class="streak-icon-wrap">
+                  <svg class="success-icon-svg streak-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+                  </svg>
+                </div>
+                <div class="streak-title-group">
+                  <h3>Série actuelle</h3>
+                  <strong>{{ streakDays() }} jours</strong>
+                </div>
+              </div>
+              <p class="streak-comment">Bravo ! Continuez comme ça.</p>
+              <div class="streak-progress-bar">
+                <div class="streak-bar-fill" [style.width.%]="(streakDays() / 15) * 100"></div>
+              </div>
+            </div>
+
+            <div class="perfect-block">
+              <div class="perfect-header">
+                <div class="perfect-icon-wrap">
+                  <svg class="success-icon-svg perfect-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 13c0 5-3.5 7.5-7.66 9.7a1 1 0 0 1-.68 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                  </svg>
+                </div>
+                <div class="perfect-title-group">
+                  <h3>Ponctualité parfaite</h3>
+                  <strong>{{ (stats()?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
+                </div>
+              </div>
+              <p class="perfect-comment">Cette semaine</p>
+              <div class="perfect-progress-bar">
+                <div class="perfect-bar-fill" [style.width.%]="stats()?.ponctualitePct ?? 100"></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <!-- Manager shortcut panel -->
+    <section *ngIf="showManagerTeamShortcut()" class="manager-panel">
+      <article class="surface-card manager-shortcut-card">
+        <div class="card-head">
+          <div class="title-wrap">
+            <h2>Vue équipe</h2>
+            <span class="log-count">{{ role() === 'RH' ? 'RH' : 'Manager' }}</span>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#6366f1">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </div>
+        <p>{{ role() === 'RH' ? 'Suivez et validez les pointages des collaborateurs de l\'entreprise.' : 'Suivez et validez les pointages des collaborateurs de votre équipe.' }}</p>
+        <a routerLink="/app/manager/presence" class="team-link-btn">Ouvrir la vue équipe</a>
       </article>
     </section>
 
-    <section *ngIf="showManagerTeamShortcut()" class="manager-panel">
-      <article class="surface-card manager-shortcut">
-        <div class="card-head">
-          <h2>Equipe</h2>
-          <lucide-angular [img]="iconUsers" size="18"></lucide-angular>
+    <!-- Bottom motivation banner -->
+    <section class="bottom-motivational-banner">
+      <div class="banner-content">
+        <div class="rocket-icon-wrapper">
+          <svg class="rocket-icon-svg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
         </div>
-        <p>Consultez la vue equipe si vous devez suivre les pointages de vos collaborateurs.</p>
-        <a routerLink="/app/manager/presence" class="team-link">Ouvrir la vue equipe</a>
-      </article>
+        <div class="banner-texts">
+          <h3>Vous êtes au top !</h3>
+          <p>Votre ponctualité et votre assiduité sont excellentes.</p>
+        </div>
+      </div>
+      <a [routerLink]="['/app', role().toLowerCase(), 'dashboard']" class="banner-cta-btn">Voir mes statistiques</a>
     </section>
+
+    <!-- Overtime declarations and requests details -->
+    <section *ngIf="latestOvertimeRequest() as overtime" class="surface-card overtime-card-premium">
+      <div class="card-head">
+        <div>
+          <h2>Heures supplémentaires</h2>
+          <p>Suivi automatique après pointage sortie</p>
+        </div>
+        <span class="overtime-status-badge">{{ latestOvertimeStatusLabel() }}</span>
+      </div>
+
+      <div class="overtime-grid">
+        <div class="overtime-tile">
+          <span>Date</span>
+          <strong>{{ overtime.date }}</strong>
+        </div>
+        <div class="overtime-tile">
+          <span>Temps déclaré</span>
+          <strong>{{ overtime.overtimeMinutes || 0 }} min</strong>
+        </div>
+        <div class="overtime-tile">
+          <span>Sortie</span>
+          <strong>{{ formatTime(overtime.checkOutTime || overtime.actualCheckOut || null) }}</strong>
+        </div>
+      </div>
+
+      <p *ngIf="overtime.reason" class="overtime-reason-text">
+        {{ overtime.reason }}
+      </p>
+
+      <div class="overtime-reason-form-wrap">
+        <textarea [value]="overtimeReasonDraft()" (input)="onOvertimeReasonInput($event)" rows="2"
+          placeholder="Ajouter une justification pour le manager"></textarea>
+        <button type="button" class="btn-submit-reason" (click)="submitOvertimeReason(overtime)"
+          [disabled]="isSavingOvertimeReason()">
+          Envoyer
+        </button>
+      </div>
+    </section>
+
+    <!-- Overtime modal backdrop -->
+    <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
+      aria-labelledby="overtime-modal-title">
+      <section class="overtime-modal">
+        <div class="overtime-modal-icon">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="22"></lucide-angular>
+        </div>
+        <div class="overtime-modal-copy">
+          <h2 id="overtime-modal-title">Horaire terminé</h2>
+          <p>Votre horaire prévu est terminé. Souhaitez-vous clôturer votre journée ou continuer à travailler ?</p>
+        </div>
+        <div class="overtime-modal-actions">
+          <button type="button" class="secondary-action" (click)="onCheckoutFromOvertimeModal()"
+            [disabled]="isLoading()">
+            Pointer ma sortie
+          </button>
+          <button type="button" class="primary-action" (click)="onContinueOvertime()" [disabled]="isLoading()">
+            Continuer à travailler
+          </button>
+        </div>
+      </section>
+    </div>
   </ng-container>
 
+  <!-- Admin and RH View section fallback -->
   <ng-template #adminRhSections>
     <section class="content-grid admin-grid">
       <article class="surface-card">
         <div class="card-head">
-          <h2>Etat du jour</h2>
-          <lucide-angular [img]="iconCheck" size="18"></lucide-angular>
+          <h2>État du jour</h2>
+          <lucide-angular *ngIf="iconCheck" [img]="iconCheck" size="18"></lucide-angular>
         </div>
 
         <div class="summary-grid">
@@ -229,11 +676,11 @@
       <article class="surface-card">
         <div class="card-head">
           <h2>Vue hebdomadaire</h2>
-          <lucide-angular [img]="iconCalendar" size="18"></lucide-angular>
+          <lucide-angular *ngIf="iconCalendar" [img]="iconCalendar" size="18"></lucide-angular>
         </div>
 
         <div *ngIf="(stats()?.joursParStatus?.length || 0) === 0" class="empty-state compact">
-          <p>Aucune donnee hebdomadaire disponible.</p>
+          <p>Aucune donnée hebdomadaire disponible.</p>
         </div>
 
         <div *ngIf="(stats()?.joursParStatus?.length || 0) > 0" class="week-status-list">
@@ -246,8 +693,8 @@
 
       <article class="surface-card">
         <div class="card-head">
-          <h2>Stats</h2>
-          <lucide-angular [img]="iconTrend" size="18"></lucide-angular>
+          <h2>Statistiques</h2>
+          <lucide-angular *ngIf="iconTrend" [img]="iconTrend" size="18"></lucide-angular>
         </div>
 
         <div class="summary-grid">
@@ -256,15 +703,15 @@
             <strong>{{ stats()?.heuresSemaine || '0h00' }}</strong>
           </div>
           <div>
-            <span>Ponctualite</span>
+            <span>Ponctualité</span>
             <strong>{{ (stats()?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
           </div>
           <div>
-            <span>Solde conges</span>
+            <span>Solde congés</span>
             <strong>{{ stats()?.soldeConges ?? 0 }}j</strong>
           </div>
           <div>
-            <span>Activites</span>
+            <span>Activités</span>
             <strong>{{ history().length }}</strong>
           </div>
         </div>

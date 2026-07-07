@@ -20,6 +20,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,6 +36,8 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_attendance_session_checkin", columnList = "check_in_time")
         }
 )
+@FilterDef(name = "entrepriseFilter", parameters = @ParamDef(name = "entrepriseId", type = Long.class))
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

@@ -932,7 +932,7 @@ export class MlAnomalyService {
   private readonly baseUrl = (
     environment.mlServiceUrl
     ?? environment.gatewayUrl
-    ?? 'http://localhost:8322'
+    ?? 'http://localhost:8222'
   ).replace(/\/+$/, '');
 
   getTodayAnomalies(): Observable<AnomalyDashboardResponse> {
@@ -1021,10 +1021,6 @@ export class MlAnomalyService {
   private authHeaders(scope: string): HttpHeaders {
     const headers: Record<string, string> = {};
     const user = this.auth.currentUser();
-    const token = this.auth.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     if (user?.id) {
       headers['X-User-Id'] = String(user.id);
     }

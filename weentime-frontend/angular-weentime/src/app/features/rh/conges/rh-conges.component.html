@@ -1,0 +1,229 @@
+<div class="leave-page">
+  @if (isRh()) {
+    <header class="page-header leave-page-animate">
+      <nav class="page-breadcrumb" aria-label="Fil d'Ariane">
+        <a [routerLink]="dashboardLink()">Tableau de bord</a>
+        <span class="page-breadcrumb__sep" aria-hidden="true">›</span>
+        <span>Gestion des congés</span>
+      </nav>
+      <h1 class="page-title">Gestion des congés</h1>
+    </header>
+
+    <nav class="tab-bar leave-page-animate" aria-label="Sections congés">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.is-active]="activeTab() === 'mes-demandes'"
+        (click)="activeTab.set('mes-demandes')">
+        Mes demandes
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.is-active]="activeTab() === 'gestion'"
+        (click)="activeTab.set('gestion')">
+        Gestion
+        @if (pendingCount() > 0) {
+          <span class="tab-badge" aria-label="{{ pendingCount() }} en attente">{{ pendingCount() }}</span>
+        }
+      </button>
+    </nav>
+  }
+
+  @if (activeTab() === 'mes-demandes') {
+    <app-employee-conges></app-employee-conges>
+  } @else {
+    <div class="leave-page-animate">
+      <section class="stats-strip" aria-label="Synthèse des demandes">
+        <div class="stat-item">
+          <span class="stat-item__value" [class.stat-item__value--warn]="pendingCount() > 0" [class.stat-item__value--muted]="pendingCount() === 0">
+            {{ pendingCount() }}
+          </span>
+          <span>en attente RH</span>
+        </div>
+        <span class="stat-divider" aria-hidden="true"></span>
+        <div class="stat-item">
+          <span class="stat-item__value" [class.stat-item__value--ok]="approvedThisMonth() > 0" [class.stat-item__value--muted]="approvedThisMonth() === 0">
+            {{ approvedThisMonth() }}
+          </span>
+          <span>finalisés ce mois</span>
+        </div>
+        <span class="stat-divider" aria-hidden="true"></span>
+        <div class="stat-item">
+          <span class="stat-item__value">{{ managerPendingCount() }}</span>
+          <span>chez les managers</span>
+        </div>
+        <span class="stat-divider" aria-hidden="true"></span>
+        <div class="stat-item">
+          <span class="stat-item__value">{{ totalCount() }}</span>
+          <span>demandes au total</span>
+        </div>
+      </section>
+
+      <div class="toolbar-row">
+        <div class="search-filter-bar" role="search">
+          <input
+            type="search"
+            class="search-filter-input"
+            placeholder="Rechercher un collaborateur..."
+            [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)"
+            aria-label="Rechercher un collaborateur" />
+          <div class="divider" aria-hidden="true"></div>
+          <select
+            class="search-filter-select"
+            [ngModel]="statusFilter()"
+            (ngModelChange)="statusFilter.set($event)"
+            aria-label="Filtrer par statut">
+            <option value="ALL">Tous les statuts</option>
+            <option value="EN_ATTENTE_RH">À valider RH</option>
+            <option value="EN_ATTENTE_MANAGER">Attente manager</option>
+            <option value="APPROUVE">Finalisés</option>
+            <option value="REFUSE">Refusés</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          class="toolbar-refresh"
+          (click)="refresh()"
+          [disabled]="isLoading()"
+          aria-label="Actualiser la liste">
+          <lucide-icon name="refresh-cw" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="table-card">
+        @if (isLoading() && allDemandes().length === 0) {
+          <div class="panel-state panel-state--loading" role="status">
+            <div class="spinner" aria-hidden="true"></div>
+            <p class="panel-state__text">Chargement des demandes…</p>
+          </div>
+        } @else if (allDemandes().length === 0) {
+          <div class="panel-state">
+            <div class="empty-icon" aria-hidden="true">
+              <lucide-icon name="calendar-check" size="22"></lucide-icon>
+            </div>
+            <h2 class="panel-state__title">Aucune demande pour le moment</h2>
+            <p class="panel-state__text">
+              Les demandes de congés de vos collaborateurs apparaîtront ici dès qu'elles seront soumises.
+            </p>
+          </div>
+        } @else if (filteredDemandes().length === 0) {
+          <div class="panel-state">
+            <div class="empty-icon" aria-hidden="true">
+              <lucide-icon name="search" size="22"></lucide-icon>
+            </div>
+            <h2 class="panel-state__title">Aucun résultat</h2>
+            <p class="panel-state__text">
+              Aucune demande ne correspond à votre recherche ou au filtre sélectionné.
+            </p>
+          </div>
+        } @else {
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Collaborateur</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Période</th>
+                  <th scope="col">Durée</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col" class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (demande of filteredDemandes(); track demande.id) {
+                  <tr>
+                    <td>
+                      <div class="person-cell">
+                        <div class="person-avatar" [style.background]="avatarColor(demande.userName)">
+                          {{ getInitials(demande.userName) }}
+                        </div>
+                        <div>
+                          <span class="person-name">{{ demande.userName }}</span>
+                          <span class="person-email">{{ demande.userEmail }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        class="type-badge"
+                        [style.color]="getTypeColor(demande.typeCongeNom)"
+                        [style.border-color]="getTypeColor(demande.typeCongeNom)">
+                        {{ demande.typeCongeNom || demande.label }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="period-primary">{{ demande.dateDebut | date:'d MMM':'':'fr' }}</span>
+                      <span class="period-secondary">au {{ demande.dateFin | date:'d MMM y':'':'fr' }}</span>
+                    </td>
+                    <td>
+                      <span class="duration-text">{{ demande.nombreJours }} j</span>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="getStatusBadgeClass(demande.statut)">
+                        {{ formatStatut(demande.statut) }}
+                      </span>
+                    </td>
+                    <td class="col-actions actions-cell">
+                      @if (canRhAct(demande.statut)) {
+                        <div class="action-group">
+                          <button
+                            type="button"
+                            class="action-btn action-btn--approve"
+                            matTooltip="Approuver"
+                            (click)="onApprouver(demande)"
+                            aria-label="Approuver">
+                            <lucide-icon name="check" [size]="14"></lucide-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn action-btn--refuse"
+                            matTooltip="Refuser"
+                            (click)="onRefuser(demande)"
+                            aria-label="Refuser">
+                            <lucide-icon name="x" [size]="14"></lucide-icon>
+                          </button>
+                        </div>
+                      } @else if (isManagerPending(demande.statut)) {
+                        <span class="actions-empty" aria-hidden="true">—</span>
+                      } @else if (canViewDetail(demande.statut)) {
+                        <div class="action-group">
+                          <button
+                            type="button"
+                            class="action-btn action-btn--view"
+                            matTooltip="Voir le détail"
+                            (click)="openDetail(demande)"
+                            aria-label="Voir le détail">
+                            <lucide-icon [img]="iconEye" [size]="14"></lucide-icon>
+                          </button>
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+@if (showDetailPanel()) {
+  <app-conge-detail-panel
+    [demande]="demandeSelectionnee()"
+    (close)="closeDetailPanel()">
+  </app-conge-detail-panel>
+}
+
+@if (demandeSelectionnee() && modeDecision()) {
+  <app-conge-decision-rh-modal
+    [demande]="demandeSelectionnee()"
+    [mode]="modeDecision()!"
+    [isSubmitting]="isSubmittingDecision()"
+    (close)="closeDecisionModal()"
+    (confirm)="onConfirmDecision($event)">
+  </app-conge-decision-rh-modal>
+}

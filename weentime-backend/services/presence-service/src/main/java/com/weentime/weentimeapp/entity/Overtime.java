@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
         uniqueConstraints = @UniqueConstraint(name = "uk_overtime_user_date", columnNames = {"utilisateur_id", "date_presence"}),
         indexes = @Index(name = "idx_overtime_date", columnList = "date_presence")
 )
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

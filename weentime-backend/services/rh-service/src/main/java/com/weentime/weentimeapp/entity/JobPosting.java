@@ -3,11 +3,13 @@ package com.weentime.weentimeapp.entity;
 import com.weentime.weentimeapp.enums.JobStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "job_postings")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @Data
 @Builder
 @NoArgsConstructor

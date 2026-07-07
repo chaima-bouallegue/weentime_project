@@ -1,14 +1,14 @@
 package com.weentime.weentimeapp.service;
 
+import com.weentime.weentimeapp.dto.EntrepriseResponse;
 import com.weentime.weentimeapp.dto.UserResponse;
 import com.weentime.weentimeapp.entity.Document;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,8 +20,11 @@ import java.util.regex.Pattern;
  * Exemple : "M. {{employee.prenom}} {{employee.nom}}" → "M. Jean Dupont"
  */
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class TemplateResolver {
+
+    private final EntrepriseCacheService entrepriseCache;
 
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("\\{\\{([^}]+)\\}\\}");
     private static final DateTimeFormatter DATE_FORMAT_FR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -51,6 +54,9 @@ public class TemplateResolver {
             log.warn("Variables non résolues dans le template: {}", unresolved);
         }
 
+        // Remplacer toute variable {{...}} non résolue par chaîne vide
+        result = VARIABLE_PATTERN.matcher(result).replaceAll("");
+
         return result;
     }
 
@@ -68,14 +74,10 @@ public class TemplateResolver {
         vars.put("employee.departement", safe(user.getDepartementNom()));
         vars.put("employee.email", safe(user.getEmail()));
 
-        // Date d'entrée et ancienneté (champ non disponible dans UserResponse actuel)
-        // TODO: ajouter dateEntree dans UserResponse quand le champ sera exposé par organisation-service
-        vars.put("employee.dateEntree", "[NON RENSEIGNÉ]");
-        vars.put("employee.anciennete", "[NON RENSEIGNÉ]");
-
-        // ── Variables Entreprise ──
-        vars.put("company.name", "WeenTime");
-        vars.put("company.city", "Casablanca");
+        // ── Variables Entreprise (depuis organisation-service) ──
+        EntrepriseResponse entreprise = fetchEntreprise(document.getEntrepriseId());
+        vars.put("company.name", safe(entreprise != null ? entreprise.getNom() : null, "WeenTime"));
+        vars.put("company.city", safe(entreprise != null ? entreprise.getAdresse() : null, ""));
 
         // ── Variables Document ──
         vars.put("document.date", LocalDate.now().format(DATE_FORMAT_FR));
@@ -109,8 +111,6 @@ public class TemplateResolver {
             Map.of("key", "employee.poste", "label", "Poste occupé", "group", "Employé"),
             Map.of("key", "employee.departement", "label", "Département", "group", "Employé"),
             Map.of("key", "employee.email", "label", "Email", "group", "Employé"),
-            Map.of("key", "employee.dateEntree", "label", "Date d'entrée", "group", "Employé"),
-            Map.of("key", "employee.anciennete", "label", "Ancienneté", "group", "Employé"),
             Map.of("key", "company.name", "label", "Nom de l'entreprise", "group", "Entreprise"),
             Map.of("key", "company.city", "label", "Ville", "group", "Entreprise"),
             Map.of("key", "document.date", "label", "Date du jour", "group", "Document"),
@@ -124,17 +124,18 @@ public class TemplateResolver {
         return value != null ? value : "[NON RENSEIGNÉ]";
     }
 
-    private String calculateAnciennete(LocalDate dateEntree) {
-        LocalDate now = LocalDate.now();
-        long years = ChronoUnit.YEARS.between(dateEntree, now);
-        long months = ChronoUnit.MONTHS.between(dateEntree, now) % 12;
+    private String safe(String value, String fallback) {
+        return value != null && !value.isBlank() ? value : fallback;
+    }
 
-        if (years > 0 && months > 0) {
-            return years + " an" + (years > 1 ? "s" : "") + " et " + months + " mois";
-        } else if (years > 0) {
-            return years + " an" + (years > 1 ? "s" : "");
-        } else {
-            return months + " mois";
+    private EntrepriseResponse fetchEntreprise(Long entrepriseId) {
+        if (entrepriseId == null) return null;
+        try {
+            return entrepriseCache.getEntrepriseById(entrepriseId);
+        } catch (Exception e) {
+            log.warn("Impossible de charger l'entreprise {} : {}", entrepriseId, e.getMessage());
+            return null;
         }
     }
+
 }

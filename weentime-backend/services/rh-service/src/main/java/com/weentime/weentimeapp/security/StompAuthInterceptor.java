@@ -10,6 +10,7 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+import java.security.Principal;
 import java.util.Map;
 
 @Component
@@ -51,6 +52,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
                 "userId", userId,
                 "role", role != null ? role : "UNKNOWN"
             ));
+        } else if (accessor != null && (StompCommand.SEND.equals(accessor.getCommand())
+                || StompCommand.SUBSCRIBE.equals(accessor.getCommand()))) {
+            Principal user = accessor.getUser();
+            if (user == null) {
+                throw new MessagingException("Authentification requise pour " + accessor.getCommand());
+            }
         }
         return message;
     }

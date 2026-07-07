@@ -2,6 +2,7 @@ package com.weentime.weentimeproject.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(name = "entreprise_access_control_history")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 public class EntrepriseAccessControlHistory {
 
     @Id

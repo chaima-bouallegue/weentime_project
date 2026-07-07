@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, Output, EventEmitter, HostListener, ChangeDetectionStrategy, ChangeDetectorRef, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, Input, Output, EventEmitter, HostListener, ChangeDetectionStrategy, ChangeDetectorRef, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LucideAngularModule, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass, X, ChevronLeft, Calendar, FileText, Send, Loader2, Info, AlertTriangle, CheckCircle, Timer } from 'lucide-angular';
@@ -31,6 +31,12 @@ export class AutorisationFormComponent implements OnInit {
 
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<void>();
+
+  @Input() set defaultType(value: string | null | undefined) {
+    this._defaultType = value;
+    this.applyDefaultType();
+  }
+  private _defaultType: string | null | undefined = null;
 
   // Icons
   readonly iconX = X;
@@ -110,6 +116,7 @@ export class AutorisationFormComponent implements OnInit {
         desc: t.requireJustificatif ? 'Justificatif requis' : 'Sans justificatif'
       }));
       this.types.set(mapped);
+      this.applyDefaultType();
       this.cdr.markForCheck();
     });
 
@@ -312,5 +319,20 @@ export class AutorisationFormComponent implements OnInit {
     });
 
     return found?.id ?? null;
+  }
+
+  private applyDefaultType(): void {
+    if (!this._defaultType) return;
+    const types = this.types();
+    if (types.length === 0) return;
+    const found = types.find(t => 
+      t.id.toLowerCase() === this._defaultType?.toLowerCase() ||
+      t.label.toLowerCase() === this._defaultType?.toLowerCase()
+    );
+    if (found) {
+      this.form.patchValue({ type: found.id });
+      this.typeValue.set(found.id as TypeAutorisation);
+      this.cdr.markForCheck();
+    }
   }
 }

@@ -313,6 +313,7 @@ public class LocationResolverService {
     private boolean hasCoordinates(Double latitude, Double longitude) {
         return latitude != null
                 && longitude != null
+                && (latitude != 0.0 || longitude != 0.0)
                 && latitude >= -90d
                 && latitude <= 90d
                 && longitude >= -180d

@@ -75,8 +75,17 @@ APPROVE_TERMS = ("approuve", "approuver", "valide", "valider", "accepte", "accep
 REJECT_TERMS = ("refuse", "refuser", "rejette", "rejeter")
 
 
+def normalize_arabic_text(text: str) -> str:
+    text = ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
+    text = text.replace('\u0623', '\u0627').replace('\u0625', '\u0627').replace('\u0622', '\u0627')
+    return text
+
+
 def normalize_text(value: str) -> str:
-    lowered = (value or "").strip().lower()
+    lowered = normalize_arabic_text((value or "").strip().lower())
     replacements = {
         "baad ghodwa": "apres demain",
         "ba3d ghodwa": "apres demain",
@@ -85,6 +94,23 @@ def normalize_text(value: str) -> str:
         "ghodwa": "demain",
         "غدوة": "demain",
         "غدا": "demain",
+        # Demain — avec et sans diacritiques
+        "غداً": "demain",
+        "غدوة": "demain",
+        # Aujourd'hui
+        "اليوم": "aujourd hui",
+        # Semaine — avec et sans normalisation alif
+        "أسبوع": "semaine",
+        "اسبوع": "semaine",
+        "الأسبوع": "semaine",
+        "الاسبوع": "semaine",
+        "للأسبوع": "semaine",
+        "لاسبوع": "semaine",
+        "هذا الأسبوع": "cette semaine",
+        "هذا الاسبوع": "cette semaine",
+        "الأسبوع القادم": "semaine prochaine",
+        "الاسبوع القادم": "semaine prochaine",
+        "الجمعة الجاية": "semaine prochaine",
         "nheb": "je veux",
         "نحب": "je veux",
         "konji": "conge",

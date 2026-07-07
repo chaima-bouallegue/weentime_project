@@ -132,11 +132,17 @@ describe('ChatWidgetComponent', () => {
     expect(button?.type).toBe('button');
   });
 
-  it('employee quick prompts include "My planning"', () => {
+  it('employee quick prompts include telework list payload with a French display label', () => {
     const fixture = TestBed.createComponent(ChatWidgetComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.quickActions()).toContain('My planning');
+    const teleworkAction = fixture.componentInstance.quickActions().find(
+      action => action.payload === 'telework.list_manager_requests',
+    );
+    expect(teleworkAction).toMatchObject({
+      displayLabel: 'Mes demandes de télétravail',
+      payload: 'telework.list_manager_requests',
+    });
   });
 
   it('isArabicText returns true for Arabic-script strings and false otherwise', () => {
@@ -212,7 +218,7 @@ describe('ChatWidgetComponent', () => {
     });
   });
 
-  it('does not mark a confirmation as approved when the backend returns an error payload', () => {
+  it('does not mark a confirmation as approved when the backend returns an error payload', async () => {
     const fixture = TestBed.createComponent(ChatWidgetComponent);
     const component = fixture.componentInstance;
     const chatService = TestBed.inject(ChatService) as unknown as FakeChatService;
@@ -247,7 +253,7 @@ describe('ChatWidgetComponent', () => {
     ]);
     fixture.detectChanges();
 
-    component.confirmAssistantAction(component.messages()[0]!, true);
+    await component.confirmAssistantAction(component.messages()[0]!, true);
     fixture.detectChanges();
 
     expect(component.messages()[0]).toMatchObject({
@@ -427,7 +433,9 @@ describe('ChatWidgetComponent', () => {
     quickAction.click();
     fixture.detectChanges();
 
-    expect(chatService.sendMessage).toHaveBeenCalledWith('Show my daily summary');
+    expect(chatService.sendMessage).toHaveBeenCalledWith('leave.list_manager_requests');
+    expect(component.messages().some(message => message.text === 'Mes demandes de congé')).toBe(true);
+    expect(component.messages().some(message => message.text === 'leave.list_manager_requests')).toBe(false);
     expect(component.loading()).toBe(false);
   });
 

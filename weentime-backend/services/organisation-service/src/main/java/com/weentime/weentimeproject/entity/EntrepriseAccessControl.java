@@ -2,6 +2,7 @@ package com.weentime.weentimeproject.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "entreprise_access_control",
        uniqueConstraints = @UniqueConstraint(

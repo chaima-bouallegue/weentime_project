@@ -1,24 +1,17 @@
 server:
-  port: 8861
-
-spring:
-  application:
-    name: discovery-service
-
-  cloud:
-    config:
-      enabled: false
+  port: ${SERVER_PORT:8861}
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_HOST:localhost}
     prefer-ip-address: true
-
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 10
   client:
     register-with-eureka: false
     fetch-registry: false
+    registry-fetch-interval-seconds: 10
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}
   server:
-    enable-self-preservation: false
+    enable-self-preservation: ${EUREKA_SELF_PRESERVATION:false}

@@ -2,6 +2,7 @@ package com.weentime.weentimeapp.service;
 
 import com.weentime.weentimeapp.client.HolidayServiceClient;
 import com.weentime.weentimeapp.client.LeaveServiceClient;
+import com.weentime.weentimeapp.client.RhServiceFeignClientWrapper;
 import com.weentime.weentimeapp.client.TeletravailServiceClient;
 import com.weentime.weentimeapp.client.UserServiceClient;
 import com.weentime.weentimeapp.config.PresenceProperties;
@@ -109,14 +110,18 @@ class PresenceServiceTest {
                 DayOfWeek.SUNDAY
         ));
 
+        RhServiceFeignClientWrapper rhServiceFeignClientWrapper = new RhServiceFeignClientWrapper(
+                leaveServiceClient,
+                teletravailServiceClient,
+                holidayServiceClient
+        );
+
         presenceService = new PresenceServiceImpl(
                 attendanceSessionRepository,
                 workScheduleRepository,
                 overtimeRepository,
                 attendanceSessionMapper,
-                leaveServiceClient,
-                holidayServiceClient,
-                teletravailServiceClient,
+                rhServiceFeignClientWrapper,
                 userServiceClient,
                 notificationService,
                 properties,

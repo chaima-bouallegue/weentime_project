@@ -77,7 +77,7 @@ export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
   private readonly aiCopilot = inject(AiCopilotService);
-  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
+  private readonly endpoint = environment.gatewayUrl + '/api/v1/ai';
 
   sendMessage(message: string): Observable<ChatApiResponse> {
     return this.aiCopilot.sendChatV2(message).pipe(
@@ -91,8 +91,8 @@ export class ChatService {
     );
   }
 
-  confirmAction(confirmationId: string, approved: boolean): Observable<ChatApiResponse> {
-    return this.aiCopilot.confirmAction(confirmationId, approved).pipe(
+  confirmAction(confirmationId: string, approved: boolean, extraMetadata?: Record<string, unknown>): Observable<ChatApiResponse> {
+    return this.aiCopilot.confirmAction(confirmationId, approved, extraMetadata).pipe(
       map(response => this.fromV2Envelope(response)),
       catchError(error => this.handleConfirmationError(error)),
     );
@@ -107,9 +107,6 @@ export class ChatService {
     if (!context) {
       return throwError(() => new Error('Utilisateur non authentifie.'));
     }
-    if (!context.token) {
-      return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
-    }
     const language = detectAiMessageLanguage(message, navigator.language || 'fr-FR');
     const requestId = this.createRequestId('legacy-chat');
     const role = this.resolveRole(context.user);
@@ -119,7 +116,6 @@ export class ChatService {
         user_id: context.user.id,
         role,
         message,
-        access_token: context.token,
         metadata: {
           channel: 'chat',
           language,
@@ -133,7 +129,8 @@ export class ChatService {
           },
         },
       }, {
-        headers: this.aiHeaders(requestId, context.user, context.token),
+        headers: this.aiHeaders(requestId, context.user),
+        withCredentials: true,
         context: withAiChatWidgetContext(),
       })
       .pipe(catchError(error => this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.")));
@@ -144,14 +141,12 @@ export class ChatService {
     if (!context) {
       return throwError(() => new Error('Utilisateur non authentifie.'));
     }
-    if (!context.token) {
-      return throwError(() => new Error('Session expirée, reconnectez-vous.'));
-    }
     const requestId = this.createRequestId('chat-history');
 
     return this.http
       .get<ChatHistoryResponse>(`${this.endpoint}/chat/history/${context.user.id}`, {
-        headers: this.aiHeaders(requestId, context.user, context.token),
+        headers: this.aiHeaders(requestId, context.user),
+        withCredentials: true,
         context: withAiChatWidgetContext(),
       })
       .pipe(catchError(error => this.rethrowApiError(error, "L'historique AI n'a pas pu etre charge.")));
@@ -162,7 +157,8 @@ export class ChatService {
     const requestId = this.createRequestId('chat-tts');
     const options = context?.user
       ? {
-          headers: this.aiHeaders(requestId, context.user, context.token),
+          headers: this.aiHeaders(requestId, context.user),
+          withCredentials: true,
           context: withAiChatWidgetContext(),
         }
       : { context: withAiChatWidgetContext() };
@@ -262,15 +258,12 @@ export class ChatService {
     };
   }
 
-  private getUserContext(): { user: User; token: string | null } | null {
+  private getUserContext(): { user: User } | null {
     const user = this.authService.currentUser() ?? this.readStoredUser();
     if (!user?.id) {
       return null;
     }
-    return {
-      user,
-      token: this.authService.getToken(),
-    };
+    return { user };
   }
 
   private resolveRole(user: User | null | undefined): string | null {
@@ -530,13 +523,10 @@ export class ChatService {
     return value;
   }
 
-  private aiHeaders(requestId: string, user: User, token: string | null): HttpHeaders {
+  private aiHeaders(requestId: string, user: User): HttpHeaders {
     const headers: Record<string, string> = {
       'X-Request-ID': requestId,
     };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     const role = this.resolveRole(user);
     if (role) {
       headers['X-User-Role'] = role.toUpperCase();

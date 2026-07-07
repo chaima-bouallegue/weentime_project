@@ -81,17 +81,32 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        String token = null;
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return unauthorized(exchange, "Missing Authorization header");
+        var jwtCookie = exchange.getRequest().getCookies().getFirst("jwt");
+        if (jwtCookie != null) {
+            token = jwtCookie.getValue();
         }
 
-        String token = authHeader.substring(7);
+        if (token == null) {
+            String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        if (token == null) {
+            return unauthorized(exchange, "Missing Authorization header or cookie");
+        }
 
         if (!jwtUtils.validateJwtToken(token) || !jwtUtils.isAccessToken(token)) {
             return unauthorized(exchange, "Invalid token");
         }
+
+        final String finalToken = token;
+        exchange = exchange.mutate()
+                .request(r -> r.header(HttpHeaders.AUTHORIZATION, "Bearer " + finalToken))
+                .build();
 
         return chain.filter(exchange);
     }

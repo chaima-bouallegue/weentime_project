@@ -95,7 +95,7 @@ def test_copilot_services_include_disabled_provider_router() -> None:
     state = SimpleNamespace(
         settings=SimpleNamespace(
             backend_timeout_seconds=20.0,
-            backend_base_url="http://localhost:8322/api/v1",
+            backend_base_url="http://localhost:8222/api/v1",
             ai_provider_mode="disabled",
             ai_provider_timeout_seconds=20.0,
             ai_provider_model="qwen2.5:3b",

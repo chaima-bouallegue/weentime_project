@@ -98,6 +98,10 @@ export class TeletravailCalendarComponent implements OnInit {
     this.viewDate.set(new Date(d.getFullYear(), d.getMonth() - 1, 1));
   }
 
+  goToToday(): void {
+    this.viewDate.set(new Date());
+  }
+
   getMonthLabel(): string {
     return this.viewDate().toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
   }

@@ -1,4 +1,4 @@
-<div class="drawer-overlay" (click)="close.emit()">
+<div class="drawer-overlay" [class.embedded]="embedded" (click)="close.emit()">
   <div class="drawer-content" (click)="$event.stopPropagation()">
     <header class="drawer-header">
       <div class="header-info">

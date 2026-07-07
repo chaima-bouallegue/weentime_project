@@ -42,7 +42,8 @@ def _payload_language_metadata(payload: Any) -> dict[str, Any]:
 
 
 def _set_language_metadata(metadata: dict[str, Any], language: str) -> dict[str, Any]:
-    metadata["language"] = language
+    metadata.setdefault("language", language)
+    metadata["response_language"] = language
     metadata["requested_language"] = language
     metadata["requestedLanguage"] = language
     metadata["response_language"] = language

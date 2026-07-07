@@ -7,6 +7,29 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ServicesRoot = Join-Path $Root "weentime-backend\services"
 
+# Load environment variables from .env file if it exists
+$envFile = Join-Path $Root ".env"
+$envExample = Join-Path $Root ".env.example"
+if (-not (Test-Path -LiteralPath $envFile) -and (Test-Path -LiteralPath $envExample)) {
+    Write-Host "Creating .env from .env.example..."
+    Copy-Item -LiteralPath $envExample -Destination $envFile
+}
+
+if (Test-Path -LiteralPath $envFile) {
+    Write-Host "Loading environment variables from .env..."
+    Get-Content -LiteralPath $envFile | Where-Object { $_ -match '=' -and $_ -notmatch '^\s*#' } | ForEach-Object {
+        $line = $_.Trim()
+        $parts = $line.Split('=', 2)
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim()
+        # Remove surrounding quotes (single or double) from value if they exist
+        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Process)
+    }
+}
+
 $Services = @(
     @{ Name = "config-server"; Port = 8988; Path = Join-Path $ServicesRoot "config-server" },
     @{ Name = "discovery-service"; Port = 8861; Path = Join-Path $ServicesRoot "discovery" },
@@ -15,7 +38,7 @@ $Services = @(
     @{ Name = "rh-service"; Port = 8192; Path = Join-Path $ServicesRoot "rh-service" },
     @{ Name = "presence-service"; Port = 8193; Path = Join-Path $ServicesRoot "presence-service" },
     @{ Name = "communication-service"; Port = 8194; Path = Join-Path $ServicesRoot "communication-service" },
-    @{ Name = "gateway"; Port = 8322; Path = Join-Path $ServicesRoot "gateway" }
+    @{ Name = "gateway"; Port = 8222; Path = Join-Path $ServicesRoot "gateway" }
 )
 
 function Test-PortListening {

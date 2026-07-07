@@ -15,6 +15,7 @@ import com.weentime.weentimeapp.repository.TypeCongeRepository;
 import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.AsyncNotificationService;
 import com.weentime.weentimeapp.service.CongeService;
+import com.weentime.weentimeapp.service.UserCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,7 @@ public class CongeServiceImpl implements CongeService {
     private final CongeMapper congeMapper;
     private final OrganisationServiceClient organisationServiceClient;
     private final AsyncNotificationService asyncNotificationService;
+    private final UserCacheService userCacheService;
 
     @Override
     public CongeDTO create(CongeDTO dto) {
@@ -444,23 +446,39 @@ public class CongeServiceImpl implements CongeService {
     }
 
     private void enrichDto(CongeDTO dto) {
-        try {
-            if (dto.getUtilisateurId() != null) {
-                UserResponse user = organisationServiceClient.getUtilisateurById(dto.getUtilisateurId());
-                dto.setUserName(user.getPrenom() + " " + user.getNom());
-                dto.setUserEmail(user.getEmail());
+        UserResponse user = userCacheService.getOrLoad(dto.getUtilisateurId(), id -> {
+            try {
+                return organisationServiceClient.getUtilisateurById(id);
+            } catch (Exception e) {
+                log.warn("Impossible de récupérer l'utilisateur {}", id);
+                return null;
             }
-            if (dto.getManagerId() != null) {
-                UserResponse manager = organisationServiceClient.getUtilisateurById(dto.getManagerId());
-                dto.setManagerName(manager.getPrenom() + " " + manager.getNom());
+        });
+        if (user != null) {
+            dto.setUserName(user.getPrenom() + " " + user.getNom());
+            dto.setUserEmail(user.getEmail());
+        }
+
+        UserResponse manager = userCacheService.getOrLoad(dto.getManagerId(), id -> {
+            try {
+                return organisationServiceClient.getUtilisateurById(id);
+            } catch (Exception e) {
+                log.warn("Impossible de récupérer le manager {}", id);
+                return null;
             }
-            if (dto.getTypeCongeId() != null) {
+        });
+        if (manager != null) {
+            dto.setManagerName(manager.getPrenom() + " " + manager.getNom());
+        }
+
+        if (dto.getTypeCongeId() != null) {
+            try {
                 typeCongeRepository.findById(dto.getTypeCongeId())
                         .map(TypeConge::getLibelle)
                         .ifPresent(dto::setTypeCongeNom);
+            } catch (Exception e) {
+                log.warn("Impossible de récupérer le type de congé {}", dto.getTypeCongeId());
             }
-        } catch (Exception e) {
-            log.error("Failed to enrich: {}", e.getMessage());
         }
     }
 }

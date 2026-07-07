@@ -22,6 +22,26 @@ export class AssistantWorkflowService {
 
   consumeResponse(meta: AssistantResponseMeta): void {
     this.workflowState.set(meta.workflow ?? null);
+
+    const formFill = meta.form_fill;
+    if (!formFill) return;
+
+    switch (meta.intent) {
+      case 'CREATE_LEAVE':
+        this.leaveDraft.set(this.toLeaveDraft(formFill, meta));
+        break;
+      case 'CREATE_TELEWORK':
+        this.teleworkDraft.set(this.toTeleworkDraft(formFill, meta));
+        break;
+      case 'CREATE_AUTORISATION':
+        this.authorizationDraft.set(this.toAuthorizationDraft(formFill, meta));
+        break;
+      case 'REQUEST_DOCUMENT':
+        this.documentDraft.set(this.toDocumentDraft(formFill, meta));
+        break;
+    }
+
+    this.navigateIfNeeded(formFill);
   }
 
   clearLeaveDraft(id?: string): void {

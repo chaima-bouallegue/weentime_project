@@ -6,6 +6,8 @@ import { Equipe, Departement, EmployeRH } from '../../models/structure.model';
 import { EquipeFormComponent } from './equipe-form/equipe-form.component';
 import { ToastService } from '../../../../../core/services/toast.service';
 import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
+import { OverlayDrawerService } from '../../../../../core/services/overlay-drawer.service';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-equipes',
@@ -13,7 +15,7 @@ import { RhStructureStore } from '../../../../../core/services/rh-structure.stor
   imports: [
     CommonModule,
     LucideAngularModule,
-    EquipeFormComponent
+    EquipeFormComponent,
   ],
   templateUrl: './equipes.component.html',
   styleUrl: './equipes.component.scss',
@@ -23,6 +25,7 @@ export class EquipesComponent {
   private structureStore = inject(RhStructureStore);
   private structureService = inject(StructureService);
   private toastService = inject(ToastService);
+  private drawerService = inject(OverlayDrawerService);
 
   equipes = this.structureStore.equipes;
   departements = this.structureStore.departements;
@@ -30,7 +33,6 @@ export class EquipesComponent {
   isLoading = this.structureStore.isLoading;
   showDrawer = signal(false);
   equipeToEdit = signal<Equipe | null>(null);
-  showDeleteConfirm = signal<Equipe | null>(null);
   isDeleting = signal(false);
 
   refresh(): void {
@@ -63,21 +65,28 @@ export class EquipesComponent {
   }
 
   confirmDelete(eq: Equipe): void {
-    this.showDeleteConfirm.set(eq);
-  }
-
-  onDelete(): void {
-    const eq = this.showDeleteConfirm();
-    if (!eq) return;
-    this.isDeleting.set(true);
-    this.structureService.deleteEquipe(eq.id).subscribe({
-      next: () => {
-        this.isDeleting.set(false);
-        this.showDeleteConfirm.set(null);
-        this.toastService.success('Équipe supprimée');
-        this.structureStore.deleteEquipe(eq.id);
+    const ref = this.drawerService.openModal<ConfirmDialogComponent>({
+      component: ConfirmDialogComponent,
+      inputs: {
+        title: `Supprimer l'équipe « ${eq.nom} » ?`,
+        message: 'Cette action est irréversible et retirera tous les membres de cette équipe.',
+        confirmText: 'Supprimer',
+        iconName: 'alert-triangle',
+        type: 'danger',
       },
-      error: () => this.isDeleting.set(false)
+      panelClass: 'overlay-modal-panel',
+    });
+    (ref.componentRef.instance as any).confirm.subscribe(() => {
+      this.drawerService.close();
+      this.isDeleting.set(true);
+      this.structureService.deleteEquipe(eq.id).subscribe({
+        next: () => {
+          this.isDeleting.set(false);
+          this.toastService.success('Équipe supprimée');
+          this.structureStore.deleteEquipe(eq.id);
+        },
+        error: () => this.isDeleting.set(false)
+      });
     });
   }
 

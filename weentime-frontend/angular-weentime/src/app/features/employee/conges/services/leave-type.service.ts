@@ -45,16 +45,16 @@ export class LeaveTypeService {
     }
 
     return [
-      this.toLeaveType('ANNUEL', 'Conge annuel', 'Conges payes annuels', 'umbrella', 'indigo', '#6366f1', soldes.get('ANNUEL') ?? 0),
-      this.toLeaveType('MALADIE', 'Conge maladie', 'Arret maladie', 'heart', 'red', '#ef4444', soldes.get('MALADIE') ?? 0),
-      this.toLeaveType('RTT', 'RTT', 'Reduction du Temps de Travail', 'clock', 'cyan', '#06b6d4', soldes.get('RTT') ?? 0),
-      this.toLeaveType('MATERNITE_PATERNITE', 'Maternite/Paternite', 'Conge de maternite ou de paternite', 'baby', 'pink', '#ec4899', soldes.get('MATERNITE_PATERNITE') ?? 0),
-      this.toLeaveType('EXCEPTIONNEL', 'Conge exceptionnel', 'Evenement familial ou exceptionnel', 'star', 'amber', '#f59e0b', soldes.get('EXCEPTIONNEL') ?? 0),
+      this.toLeaveType('ANNUEL', 'Conge annuel', 'Conges payes annuels', 'Umbrella', 'indigo', '#6366f1', soldes.get('ANNUEL') ?? 0),
+      this.toLeaveType('MALADIE', 'Conge maladie', 'Arret maladie', 'Heart', 'red', '#ef4444', soldes.get('MALADIE') ?? 0),
+      this.toLeaveType('RTT', 'RTT', 'Reduction du Temps de Travail', 'Clock', 'cyan', '#06b6d4', soldes.get('RTT') ?? 0),
+      this.toLeaveType('MATERNITE_PATERNITE', 'Maternite/Paternite', 'Conge de maternite ou de paternite', 'Baby', 'pink', '#ec4899', soldes.get('MATERNITE_PATERNITE') ?? 0),
+      this.toLeaveType('EXCEPTIONNEL', 'Conge exceptionnel', 'Evenement familial ou exceptionnel', 'Star', 'amber', '#f59e0b', soldes.get('EXCEPTIONNEL') ?? 0),
       {
         type: 'SANS_SOLDE',
         label: 'Sans solde',
         description: 'Conge sans solde - Aucun quota requis',
-        icon: 'minus-circle',
+        icon: 'MinusCircle',
         color: 'slate',
         colorHex: '#94a3b8',
         remainingDays: Infinity,

@@ -1,3 +1,10 @@
+.editor-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: #f8fafc;
+}
+
 .layout-toggle {
   display: flex;
   background: #FFFFFF;
@@ -210,6 +217,7 @@
     line-height: 1.6;
     color: #111827;
     min-height: 100%;
+    white-space: pre-wrap;
     
     &:empty::before {
       content: "Tapez le contenu du document ici...";

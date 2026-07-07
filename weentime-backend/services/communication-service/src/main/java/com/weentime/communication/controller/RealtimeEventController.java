@@ -9,12 +9,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/communication")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class RealtimeEventController {
 
     private final RealtimeEventService realtimeEventService;

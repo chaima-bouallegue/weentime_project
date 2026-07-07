@@ -4,11 +4,26 @@ server:
 spring:
   application:
     name: rh-service
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=100,expireAfterWrite=10m
   datasource:
     url: jdbc:postgresql://localhost:5433/rh_db
     username: weentime
     password: 170502
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       ddl-auto: update
@@ -43,8 +58,8 @@ minio:
   bucket-name: ${MINIO_BUCKET:weentime-justificatifs}
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
+  secret: ${JWT_SECRET}
+  expirationMs: ${JWT_EXPIRATION_MS:86400000}
 
 eureka:
   instance:
@@ -65,7 +80,7 @@ application:
 # ── AI Document Engine Configuration ──
 gemini:
   api:
-    key: ${GEMINI_API_KEY:AIzaSyCYo7HsyVtiYh5M2uYYC0rGoeV4KIdqIeg}
+    key: ${GEMINI_API_KEY:}
 
 ai:
   service:
@@ -86,5 +101,5 @@ weentime:
     from: ${MAIL_FROM:recrutement@weentime.com}
     company-name: ${COMPANY_NAME:WeenTime}
   internal:
-    secret: ${INTERNAL_SECRET:WeenTimeInternalSecretKey2026}
+    secret: ${INTERNAL_SECRET}
 

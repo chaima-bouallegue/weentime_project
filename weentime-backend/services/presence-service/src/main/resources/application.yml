@@ -11,9 +11,16 @@ spring:
     driver-class-name: org.postgresql.Driver
 
     hikari:
-      connection-timeout: 5000
-      initialization-fail-timeout: -1 # Prevent startup crash
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
 
   jpa:
     hibernate:
@@ -53,8 +60,8 @@ eureka:
     enable-self-preservation: false
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
+  secret: ${JWT_SECRET}
+  expirationMs: ${JWT_EXPIRATION_MS:86400000}
 
 presence:
   default:
@@ -94,10 +101,29 @@ integration:
   telework-service:
     url: http://localhost:8192
 
+weentime:
+  internal:
+    secret: ${INTERNAL_SECRET}
+
 spring.cloud.openfeign.client.config:
   default:
     connect-timeout: 5000
     read-timeout: 5000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 6
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        automatic-transition-from-open-to-half-open-enabled: true
+        permitted-number-of-calls-in-half-open-state: 2
+    instances:
+      rhServiceClient:
+        base-config: default
 
 management:
   endpoints:

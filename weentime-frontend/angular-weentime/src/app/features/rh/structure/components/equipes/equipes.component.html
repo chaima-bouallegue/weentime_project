@@ -79,19 +79,4 @@
     />
   }
 
-  @if (showDeleteConfirm(); as eq) {
-    <div class="modal-overlay" (click)="showDeleteConfirm.set(null)">
-      <div class="modal-content" (click)="$event.stopPropagation()">
-        <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
-        <h3>Supprimer l'équipe « {{ eq.nom }} » ?</h3>
-        <div class="modal-actions">
-          <button class="btn-ghost" (click)="showDeleteConfirm.set(null)" [disabled]="isDeleting()">Annuler</button>
-          <button class="btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
-            @if (isDeleting()) { <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon> }
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-  }
 </div>

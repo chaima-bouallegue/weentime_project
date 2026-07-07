@@ -48,6 +48,7 @@ public class RhPlanningController {
     }
 
     @GetMapping("/is-excused")
+    @PreAuthorize("isAuthenticated()")
     public StatutJournee getStatutJournee(
             @RequestParam Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

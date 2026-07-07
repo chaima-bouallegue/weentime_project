@@ -1,23 +1,16 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { Observable, catchError, finalize, switchMap, map, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, switchMap, map, of, tap, EMPTY } from 'rxjs';
 import { Router } from '@angular/router';
 import { ApiConfigService } from './api-config.service';
 import { SKIP_ERROR_TOAST } from '../http/request-context.tokens';
 import { environment } from '../../../environments/environment';
 
+
 /**
- * Storage choice: localStorage
- *
- * Rationale: localStorage is used instead of sessionStorage because the app
- * requires multi-tab persistence — a user opening a new tab should stay
- * authenticated. The XSS risk is mitigated by:
- *   1. HTTP interceptor auto-logout on 401
- *   2. Inactivity timeout (15 min) with automatic token cleanup
- *   3. No sensitive data beyond the JWT stored client-side
- *
- * If multi-tab persistence is not required in the future, switch to
- * sessionStorage by replacing all localStorage calls below.
+ * Auth state is maintained via an HttpOnly cookie set by the backend.
+ * The frontend never stores the JWT — it relies on the browser sending
+ * the cookie automatically with each request.
  */
 
 export interface User {
@@ -94,8 +87,6 @@ export interface CompanyCodeValidationResponse {
   collaborateurs?: number;
 }
 
-type JwtClaims = Record<string, unknown>;
-
 @Injectable({
   providedIn: 'root'
 })
@@ -111,7 +102,38 @@ export class AuthService {
   isAuthenticated = signal<boolean>(false);
 
   constructor() {
-    this.loadUserFromStorage();
+    this.checkAuthStatus();
+  }
+
+  /**
+   * Check if user is authenticated via the HttpOnly cookie by calling /auth/me.
+   * Called once at app startup.
+   */
+  checkAuthStatus(): void {
+    this.http.get<ApiResponse<any>>(this.apiConfig.AUTH.ME, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true)
+    }).pipe(
+      map(response => this.unwrap(response)),
+      catchError(() => {
+        this.reset();
+        return of(null);
+      })
+    ).subscribe(data => {
+      if (data && data.id) {
+        const roles = this.normalizeRoles([data.roles]);
+        const user: User = {
+          id: data.id,
+          email: data.email || '',
+          entrepriseId: data.entrepriseId,
+          roles,
+          role: this.resolvePrimaryRole(roles)
+        };
+        this.currentUser.set(user);
+        this.isAuthenticated.set(true);
+      } else {
+        this.reset();
+      }
+    });
   }
 
   login(credentials: LoginCredentials, rememberMe = true): Observable<LoginResponse> {
@@ -122,7 +144,9 @@ export class AuthService {
     };
 
     this.startPerf('login_api');
-    return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload).pipe(
+    return this.http.post<ApiResponse<LoginResponse> | LoginResponse>(this.apiConfig.AUTH.LOGIN, payload, {
+      withCredentials: true
+    }).pipe(
       tap({
         next: () => this.endPerf('login_api'),
         error: () => this.endPerf('login_api')
@@ -130,8 +154,8 @@ export class AuthService {
       map(response => this.unwrap(response)),
       switchMap(res => {
         const requiresTwoFactor = !!(res.mfaRequired || res.requiresTwoFactor || res.requires2FA);
-        if (!requiresTwoFactor && res.token) {
-          return this.handleAuthenticatedResponse(res, rememberMe);
+        if (!requiresTwoFactor) {
+          return this.fetchProfileAfterAuth(rememberMe);
         }
         if (requiresTwoFactor) {
           this.storeMfaChallenge(res, rememberMe);
@@ -143,18 +167,17 @@ export class AuthService {
 
   verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod): Observable<any> {
     this.startPerf('mfa_verify_api');
-    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, mfaToken: temporaryToken }).pipe(
+    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, mfaToken: temporaryToken }, {
+      withCredentials: true
+    }).pipe(
       tap({
         next: () => this.endPerf('mfa_verify_api'),
         error: () => this.endPerf('mfa_verify_api')
       }),
       map(response => this.unwrap(response)),
-      switchMap(res => {
-        if (res.token) {
-          this.clearMfaChallenge();
-          return this.handleAuthenticatedResponse(res, rememberMe ?? true);
-        }
-        return of(res);
+      switchMap(() => {
+        this.clearMfaChallenge();
+        return this.fetchProfileAfterAuth(rememberMe ?? true);
       })
     );
   }
@@ -196,11 +219,13 @@ export class AuthService {
   }
 
   register(userData: any): Observable<RegisterResponse> {
-    return this.http.post<ApiResponse<RegisterResponse> | RegisterResponse>(this.apiConfig.AUTH.REGISTER, userData).pipe(
+    return this.http.post<ApiResponse<RegisterResponse> | RegisterResponse>(this.apiConfig.AUTH.REGISTER, userData, {
+      withCredentials: true
+    }).pipe(
       map(response => this.unwrap(response)),
       switchMap(res => {
-        if (res.token) {
-          return this.fetchProfileAndHandleSuccess(res, true);
+        if (res.userId) {
+          return this.fetchProfileAfterAuth(true);
         }
         return of(res);
       })
@@ -208,18 +233,64 @@ export class AuthService {
   }
 
   /**
-   * Secure logout — clears all auth state and navigates to login.
-   * Uses replaceUrl to prevent back-button access to protected pages.
+   * Secure logout — clears auth state on server (cookie destruction)
+   * and navigates to login.
    */
   logout(): void {
-    // Clear all stored data
-    this.clearStorage();
+    this.http.post(this.apiConfig.AUTH.LOGOUT, {}, { withCredentials: true }).pipe(
+      catchError(() => of(null))
+    ).subscribe(() => {
+      this.reset();
+      this.router.navigate(['/login'], { replaceUrl: true });
+    });
+  }
 
-    // Reset all signals to initial state
-    this.reset();
+  /**
+   * Fetches a short-lived WebSocket token (5 min) from the backend.
+   * Never stored in localStorage — kept in memory only.
+   */
+  fetchWsToken(): Observable<string> {
+    if (!this.currentUser()) {
+      console.debug('[auth] fetchWsToken() skipped: profile not loaded yet');
+      return EMPTY;
+    }
+    return this.http.get<{ wsToken: string }>(
+      this.apiConfig.AUTH.WS_TOKEN,
+      { withCredentials: true }
+    ).pipe(map(r => r.wsToken));
+  }
 
-    // Navigate to login, replacing history to block back-button
-    this.router.navigate(['/login'], { replaceUrl: true });
+  /**
+   * Attempts to refresh the JWT using the HttpOnly refresh_token cookie.
+   * The backend rotates both JWT and refresh token on success.
+   */
+  refreshToken(): Observable<boolean> {
+    return this.http.post<any>(this.apiConfig.AUTH.REFRESH, {}, {
+      withCredentials: true,
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true)
+    }).pipe(
+      map(response => {
+        const data = this.unwrap(response);
+        if (data && data.userId) {
+          const roles = this.normalizeRoles([data.roles]);
+          const user: User = {
+            id: data.userId,
+            email: data.email || '',
+            entrepriseId: data.entrepriseId,
+            roles,
+            role: this.resolvePrimaryRole(roles)
+          };
+          this.currentUser.set(user);
+          this.isAuthenticated.set(true);
+          return true;
+        }
+        return false;
+      }),
+      catchError(() => {
+        this.reset();
+        return of(false);
+      })
+    );
   }
 
   /**
@@ -232,19 +303,14 @@ export class AuthService {
   }
 
   getToken(): string | null {
-    return this.safeGetStorage('token');
+    return null;
   }
 
   clearAuthState(): void {
-    this.clearStorage();
     this.reset();
   }
 
   refreshCurrentUserInBackground(rememberMe = true, label = 'post_login_background_load'): void {
-    if (!this.getToken()) {
-      return;
-    }
-
     this.startPerf(label);
     this.http.get<User>(this.apiConfig.USER.GET_PROFILE, {
       context: new HttpContext().set(SKIP_ERROR_TOAST, true)
@@ -259,7 +325,7 @@ export class AuthService {
       finalize(() => this.endPerf(label))
     ).subscribe(profile => {
       if (profile) {
-        this.mergeProfileIntoCurrentUser(profile, rememberMe);
+        this.mergeProfileIntoCurrentUser(profile);
       }
     });
   }
@@ -274,108 +340,41 @@ export class AuthService {
       || user?.roles?.some(item => this.toBusinessRole(item) === target) === true;
   }
 
-  private handleAuthenticatedResponse<T extends { token?: string; user?: User; roles?: string[] }>(res: T, rememberMe: boolean): Observable<any> {
-    const user = this.handleAuthSuccess(res, rememberMe);
-    const enriched = {
-      ...res,
-      user,
-      roles: user.roles
-    };
-
-    if (user.roles.length > 0) {
-      return of(enriched);
-    }
-
-    return this.fetchProfileAndHandleSuccess(res, rememberMe);
-  }
-
-  private fetchProfileAndHandleSuccess(res: any, rememberMe: boolean): Observable<any> {
-    this.storeValue('token', res.token, rememberMe);
+  private fetchProfileAfterAuth(rememberMe: boolean): Observable<any> {
     return this.http.get<User>(this.apiConfig.USER.GET_PROFILE).pipe(
       map(profile => {
-        res.user = profile;
-        const user = this.handleAuthSuccess(res, rememberMe);
-        return { ...res, user, roles: user.roles };
+        const user = this.buildUserFromProfile(profile);
+        this.currentUser.set(user);
+        this.isAuthenticated.set(true);
+        return { user, roles: user.roles };
       }),
       catchError(() => {
-        const user = this.handleAuthSuccess(res, rememberMe);
-        return of({ ...res, user, roles: user.roles });
+        const user: User = {
+          id: 0,
+          email: '',
+          roles: [],
+          role: undefined
+        };
+        this.currentUser.set(user);
+        this.isAuthenticated.set(true);
+        return of({ user, roles: [] });
       })
     );
   }
 
-  private handleAuthSuccess(res: any, rememberMe: boolean): User {
-    if (res.token) {
-      this.startPerf('token_store');
-      this.storeValue('token', res.token, rememberMe);
-      this.endPerf('token_store');
-    }
-
-    this.startPerf('role_resolve');
-    const claims = this.decodeJwtPayload(res.token);
-    const profile = this.sanitizeProfile(res.user);
-    const roles = this.normalizeRoles([
-      profile.role,
-      profile.roles,
-      res.roles,
-      claims['role'],
-      claims['roles'],
-      claims['authorities']
-    ]);
+  private buildUserFromProfile(profile: any): User {
+    const normalized = this.sanitizeProfile(profile);
+    const roles = this.normalizeRoles([normalized.role, normalized.roles]);
     const primaryRole = this.resolvePrimaryRole(roles);
-    const entrepriseId = profile.entrepriseId
-      || profile.entreprise?.id
-      || res.entrepriseId
-      || this.toOptionalNumber(claims['entrepriseId']);
-    const user: User = {
-      ...profile,
-      id: profile.id || res.id || res.userId || this.toOptionalNumber(claims['userId'] ?? claims['id']) || 0,
-      email: profile.email || res.email || this.toOptionalString(claims['sub']) || '',
+    return {
+      ...normalized,
+      id: normalized.id ?? 0,
+      email: normalized.email ?? '',
       roles,
       role: primaryRole,
-      entrepriseId,
-      entreprise: profile.entreprise || (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
+      entrepriseId: normalized.entrepriseId ?? normalized.entreprise?.id,
+      entreprise: normalized.entreprise ?? (normalized.entrepriseId ? { id: normalized.entrepriseId, nom: '' } : undefined)
     };
-    this.endPerf('role_resolve');
-
-    this.storeValue('user', JSON.stringify(user), rememberMe);
-    this.currentUser.set(user);
-    this.isAuthenticated.set(true);
-    return user;
-  }
-
-  private loadUserFromStorage(): void {
-    const token = this.safeGetStorage('token');
-    const userData = this.safeGetStorage('user');
-    if (token && userData) {
-      try {
-        const stored = JSON.parse(userData) as User;
-        const normalized = this.sanitizeProfile(stored);
-        const roles = this.normalizeRoles([normalized.role, normalized.roles, stored.role, stored.roles]);
-        const entrepriseId = normalized.entrepriseId ?? normalized.entreprise?.id;
-        this.currentUser.set({
-          ...stored,
-          ...normalized,
-          id: normalized.id ?? 0,
-          email: normalized.email ?? '',
-          roles,
-          role: this.resolvePrimaryRole(roles),
-          entrepriseId,
-          entreprise: entrepriseId
-            ? (normalized.entreprise ?? { id: entrepriseId, nom: stored.entreprise?.nom ?? '' })
-            : undefined
-        });
-        this.isAuthenticated.set(true);
-      } catch {
-        this.clearStorage();
-      }
-    }
-  }
-
-  private clearStorage(): void {
-    this.safeRemoveStorage('token');
-    this.safeRemoveStorage('user');
-    this.clearMfaChallenge();
   }
 
   private storeMfaChallenge(res: LoginResponse, rememberMe: boolean): void {
@@ -394,15 +393,7 @@ export class AuthService {
     }
   }
 
-  private storeValue(key: string, value: string, rememberMe: boolean): void {
-    const persistentStorage = this.resolveStorage(rememberMe);
-    const transientStorage = this.resolveStorage(!rememberMe);
-
-    transientStorage?.removeItem(key);
-    persistentStorage?.setItem(key, value);
-  }
-
-  private mergeProfileIntoCurrentUser(profile: User, rememberMe: boolean): void {
+  private mergeProfileIntoCurrentUser(profile: User, rememberMe?: boolean): void {
     const current = this.currentUser();
     const normalized = this.sanitizeProfile(profile);
     const roles = this.normalizeRoles([
@@ -425,28 +416,8 @@ export class AuthService {
       entreprise: normalized.entreprise ?? current?.entreprise ?? (entrepriseId ? { id: entrepriseId, nom: '' } : undefined)
     };
 
-    this.storeValue('user', JSON.stringify(user), rememberMe);
     this.currentUser.set(user);
     this.isAuthenticated.set(true);
-  }
-
-  private safeGetStorage(key: string): string | null {
-    return this.resolveStorage(true)?.getItem(key)
-      ?? this.resolveStorage(false)?.getItem(key)
-      ?? null;
-  }
-
-  private safeRemoveStorage(key: string): void {
-    this.resolveStorage(true)?.removeItem(key);
-    this.resolveStorage(false)?.removeItem(key);
-  }
-
-  private resolveStorage(persistent: boolean): Storage | null {
-    try {
-      return persistent ? localStorage : sessionStorage;
-    } catch {
-      return null;
-    }
   }
 
   private unwrap<T>(response: ApiResponse<T> | T): T {
@@ -454,25 +425,6 @@ export class AuthService {
       return (response as ApiResponse<T>).data as T;
     }
     return response as T;
-  }
-
-  private decodeJwtPayload(token?: string): JwtClaims {
-    if (!token) {
-      return {};
-    }
-
-    const payload = token.split('.')[1];
-    if (!payload) {
-      return {};
-    }
-
-    try {
-      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-      return JSON.parse(globalThis.atob(padded)) as JwtClaims;
-    } catch {
-      return {};
-    }
   }
 
   private normalizeRoles(input: unknown): string[] {

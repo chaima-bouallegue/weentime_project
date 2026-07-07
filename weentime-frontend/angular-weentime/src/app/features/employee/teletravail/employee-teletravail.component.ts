@@ -1,6 +1,6 @@
 import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Laptop, Clock, CheckCircle, Info, Calendar, Monitor, Home, Plus, Search, Filter, Sparkles, AlertCircle } from 'lucide-angular';
+import { LucideAngularModule, Clock, Info, Calendar, Monitor, Plus, Sparkles } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TeletravailService } from './teletravail.service';
 import { TeletravailStore } from './teletravail.store';
@@ -15,6 +15,7 @@ import { TeletravailHistoriqueComponent } from './components/teletravail-histori
 import { TeletravailCalendarComponent } from './components/teletravail-calendar/teletravail-calendar.component';
 import { DemandeTeletravailDrawerComponent } from './components/demande-teletravail-drawer/demande-teletravail-drawer.component';
 import { AnnulationTeletravailModalComponent } from './components/annulation-teletravail-modal/annulation-teletravail-modal.component';
+import { ConsultationTeletravailModalComponent } from './components/consultation-teletravail-modal/consultation-teletravail-modal.component';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -29,7 +30,8 @@ import { ToastService } from '../../../core/services/toast.service';
     TeletravailHistoriqueComponent,
     TeletravailCalendarComponent,
     DemandeTeletravailDrawerComponent,
-    AnnulationTeletravailModalComponent
+    AnnulationTeletravailModalComponent,
+    ConsultationTeletravailModalComponent
   ],
   templateUrl: './employee-teletravail.component.html',
   styleUrl: './employee-teletravail.component.scss',
@@ -45,46 +47,60 @@ export class EmployeeTeletravailComponent implements OnInit {
   private assistantSync = inject(AssistantSyncService);
 
   // Icons
-  readonly iconLaptop = Laptop;
-  readonly iconClock = Clock;
-  readonly iconCheck = CheckCircle;
-  readonly iconInfo = Info;
+  readonly iconClock    = Clock;
+  readonly iconInfo     = Info;
   readonly iconCalendar = Calendar;
-  readonly iconMonitor = Monitor;
-  readonly iconHome = Home;
-  readonly iconPlus = Plus;
-  readonly iconSearch = Search;
-  readonly iconFilter = Filter;
+  readonly iconMonitor  = Monitor;
+  readonly iconPlus     = Plus;
   readonly iconSparkles = Sparkles;
-  readonly iconAlert = AlertCircle;
 
-  quota = this.store.quota;
+  // Store refs
+  quota      = this.store.quota;
   historique = this.store.historique;
   holidayDates = this.store.holidayDates;
-  isLoading = this.store.isLoading;
-  showDrawer = signal(false);
-  demandeAnnuler = signal<DemandeTeletravail | null>(null);
-  filtreStatut = signal<StatutTeletravail | 'TOUS'>('TOUS');
-  isAnnulating = signal(false);
-  currentDate = signal<string>('');
+  isLoading  = this.store.isLoading;
 
-  historiqueFiltre = computed(() =>
-    this.filtreStatut() === 'TOUS'
-      ? this.historique()
-      : this.historique().filter(d => d.statut === this.filtreStatut())
-  );
+  // UI state
+  showDrawer        = signal(false);
+  demandeAnnuler    = signal<DemandeTeletravail | null>(null);
+  demandeConsulter  = signal<DemandeTeletravail | null>(null);
+  filtreStatut      = signal<StatutTeletravail | 'TOUS' | 'EN_ATTENTE'>('TOUS');
+  isAnnulating      = signal(false);
+  afficherTout      = signal(false);
+  currentDate       = signal<string>('');
+
+  // Computed
+  historiqueFiltre = computed(() => {
+    const all = this.historique();
+    let filtered: DemandeTeletravail[];
+    const current = this.filtreStatut();
+    if (current === 'TOUS') {
+      filtered = all;
+    } else if (current === 'EN_ATTENTE') {
+      filtered = all.filter(d => d.statut === 'EN_ATTENTE' || d.statut === 'EN_ATTENTE_MANAGER' || d.statut === 'EN_ATTENTE_RH');
+    } else if (current === 'APPROUVE') {
+      filtered = all.filter(d => d.statut === 'APPROUVE' || d.statut === 'APPROUVEE' || d.statut === 'VALIDEE');
+    } else if (current === 'REFUSE') {
+      filtered = all.filter(d => d.statut === 'REFUSE' || d.statut === 'REFUSEE');
+    } else if (current === 'ANNULE') {
+      filtered = all.filter(d => d.statut === 'ANNULE' || d.statut === 'ANNULEE');
+    } else {
+      filtered = all.filter(d => d.statut === current);
+    }
+    return this.afficherTout() ? filtered : filtered.slice(0, 5);
+  });
 
   joursRestants = computed(() => this.quota()?.joursRestants ?? 0);
 
   approvedDates = computed(() =>
     this.historique()
-      .filter(d => d.statut === 'APPROUVE')
-      .map(d => d.dateDebut) // Simple mapping for single days
+      .filter(d => d.statut === 'APPROUVE' || d.statut === 'APPROUVEE' || d.statut === 'VALIDEE')
+      .map(d => d.dateDebut)
   );
 
   halfDayDates = computed(() =>
     this.historique()
-      .filter(d => d.statut === 'APPROUVE' && d.periode)
+      .filter(d => (d.statut === 'APPROUVE' || d.statut === 'APPROUVEE' || d.statut === 'VALIDEE') && d.periode)
       .map(d => ({ date: d.dateDebut, periode: d.periode! }))
   );
 
@@ -110,19 +126,22 @@ export class EmployeeTeletravailComponent implements OnInit {
 
   private updateDate(): void {
     const now = new Date();
-    this.currentDate.set(now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    this.currentDate.set(
+      now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    );
   }
 
-  manualRefresh(): void {
-    this.refreshData();
-  }
-
-  onFilterChange(filter: StatutTeletravail | 'TOUS'): void {
+  onFilterChange(filter: StatutTeletravail | 'TOUS' | 'EN_ATTENTE'): void {
     this.filtreStatut.set(filter);
+    this.afficherTout.set(false);
   }
 
   onCancelRequest(demande: DemandeTeletravail): void {
     this.demandeAnnuler.set(demande);
+  }
+
+  onEditRequest(demande: DemandeTeletravail): void {
+    this.toastService.info('La modification de demande sera disponible prochainement');
   }
 
   confirmAnnulation(id: number): void {

@@ -1,25 +1,29 @@
 <div class="calendar-card">
+
+  <!-- Nav header with month + today button -->
   <div class="calendar-header">
     <button class="nav-extra-btn" (click)="prevMonth()" title="Mois précédent">
-      <lucide-angular [img]="iconLeft" size="18"></lucide-angular>
+      <lucide-angular [img]="iconLeft" size="16"></lucide-angular>
     </button>
     <h3 class="month-label">{{ viewDate() | date:'MMMM yyyy':'':'fr' }}</h3>
     <button class="nav-extra-btn" (click)="nextMonth()" title="Mois suivant">
-      <lucide-angular [img]="iconRight" size="18"></lucide-angular>
+      <lucide-angular [img]="iconRight" size="16"></lucide-angular>
     </button>
+    <button class="today-btn" (click)="goToToday()">Aujourd'hui</button>
   </div>
 
+  <!-- Grid -->
   <div class="calendar-grid">
     @for (day of weekDays; track day) {
       <div class="weekday-label">{{ day }}</div>
     }
 
     @for (day of days(); track day.date.getTime()) {
-      <div 
-        class="calendar-day" 
-        [class.outside]="!day.isCurrentMonth" 
+      <div
+        class="calendar-day"
+        [class.outside]="!day.isCurrentMonth"
         [class.today]="day.isToday"
-        [class.weekend]="day.isWeekend" 
+        [class.weekend]="day.isWeekend"
         [title]="day.holiday?.label || ''"
       >
         <span class="day-number">{{ day.date | date:'d' }}</span>
@@ -28,23 +32,28 @@
           @if (day.holiday) {
             <span class="holiday-dot" [title]="day.holiday.label"></span>
           }
-
           @for (absence of day.absences; track absence.id) {
-            <span class="absence-dot" [style.background-color]="getAbsenceColor(absence.typeCongeNom || '')" [title]="absence.typeCongeNom"></span>
+            <span
+              class="absence-dot"
+              [style.background-color]="getAbsenceColor(absence.type)"
+              [title]="absence.typeCongeNom"
+            ></span>
           }
         </div>
       </div>
     }
   </div>
 
+  <!-- Legend -->
   <div class="calendar-legend">
     <div class="legend-item">
-      <span class="dot holiday bg-amber-400"></span>
+      <span class="dot" style="background:#f59e0b"></span>
       <span>Férié</span>
     </div>
     <div class="legend-item">
-      <span class="dot absence bg-indigo-500"></span>
-      <span>Absence</span>
+      <span class="dot" style="background:#6366f1"></span>
+      <span>Mon absence</span>
     </div>
   </div>
+
 </div>

@@ -21,7 +21,12 @@ export type StatutTeletravail =
   | 'EN_ATTENTE_RH'
   | 'APPROUVE'
   | 'REFUSE'
-  | 'ANNULE';
+  | 'ANNULE'
+  | 'EN_ATTENTE'
+  | 'APPROUVEE'
+  | 'REFUSEE'
+  | 'ANNULEE'
+  | 'VALIDEE';
 
 export interface DemandeTeletravail {
   id: number;

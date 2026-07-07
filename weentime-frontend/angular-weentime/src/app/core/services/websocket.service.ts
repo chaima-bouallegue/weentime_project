@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { from, Observable } from 'rxjs';
+import { from, Observable, firstValueFrom } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import type { IMessage, RxStomp } from '@stomp/rx-stomp';
 import { ApiConfigService } from './api-config.service';
@@ -13,12 +13,15 @@ export class WebSocketService {
   private readonly authService = inject(AuthService);
   private readonly clients = new Map<string, Promise<RxStomp>>();
 
-  private getClient(endpoint: string): Promise<RxStomp> {
-    if (!this.authService.getToken()) {
-      return Promise.reject(new Error('Missing authentication token for websocket connection.'));
+  private async getClient(endpoint: string): Promise<RxStomp> {
+    let wsToken: string;
+    try {
+      wsToken = await firstValueFrom(this.authService.fetchWsToken());
+    } catch {
+      return Promise.reject(new Error('Failed to obtain WebSocket token'));
     }
 
-    const clientKey = `${endpoint}::${this.authService.getToken() ?? 'anonymous'}`;
+    const clientKey = `${endpoint}::${wsToken}`;
     const existing = this.clients.get(clientKey);
     if (existing) {
       return existing;
@@ -33,7 +36,7 @@ export class WebSocketService {
 
       client.configure({
         webSocketFactory: () => new SockJS(endpoint),
-        connectHeaders: this.buildConnectHeaders(),
+        connectHeaders: { Authorization: `Bearer ${wsToken}` },
         heartbeatIncoming: 0,
         heartbeatOutgoing: 20000,
         reconnectDelay: 0,
@@ -76,10 +79,5 @@ export class WebSocketService {
     } catch {
       return body as T;
     }
-  }
-
-  private buildConnectHeaders(): Record<string, string> {
-    const token = this.authService.getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }

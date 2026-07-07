@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, of } from 'rxjs';
 
 import { ApiConfigService } from '../../../core/services/api-config.service';
 
@@ -139,16 +139,21 @@ export class OvertimeService {
     );
   }
 
+  // TODO: re-enable when backend overtime module is implemented
   getRhStats(): Observable<OvertimeRhStats> {
-    return this.http.get<unknown>(this.api.OVERTIME.GET_RH_STATS).pipe(
-      map(response => this.unwrap(response) as OvertimeRhStats)
-    );
+    return of({
+      totalOvertimeMinutes: 0,
+      totalOvertimeHours: 0,
+      pendingOvertime: 0,
+      approvedOvertime: 0,
+      rejectedOvertime: 0,
+      totalRequests: 0,
+    });
   }
 
+  // TODO: re-enable when backend overtime module is implemented
   getRhByDepartment(): Observable<OvertimeDepartmentStat[]> {
-    return this.http.get<unknown>(this.api.OVERTIME.GET_RH_BY_DEPARTMENT).pipe(
-      map(response => this.unwrap(response) as OvertimeDepartmentStat[])
-    );
+    return of([]);
   }
 
   rhApprove(id: number, comment?: string): Observable<OvertimeRequestDto> {

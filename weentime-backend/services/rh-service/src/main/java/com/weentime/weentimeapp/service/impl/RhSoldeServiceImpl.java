@@ -172,6 +172,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                     SoldeConge solde = SoldeConge.builder()
                             .utilisateurId(uid)
                             .typeCongeId(type.getId())
+                            .entrepriseId(eid)
                             .annee(currentYear)
                             .joursAcquis(getDefaultMaxDays(type))
                             .joursRestants(getDefaultMaxDays(type))
@@ -211,6 +212,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                         .orElse(SoldeConge.builder()
                                 .utilisateurId(uid)
                                 .typeCongeId(type.getId())
+                                .entrepriseId(eid)
                                 .annee(annee)
                                 .build());
 

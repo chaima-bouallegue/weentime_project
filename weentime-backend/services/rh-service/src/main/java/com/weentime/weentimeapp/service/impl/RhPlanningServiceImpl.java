@@ -94,7 +94,7 @@ public class RhPlanningServiceImpl implements RhPlanningService {
         rangePresence.forEach((date, resp) -> {
             if (resp != null && resp.getMembers() != null) {
                 pointagesIndex.put(date, resp.getMembers().stream()
-                        .collect(Collectors.toMap(PresenceServiceClient.MemberStatus::getId, m -> m, (m1, m2) -> m1)));
+                        .collect(Collectors.toMap(PresenceServiceClient.MemberStatus::getUtilisateurId, m -> m, (m1, m2) -> m1)));
             }
         });
 
@@ -103,6 +103,7 @@ public class RhPlanningServiceImpl implements RhPlanningService {
 
         List<PlanningResponseDTO> response = allDays.stream().map(date -> {
             boolean isRestDay = (date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY);
+            String dateType = date.isBefore(today) ? "PAST" : date.isEqual(today) ? "TODAY" : "FUTURE";
 
             List<EmployeeStatusDTO> dailyStatusList = filteredUsers.parallelStream().map(user -> {
                 Long uid = user.getId();
@@ -121,12 +122,24 @@ public class RhPlanningServiceImpl implements RhPlanningService {
                 } else {
                     var dailyPointages = pointagesIndex.getOrDefault(date, Collections.emptyMap());
                     var pStatus = dailyPointages.get(uid);
-                    if (pStatus != null && pStatus.getArrivalTime() != null) {
+                    if (pStatus != null && pStatus.getHeureEntree() != null) {
                         status = "PRESENT";
-                        detail = "Au bureau (" + pStatus.getArrivalTime() + ")";
+                        detail = "Au bureau (" + pStatus.getHeureEntree() + ")";
                     } else if (date.isBefore(today)) {
                         status = "ABSENCE";
                         detail = "Non pointé";
+                    } else {
+                        // No pointage for today, rest day, or future
+                        if (isRestDay) {
+                            status = "LEAVE";
+                            detail = "Weekend / Repos";
+                        } else if (date.isAfter(today)) {
+                            status = "SCHEDULED";
+                            detail = "Planifié";
+                        } else {
+                            status = "PENDING";
+                            detail = "En attente de pointage";
+                        }
                     }
                 }
 
@@ -138,15 +151,19 @@ public class RhPlanningServiceImpl implements RhPlanningService {
                         .build();
             }).toList();
 
-            long absentCount = dailyStatusList.stream().filter(s -> s.getStatus().equals("ABSENCE") || s.getStatus().equals("LEAVE")).count();
             int total = filteredUsers.size();
-            long presents = total - absentCount;
+            long confirmedPresent = dailyStatusList.stream()
+                    .filter(s -> s.getStatus().equals("PRESENT")
+                              || s.getStatus().equals("REMOTE")
+                              || s.getStatus().equals("SCHEDULED"))
+                    .count();
 
             return PlanningResponseDTO.builder()
                     .date(date).employees(dailyStatusList)
-                    .presenceRate(total > 0 ? (double) presents / total : 0.0)
-                    .presenceText(presents + "/" + total)
+                    .presenceRate(total > 0 ? (double) confirmedPresent / total : 0.0)
+                    .presenceText(confirmedPresent + "/" + total)
                     .isRestDay(isRestDay)
+                    .dateType(dateType)
                     .build();
         }).toList();
 

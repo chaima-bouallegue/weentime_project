@@ -1,72 +1,104 @@
-<div class="bento-card quota-card" [class.loading]="isLoading">
-  <div class="card-mesh" [style.--mesh-color]="'#6366f1'"></div>
-  
-  <div class="card-content flex flex-col md:flex-row items-center gap-8 md:gap-12 p-8">
-    
-    <!-- Circular Progress or Large Icon -->
-    <div class="relative w-32 h-32 flex items-center justify-center">
-      <div class="absolute inset-0 rounded-full border-4 border-slate-100 dark:border-slate-800"></div>
-      <div class="absolute inset-0 rounded-full border-4 border-indigo-500 transition-all duration-1000 ease-out"
-           [style.clip-path]="'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%)'"
-           [style.transform]="'rotate(' + (quota?.joursUtilises || 0) / (quota?.joursAutorises || 1) * 360 + 'deg)'"></div>
-      
-      <div class="flex flex-col items-center justify-center text-center">
-        <span class="text-3xl font-black text-slate-900 dark:text-white">{{ quota?.joursRestants || 0 }}</span>
-        <span class="text-[10px] font-black uppercase tracking-tighter text-slate-400">Jours dispos</span>
-      </div>
-    </div>
+<div class="quota-card" [class.loading]="isLoading">
 
-    <!-- KPI Details -->
-    <div class="flex-1 w-full space-y-6">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h3 class="text-lg font-black text-slate-900 dark:text-white mb-1">Quota Individuel</h3>
-          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
-            <lucide-angular [img]="iconClock" size="14" class="text-indigo-400"></lucide-angular>
-            Période : <span class="text-slate-900 dark:text-slate-100 font-bold">{{ getFormattedPeriod() }}</span>
-          </p>
-        </div>
-        
-        <div class="px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-100 dark:border-indigo-500/20">
-          <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">{{ quota?.joursAutorises || 0 }} jours autorisés</span>
-        </div>
+  <!-- Header -->
+  <div class="quota-card-top">
+    <div class="quota-title-row">
+      <div class="quota-title-icon">
+        <lucide-angular [img]="iconMonitor" size="18"></lucide-angular>
       </div>
-
-      <!-- Linear Visualizer -->
-      <div class="space-y-3">
-        <div class="flex justify-between items-center text-xs font-black text-slate-400 uppercase tracking-widest">
-          <span>Utilisation</span>
-          <span>{{ (quota?.joursUtilises || 0) }} / {{ (quota?.joursAutorises || 0) }} j</span>
-        </div>
-        
-        <div class="h-4 bg-slate-100 dark:bg-slate-800/50 rounded-full overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-          <div class="h-full transition-all duration-1000 ease-out rounded-full"
-               [class]="couleurBarre()"
-               [style.width]="progressWidth()">
-            <div class="h-full w-full bg-white/20 animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Floating Badge -->
-    <div class="hidden lg:flex flex-col items-center gap-2 p-6 bg-white dark:bg-slate-800 rounded-3xl shadow-xl shadow-slate-100 dark:shadow-none border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-500 delay-300">
-      <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-        <lucide-angular [img]="iconSparkles" size="24"></lucide-angular>
-      </div>
-      <div class="text-center">
-        <p class="text-[10px] font-black text-slate-400 uppercase">Statut</p>
-        <p class="text-sm font-black text-slate-900 dark:text-white">Éligible</p>
-      </div>
+      <h2 class="quota-title">Mon quota de télétravail</h2>
     </div>
   </div>
-  
-  @if (isLoading) {
-    <div class="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-10">
-      <div class="flex flex-col items-center gap-3">
-        <div class="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-        <p class="text-sm font-black text-slate-400 uppercase tracking-widest">Chargement...</p>
+
+  <!-- Body -->
+  <div class="quota-card-body">
+
+    <!-- KPI left — Jours restants -->
+    <div class="kpi-left">
+      <span class="kpi-label">Jours disponibles</span>
+      @if (isLoading) {
+        <div class="kpi-skeleton"></div>
+      } @else {
+        <div class="kpi-value-row">
+          <span class="kpi-number">{{ quota?.joursRestants ?? 0 }}</span>
+          <span class="kpi-unit">jours</span>
+        </div>
+        <span class="kpi-sub">sur {{ quota?.joursAutorises ?? 0 }} autorisés</span>
+      }
+    </div>
+
+    <div class="kpi-sep"></div>
+
+    <!-- KPI chips strip -->
+    <div class="quota-kpi-strip">
+
+      <!-- Utilisés -->
+      <div class="kpi-chip">
+        <div class="kpi-chip-icon kpi-chip-icon--used">
+          <lucide-angular [img]="iconCheck" size="14"></lucide-angular>
+        </div>
+        <div class="kpi-chip-body">
+          @if (isLoading) {
+            <div class="chip-skeleton"></div>
+          } @else {
+            <span class="chip-value">{{ quota?.joursUtilises ?? 0 }}</span>
+            <span class="chip-label">Utilisés</span>
+          }
+        </div>
       </div>
+
+      <!-- En attente -->
+      <div class="kpi-chip">
+        <div class="kpi-chip-icon kpi-chip-icon--pending">
+          <lucide-angular [img]="iconClock" size="14"></lucide-angular>
+        </div>
+        <div class="kpi-chip-body">
+          @if (isLoading) {
+            <div class="chip-skeleton"></div>
+          } @else {
+            <span class="chip-value">{{ quota?.joursEnAttente ?? 0 }}</span>
+            <span class="chip-label">En attente</span>
+          }
+        </div>
+      </div>
+
+      <!-- Période -->
+      <div class="kpi-chip">
+        <div class="kpi-chip-icon kpi-chip-icon--period">
+          <lucide-angular [img]="iconCalendar" size="14"></lucide-angular>
+        </div>
+        <div class="kpi-chip-body">
+          @if (isLoading) {
+            <div class="chip-skeleton"></div>
+          } @else {
+            <span class="chip-value period-value">{{ getFormattedPeriod() }}</span>
+            <span class="chip-label">Période</span>
+          }
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="quota-progress-area">
+        <div class="progress-label-row">
+          <span class="progress-label">Utilisation</span>
+          <span class="progress-pct">{{ quota?.joursUtilises ?? 0 }} / {{ quota?.joursAutorises ?? 0 }} j</span>
+        </div>
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            [class]="progressColorClass()"
+            [style.width]="progressWidth()"
+          ></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  @if (isLoading) {
+    <div class="quota-loading-overlay">
+      <div class="spinner"></div>
     </div>
   }
+
 </div>

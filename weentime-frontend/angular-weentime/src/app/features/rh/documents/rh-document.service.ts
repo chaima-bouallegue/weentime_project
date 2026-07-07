@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, throwError, catchError, map } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import {
   DemandeDocumentRH,
   StatsDocuments,
@@ -113,9 +113,10 @@ export class RhDocumentService {
     );
   }
 
-  getDocumentFile(id: number): Observable<Blob> {
+  getDocumentFile(id: number): Observable<HttpResponse<Blob>> {
     return this.http.get(this.apiConfig.RH.GET_DOCUMENT_FILE_RH(id), {
-      responseType: 'blob'
+      responseType: 'blob',
+      observe: 'response'
     });
   }
 

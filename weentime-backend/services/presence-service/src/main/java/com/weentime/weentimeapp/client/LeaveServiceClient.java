@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @FeignClient(name = "rh-service", url = "${integration.leave-service.url}")
 public interface LeaveServiceClient {
@@ -15,4 +16,10 @@ public interface LeaveServiceClient {
     Boolean hasApprovedLeave(
             @PathVariable("userId") Long userId,
             @PathVariable("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date);
+
+    @GetMapping("/api/demandes/batch-status/leave")
+    List<Long> getUsersWithApprovedLeave(
+            @RequestParam("entrepriseId") Long entrepriseId,
+            @RequestParam("userIds") List<Long> userIds,
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date);
 }

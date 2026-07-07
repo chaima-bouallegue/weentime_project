@@ -60,28 +60,4 @@
     />
   }
 
-  <!-- Delete Confirm Modal -->
-  @if (showDeleteConfirm(); as dept) {
-    <div class="modal-overlay" (click)="showDeleteConfirm.set(null)">
-      <div class="modal-content" (click)="$event.stopPropagation()">
-        <lucide-icon name="alert-triangle" size="32" class="modal-icon"></lucide-icon>
-        <h3>Supprimer « {{ dept.nom }} » ?</h3>
-        @if (dept.nombreEquipes > 0) {
-          <p class="warning-text">
-            <lucide-icon name="alert-circle" size="14"></lucide-icon>
-            Ce département contient {{ dept.nombreEquipes }} équipes et {{ dept.nombreEmployes }} employés.
-          </p>
-        }
-        <div class="modal-actions">
-          <button class="btn-ghost" (click)="showDeleteConfirm.set(null)" [disabled]="isDeleting()">Annuler</button>
-          <button class="btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
-            @if (isDeleting()) {
-              <lucide-icon name="loader-2" size="16" class="animate-spin"></lucide-icon>
-            }
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-  }
 </div>

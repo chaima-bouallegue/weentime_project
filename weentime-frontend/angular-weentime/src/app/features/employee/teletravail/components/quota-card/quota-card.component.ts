@@ -1,6 +1,6 @@
 import { Component, Input, ChangeDetectionStrategy, computed, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Monitor, Calendar, Clock, Sparkles } from 'lucide-angular';
+import { LucideAngularModule, Monitor, Calendar, Clock, CheckCircle } from 'lucide-angular';
 import { QuotaTeletravail } from '../../models/teletravail.model';
 
 @Component({
@@ -20,7 +20,7 @@ export class QuotaCardComponent {
   readonly iconMonitor = Monitor;
   readonly iconCalendar = Calendar;
   readonly iconClock = Clock;
-  readonly iconSparkles = Sparkles;
+  readonly iconCheck = CheckCircle;
 
   progressWidth = computed(() => {
     if (!this.quota || this.quota.joursAutorises === 0) return '0%';
@@ -28,17 +28,17 @@ export class QuotaCardComponent {
     return `${Math.min(percent, 100)}%`;
   });
 
-  couleurBarre = computed(() => {
+  progressColorClass = computed(() => {
     const quota = this.quota;
-    if (!quota) return 'bg-gray-300';
+    if (!quota || quota.joursAutorises === 0) return 'fill-green';
     const pct = (quota.joursRestants / quota.joursAutorises) * 100;
-    if (pct > 50) return 'bg-green-500';
-    if (pct > 20) return 'bg-orange-400';
-    return 'bg-red-500';
+    if (pct > 50) return 'fill-green';
+    if (pct > 20) return 'fill-orange';
+    return 'fill-red';
   });
 
   getFormattedPeriod(): string {
-    if (!this.quota) return '';
+    if (!this.quota) return '—';
     const date = new Date(this.quota.periodeDebut);
     return date.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
   }

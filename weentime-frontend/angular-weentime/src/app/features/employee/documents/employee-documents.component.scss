@@ -1,7 +1,4 @@
-.page-header {
-  position: relative;
-  z-index: 10;
-}/* --- Containers --- */
+/* --- Page Header & Containers --- */
 .bento-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -17,7 +14,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- Page Header (FIX: z-index pour que le bouton soit toujours cliquable) --- */
 .page-header {
   position: relative;
   z-index: 10;
@@ -25,17 +21,16 @@
 
 /* --- Common Bento Card --- */
 .bento-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 24px;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05),
-              0 4px 6px -4px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02),
+              0 10px 30px -10px rgba(0, 0, 0, 0.04);
   position: relative;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* All absolute decorative pseudo-elements must never block clicks */
   &::before,
   &::after {
     pointer-events: none;
@@ -43,7 +38,8 @@
 
   &.main-section {
     background: rgba(255, 255, 255, 0.95);
-    overflow: visible; /* allow dropdowns/tooltips to overflow */
+    overflow: visible; /* allow select dropdowns to overlap */
+    border-color: rgba(255, 255, 255, 0.8);
   }
 
   &:hover {
@@ -53,77 +49,125 @@
 }
 
 .dark .bento-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(17, 24, 39, 0.7);
   border-color: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2),
+              0 10px 30px -10px rgba(0, 0, 0, 0.3);
 
   &.main-section {
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(17, 24, 39, 0.85);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 }
 
 /* --- KPI Cards --- */
 .kpi-card {
-  height: 120px;
+  height: 140px;
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   
   .card-mesh {
     position: absolute;
     inset: 0;
-    opacity: 0.1;
+    opacity: 0.12;
     background: radial-gradient(circle at top right, var(--card-color), transparent 70%);
-    filter: blur(40px);
+    filter: blur(30px);
     transition: opacity 0.3s ease;
     pointer-events: none;
   }
 
-  &:hover .card-mesh {
-    opacity: 0.2;
+  &:hover {
+    border-color: color-mix(in srgb, var(--card-color) 40%, transparent);
+
+    .card-mesh {
+      opacity: 0.22;
+    }
+
+    .kpi-icon-wrapper {
+      transform: scale(1.05);
+      background: var(--card-color);
+      color: white;
+    }
   }
 
   .card-content {
     position: relative;
     z-index: 1;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
 
   .kpi-icon-wrapper {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    background: #f8fafc;
     color: var(--card-color);
-    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+
+    lucide-angular {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   .kpi-value {
-    font-size: 1.75rem;
-    font-weight: 900;
+    font-size: 1.875rem;
+    font-weight: 950;
     color: #0f172a;
     line-height: 1;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.125rem;
   }
 
   .kpi-label {
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .kpi-footer-link {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: transform 0.2s ease;
+
+    lucide-angular {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 }
 
 .dark .kpi-card {
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(30, 41, 59, 0.45);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--card-color) 40%, transparent);
+  }
+
   .kpi-icon-wrapper {
-    background: rgba(255, 255, 255, 0.05);
+    background: #1e293b;
     color: var(--card-color);
     box-shadow: none;
   }
 
   .kpi-value {
-    color: white;
+    color: #ffffff;
   }
 
   .kpi-label {
@@ -145,6 +189,7 @@
     background: #4f46e5;
     color: white;
     box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);
+    border: none;
     
     .icon-box {
       background: rgba(255,255,255,0.2);
@@ -190,12 +235,119 @@
   }
 }
 
-/* --- Main Sections --- */
-.section-title {
-  letter-spacing: -0.025em;
+/* --- Dropdown Selector --- */
+.status-filter-dropdown {
+  .status-select {
+    font-family: inherit;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+    &:hover {
+      border-color: #cbd5e1;
+      background-color: #f1f5f9;
+    }
+  }
 }
 
-/* Responsive */
+.dark .status-filter-dropdown {
+  .status-select {
+    box-shadow: none;
+
+    &:hover {
+      border-color: #475569;
+      background-color: #1e293b;
+    }
+  }
+}
+
+/* --- Security Card --- */
+.security-card {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+
+  .security-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .security-illustration {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+  }
+
+  &:hover {
+    border-color: #10b981;
+    
+    .security-icon-wrapper {
+      background-color: #10b981;
+      color: #ffffff;
+    }
+  }
+}
+
+.dark .security-card {
+  background: #111827;
+  border-color: #334155;
+  box-shadow: none;
+
+  .security-icon-wrapper {
+    background: rgba(16, 185, 129, 0.08);
+  }
+
+  .security-illustration {
+    opacity: 0.2;
+  }
+
+  &:hover {
+    border-color: #10b981;
+  }
+}
+
+/* --- Card Footer See All Button --- */
+.see-all-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+
+  lucide-angular {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+  }
+
+  &:hover {
+    background: rgba(79, 70, 229, 0.05);
+
+    lucide-angular {
+      transform: translateX(2px);
+    }
+  }
+}
+
+.dark .see-all-button:hover {
+  background: rgba(129, 140, 248, 0.08);
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1024px) {
+  .bento-container {
+    padding: 1.5rem;
+  }
+}
+
 @media (max-width: 768px) {
   .bento-container {
     padding: 1rem;

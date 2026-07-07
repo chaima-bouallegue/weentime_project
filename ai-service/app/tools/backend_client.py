@@ -15,7 +15,7 @@ from app.observability.tracing import log_error, log_event, start_span
 
 from .result import ToolResult
 
-DEFAULT_BACKEND_BASE_URL = "http://localhost:8322/api/v1"
+DEFAULT_BACKEND_BASE_URL = "http://localhost:8222/api/v1"
 logger = logging.getLogger(__name__)
 
 

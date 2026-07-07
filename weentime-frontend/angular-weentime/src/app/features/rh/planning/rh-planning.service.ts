@@ -11,7 +11,7 @@ export interface EmployeeStatusDTO {
   poste: string;
   departementName: string;
   teamName: string;
-  status: 'PRESENT' | 'REMOTE' | 'LEAVE' | 'ABSENCE';
+  status: 'PRESENT' | 'REMOTE' | 'LEAVE' | 'ABSENCE' | 'SCHEDULED' | 'PENDING';
   detail: string;
   photoUrl: string;
 }
@@ -22,6 +22,7 @@ export interface PlanningResponseDTO {
   presenceRate: number;
   presenceText: string;
   isRestDay: boolean;
+  dateType: 'PAST' | 'TODAY' | 'FUTURE';
 }
 
 @Injectable({

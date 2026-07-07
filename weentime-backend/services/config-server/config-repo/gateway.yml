@@ -57,7 +57,7 @@ spring:
         - id: presence-service
           uri: ${PRESENCE_SERVICE_URI:http://localhost:8193}
           predicates:
-            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**
+            - Path=/api/v1/presence/**, /api/v1/presences/**, /api/presence/**, /api/v1/horaires/**, /api/v1/overtime/**
         - id: communication-service
           uri: ${COMMUNICATION_SERVICE_URI:http://localhost:8194}
           predicates:

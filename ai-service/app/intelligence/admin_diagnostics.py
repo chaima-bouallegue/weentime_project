@@ -419,7 +419,7 @@ def _safe_gateway_url(value: Any) -> str | None:
         return None
     if "://" not in text:
         return text[:80]
-    return text.split("://", 1)[0] + "://localhost:8322/api/v1" if "localhost" in text else "[REDACTED_URL]"
+    return text.split("://", 1)[0] + "://localhost:8222/api/v1" if "localhost" in text else "[REDACTED_URL]"
 
 
 def _count_from_section(section: dict[str, Any]) -> int:

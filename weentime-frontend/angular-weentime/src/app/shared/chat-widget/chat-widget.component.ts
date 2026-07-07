@@ -74,6 +74,11 @@ interface ActionResultDisplay {
   tone: ActionTone;
 }
 
+interface QuickAction {
+  displayLabel: string;
+  payload: string;
+}
+
 interface ChatMessage {
   id: string;
   sender: ChatMessageSender;
@@ -254,51 +259,77 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   });
 
-  readonly quickActions = computed(() => {
+  readonly lastAssistantIntent = computed(() => {
+    const msgs = this.messages();
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const msg = msgs[i];
+      if (msg.sender === 'assistant' && msg.intent) {
+        return msg.intent;
+      }
+    }
+    return null;
+  });
+
+  readonly quickActions = computed((): QuickAction[] => {
+    const followUp = this.followUpChips(this.lastAssistantIntent());
+    if (followUp && !this.latestPendingDocumentMonthFlow()) {
+      return followUp;
+    }
     if (this.latestPendingDocumentMonthFlow()) {
       return [
-        { label: 'Ce mois-ci', action: 'ce mois-ci' },
-        { label: 'Mois dernier', action: 'le mois dernier' },
-        { label: 'Choisir un mois', action: 'Je veux préciser le mois' }
+        { displayLabel: 'Ce mois-ci', payload: 'ce mois-ci' },
+        { displayLabel: 'Mois dernier', payload: 'le mois dernier' },
+        { displayLabel: 'Choisir un mois', payload: 'Je veux préciser le mois' },
       ];
     }
     switch (this.assistantRole()) {
       case 'MANAGER':
         return [
-          { label: 'Demandes en attente', action: 'manager.pending_approvals' },
-          { label: 'Présence équipe', action: 'get_team_presence' },
-          { label: 'Mes horaires', action: 'telework.list_manager_requests' },
-          { label: 'Résumé équipe', action: "Today's team summary" }
+          { displayLabel: 'Demandes en attente', payload: 'manager.pending_approvals' },
+          { displayLabel: 'Présence équipe', payload: 'get_team_presence' },
+          { displayLabel: 'Mes demandes de télétravail', payload: 'telework.list_manager_requests' },
+          { displayLabel: 'Résumé équipe', payload: "Today's team summary" },
         ];
       case 'RH':
         return [
-          { label: 'Mes demandes de congé', action: 'leave.list_manager_requests' },
-          { label: 'Suivi dossiers RH', action: 'RH backlog' },
-          { label: 'Présence équipe', action: 'get_team_presence' },
-          { label: 'Validations en cours', action: 'Pending validations' }
+          { displayLabel: 'Mes demandes de congé', payload: 'leave.list_manager_requests' },
+          { displayLabel: 'Suivi dossiers RH', payload: 'RH backlog' },
+          { displayLabel: 'Présence équipe', payload: 'get_team_presence' },
+          { displayLabel: 'Validations en cours', payload: 'Pending validations' },
         ];
       case 'ADMIN':
         return [
-          { label: 'Santé système', action: 'System health' },
-          { label: 'Statut provider IA', action: 'AI provider status' },
-          { label: 'Redis status', action: 'Redis status' }
+          { displayLabel: 'Santé système', payload: 'System health' },
+          { displayLabel: 'Statut provider IA', payload: 'AI provider status' },
+          { displayLabel: 'Statut Redis', payload: 'Redis status' },
         ];
-      default:
-        return [
-          { label: 'Mes demandes de congé', action: 'leave.list_manager_requests' },
-          { label: 'Mes horaires', action: 'telework.list_manager_requests' },
-          { label: 'Solde de congés', action: 'Check my leave balance' },
-          { label: 'Résumé quotidien', action: 'Show my daily summary' }
-        ];
+        default:
+          return [
+            { displayLabel: 'Mes demandes de congé',        payload: 'Montre mes demandes de conge' },
+            { displayLabel: 'Mon solde de congés',          payload: 'Check my leave balance' },
+            { displayLabel: 'Demander un congé',            payload: 'Je veux un congé demain' },
+            { displayLabel: 'Mes demandes de télétravail',  payload: 'Montre mes demandes de teletravail' },
+            { displayLabel: 'Demander du télétravail',      payload: 'Je veux télétravailler demain' },
+            { displayLabel: 'Mes documents RH',             payload: 'Montre mes documents' },
+            { displayLabel: 'Demander un document',         payload: 'Je veux une attestation de travail' },
+            { displayLabel: 'Mes autorisations',            payload: 'Montre mes autorisations' },
+            { displayLabel: 'Demander une autorisation',    payload: 'Je veux une autorisation demain de 14h à 16h pour rendez-vous médical' },
+            { displayLabel: 'Mon pointage du jour',         payload: 'Check my pointage' },
+            { displayLabel: "Pointer l'entrée",             payload: "Je viens d'arriver" },
+            { displayLabel: 'Pointer la sortie',            payload: 'pointer ma sortie' },
+            { displayLabel: 'Mes réunions',                 payload: 'My meetings' },
+            { displayLabel: 'Prochaine réunion',            payload: 'Ma prochaine réunion' },
+            { displayLabel: 'Résumé du jour',               payload: 'Show my daily summary' },
+          ];
     }
   });
 
   readonly inputPlaceholder = computed(() => {
     switch (this.assistantRole()) {
-      case 'MANAGER': return "Ask about approvals, team presence, or today's team summary...";
-      case 'RH': return 'Ask about RH backlog, validations, or documents...';
-      case 'ADMIN': return 'Ask about system health, provider status, or tenant issues...';
-      default: return 'Ask about leave, attendance, documents, or use voice...';
+      case 'MANAGER': return 'Approbations, présence équipe, résumé...';
+      case 'RH': return 'Dossiers RH, validations, documents...';
+      case 'ADMIN': return 'Santé système, provider IA, tenants...';
+      default: return 'Congés, télétravail, documents, pointage...';
     }
   });
 
@@ -550,10 +581,21 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     this.panelPosition.set(event.source.getFreeDragPosition());
   }
 
-  sendQuickAction(prompt: string): void {
+  sendQuickAction(action: QuickAction): void {
     if (this.loading()) return;
-    this.input.set(prompt);
-    this.sendMessage();
+    this.pushMessage({
+      id: this.createMessageId(),
+      sender: 'user',
+      text: action.displayLabel,
+      timestamp: new Date(),
+      origin: 'text',
+    });
+    this.lastSubmittedText = action.payload;
+    this.loading.set(true);
+    this.chatService.sendMessage(action.payload).pipe(finalize(() => this.loading.set(false))).subscribe({
+      next: response => { this.pushAssistantReply(response, 'text'); },
+      error: error => this.handleRequestFailure(this.resolveErrorMessage(error), 'text'),
+    });
   }
 
   retryFailedMessage(message: ChatMessage): void {
@@ -583,14 +625,30 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     this.openExternalLink(message.actionTarget);
   }
 
-  confirmAssistantAction(message: ChatMessage, approved: boolean): void {
+  async confirmAssistantAction(message: ChatMessage, approved: boolean): Promise<void> {
     const confirmationId = message.confirmationId;
     if (!confirmationId || message.confirmationPending || message.confirmationResolved || this.loading()) return;
     if (this.inFlightConfirmations.has(confirmationId) || this.resolvedConfirmations.has(confirmationId)) return;
     this.inFlightConfirmations.add(confirmationId);
     this.markConfirmationPending(message.id, true);
     this.loading.set(true);
-    this.chatService.confirmAction(confirmationId, approved).pipe(finalize(() => {
+
+    // Acquire browser GPS when confirming a check-in or check-out action so
+    // the backend receives coordinates identical to a manual punch.
+    let extraMetadata: Record<string, unknown> | undefined;
+    if (approved && this.isCheckInOutIntent(message.intent)) {
+      const coords = await this.requestGeolocation();
+      if (coords) {
+        extraMetadata = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracy: coords.accuracy,
+          location_source: 'browser_gps',
+        };
+      }
+    }
+
+    this.chatService.confirmAction(confirmationId, approved, extraMetadata).pipe(finalize(() => {
       this.loading.set(false);
       this.inFlightConfirmations.delete(confirmationId);
     })).subscribe({
@@ -998,6 +1056,11 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       this.ghostText.set(event.text);
       this.ghostActive.set(true);
       this.ghostDisappearing.set(false);
+      return;
+    }
+    if (event.type === 'status') {
+      this.ghostText.set(event.text);
+      this.ghostActive.set(true);
       return;
     }
     if (event.type === 'final') {
@@ -1516,15 +1579,106 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     };
   }
 
+  private followUpChips(intent: string | null | undefined): QuickAction[] | null {
+    if (!intent) return null;
+
+    const i = intent.toLowerCase();
+
+    if (i.includes('leave.list') || i === 'leave.list') return [
+      { displayLabel: 'Mon solde de congés', payload: 'Check my leave balance' },
+      { displayLabel: 'Demander un congé', payload: 'Je veux un congé demain' },
+      { displayLabel: 'Mes autorisations', payload: 'Montre mes autorisations' },
+    ];
+    if (i.includes('leave.balance') || i.includes('leave.get_balance')) return [
+      { displayLabel: 'Demander un congé', payload: 'Je veux un congé demain' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+    ];
+    if (i.includes('leave.create') || i.includes('create_leave')) return [
+      { displayLabel: 'Voir mes demandes', payload: 'Montre mes demandes de conge' },
+      { displayLabel: 'Mon solde restant', payload: 'Check my leave balance' },
+      { displayLabel: 'Demander du télétravail', payload: 'Je veux télétravailler demain' },
+    ];
+
+    if (i.includes('telework.list')) return [
+      { displayLabel: 'Demander du télétravail', payload: 'Je veux télétravailler demain' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+    ];
+    if (i.includes('telework.create')) return [
+      { displayLabel: 'Mes demandes télétravail', payload: 'Montre mes demandes de teletravail' },
+      { displayLabel: 'Demander un congé', payload: 'Je veux un congé demain' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+    ];
+
+    if (i.includes('document.list')) return [
+      { displayLabel: 'Demander un document', payload: 'Je veux une attestation de travail' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+      { displayLabel: 'Mes autorisations', payload: 'Montre mes autorisations' },
+    ];
+    if (i.includes('document.create')) return [
+      { displayLabel: 'Mes documents RH', payload: 'Montre mes documents' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+      { displayLabel: 'Mon solde de congés', payload: 'Check my leave balance' },
+    ];
+
+    if (i.includes('authorization.list')) return [
+      { displayLabel: 'Demander une autorisation', payload: 'Je veux une autorisation demain de 14h à 16h pour rendez-vous médical' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+    ];
+    if (i.includes('authorization.create')) return [
+      { displayLabel: 'Mes autorisations', payload: 'Montre mes autorisations' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+    ];
+
+    if (i.includes('attendance.status') || i.includes('get_pointage')) return [
+      { displayLabel: "Pointer l'entrée", payload: "Je viens d'arriver" },
+      { displayLabel: 'Pointer la sortie', payload: 'pointer ma sortie' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+    ];
+    if (i.includes('check_in') || i.includes('attendance.check_in')) return [
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+      { displayLabel: 'Mes réunions', payload: 'My meetings' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+    ];
+    if (i.includes('check_out') || i.includes('attendance.check_out')) return [
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+      { displayLabel: 'Mes demandes de congé', payload: 'Montre mes demandes de conge' },
+    ];
+
+    if (i.includes('reunion') || i.includes('meeting')) return [
+      { displayLabel: 'Prochaine réunion', payload: 'Ma prochaine réunion' },
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+      { displayLabel: 'Résumé du jour', payload: 'Show my daily summary' },
+    ];
+
+    if (i.includes('digest') || i.includes('daily_summary') || i.includes('employee_digest')) return [
+      { displayLabel: 'Mon solde de congés', payload: 'Check my leave balance' },
+      { displayLabel: 'Mon pointage du jour', payload: 'Check my pointage' },
+      { displayLabel: 'Mes réunions', payload: 'My meetings' },
+    ];
+
+    if (i.includes('manager.pending') || i.includes('pending_approvals')) return [
+      { displayLabel: 'Présence équipe', payload: 'get_team_presence' },
+      { displayLabel: 'Résumé équipe', payload: "Today's team summary" },
+      { displayLabel: 'Télétravail équipe', payload: 'telework.list_manager_requests' },
+    ];
+
+    return null;
+  }
+
   private buildWelcomeMessage(): ChatMessage {
     const role = this.assistantRole();
     const text = role === 'MANAGER'
-      ? 'Manager AI is ready for approvals, team summaries, and attendance anomalies.'
+      ? "Bonjour ! Je suis votre Assistant Manager. Je peux vous aider avec les approbations en attente, la présence de votre équipe et les résumés d'activité."
       : role === 'RH'
-        ? 'RH AI is ready for backlog review, validations, and document workload.'
+        ? 'Bonjour ! Je suis votre Assistant RH. Je peux vous aider avec le suivi des dossiers, les validations en cours et la gestion des documents.'
         : role === 'ADMIN'
-          ? 'Admin AI is ready for system health, provider status, and tenant issues.'
-          : 'Employee AI is ready for daily summaries, leave balance, and attendance help.';
+          ? 'Bonjour ! Je suis votre Assistant Admin. Je peux vous aider avec la santé du système, le statut des providers IA et les problèmes de tenants.'
+          : 'Bonjour ! Je suis votre Assistant Collaborateur. Je peux vous aider avec vos congés, votre télétravail, vos documents RH et votre pointage.';
     return { id: this.createMessageId(), sender: 'assistant', text, timestamp: new Date(), origin: 'system' };
   }
 
@@ -1958,5 +2112,33 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
         ? String(user.roles[0]).trim()
         : '';
     return primaryRole.length > 0 ? primaryRole.replace(/^ROLE_/i, '').toUpperCase() : null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Geolocation helpers for copilot check-in / check-out
+  // ---------------------------------------------------------------------------
+
+  private isCheckInOutIntent(intent: string | null | undefined): boolean {
+    if (!intent) return false;
+    const normalized = intent.toLowerCase();
+    return normalized.includes('check_in') || normalized.includes('check_out');
+  }
+
+  private requestGeolocation(): Promise<{ latitude: number; longitude: number; accuracy: number } | null> {
+    return new Promise(resolve => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        }),
+        () => resolve(null),  // denied or error — silent fallback
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 },
+      );
+    });
   }
 }

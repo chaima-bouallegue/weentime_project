@@ -1,6 +1,7 @@
 package com.weentime.weentimeapp.controller;
 
 import com.weentime.weentimeapp.dto.AiRecruitmentResultRequest;
+import com.weentime.weentimeapp.security.InternalAuthUtils;
 import com.weentime.weentimeapp.service.RecruitmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,12 +73,6 @@ public class InternalRecruitmentController {
     }
 
     private boolean isInternalSecretValid(String requestSecret) {
-        if (requestSecret == null || internalSecret == null) {
-            return false;
-        }
-        return MessageDigest.isEqual(
-                requestSecret.getBytes(StandardCharsets.UTF_8),
-                internalSecret.getBytes(StandardCharsets.UTF_8)
-        );
+        return InternalAuthUtils.isInternalSecretValid(requestSecret, internalSecret);
     }
 }

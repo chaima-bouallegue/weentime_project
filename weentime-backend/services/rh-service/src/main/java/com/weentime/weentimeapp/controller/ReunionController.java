@@ -1,9 +1,11 @@
 package com.weentime.weentimeapp.controller;
 
 import com.weentime.weentimeapp.dto.*;
+import com.weentime.weentimeapp.security.InternalAuthUtils;
 import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.ReunionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +23,9 @@ import java.util.stream.Collectors;
 public class ReunionController {
 
     private final ReunionService service;
+
+    @Value("${weentime.internal.secret}")
+    private String internalSecret;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('MANAGER', 'RH')")
@@ -92,8 +97,12 @@ public class ReunionController {
 
     @GetMapping("/internal/minutes-today")
     public Long getMeetingMinutesToday(
+            @RequestHeader("X-Internal-Secret") String requestSecret,
             @RequestParam Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        if (!InternalAuthUtils.isInternalSecretValid(requestSecret, internalSecret)) {
+            throw new org.springframework.security.access.AccessDeniedException("Invalid internal secret");
+        }
         return service.getMeetingMinutesToday(userId, date);
     }
     // AJOUTER ce endpoint — update partiel (description, agenda, date, heure...)

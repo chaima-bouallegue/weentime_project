@@ -10,9 +10,16 @@ spring:
     password: 170502
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 5000
-      initialization-fail-timeout: -1
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       ddl-auto: update

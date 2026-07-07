@@ -1,32 +1,82 @@
 server:
-  port: 8192
+  port: ${SERVER_PORT:8192}
 
 spring:
-  application:
-    name: rh-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/rh_db
-    username: weentime
-    password: 170502
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${RH_DB_NAME:${DB_NAME:rh_db}}
+    username: ${RH_DB_USERNAME:${DB_USERNAME:weentime}}
+    password: ${RH_DB_PASSWORD:${DB_PASSWORD:170502}}
     driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  cloud:
-    config:
-      enabled: false
-  config:
-    import: optional:configserver:http://localhost:8988
+    hikari:
+      # Fix connexions mortes (Docker NAT Windows coupe les connexions TCP inactives ~18-20 min).
+      # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
+      maximum-pool-size: 10
+      minimum-idle: 2
+      max-lifetime: 1500000
+      idle-timeout: 600000
+      keepalive-time: 240000
+      connection-timeout: 5000
+      validation-timeout: 3000
+      leak-detection-threshold: 30000
   flyway:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 18
-    validate-on-migrate: false
+    validate-on-migrate: true
     connect-retries: 2
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+management:
+  health:
+    db:
+      enabled: true
+
+minio:
+  endpoint: ${MINIO_URL:http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET:weentime-justificatifs}
+
+integration:
+  organisation-service:
+    url: ${ORGANISATION_SERVICE_URL:http://${ORGANISATION_SERVICE_HOST:localhost}:${ORGANISATION_SERVICE_PORT:8190}}
+  presence-service:
+    url: ${PRESENCE_SERVICE_URL:http://${PRESENCE_SERVICE_HOST:localhost}:${PRESENCE_SERVICE_PORT:8193}}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      organisationService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+      presenceService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 5s
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      organisationService:
+        timeout-duration: 3s
+      presenceService:
+        timeout-duration: 3s
+
+logging:
+  level:
+    com.weentime.weentimeapp: INFO
 
 eureka:
   instance:
@@ -35,16 +85,4 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8861/eureka/
-  server:
-    enable-self-preservation: false
-
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expirationMs: 86400000
-
-integration:
-  organisation-service:
-    url: http://localhost:8190
-  presence-service:
-    url: http://localhost:8193
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://${EUREKA_HOST:localhost}:${EUREKA_PORT:8861}/eureka/}

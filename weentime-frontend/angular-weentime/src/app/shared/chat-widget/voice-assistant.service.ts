@@ -43,6 +43,13 @@ export interface AudioStreamResponse extends ChatApiResponse {
 export type VoiceAssistantEvent =
   | { type: 'state'; state: VoiceAssistantState }
   | { type: 'partial'; text: string }
+  /**
+   * Événement de progression UI uniquement.
+   * Ce n'est PAS une transcription partielle.
+   * { type: 'partial' } est réservé au vrai streaming STT
+   * (implémentation future via SSE/WebSocket).
+   */
+  | { type: 'status'; text: string }
   | { type: 'final'; response: AudioStreamResponse }
   | { type: 'error'; message: string; kind: VoiceAssistantErrorKind };
 
@@ -66,7 +73,7 @@ export class VoiceAssistantService {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly endpoint = resolveAiServiceEndpoint(environment.aiServiceUrl, environment.aiUrl);
+  private readonly endpoint = environment.gatewayUrl + '/api/v1/ai';
   private readonly eventsSubject = new Subject<VoiceAssistantEvent>();
 
   readonly events$: Observable<VoiceAssistantEvent> = this.eventsSubject.asObservable();
@@ -76,8 +83,12 @@ export class VoiceAssistantService {
   private recorderMimeType = 'audio/webm';
   private finalized = false;
   private lastPartial = '';
-  private context: { user: User; token: string | null } | null = null;
-  private silenceTimer: number | null = null;
+  private context: { user: User } | null = null;
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
+  private statusMessageTimer: ReturnType<typeof setTimeout> | null = null;
+  // Distinct de silenceTimer (VAD) et maxDurationTimer (durée max)
+  private readonly MAX_RECORDING_DURATION_MS = 60_000;
   private hasHeardVoice = false;
   private recordingStartedAt = 0;
   private lastVoiceAt = 0;
@@ -141,7 +152,15 @@ export class VoiceAssistantService {
       };
 
       this.emitState('listening');
+      this.startStatusMessageSequence();
       this.recorder.start(VoiceAssistantService.RECORDER_TIMESLICE_MS);
+      if (this.maxDurationTimer !== null) {
+        clearTimeout(this.maxDurationTimer);
+      }
+      this.maxDurationTimer = setTimeout(() => {
+        console.warn('[voice-assistant] durée maximale 60s atteinte → arrêt automatique');
+        this.stop();
+      }, this.MAX_RECORDING_DURATION_MS);
     } catch (error) {
       this.cleanupMedia();
       this.emitError(this.resolveMicrophoneError(error), 'audioError');
@@ -176,6 +195,14 @@ export class VoiceAssistantService {
     this.currentVolume = 0;
     this.maxDetectedVolume = 0;
     this.clearSilenceTimer();
+    if (this.maxDurationTimer !== null) {
+      clearTimeout(this.maxDurationTimer);
+      this.maxDurationTimer = null;
+    }
+    if (this.statusMessageTimer !== null) {
+      clearTimeout(this.statusMessageTimer);
+      this.statusMessageTimer = null;
+    }
   }
 
   private pushChunk(blob: Blob): void {
@@ -194,6 +221,37 @@ export class VoiceAssistantService {
       window.clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
     }
+  }
+
+  /**
+   * Séquence de messages UI pendant l'enregistrement.
+   * SIMULATION PROVISOIRE — à remplacer par le vrai streaming STT.
+   * Roadmap : endpoint SSE Python → EventSource Angular
+   * → émettre de vrais { type: 'partial', text } depuis le STT.
+   */
+  private startStatusMessageSequence(): void {
+    this.emitStatusMessage('Je vous écoute...');
+    this.statusMessageTimer = setTimeout(() => {
+      if (this.isRecording()) {
+        this.emitStatusMessage('Continuez, je vous écoute...');
+      }
+    }, 3000);
+  }
+
+  private stopStatusMessageSequence(): void {
+    if (this.statusMessageTimer !== null) {
+      clearTimeout(this.statusMessageTimer);
+      this.statusMessageTimer = null;
+    }
+  }
+
+  /**
+   * Émet un message de progression UI via { type: 'status' }.
+   * NE PAS utiliser { type: 'partial' } pour les messages de statut.
+   * 'partial' est réservé à la vraie transcription STT temps réel.
+   */
+  private emitStatusMessage(text: string): void {
+    this.eventsSubject.next({ type: 'status', text });
   }
 
   private bindStreamLifecycle(stream: MediaStream): void {
@@ -226,6 +284,7 @@ export class VoiceAssistantService {
 
   private async doFinalizeStream(): Promise<void> {
     this.clearSilenceTimer();
+    this.stopStatusMessageSequence();
 
     if (!this.hasHeardVoice || this.recordedChunks.length === 0) {
       this.emitNoSpeech();
@@ -233,6 +292,7 @@ export class VoiceAssistantService {
     }
 
     this.emitState('uploading');
+    this.emitStatusMessage('Analyse vocale en cours...');
     this.finalUploadSent = true;
 
     try {
@@ -271,6 +331,7 @@ export class VoiceAssistantService {
       }
 
       this.emitState('responding');
+      this.emitStatusMessage('Je prépare la réponse...');
       this.finish(response);
     } catch (error) {
       if (this.isAuthExpiredError(error)) {
@@ -304,7 +365,7 @@ export class VoiceAssistantService {
     const requestContext = withAiChatWidgetContext(new HttpContext());
     this.recordingSessionId = sessionId;
     const extension = this.resolveFileExtension(mimeType);
-    if (!context.token && !environment.chatbotPublicMode) {
+    if (!this.authService.isAuthenticated() && !environment.chatbotPublicMode) {
       throw new Error(VoiceAssistantService.SESSION_EXPIRED_MESSAGE);
     }
 
@@ -348,17 +409,19 @@ export class VoiceAssistantService {
       voiceMetadata['companyId'] = entrepriseId;
     }
     voiceFormData.append('metadata', JSON.stringify(voiceMetadata));
-    const headers = this.aiHeaders(requestId, context.user, context.token);
+    const headers = this.aiHeaders(requestId, context.user);
     this.debugVoiceRequest('v2/voice', requestId);
 
     try {
       this.emitState('transcribing');
+      this.emitStatusMessage('Je réfléchis...');
       return await firstValueFrom(
         this.http.post<AudioStreamResponse>(
           `${this.endpoint}/v2/voice`,
           voiceFormData,
           {
             headers,
+            withCredentials: true,
             context: requestContext,
           }
         )
@@ -390,13 +453,6 @@ export class VoiceAssistantService {
       );
     }
 
-    if (context.token) {
-      formData.append(
-        'access_token',
-        context.token
-      );
-    }
-
     formData.append(
       'file',
       blob,
@@ -408,7 +464,8 @@ export class VoiceAssistantService {
         `${this.endpoint}/audio-stream`,
         formData,
         {
-          headers: this.aiHeaders(requestId, context.user, context.token),
+          headers: this.aiHeaders(requestId, context.user),
+          withCredentials: true,
           context: requestContext,
         }
       )
@@ -482,6 +539,14 @@ export class VoiceAssistantService {
   }
 
   private cleanupMedia(): void {
+    if (this.maxDurationTimer !== null) {
+      clearTimeout(this.maxDurationTimer);
+      this.maxDurationTimer = null;
+    }
+    if (this.statusMessageTimer !== null) {
+      clearTimeout(this.statusMessageTimer);
+      this.statusMessageTimer = null;
+    }
     this.stream?.getTracks().forEach(track => track.stop());
     this.stream = null;
     this.recorder = null;
@@ -514,23 +579,19 @@ export class VoiceAssistantService {
     return 'webm';
   }
 
-  private getUserContext(): { user: User; token: string | null } | null {
+  private getUserContext(): { user: User } | null {
     const user = this.authService.currentUser() ?? this.readStoredUser();
-    const token = this.authService.getToken();
     if (this.hasPendingMfaChallenge()) {
       return null;
     }
     if (!user?.id) {
       if (environment.chatbotPublicMode) {
         const fallbackUser: User = { id: 1, email: 'demo@weentime.local', roles: ['EMPLOYEE'], role: 'EMPLOYEE' };
-        return { user: fallbackUser, token: null };
+        return { user: fallbackUser };
       }
       return null;
     }
-    if (!token) {
-      return null;
-    }
-    return { user, token };
+    return { user };
   }
 
   private resolveRole(user: User | null | undefined): string | null {
@@ -547,13 +608,10 @@ export class VoiceAssistantService {
     return primaryRole.length > 0 ? primaryRole.replace(/^ROLE_/i, '') : null;
   }
 
-  private aiHeaders(requestId: string, user: User, token: string | null): HttpHeaders {
+  private aiHeaders(requestId: string, user: User): HttpHeaders {
     const headers: Record<string, string> = {
       'X-Request-ID': requestId,
     };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     const role = this.resolveRole(user);
     if (role) {
       headers['X-User-Role'] = role.toUpperCase();

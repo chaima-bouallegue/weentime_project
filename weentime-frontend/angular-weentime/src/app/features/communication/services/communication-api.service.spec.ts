@@ -31,7 +31,7 @@ describe('CommunicationApiService', () => {
     service.syncCommunication(13).subscribe();
 
     const request = httpMock.expectOne(
-      'http://localhost:8322/api/v1/communication/admin/sync/enterprise/13'
+      'http://localhost:8222/api/v1/communication/admin/sync/enterprise/13'
     );
     expect(request.request.method).toBe('POST');
     request.flush({ success: true, data: {} });

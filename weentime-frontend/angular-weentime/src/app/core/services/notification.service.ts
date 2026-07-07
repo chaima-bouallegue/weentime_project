@@ -114,9 +114,8 @@ export class NotificationService {
   constructor() {
     effect(() => {
       const userId = this.authService.currentUser()?.id ?? null;
-      const token = this.authService.getToken();
 
-      if (!token || !userId) {
+      if (!this.authService.isAuthenticated() || !userId) {
         this.resetRealtime();
         this._notifications.set([]);
         return;
@@ -127,7 +126,7 @@ export class NotificationService {
   }
 
   getNotifications(): Observable<Notification[]> {
-    if (!this.authService.getToken()) {
+    if (!this.authService.isAuthenticated()) {
       this._notifications.set([]);
       return of([]);
     }
@@ -205,7 +204,7 @@ export class NotificationService {
   }
 
   connectWebSocket(userId?: number): void {
-    if (!userId || !this.authService.getToken() || this.connectedUserId === userId) {
+    if (!userId || !this.authService.isAuthenticated() || this.connectedUserId === userId) {
       return;
     }
     this.resetRealtime();

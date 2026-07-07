@@ -6,6 +6,8 @@ import { Departement } from '../../models/structure.model';
 import { DepartementFormComponent } from './departement-form/departement-form.component';
 import { ToastService } from '../../../../../core/services/toast.service';
 import { RhStructureStore } from '../../../../../core/services/rh-structure.store';
+import { OverlayDrawerService } from '../../../../../core/services/overlay-drawer.service';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-departements',
@@ -19,12 +21,12 @@ export class DepartementsComponent {
   private structureStore = inject(RhStructureStore);
   private structureService = inject(StructureService);
   private toastService = inject(ToastService);
+  private drawerService = inject(OverlayDrawerService);
 
   departements = this.structureStore.departements;
   isLoading = this.structureStore.isLoading;
   showDrawer = signal(false);
   departementToEdit = signal<Departement | null>(null);
-  showDeleteConfirm = signal<Departement | null>(null);
   isDeleting = signal(false);
 
   refresh(): void {
@@ -48,21 +50,32 @@ export class DepartementsComponent {
   }
 
   confirmDelete(dept: Departement): void {
-    this.showDeleteConfirm.set(dept);
-  }
-
-  onDelete(): void {
-    const dept = this.showDeleteConfirm();
-    if (!dept) return;
-    this.isDeleting.set(true);
-    this.structureService.deleteDepartement(dept.id).subscribe({
-      next: () => {
-        this.isDeleting.set(false);
-        this.showDeleteConfirm.set(null);
-        this.toastService.success('Département supprimé');
-        this.structureStore.deleteDepartement(dept.id);
+    const extra = dept.nombreEquipes > 0
+      ? `Ce département contient ${dept.nombreEquipes} équipes et ${dept.nombreEmployes} employés.`
+      : '';
+    const ref = this.drawerService.openModal<ConfirmDialogComponent>({
+      component: ConfirmDialogComponent,
+      inputs: {
+        title: `Supprimer « ${dept.nom} » ?`,
+        message: 'Cette action est irréversible.',
+        confirmText: 'Supprimer',
+        iconName: 'alert-triangle',
+        type: 'danger',
+        extraMessage: extra,
       },
-      error: () => this.isDeleting.set(false)
+      panelClass: 'overlay-modal-panel',
+    });
+    (ref.componentRef.instance as any).confirm.subscribe(() => {
+      this.drawerService.close();
+      this.isDeleting.set(true);
+      this.structureService.deleteDepartement(dept.id).subscribe({
+        next: () => {
+          this.isDeleting.set(false);
+          this.toastService.success('Département supprimé');
+          this.structureStore.deleteDepartement(dept.id);
+        },
+        error: () => this.isDeleting.set(false)
+      });
     });
   }
 }

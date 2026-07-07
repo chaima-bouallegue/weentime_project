@@ -9,6 +9,7 @@ import { HistoriqueListComponent } from './components/historique-list/historique
 import { CongeCalendarComponent } from './components/conge-calendar/conge-calendar.component';
 import { DemandeDrawerComponent } from './components/demande-drawer/demande-drawer.component';
 import { AnnulationModalComponent } from './components/annulation-modal/annulation-modal.component';
+import { ConsultationModalComponent } from './components/consultation-modal/consultation-modal.component';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -24,7 +25,8 @@ import { forkJoin } from 'rxjs';
     HistoriqueListComponent,
     CongeCalendarComponent,
     DemandeDrawerComponent,
-    AnnulationModalComponent
+    AnnulationModalComponent,
+    ConsultationModalComponent
   ],
   templateUrl: './employee-conges.component.html',
   styleUrl: './employee-conges.component.scss'
@@ -48,15 +50,25 @@ export class EmployeeCongesComponent implements OnInit {
   isLoading = signal(true);
   showDrawer = signal(false);
   demandeAnnuler = signal<DemandeConge | null>(null);
+  demandeConsulter = signal<DemandeConge | null>(null);
   isAnnulating = signal(false);
   isSubmittingRequest = signal(false);
 
   filtreStatut = signal<StatutDemande | 'TOUS'>('TOUS');
+  afficherTout = signal(false);
+
+  totalDisponible = computed(() =>
+    this.soldes().reduce((sum, s) => sum + (s.disponible ?? 0), 0)
+  );
 
   historiqueFiltre = computed(() => {
     const list = this.historique();
     const filter = this.filtreStatut();
-    return filter === 'TOUS' ? list : list.filter(d => d.statut === filter);
+    const filtered = filter === 'TOUS' ? list : list.filter(d => d.statut === filter);
+    if (this.afficherTout()) {
+      return filtered;
+    }
+    return filtered.slice(0, 5);
   });
 
   today = new Date();

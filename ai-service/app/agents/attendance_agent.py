@@ -1,7 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import datetime
 
 from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
@@ -30,7 +31,7 @@ class AttendanceAgent(DomainAgent):
             return self._forgot_checkout_response(result, confidence)
         if intent == "attendance.status":
             result = await self.executor.execute("get_pointage_status", {}, context)
-            return self._status_response(result, confidence)
+            return self._status_response(result, confidence, context)
         if intent == "attendance.check_in":
             return await self._check_in_after_status(confidence, context)
         if intent == "attendance.check_out":
@@ -314,7 +315,12 @@ class AttendanceAgent(DomainAgent):
             },
         )
 
-    def _status_response(self, result: ToolResult, confidence: float) -> AgentResponse:
+    def _status_response(
+        self,
+        result: ToolResult,
+        confidence: float,
+        context: CurrentUserContext | None = None,
+    ) -> AgentResponse:
         if not result.success:
             return compose_tool_error("attendance.status", result)
         data = result.data if isinstance(result.data, dict) else {}
@@ -324,7 +330,16 @@ class AttendanceAgent(DomainAgent):
         check_out = data.get("checkOut") or data.get("check_out") or data.get("heureSortie") or data.get("exitTime")
         if active is True and not status:
             status = "ACTIVE"
-        text = f"Statut de pointage: {compact_value(status)}. Entree: {compact_value(check_in)}. Sortie: {compact_value(check_out)}."
+        lang = _resolve_lang(context)
+        statut_loc = _translate_attendance_status(status, lang)
+        entree_loc = _format_attendance_time(check_in) or _STATUS_RESPONSE_LABELS[lang]["missing"]
+        sortie_loc = _format_attendance_time(check_out) or _STATUS_RESPONSE_LABELS[lang]["missing"]
+        lbl = _STATUS_RESPONSE_LABELS.get(lang, _STATUS_RESPONSE_LABELS["fr"])
+        text = (
+            f"{lbl['status']} : {statut_loc}. "
+            f"{lbl['checkin']} : {entree_loc}. "
+            f"{lbl['checkout']} : {sortie_loc}."
+        )
         return AgentResponse(
             type="answer",
             text=text,
@@ -407,3 +422,201 @@ class AttendanceAgent(DomainAgent):
         text = unicodedata.normalize("NFKD", value or "")
         text = "".join(char for char in text if not unicodedata.combining(char))
         return text.lower().strip()
+
+
+# ---------------------------------------------------------------------------
+# Attendance-response helpers (attendance_agent scope only)
+# ---------------------------------------------------------------------------
+
+_SUPPORTED_LANGS = {"fr", "en", "ar", "tn"}
+
+
+def _resolve_lang(context: CurrentUserContext | None) -> str:
+    """Extract a supported language code from context, defaulting to 'fr'."""
+    if context is None:
+        return "fr"
+    raw = (context.language or "fr").strip().lower()
+    return raw if raw in _SUPPORTED_LANGS else "fr"
+
+
+# Per-language labels for the _status_response text template.
+_STATUS_RESPONSE_LABELS: dict[str, dict[str, str]] = {
+    "fr": {
+        "status":   "Statut de pointage",
+        "checkin":  "Heure d'entrée",
+        "checkout": "Heure de sortie",
+        "missing":  "Non renseignée",
+    },
+    "en": {
+        "status":   "Attendance status",
+        "checkin":  "Entry time",
+        "checkout": "Departure time",
+        "missing":  "Not provided",
+    },
+    "ar": {
+        "status":   "حالة الحضور",
+        "checkin":  "وقت الدخول",
+        "checkout": "وقت الخروج",
+        "missing":  "غير محدد",
+    },
+    "tn": {
+        "status":   "Statut ta3 el pointage",
+        "checkin":  "We9t el dkhoul",
+        "checkout": "We9t el khorouj",
+        "missing":  "Moch محدد",
+    },
+}
+
+# Multilingual backend-status-enum → user-facing label mapping.
+_ATTENDANCE_STATUS_MAP: dict[str, dict[str, str]] = {
+    "LATE": {
+        "fr": "En retard",
+        "en": "Late",
+        "ar": "متأخر",
+        "tn": "Mtekhir",
+    },
+    "RETARD": {
+        "fr": "En retard",
+        "en": "Late",
+        "ar": "متأخر",
+        "tn": "Makhir",
+    },
+    "ON_TIME": {
+        "fr": "À l'heure",
+        "en": "On time",
+        "ar": "في الوقت",
+        "tn": "Fi el wa9t",
+    },
+    "ON TIME": {
+        "fr": "À l'heure",
+        "en": "On time",
+        "ar": "في الوقت",
+        "tn": "Fi el wa9t",
+    },
+    "PRESENT": {
+        "fr": "À l'heure",
+        "en": "Present",
+        "ar": "حاضر",
+        "tn": "Mawjoud",
+    },
+    "ACTIVE": {
+        "fr": "À l'heure",
+        "en": "Active",
+        "ar": "نشط",
+        "tn": "Fi el khidma",
+    },
+    "CHECKED_IN": {
+        "fr": "À l'heure",
+        "en": "Checked in",
+        "ar": "سجّل حضوره",
+        "tn": "Dakhel",
+    },
+    "OPEN": {
+        "fr": "À l'heure",
+        "en": "Active",
+        "ar": "نشط",
+        "tn": "Fi el khidma",
+    },
+    "ABSENT": {
+        "fr": "Absent",
+        "en": "Absent",
+        "ar": "غائب",
+        "tn": "Ghayeb",
+    },
+    "MISSING": {
+        "fr": "Absent",
+        "en": "Missing",
+        "ar": "غائب",
+        "tn": "Ghayeb",
+    },
+    "NO_CHECK_IN": {
+        "fr": "Absent",
+        "en": "Absent",
+        "ar": "غائب",
+        "tn": "Ghayeb",
+    },
+    "NOT_STARTED": {
+        "fr": "Absent",
+        "en": "Not started",
+        "ar": "لم يبدأ بعد",
+        "tn": "Mazal mabdech",
+    },
+    "CHECKED_OUT": {
+        "fr": "Sorti",
+        "en": "Checked out",
+        "ar": "غادر",
+        "tn": "Khraj",
+    },
+    "CLOSED": {
+        "fr": "Sorti",
+        "en": "Closed",
+        "ar": "أنهى يومه",
+        "tn": "Kammel",
+    },
+}
+
+_UNKNOWN_STATUS: dict[str, str] = {
+    "fr": "Non renseigné",
+    "en": "Not provided",
+    "ar": "غير محدد",
+    "tn": "Moch محدد",
+}
+
+# ISO 8601 datetime patterns tried in order (most common first).
+_DT_FORMATS = (
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%d/%m/%Y %H:%M:%S",
+    "%d/%m/%Y %H:%M",
+    "%H:%M:%S",
+    "%H:%M",
+)
+
+
+def _translate_attendance_status(status: object | None, language: str = "fr") -> str:
+    """Return a localized label for a backend attendance status enum.
+
+    Supported languages: fr (default), en, ar, tn.
+    Falls back to French when the language is unrecognised or the status has
+    no known translation.
+    """
+    lang = (language or "fr").strip().lower()
+    if lang not in _SUPPORTED_LANGS:
+        lang = "fr"
+    if status is None or status == "":
+        return _UNKNOWN_STATUS[lang]
+    key = str(status).strip().upper()
+    translations = _ATTENDANCE_STATUS_MAP.get(key)
+    if not translations:
+        # Unknown enum value: return raw string so data is never silently lost.
+        return str(status)
+    return translations.get(lang) or translations.get("fr") or str(status)
+
+
+def _format_attendance_time(value: object | None) -> str:
+    """Return a DD/MM/YYYY HH:MM formatted time string, or the missing label.
+
+    Datetime format is language-agnostic for this application (DD/MM/YYYY is
+    the standard used across all four supported locales).  The caller is
+    responsible for inserting the appropriate 'missing' label from
+    _STATUS_RESPONSE_LABELS when the value is None.
+    """
+    if value is None or value == "":
+        return ""  # Sentinel — caller replaces with localised missing label.
+    raw = str(value).strip()
+    # Strip trailing timezone offset (e.g. "+01:00" or "Z") before parsing.
+    raw_no_tz = re.sub(r"(Z|[+-]\d{2}:\d{2})$", "", raw)
+    for fmt in _DT_FORMATS:
+        try:
+            dt = datetime.strptime(raw_no_tz, fmt)
+            # If the format has no date component, omit the date part.
+            if "%Y" in fmt or "%d" in fmt:
+                return dt.strftime("%d/%m/%Y %H:%M")
+            return dt.strftime("%H:%M")
+        except ValueError:
+            continue
+    # Value is already human-readable (e.g. "08:30") — return as-is.
+    return raw

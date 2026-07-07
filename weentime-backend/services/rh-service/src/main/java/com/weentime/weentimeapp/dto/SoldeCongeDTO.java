@@ -16,6 +16,8 @@ public class SoldeCongeDTO {
 
     private Long typeCongeId;
 
+    private String typeCongeNom;
+
     private Integer annee;
 
     private Double joursAcquis;

@@ -1,153 +1,156 @@
-<div class="bento-container fade-in">
-  <!-- Header Section -->
-  <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <div>
-      <h1 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Planning</h1>
-      <p class="text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-2xl">
-        Consultez vos horaires de travail et votre organisation hebdomadaire.
-      </p>
+<div class="horaires-page-container fade-in">
+  
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Mes horaires</h1>
+      <p class="page-subtitle">Consultez vos horaires de travail et votre organisation hebdomadaire</p>
     </div>
     
-    <div class="date-chip flex items-center gap-2 px-6 py-3 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-      <lucide-angular [img]="iconCalendar" size="18" class="text-indigo-500"></lucide-angular>
-      <span class="text-sm font-bold text-slate-700 dark:text-slate-200 capitalize">{{ currentDate() }}</span>
+    <div class="date-chip">
+      <lucide-angular [img]="iconCalendar" size="14" class="icon"></lucide-angular>
+      <span class="date-text capitalize">{{ currentDate() }}</span>
     </div>
   </header>
 
-  <!-- Dashbord Overview -->
   @if (isLoading()) {
-    <div class="grid grid-cols-12 gap-8">
-      <div class="col-span-12 md:col-span-12 h-64 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] animate-pulse"></div>
-      <div class="col-span-12 h-40 bg-slate-50 dark:bg-slate-800/50 rounded-[32px] animate-pulse"></div>
+    <div class="skeleton-container">
+      <div class="sk-header"></div>
+      <div class="sk-grid"></div>
     </div>
   } @else if (horaire()) {
-    <div class="bento-layout">
+    <div class="horaires-layout">
       
-      <!-- Hero Card: Today's Schedule (Full Width on Mobile, spans 8 on Desktop) -->
-      <section class="col-span-12 lg:col-span-8">
-        <div class="bento-card hero-card overflow-hidden">
-          <div class="card-mesh" [style.--mesh-color]="'#6366f1'"></div>
-          
-          <div class="relative z-10 flex flex-col md:flex-row items-center gap-10 p-10">
-            <div class="status-visual relative">
-              <div class="visual-ring" [class.active]="aujourdHui()?.estTravaille"></div>
-              <div class="visual-icon bg-white dark:bg-slate-900 shadow-xl">
-                <lucide-angular [img]="aujourdHui()?.estTravaille ? iconClock : iconHome" size="32" class="text-indigo-500"></lucide-angular>
-              </div>
+      <!-- 1. ACTIVE SCHEDULE (FULL SCREEN STYLE) -->
+      <section class="section-card main-horaire-card">
+        
+        <!-- Card Header Info (like inspiration image) -->
+        <div class="horaire-card-header">
+          <div class="horaire-profile-row">
+            <div class="horaire-icon-box">
+              <lucide-angular [img]="iconClock" size="22"></lucide-angular>
             </div>
-
-            <div class="flex-1 text-center md:text-left">
-              <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-                <span class="px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider shadow-sm"
-                      [class.bg-indigo-500]="aujourdHui()?.estTravaille"
-                      [class.text-white]="aujourdHui()?.estTravaille"
-                      [class.bg-slate-100]="!aujourdHui()?.estTravaille"
-                      [class.text-slate-500]="!aujourdHui()?.estTravaille">
-                  {{ aujourdHui()?.estTravaille ? 'En Poste Aujourd\'hui' : 'Repos' }}
-                </span>
-                <div class="flex items-center gap-1 text-slate-400">
-                  <lucide-angular [img]="iconSparkles" size="14"></lucide-angular>
-                  <span class="text-[10px] font-black uppercase tracking-widest">Temps réel</span>
+            
+            <div class="horaire-meta">
+              <div class="horaire-title-row">
+                <h2 class="horaire-name">{{ horaire()?.nom }}</h2>
+                
+                <div class="badges-row">
+                  @if (horaire()?.isDefaut) {
+                    <span class="badge badge-default">
+                      <lucide-angular [img]="iconSparkles" size="10"></lucide-angular>
+                      DÉFAUT
+                    </span>
+                  }
+                  @if (horaire()?.statut === 'ACTIF') {
+                    <span class="badge badge-active">ACTIF</span>
+                  }
                 </div>
               </div>
-
-              @if (aujourdHui()?.estTravaille) {
-                <h2 class="text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter">
-                  {{ getHeureDebut(aujourdHui()) | slice:0:5 }} <span class="text-slate-300 mx-2">à</span> {{ getHeureFin(aujourdHui()) | slice:0:5 }}
-                </h2>
-                <div class="flex flex-wrap items-center justify-center md:justify-start gap-6">
-                  <div class="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
-                    <lucide-angular [img]="iconCoffee" size="18" class="text-amber-500"></lucide-angular>
-                    {{ getDureePauseMinutes(aujourdHui()) }} min de pause
-                  </div>
-                  <div class="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
-                    <lucide-angular [img]="iconMap" size="18" class="text-indigo-500"></lucide-angular>
-                    Siège Social
-                  </div>
-                </div>
-              } @else {
-                <h2 class="text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tighter italic opacity-40">
-                  Jour de Repos
-                </h2>
-                <p class="text-lg font-bold text-slate-500 dark:text-slate-400">Profitez de votre temps libre !</p>
-              }
+              
+              <p class="horaire-subinfo">
+                {{ horaire()?.heuresHebdo }}h / semaine <span class="sep">•</span> Type : {{ horaire()?.type || 'Fixe' }}
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Info Card: Weekly Stats (Spans 4 on Desktop) -->
-      <section class="col-span-12 lg:col-span-4">
-        <div class="bento-card p-10 flex flex-col justify-between h-full bg-indigo-600 dark:bg-indigo-500 text-white shadow-xl shadow-indigo-100 dark:shadow-none">
-          <div>
-            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-6">
-              <lucide-angular [img]="iconMonitor" size="24"></lucide-angular>
-            </div>
-            <h3 class="text-2xl font-black mb-2 leading-tight">Volume Hebdomadaire</h3>
-            <p class="text-indigo-100 font-medium">Contrat : {{ horaire()?.nom }}</p>
           </div>
           
-          <div class="mt-8">
-            <div class="text-6xl font-black tracking-tighter mb-2">{{ horaire()?.heuresHebdo }}<span class="text-2xl opacity-60 ml-1">h</span></div>
-            <p class="text-xs font-black uppercase tracking-widest text-indigo-200">Total semaine type</p>
-          </div>
+          <button class="btn-more-actions" title="Actions">
+            <lucide-angular [img]="iconMore" size="16"></lucide-angular>
+          </button>
         </div>
-      </section>
 
-      <!-- Weekly Grid Section (Full Width) -->
-      <section class="col-span-12">
-        <div class="bento-card p-8">
-          <div class="flex items-center justify-between mb-10 px-4">
-            <h3 class="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-4">
-              <span class="w-2 h-10 bg-indigo-500 rounded-full"></span>
-              Semaine Type
-            </h3>
-            <div class="flex items-center gap-2 text-slate-400 font-black text-xs uppercase tracking-widest">
-              <lucide-angular [img]="iconInfo" size="14"></lucide-angular>
-              Horaires contractuels
-            </div>
+        <!-- Weekly Schedule Grid (matches mockup) -->
+        <div class="schedule-grid-container">
+          
+          <!-- Hours scale column on the left -->
+          <div class="hours-scale-col">
+            <div class="hour-mark">08:00</div>
+            <div class="hour-mark">10:00</div>
+            <div class="hour-mark">12:00</div>
+            <div class="hour-mark">14:00</div>
+            <div class="hour-mark">16:00</div>
+            <div class="hour-mark">18:00</div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
-            @for (jour of horaire()?.jours; track jour.jourSemaine) {
-              <div 
-                class="day-card group"
-                [class.active]="isToday(jour.jourSemaine)"
-                [class.is-repos]="!jour.estTravaille"
-              >
-                <div class="flex flex-col items-center text-center p-6 rounded-[24px] transition-all duration-300 h-full border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-500/30 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-indigo-500 mb-4 transition-colors">
-                    {{ jour.jourSemaine | slice:0:3 }}
-                  </span>
-                  
-                  <div class="flex-1 flex flex-col items-center justify-center gap-3">
-                    @if (jour.estTravaille) {
-                      <div class="text-lg font-black text-slate-900 dark:text-slate-100 leading-none">
-                        {{ getHeureDebut(jour) | slice:0:5 }}
-                      </div>
-                      <div class="w-0.5 h-6 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-indigo-200 transition-colors"></div>
-                      <div class="text-lg font-black text-slate-900 dark:text-slate-100 leading-none">
-                        {{ getHeureFin(jour) | slice:0:5 }}
-                      </div>
-                    } @else {
-                      <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-300">
-                        <lucide-angular [img]="iconHome" size="18"></lucide-angular>
-                      </div>
-                      <span class="text-[10px] font-black uppercase text-slate-400 mt-2">Repos</span>
-                    }
-                  </div>
-
+          <!-- Day Columns -->
+          <div class="days-columns-wrapper">
+            @for (jour of joursTries(); track jour.jourSemaine) {
+              <div class="day-column" [class.today]="isToday(jour.jourSemaine)">
+                
+                <!-- Day Label (e.g. LUN., MAR.) -->
+                <div class="day-column-header">
+                  <span class="day-label">{{ jour.jourSemaine | slice:0:3 }}.</span>
                   @if (isToday(jour.jourSemaine)) {
-                    <div class="mt-4 px-3 py-1 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full animate-in zoom-in-95 duration-500">
-                      Aujourd'hui
+                    <span class="today-dot-indicator"></span>
+                  }
+                </div>
+
+                <!-- Plages Stack -->
+                <div class="day-plages-stack">
+                  @if (jour.estTravaille && jour.plages && jour.plages.length > 0) {
+                    @for (plage of getSortedPlages(jour); track plage.id; let i = $index) {
+                      <div class="plage-block" [class]="getPlageColorClass(plage.type, i)">
+                        <span class="plage-label">{{ plage.type === 'PAUSE' ? 'Pause' : 'Travail' }}</span>
+                        <span class="plage-time">
+                          {{ plage.heureDebut | slice:0:5 }} - {{ plage.heureFin | slice:0:5 }}
+                        </span>
+                      </div>
+                    }
+                  } @else {
+                    <div class="plage-block repos">
+                      <lucide-angular [img]="iconHome" size="14" class="repos-icon"></lucide-angular>
+                      <span class="repos-text">Repos</span>
+                    </div>
+                  }
+                </div>
+
+              </div>
+            }
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- 2. OTHER SCHEDULES SECTION (IF ANY) -->
+      @if (autresHoraires().length > 0) {
+        <section class="others-section">
+          <h3 class="others-title">Autres plannings de l'entreprise</h3>
+          
+          <div class="others-grid">
+            @for (other of autresHoraires(); track other.id) {
+              <div class="other-schedule-card">
+                <div class="other-header">
+                  <div class="other-title-info">
+                    <h4 class="other-name">{{ other.nom }}</h4>
+                    <span class="other-subtitle">{{ other.heuresHebdo }}h / semaine • {{ other.type || 'Fixe' }}</span>
+                  </div>
+                  @if (other.isDefaut) {
+                    <span class="badge badge-default compact">DÉFAUT</span>
+                  }
+                </div>
+                
+                <!-- Mini inline day strip to preview the schedule at a glance -->
+                <div class="mini-days-strip">
+                  @for (j of other.jours; track j.jourSemaine) {
+                    <div class="mini-day-chip" [class.worked]="j.estTravaille">
+                      <span class="char">{{ j.jourSemaine.charAt(0) }}</span>
                     </div>
                   }
                 </div>
               </div>
             }
           </div>
-        </div>
-      </section>
+        </section>
+      }
+
+    </div>
+  } @else {
+    <div class="empty-state">
+      <lucide-angular [img]="iconInfo" size="40" class="empty-icon"></lucide-angular>
+      <p class="empty-title">Aucun horaire affecté</p>
+      <p class="empty-sub">Vous n'avez actuellement aucun horaire de travail affecté.</p>
     </div>
   }
+
 </div>

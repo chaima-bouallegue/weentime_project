@@ -20,6 +20,8 @@ public class EntrepriseResponse {
     private String email;
     private String siteWeb;
     private String logo;
+    private String primaryColor;
+    private String secondaryColor;
 
     // ── Statut
     private String status; // "ACTIVE" | "SUSPENDED" | "CLOSED"

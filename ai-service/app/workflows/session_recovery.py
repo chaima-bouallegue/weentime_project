@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Literal
 
 from app.models.agent_models import AgentResponse, ToolCallRecord
@@ -14,6 +15,7 @@ POSITIVE_RECOVERY_TOKENS = {
     "approve",
     "approved",
     "confirme",
+    "confirmer",
     "confirm",
     "d accord",
     "d'accord",
@@ -60,12 +62,28 @@ class RecoveryDirective:
 
 def classify_recovery_message(message: str | None) -> RecoveryDirective:
     normalized = normalize_recovery_message(message)
+
     if normalized in POSITIVE_RECOVERY_TOKENS:
         return RecoveryDirective(action="approve", normalized_message=normalized)
+
     if normalized in NEGATIVE_RECOVERY_TOKENS:
         return RecoveryDirective(action="reject", normalized_message=normalized)
+
     if normalized in CONTINUE_RECOVERY_TOKENS:
         return RecoveryDirective(action="continue", normalized_message=normalized)
+
+    for token in POSITIVE_RECOVERY_TOKENS:
+        if re.search(rf"\b{re.escape(token)}\b", normalized):
+            return RecoveryDirective(action="approve", normalized_message=normalized)
+
+    for token in NEGATIVE_RECOVERY_TOKENS:
+        if re.search(rf"\b{re.escape(token)}\b", normalized):
+            return RecoveryDirective(action="reject", normalized_message=normalized)
+
+    for token in CONTINUE_RECOVERY_TOKENS:
+        if re.search(rf"\b{re.escape(token)}\b", normalized):
+            return RecoveryDirective(action="continue", normalized_message=normalized)
+
     return RecoveryDirective(action="none", normalized_message=normalized)
 
 

@@ -2,6 +2,7 @@ package com.weentime.weentimeproject.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Filter;
 
 import java.util.List;
 
@@ -12,6 +13,7 @@ import java.util.List;
 @Builder
 @Entity
 @Table(name = "departements")
+@Filter(name = "entrepriseFilter", condition = "entreprise_id = :entrepriseId")
 public class Departement {
 
     @Id
