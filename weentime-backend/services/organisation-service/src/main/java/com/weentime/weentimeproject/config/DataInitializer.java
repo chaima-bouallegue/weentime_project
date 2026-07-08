@@ -28,7 +28,8 @@ import java.util.Set;
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
 
-    private static final String DEFAULT_PASSWORD = "Admin123@";
+    @org.springframework.beans.factory.annotation.Value("${weentime.default-password:Admin123@}")
+    private String defaultPwd;
     private static final String COMPANY_NAME = "WeenTime Demo";
     private static final String COMPANY_SIRET = "12345678901234";
     private static final String DEPARTMENT_CODE = "ENG-001";
@@ -141,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
                     .nom("Admin")
                     .prenom("WeenTime")
                     .email(adminEmail)
-                    .motDePasse(passwordEncoder.encode(DEFAULT_PASSWORD))
+                    .motDePasse(passwordEncoder.encode(defaultPwd))
                     .statut(StatutUtilisateurEnum.ACTIF)
                     .roles(Set.of(adminRole))
                     .build();
@@ -254,7 +255,7 @@ public class DataInitializer implements CommandLineRunner {
         utilisateur.setNom(nom);
         utilisateur.setPrenom(prenom);
         utilisateur.setEmail(email);
-        utilisateur.setMotDePasse(passwordEncoder.encode(DEFAULT_PASSWORD));
+        utilisateur.setMotDePasse(passwordEncoder.encode(defaultPwd));
         utilisateur.setPoste(poste);
         utilisateur.setTelephone("+33000000000");
         utilisateur.setStatut(StatutUtilisateurEnum.ACTIF);
