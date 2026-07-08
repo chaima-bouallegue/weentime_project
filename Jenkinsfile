@@ -9,7 +9,7 @@ pipeline {
     environment {
         SONAR_SERVER = 'sonar-server'
         SERVICES_DIR = 'weentime-backend\\services'
-        MAVEN_OPTS = '-Xms128m -Xmx512m'
+        MAVEN_OPTS = '-Xmx384m -XX:MaxMetaspaceSize=256m'
     }
 
     stages {
@@ -26,7 +26,7 @@ pipeline {
                     def forceAll = false
                     try {
                         for (changeSet in currentBuild.changeSets) {
-                            for (entry in changeSet.entries) {
+                            for (entry in changeSet.items) {
                                 for (path in entry.affectedPaths) {
                                     def normPath = path.replace('\\', '/')
                                     if (normPath.contains("weentime-backend/services/config-server/") || 
@@ -63,7 +63,10 @@ pipeline {
             parallel {
                 stage('Build & Test - config-server') {
                     when {
-                        changeset "weentime-backend/services/config-server/**"
+                        anyOf {
+                            expression { env.FORCE_ALL_BUILD == 'true' }
+                            changeset "weentime-backend/services/config-server/**"
+                        }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\config-server") {
@@ -78,7 +81,10 @@ pipeline {
                 }
                 stage('Build & Test - discovery') {
                     when {
-                        changeset "weentime-backend/services/discovery/**"
+                        anyOf {
+                            expression { env.FORCE_ALL_BUILD == 'true' }
+                            changeset "weentime-backend/services/discovery/**"
+                        }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\discovery") {
