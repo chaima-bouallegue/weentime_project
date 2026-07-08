@@ -211,11 +211,16 @@ public class TwoFactorService {
     }
 
     private String decryptLegacyAes(String encryptedValue) throws Exception {
-        Key key = buildAesKey();
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, key);
+        // Attempt GCM decryption on legacy data (IV + ciphertext concatenated)
         byte[] decodedValue = Base64.getDecoder().decode(encryptedValue);
-        byte[] decryptedData = cipher.doFinal(decodedValue);
+        if (decodedValue.length <= GCM_IV_LENGTH) {
+            throw new IllegalArgumentException("Encrypted data too short for AES-GCM");
+        }
+        byte[] iv = Arrays.copyOfRange(decodedValue, 0, GCM_IV_LENGTH);
+        byte[] encryptedData = Arrays.copyOfRange(decodedValue, GCM_IV_LENGTH, decodedValue.length);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, buildAesKey(), new GCMParameterSpec(GCM_TAG_LENGTH, iv));
+        byte[] decryptedData = cipher.doFinal(encryptedData);
         return new String(decryptedData, StandardCharsets.UTF_8);
     }
 

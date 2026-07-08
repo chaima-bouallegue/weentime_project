@@ -76,7 +76,7 @@ public class AuthController {
     private boolean cookieSecure;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<?>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<ApiResponse<Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         log.info("LOGIN request received");
 
         Authentication authentication;
