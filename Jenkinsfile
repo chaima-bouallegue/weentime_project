@@ -132,39 +132,33 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv(SONAR_SERVER) {
-                    dir("${SERVICES_DIR}\\config-server") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-config-server -Dsonar.projectName="Config Server"'
+                script {
+                    def sonarServices = [
+                        [dir: 'config-server',            key: 'weentime-config-server',           name: 'Config Server'],
+                        [dir: 'discovery',                key: 'weentime-discovery',               name: 'Discovery'],
+                        [dir: 'auth-service',             key: 'weentime-auth-service',            name: 'Auth Service'],
+                        [dir: 'organisation-service',     key: 'weentime-organisation-service',    name: 'Organisation Service'],
+                        [dir: 'rh-service',               key: 'weentime-rh-service',              name: 'RH Service'],
+                        [dir: 'presence-service',         key: 'weentime-presence-service',        name: 'Presence Service'],
+                        [dir: 'communication-service',    key: 'weentime-communication-service',   name: 'Communication Service'],
+                        [dir: 'gateway',                  key: 'weentime-gateway',                 name: 'Gateway']
+                    ]
+                    for (svc in sonarServices) {
+                        withSonarQubeEnv(SONAR_SERVER) {
+                            dir("${SERVICES_DIR}\\${svc.dir}") {
+                                bat "mvnw.cmd sonar:sonar -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\""
+                            }
+                        }
+                        dir("${SERVICES_DIR}\\${svc.dir}") {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                def qg = waitForQualityGate abortPipeline: false
+                                if (qg.status != 'OK') {
+                                    error "QUALITY GATE FAILED for ${svc.name}: status=${qg.status}"
+                                }
+                                echo "Quality Gate OK for ${svc.name}"
+                            }
+                        }
                     }
-                    dir("${SERVICES_DIR}\\discovery") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-discovery -Dsonar.projectName="Discovery"'
-                    }
-                    dir("${SERVICES_DIR}\\auth-service") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-auth-service -Dsonar.projectName="Auth Service"'
-                    }
-                    dir("${SERVICES_DIR}\\organisation-service") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-organisation-service -Dsonar.projectName="Organisation Service"'
-                    }
-                    dir("${SERVICES_DIR}\\rh-service") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-rh-service -Dsonar.projectName="RH Service"'
-                    }
-                    dir("${SERVICES_DIR}\\presence-service") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-presence-service -Dsonar.projectName="Presence Service"'
-                    }
-                    dir("${SERVICES_DIR}\\communication-service") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-communication-service -Dsonar.projectName="Communication Service"'
-                    }
-                    dir("${SERVICES_DIR}\\gateway") {
-                        bat 'mvnw.cmd sonar:sonar -Dsonar.projectKey=weentime-gateway -Dsonar.projectName="Gateway"'
-                    }
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
                 }
             }
         }
