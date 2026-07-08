@@ -12,6 +12,8 @@ import com.weentime.weentimeapp.security.services.EmailService;
 import com.weentime.weentimeapp.security.services.SmsOtpSender;
 import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
+import com.weentime.weentimeapp.service.TokenBlacklistService;
+import com.weentime.weentimeapp.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -58,6 +60,10 @@ class AuthControllerTest {
     EmailService emailService;
     @MockitoBean
     SmsOtpSender smsOtpSender;
+    @MockitoBean
+    TokenBlacklistService tokenBlacklistService;
+    @MockitoBean
+    RefreshTokenService refreshTokenService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private UserDetailsImpl userDetails;
@@ -93,7 +99,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.token").value("jwt-token"))
+                .andExpect(jsonPath("$.data.token").value(nullValue()))
                 .andExpect(jsonPath("$.error").isEmpty());
     }
 
