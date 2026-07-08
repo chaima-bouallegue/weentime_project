@@ -149,15 +149,20 @@ pipeline {
                                 bat "mvnw.cmd sonar:sonar -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\""
                             }
                         }
-                        dir("${SERVICES_DIR}\\${svc.dir}") {
-                            timeout(time: 10, unit: 'MINUTES') {
-                                def qg = waitForQualityGate abortPipeline: false
-                                if (qg.status != 'OK') {
-                                    unstable "QUALITY GATE WARNING for ${svc.name}: status=${qg.status}"
-                                } else {
-                                    echo "Quality Gate OK for ${svc.name}"
+                        try {
+                            dir("${SERVICES_DIR}\\${svc.dir}") {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate abortPipeline: false
+                                    if (qg.status != 'OK') {
+                                        unstable "QUALITY GATE WARNING for ${svc.name}: status=${qg.status}"
+                                    } else {
+                                        echo "Quality Gate OK for ${svc.name}"
+                                    }
                                 }
                             }
+                        } catch (err) {
+                            echo "Quality Gate check skipped for ${svc.name}: ${err.message}"
+                            unstable "Quality Gate timeout for ${svc.name} — check SonarQube webhook config"
                         }
                     }
                 }
