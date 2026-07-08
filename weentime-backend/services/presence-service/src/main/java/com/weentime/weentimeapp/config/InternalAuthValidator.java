@@ -13,7 +13,7 @@ public class InternalAuthValidator {
 
     private final String expectedSecret;
 
-    public InternalAuthValidator(@Value("${weentime.internal.secret}") String expectedSecret) {
+    public InternalAuthValidator(@Value("${weentime.internal.secret:WeenTimeInternalSecretKey2026}") String expectedSecret) {
         this.expectedSecret = expectedSecret;
     }
 
