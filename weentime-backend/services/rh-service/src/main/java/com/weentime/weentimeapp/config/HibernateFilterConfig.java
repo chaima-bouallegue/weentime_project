@@ -20,13 +20,14 @@ import java.io.IOException;
 public class HibernateFilterConfig extends OncePerRequestFilter {
 
     private final ObjectProvider<EntityManager> entityManagerProvider;
-    private final SecurityUtils securityUtils;
+    private final ObjectProvider<SecurityUtils> securityUtilsProvider;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         EntityManager entityManager = entityManagerProvider.getIfAvailable();
-        if (entityManager != null && !InternalFilterBypass.isActive()) {
+        SecurityUtils securityUtils = securityUtilsProvider.getIfAvailable();
+        if (entityManager != null && securityUtils != null && !InternalFilterBypass.isActive()) {
             Long entrepriseId = securityUtils.getCurrentEntrepriseId();
             if (entrepriseId != null) {
                 Session session = entityManager.unwrap(Session.class);

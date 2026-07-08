@@ -24,7 +24,7 @@ public class ReunionController {
 
     private final ReunionService service;
 
-    @Value("${weentime.internal.secret}")
+    @Value("${weentime.internal.secret:WeenTimeInternalSecretKey2026}")
     private String internalSecret;
 
     @PostMapping
