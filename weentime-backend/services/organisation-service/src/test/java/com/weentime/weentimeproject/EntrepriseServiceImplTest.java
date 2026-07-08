@@ -152,6 +152,7 @@ class EntrepriseServiceImplTest {
                 .secteur("Tech")
                 .codeInvitation(codeInvitation)
                 .estActive(active)
+                .status(active ? "ACTIVE" : "CLOSED")
                 .currentUsers(5)
                 .maxUsers(100)
                 .build();

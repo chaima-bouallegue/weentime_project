@@ -86,6 +86,6 @@ class GatewayApplicationTests {
 				.expectStatus().isUnauthorized()
 				.expectBody()
 				.jsonPath("$.error").isEqualTo("UNAUTHORIZED")
-				.jsonPath("$.details").isEqualTo("Missing Authorization header");
+				.jsonPath("$.details").isEqualTo("Missing Authorization header or cookie");
 	}
 }
