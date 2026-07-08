@@ -150,7 +150,7 @@ pipeline {
                             }
                         }
                         dir("${SERVICES_DIR}\\${svc.dir}") {
-                            timeout(time: 5, unit: 'MINUTES') {
+                            timeout(time: 10, unit: 'MINUTES') {
                                 def qg = waitForQualityGate abortPipeline: false
                                 if (qg.status != 'OK') {
                                     error "QUALITY GATE FAILED for ${svc.name}: status=${qg.status}"
