@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class TwoFactorService {
 
+    private static final String AES_GCM_NOPADDING = "AES/GCM/NoPadding";
     private static final String ENCRYPTION_PREFIX = "v2:";
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH = 128;
@@ -153,7 +154,7 @@ public class TwoFactorService {
         try {
             byte[] iv = new byte[GCM_IV_LENGTH];
             new SecureRandom().nextBytes(iv);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            Cipher cipher = Cipher.getInstance(AES_GCM_NOPADDING);
             cipher.init(Cipher.ENCRYPT_MODE, buildAesKey(), new GCMParameterSpec(GCM_TAG_LENGTH, iv));
             byte[] encryptedData = cipher.doFinal(rawValue.getBytes(StandardCharsets.UTF_8));
             byte[] combined = new byte[iv.length + encryptedData.length];
@@ -205,7 +206,7 @@ public class TwoFactorService {
         byte[] combined = Base64.getDecoder().decode(encryptedValue.substring(ENCRYPTION_PREFIX.length()));
         byte[] iv = Arrays.copyOfRange(combined, 0, GCM_IV_LENGTH);
         byte[] encryptedData = Arrays.copyOfRange(combined, GCM_IV_LENGTH, combined.length);
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher cipher = Cipher.getInstance(AES_GCM_NOPADDING);
         cipher.init(Cipher.DECRYPT_MODE, buildAesKey(), new GCMParameterSpec(GCM_TAG_LENGTH, iv));
         return new String(cipher.doFinal(encryptedData), StandardCharsets.UTF_8);
     }
@@ -218,7 +219,7 @@ public class TwoFactorService {
         }
         byte[] iv = Arrays.copyOfRange(decodedValue, 0, GCM_IV_LENGTH);
         byte[] encryptedData = Arrays.copyOfRange(decodedValue, GCM_IV_LENGTH, decodedValue.length);
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher cipher = Cipher.getInstance(AES_GCM_NOPADDING);
         cipher.init(Cipher.DECRYPT_MODE, buildAesKey(), new GCMParameterSpec(GCM_TAG_LENGTH, iv));
         byte[] decryptedData = cipher.doFinal(encryptedData);
         return new String(decryptedData, StandardCharsets.UTF_8);
