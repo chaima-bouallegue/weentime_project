@@ -20,6 +20,19 @@ pipeline {
             }
         }
 
+        stage('Setup Settings') {
+            steps {
+                bat '''
+                if not exist "C:\\Windows\\System32\\config\\systemprofile\\.m2" mkdir "C:\\Windows\\System32\\config\\systemprofile\\.m2"
+                if exist "C:\\Users\\HP\\.m2\\settings.xml" (
+                    copy /Y "C:\\Users\\HP\\.m2\\settings.xml" "C:\\Windows\\System32\\config\\systemprofile\\.m2\\settings.xml"
+                ) else (
+                    echo "Local settings.xml not found!"
+                )
+                '''
+            }
+        }
+
         stage('Build & Test - config-server') {
             steps {
                 dir("${SERVICES_DIR}\\config-server") {
