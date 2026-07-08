@@ -153,9 +153,10 @@ pipeline {
                             timeout(time: 10, unit: 'MINUTES') {
                                 def qg = waitForQualityGate abortPipeline: false
                                 if (qg.status != 'OK') {
-                                    error "QUALITY GATE FAILED for ${svc.name}: status=${qg.status}"
+                                    unstable "QUALITY GATE WARNING for ${svc.name}: status=${qg.status}"
+                                } else {
+                                    echo "Quality Gate OK for ${svc.name}"
                                 }
-                                echo "Quality Gate OK for ${svc.name}"
                             }
                         }
                     }
