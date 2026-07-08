@@ -9,6 +9,7 @@ pipeline {
     environment {
         SONAR_SERVER = 'sonar-server'
         SERVICES_DIR = 'weentime-backend\\services'
+        MAVEN_OPTS = '-Xms128m -Xmx512m'
     }
 
     stages {
@@ -19,103 +20,99 @@ pipeline {
             }
         }
 
-        stage('Build & Test') {
-            parallel {
-                stage('config-server') {
-                    steps {
-                        dir("${SERVICES_DIR}\\config-server") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/config-server/target/surefire-reports/*.xml"
-                        }
-                    }
+        stage('Build & Test - config-server') {
+            steps {
+                dir("${SERVICES_DIR}\\config-server") {
+                    bat 'mvnw.cmd clean test jacoco:report'
                 }
-                stage('discovery') {
-                    steps {
-                        dir("${SERVICES_DIR}\\discovery") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/discovery/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/config-server/target/surefire-reports/*.xml"
                 }
-                stage('auth-service') {
-                    steps {
-                        dir("${SERVICES_DIR}\\auth-service") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/auth-service/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+        }
+        stage('Build & Test - discovery') {
+            steps {
+                dir("${SERVICES_DIR}\\discovery") {
+                    bat 'mvnw.cmd clean test jacoco:report'
                 }
-                stage('organisation-service') {
-                    steps {
-                        dir("${SERVICES_DIR}\\organisation-service") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/organisation-service/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/discovery/target/surefire-reports/*.xml"
                 }
-                stage('rh-service') {
-                    steps {
-                        dir("${SERVICES_DIR}\\rh-service") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/rh-service/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+        }
+        stage('Build & Test - auth-service') {
+            steps {
+                dir("${SERVICES_DIR}\\auth-service") {
+                    bat 'mvnw.cmd clean test jacoco:report'
                 }
-                stage('presence-service') {
-                    steps {
-                        dir("${SERVICES_DIR}\\presence-service") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/presence-service/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/auth-service/target/surefire-reports/*.xml"
                 }
-                stage('communication-service') {
-                    steps {
-                        dir("${SERVICES_DIR}\\communication-service") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/communication-service/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+        }
+        stage('Build & Test - organisation-service') {
+            steps {
+                dir("${SERVICES_DIR}\\organisation-service") {
+                    bat 'mvnw.cmd clean test jacoco:report'
                 }
-                stage('gateway') {
-                    steps {
-                        dir("${SERVICES_DIR}\\gateway") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/gateway/target/surefire-reports/*.xml"
-                        }
-                    }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/organisation-service/target/surefire-reports/*.xml"
+                }
+            }
+        }
+        stage('Build & Test - rh-service') {
+            steps {
+                dir("${SERVICES_DIR}\\rh-service") {
+                    bat 'mvnw.cmd clean test jacoco:report'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/rh-service/target/surefire-reports/*.xml"
+                }
+            }
+        }
+        stage('Build & Test - presence-service') {
+            steps {
+                dir("${SERVICES_DIR}\\presence-service") {
+                    bat 'mvnw.cmd clean test jacoco:report'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/presence-service/target/surefire-reports/*.xml"
+                }
+            }
+        }
+        stage('Build & Test - communication-service') {
+            steps {
+                dir("${SERVICES_DIR}\\communication-service") {
+                    bat 'mvnw.cmd clean test jacoco:report'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/communication-service/target/surefire-reports/*.xml"
+                }
+            }
+        }
+        stage('Build & Test - gateway') {
+            steps {
+                dir("${SERVICES_DIR}\\gateway") {
+                    bat 'mvnw.cmd clean test jacoco:report'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/gateway/target/surefire-reports/*.xml"
                 }
             }
         }
