@@ -140,7 +140,7 @@ class SharedTableSchemaCompatibilityDataJpaTest {
 
         assertThat(typeCongeRepository.findAllByEntrepriseId(13L))
                 .extracting(TypeConge::getLibelle)
-                .containsExactly("Maladie");
+                .containsExactly("Congé maternité", "Maladie");
     }
 
     @Test

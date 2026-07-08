@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Session;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -18,13 +19,14 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class HibernateFilterConfig extends OncePerRequestFilter {
 
-    private final EntityManager entityManager;
+    private final ObjectProvider<EntityManager> entityManagerProvider;
     private final SecurityUtils securityUtils;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (!InternalFilterBypass.isActive()) {
+        EntityManager entityManager = entityManagerProvider.getIfAvailable();
+        if (entityManager != null && !InternalFilterBypass.isActive()) {
             Long entrepriseId = securityUtils.getCurrentEntrepriseId();
             if (entrepriseId != null) {
                 Session session = entityManager.unwrap(Session.class);

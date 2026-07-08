@@ -213,7 +213,10 @@ class RhPlanningServiceImplTest {
     @Test
     void futureWorkdayShouldReturnScheduled() {
         LocalDate today = LocalDate.now();
-        LocalDate futureDate = today.plusDays(3);
+        LocalDate futureDate = today.plusDays(1);
+        while (futureDate.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || futureDate.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+            futureDate = futureDate.plusDays(1);
+        }
         UserResponse user = user(1L, "Durand", "Alice");
 
         when(organisationServiceClient.findUsersByEntreprise(ENTREPRISE_ID))
