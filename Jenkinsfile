@@ -24,6 +24,9 @@ pipeline {
             steps {
                 script {
                     def forceAll = false
+                    if (!currentBuild.changeSets) {
+                        forceAll = true
+                    }
                     try {
                         for (changeSet in currentBuild.changeSets) {
                             for (entry in changeSet.items) {
@@ -261,6 +264,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
+                    bat 'del /s /q report-task.txt 2>nul || exit 0'
                     def sonarServices = [
                         [dir: "weentime-backend\\services\\config-server",            key: 'weentime-config-server',           name: 'Config Server', isMaven: true],
                         [dir: "weentime-backend\\services\\discovery",                key: 'weentime-discovery',               name: 'Discovery', isMaven: true],
