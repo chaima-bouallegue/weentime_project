@@ -9,7 +9,8 @@ pipeline {
     environment {
         SONAR_SERVER = 'sonar-server'
         SERVICES_DIR = 'weentime-backend\\services'
-        MAVEN_OPTS = '-Xmx384m -XX:MaxMetaspaceSize=256m'
+        MAVEN_OPTS = '-Xmx256m -XX:MaxMetaspaceSize=128m'
+        JAVA_TOOL_OPTIONS = '-Xmx256m -XX:MaxMetaspaceSize=128m'
     }
 
     stages {
