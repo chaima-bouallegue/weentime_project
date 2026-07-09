@@ -24,27 +24,57 @@ pipeline {
             steps {
                 script {
                     def forceAll = false
-                    if (!currentBuild.changeSets) {
+                    def totalItems = 0
+                    if (currentBuild.changeSets != null) {
+                        for (cs in currentBuild.changeSets) {
+                            if (cs != null && cs.items != null) {
+                                totalItems += cs.items.length
+                            }
+                        }
+                    }
+                    if (totalItems == 0) {
                         forceAll = true
                     }
-                    try {
+                    def hasChanges = { pattern ->
+                        if (currentBuild.changeSets == null) return false
                         for (changeSet in currentBuild.changeSets) {
+                            if (changeSet == null || changeSet.items == null) continue
                             for (entry in changeSet.items) {
+                                if (entry == null || entry.affectedPaths == null) continue
                                 for (path in entry.affectedPaths) {
-                                    def normPath = path.replace('\\', '/')
-                                    if (normPath.contains("weentime-backend/services/config-server/") || 
-                                        normPath.contains("weentime-backend/services/discovery/")) {
-                                        forceAll = true
+                                    if (path) {
+                                        def normPath = path.replace('\\', '/')
+                                        if (normPath.contains(pattern)) {
+                                            return true
+                                        }
                                     }
                                 }
                             }
                         }
-                    } catch (Exception e) {
-                        echo "Erreur lors de la détection des changements : ${e.message}. Forçage du build complet."
+                        return false
+                    }
+
+                    if (hasChanges("weentime-backend/services/config-server/") || 
+                        hasChanges("weentime-backend/services/discovery/")) {
                         forceAll = true
                     }
+
                     env.FORCE_ALL_BUILD = forceAll ? "true" : "false"
+                    
+                    env.BUILD_CONFIG_SERVER = (forceAll || hasChanges("weentime-backend/services/config-server/")).toString()
+                    env.BUILD_DISCOVERY = (forceAll || hasChanges("weentime-backend/services/discovery/")).toString()
+                    env.BUILD_AUTH_SERVICE = (forceAll || hasChanges("weentime-backend/services/auth-service/")).toString()
+                    env.BUILD_ORGANISATION_SERVICE = (forceAll || hasChanges("weentime-backend/services/organisation-service/")).toString()
+                    env.BUILD_RH_SERVICE = (forceAll || hasChanges("weentime-backend/services/rh-service/")).toString()
+                    env.BUILD_PRESENCE_SERVICE = (forceAll || hasChanges("weentime-backend/services/presence-service/")).toString()
+                    env.BUILD_COMMUNICATION_SERVICE = (forceAll || hasChanges("weentime-backend/services/communication-service/")).toString()
+                    env.BUILD_GATEWAY = (forceAll || hasChanges("weentime-backend/services/gateway/")).toString()
+                    env.BUILD_AI_SERVICE = (forceAll || hasChanges("ai-service/")).toString()
+                    env.BUILD_ML_SERVICE = (forceAll || hasChanges("ml-service/")).toString()
+
                     echo "FORCE_ALL_BUILD = ${env.FORCE_ALL_BUILD}"
+                    echo "BUILD_CONFIG_SERVER = ${env.BUILD_CONFIG_SERVER}"
+                    echo "BUILD_DISCOVERY = ${env.BUILD_DISCOVERY}"
                 }
             }
         }
@@ -266,38 +296,43 @@ pipeline {
                 script {
                     bat 'del /s /q report-task.txt 2>nul || exit 0'
                     def sonarServices = [
-                        [dir: "weentime-backend\\services\\config-server",            key: 'weentime-config-server',           name: 'Config Server', isMaven: true],
-                        [dir: "weentime-backend\\services\\discovery",                key: 'weentime-discovery',               name: 'Discovery', isMaven: true],
-                        [dir: "weentime-backend\\services\\auth-service",             key: 'weentime-auth-service',            name: 'Auth Service', isMaven: true],
-                        [dir: "weentime-backend\\services\\organisation-service",     key: 'weentime-organisation-service',    name: 'Organisation Service', isMaven: true],
-                        [dir: "weentime-backend\\services\\rh-service",               key: 'weentime-rh-service',              name: 'RH Service', isMaven: true],
-                        [dir: "weentime-backend\\services\\presence-service",         key: 'weentime-presence-service',        name: 'Presence Service', isMaven: true],
-                        [dir: "weentime-backend\\services\\communication-service",    key: 'weentime-communication-service',   name: 'Communication Service', isMaven: true],
-                        [dir: "weentime-backend\\services\\gateway",                  key: 'weentime-gateway',                 name: 'Gateway', isMaven: true]
+                        [dir: "weentime-backend\\services\\config-server",            key: 'weentime-config-server',           name: 'Config Server', isMaven: true, flag: 'BUILD_CONFIG_SERVER'],
+                        [dir: "weentime-backend\\services\\discovery",                key: 'weentime-discovery',               name: 'Discovery', isMaven: true, flag: 'BUILD_DISCOVERY'],
+                        [dir: "weentime-backend\\services\\auth-service",             key: 'weentime-auth-service',            name: 'Auth Service', isMaven: true, flag: 'BUILD_AUTH_SERVICE'],
+                        [dir: "weentime-backend\\services\\organisation-service",     key: 'weentime-organisation-service',    name: 'Organisation Service', isMaven: true, flag: 'BUILD_ORGANISATION_SERVICE'],
+                        [dir: "weentime-backend\\services\\rh-service",               key: 'weentime-rh-service',              name: 'RH Service', isMaven: true, flag: 'BUILD_RH_SERVICE'],
+                        [dir: "weentime-backend\\services\\presence-service",         key: 'weentime-presence-service',        name: 'Presence Service', isMaven: true, flag: 'BUILD_PRESENCE_SERVICE'],
+                        [dir: "weentime-backend\\services\\communication-service",    key: 'weentime-communication-service',   name: 'Communication Service', isMaven: true, flag: 'BUILD_COMMUNICATION_SERVICE'],
+                        [dir: "weentime-backend\\services\\gateway",                  key: 'weentime-gateway',                 name: 'Gateway', isMaven: true, flag: 'BUILD_GATEWAY']
                         // TODO: sonar-scanner is not globally available on PATH on this Jenkins agent.
                         // Reactivate ai-service and ml-service once sonar-scanner is installed.
                         // [dir: 'ai-service',                                            key: 'weentime-ai-service',              name: 'AI Service', isMaven: false],
                         // [dir: 'ml-service',                                            key: 'weentime-ml-service',              name: 'ML Service', isMaven: false]
                     ]
                     for (svc in sonarServices) {
-                        withSonarQubeEnv(SONAR_SERVER) {
+                        if (env[svc.flag] == 'true') {
+                            withSonarQubeEnv(SONAR_SERVER) {
+                                dir(svc.dir) {
+                                    if (svc.isMaven) {
+                                        bat "mvnw.cmd sonar:sonar -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\""
+                                    } else {
+                                        bat "sonar-scanner -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\" -Dsonar.sources=. -Dsonar.python.coverage.reportPaths=coverage.xml"
+                                    }
+                                }
+                            }
                             dir(svc.dir) {
-                                if (svc.isMaven) {
-                                    bat "mvnw.cmd sonar:sonar -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\""
-                                } else {
-                                    bat "sonar-scanner -Dsonar.projectKey=${svc.key} -Dsonar.projectName=\"${svc.name}\" -Dsonar.sources=. -Dsonar.python.coverage.reportPaths=coverage.xml"
+                                timeout(time: 5, unit: 'MINUTES') {
+                                    def qg = waitForQualityGate abortPipeline: false
+                                    if (qg.status != 'OK') {
+                                        error "QUALITY GATE FAILED for ${svc.name}: status=${qg.status}"
+                                    } else {
+                                        echo "Quality Gate OK for ${svc.name}"
+                                    }
                                 }
+                                bat 'del /s /q report-task.txt 2>nul || exit 0'
                             }
-                        }
-                        dir(svc.dir) {
-                            timeout(time: 5, unit: 'MINUTES') {
-                                def qg = waitForQualityGate abortPipeline: false
-                                if (qg.status != 'OK') {
-                                    error "QUALITY GATE FAILED for ${svc.name}: status=${qg.status}"
-                                } else {
-                                    echo "Quality Gate OK for ${svc.name}"
-                                }
-                            }
+                        } else {
+                            echo "Skipping SonarQube Analysis for ${svc.name} because it was not built."
                         }
                     }
                 }
