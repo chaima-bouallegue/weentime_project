@@ -234,12 +234,14 @@ pipeline {
                             bat '''
                             if exist venv\\Scripts\\activate.bat (
                                 call venv\\Scripts\\activate.bat
-                                pip install pytest pytest-cov pytest-asyncio anyio
-                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
-                            ) else (
-                                pip install pytest pytest-cov pytest-asyncio anyio
-                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             )
+                            if exist requirements-dev.txt (
+                                pip install -r requirements-dev.txt pytest-cov
+                            ) else if exist requirements.txt (
+                                pip install -r requirements.txt pytest pytest-cov pytest-asyncio anyio
+                            )
+                            pip install python-dotenv
+                            python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             '''
                         }
                     }
@@ -258,12 +260,13 @@ pipeline {
                             bat '''
                             if exist .venv\\Scripts\\activate.bat (
                                 call .venv\\Scripts\\activate.bat
-                                pip install pytest pytest-cov pytest-asyncio anyio
-                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
-                            ) else (
-                                pip install pytest pytest-cov pytest-asyncio anyio
-                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             )
+                            if exist requirements-dev.txt (
+                                pip install -r requirements-dev.txt pytest-cov
+                            ) else if exist requirements.txt (
+                                pip install -r requirements.txt pytest-cov pytest-asyncio anyio
+                            )
+                            python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             '''
                         }
                     }
