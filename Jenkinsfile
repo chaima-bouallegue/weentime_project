@@ -92,14 +92,11 @@ pipeline {
             }
         }
 
-        stage('Build & Test - Parallel') {
+        stage('Build & Test - Group 1 (Infrastructure)') {
             parallel {
                 stage('Build & Test - config-server') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/config-server/**"
-                        }
+                        expression { env.BUILD_CONFIG_SERVER == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\config-server") {
@@ -114,10 +111,7 @@ pipeline {
                 }
                 stage('Build & Test - discovery') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/discovery/**"
-                        }
+                        expression { env.BUILD_DISCOVERY == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\discovery") {
@@ -130,12 +124,29 @@ pipeline {
                         }
                     }
                 }
+                stage('Build & Test - gateway') {
+                    when {
+                        expression { env.BUILD_GATEWAY == 'true' }
+                    }
+                    steps {
+                        dir("${SERVICES_DIR}\\gateway") {
+                            bat 'mvnw.cmd clean test jacoco:report'
+                        }
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/gateway/target/surefire-reports/*.xml"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Test - Group 2 (Core Business)') {
+            parallel {
                 stage('Build & Test - auth-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/auth-service/**"
-                        }
+                        expression { env.BUILD_AUTH_SERVICE == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\auth-service") {
@@ -150,10 +161,7 @@ pipeline {
                 }
                 stage('Build & Test - organisation-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/organisation-service/**"
-                        }
+                        expression { env.BUILD_ORGANISATION_SERVICE == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\organisation-service") {
@@ -168,10 +176,7 @@ pipeline {
                 }
                 stage('Build & Test - rh-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/rh-service/**"
-                        }
+                        expression { env.BUILD_RH_SERVICE == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\rh-service") {
@@ -184,12 +189,14 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+
+        stage('Build & Test - Group 3 (Secondary & Python)') {
+            parallel {
                 stage('Build & Test - presence-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/presence-service/**"
-                        }
+                        expression { env.BUILD_PRESENCE_SERVICE == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\presence-service") {
@@ -204,10 +211,7 @@ pipeline {
                 }
                 stage('Build & Test - communication-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/communication-service/**"
-                        }
+                        expression { env.BUILD_COMMUNICATION_SERVICE == 'true' }
                     }
                     steps {
                         dir("${SERVICES_DIR}\\communication-service") {
@@ -220,39 +224,20 @@ pipeline {
                         }
                     }
                 }
-                stage('Build & Test - gateway') {
-                    when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "weentime-backend/services/gateway/**"
-                        }
-                    }
-                    steps {
-                        dir("${SERVICES_DIR}\\gateway") {
-                            bat 'mvnw.cmd clean test jacoco:report'
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "${SERVICES_DIR}/gateway/target/surefire-reports/*.xml"
-                        }
-                    }
-                }
                 stage('Build & Test - ai-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "ai-service/**"
-                        }
+                        expression { env.BUILD_AI_SERVICE == 'true' }
                     }
                     steps {
                         dir("ai-service") {
                             bat '''
                             if exist venv\\Scripts\\activate.bat (
                                 call venv\\Scripts\\activate.bat
-                                pytest --cov --cov-report=xml --junitxml=test-results.xml
+                                pip install pytest pytest-cov pytest-asyncio anyio
+                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             ) else (
-                                pytest --cov --cov-report=xml --junitxml=test-results.xml
+                                pip install pytest pytest-cov pytest-asyncio anyio
+                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             )
                             '''
                         }
@@ -265,19 +250,18 @@ pipeline {
                 }
                 stage('Build & Test - ml-service') {
                     when {
-                        anyOf {
-                            expression { env.FORCE_ALL_BUILD == 'true' }
-                            changeset "ml-service/**"
-                        }
+                        expression { env.BUILD_ML_SERVICE == 'true' }
                     }
                     steps {
                         dir("ml-service") {
                             bat '''
                             if exist .venv\\Scripts\\activate.bat (
                                 call .venv\\Scripts\\activate.bat
-                                pytest --cov --cov-report=xml --junitxml=test-results.xml
+                                pip install pytest pytest-cov pytest-asyncio anyio
+                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             ) else (
-                                pytest --cov --cov-report=xml --junitxml=test-results.xml
+                                pip install pytest pytest-cov pytest-asyncio anyio
+                                python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
                             )
                             '''
                         }
@@ -345,18 +329,22 @@ pipeline {
                     // TODO: ai-service and ml-service are excluded from Nexus deployment because they are Python/FastAPI services.
                     // Python packages are typically published to PyPI or a private devpi/Nexus PyPI repository, not Maven.
                     def services = [
-                        'config-server',
-                        'discovery',
-                        'auth-service',
-                        'organisation-service',
-                        'rh-service',
-                        'presence-service',
-                        'communication-service',
-                        'gateway'
+                        [dir: 'config-server', flag: 'BUILD_CONFIG_SERVER'],
+                        [dir: 'discovery', flag: 'BUILD_DISCOVERY'],
+                        [dir: 'auth-service', flag: 'BUILD_AUTH_SERVICE'],
+                        [dir: 'organisation-service', flag: 'BUILD_ORGANISATION_SERVICE'],
+                        [dir: 'rh-service', flag: 'BUILD_RH_SERVICE'],
+                        [dir: 'presence-service', flag: 'BUILD_PRESENCE_SERVICE'],
+                        [dir: 'communication-service', flag: 'BUILD_COMMUNICATION_SERVICE'],
+                        [dir: 'gateway', flag: 'BUILD_GATEWAY']
                     ]
                     for (svc in services) {
-                        dir("${SERVICES_DIR}\\${svc}") {
-                            bat 'mvnw.cmd deploy -DskipTests'
+                        if (env[svc.flag] == 'true') {
+                            dir("${SERVICES_DIR}\\${svc.dir}") {
+                                bat 'mvnw.cmd deploy -DskipTests'
+                            }
+                        } else {
+                            echo "Skipping Nexus deployment for ${svc.dir} because it was not built."
                         }
                     }
                 }
