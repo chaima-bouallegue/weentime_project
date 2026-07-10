@@ -251,7 +251,7 @@ pipeline {
                         // et sonar-scanner installé sur l'agent Jenkins.
                     ]
                     for (svc in sonarServices) {
-                        if (env[svc.flag] == 'true') {
+                        if (env.getProperty(svc.flag) == 'true') {
                             withSonarQubeEnv(SONAR_SERVER) {
                                 dir(svc.dir) {
                                     if (svc.isMaven) {
@@ -296,7 +296,7 @@ pipeline {
                         [dir: 'gateway', flag: 'BUILD_GATEWAY']
                     ]
                     for (svc in services) {
-                        if (env[svc.flag] == 'true') {
+                        if (env.getProperty(svc.flag) == 'true') {
                             dir("${SERVICES_DIR}\\${svc.dir}") {
                                 bat 'mvnw.cmd deploy -DskipTests'
                             }
