@@ -70,8 +70,11 @@ pipeline {
                     env.BUILD_PRESENCE_SERVICE = (forceAll || hasChanges("weentime-backend/services/presence-service/")).toString()
                     env.BUILD_COMMUNICATION_SERVICE = (forceAll || hasChanges("weentime-backend/services/communication-service/")).toString()
                     env.BUILD_GATEWAY = (forceAll || hasChanges("weentime-backend/services/gateway/")).toString()
-                    env.BUILD_AI_SERVICE = (forceAll || hasChanges("ai-service/")).toString()
-                    env.BUILD_ML_SERVICE = (forceAll || hasChanges("ml-service/")).toString()
+                    // TODO: Réintégrer ai-service et ml-service une fois le pipeline Java stabilisé.
+                    // Retirés le 2026-07-10 car scikit-learn==1.4.2 incompatible avec Python 3.13
+                    // sur l'agent Jenkins (voir historique Git pour le code original).
+                    // env.BUILD_AI_SERVICE = (forceAll || hasChanges("ai-service/")).toString()
+                    // env.BUILD_ML_SERVICE = (forceAll || hasChanges("ml-service/")).toString()
 
                     echo "FORCE_ALL_BUILD = ${env.FORCE_ALL_BUILD}"
                     echo "BUILD_CONFIG_SERVER = ${env.BUILD_CONFIG_SERVER}"
@@ -193,7 +196,7 @@ pipeline {
             }
         }
 
-        stage('Build & Test - Group 3 (Secondary & Python)') {
+        stage('Build & Test - Group 3 (Secondary)') {
             parallel {
                 stage('Build & Test - presence-service') {
                     when {
@@ -225,57 +228,9 @@ pipeline {
                         }
                     }
                 }
-                stage('Build & Test - ai-service') {
-                    when {
-                        expression { env.BUILD_AI_SERVICE == 'true' }
-                    }
-                    steps {
-                        dir("ai-service") {
-                            bat '''
-                            if exist venv\\Scripts\\activate.bat (
-                                call venv\\Scripts\\activate.bat
-                            )
-                            if exist requirements-dev.txt (
-                                pip install -r requirements-dev.txt pytest-cov
-                            ) else if exist requirements.txt (
-                                pip install -r requirements.txt pytest pytest-cov pytest-asyncio anyio
-                            )
-                            pip install python-dotenv
-                            python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
-                            '''
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "ai-service/test-results.xml"
-                        }
-                    }
-                }
-                stage('Build & Test - ml-service') {
-                    when {
-                        expression { env.BUILD_ML_SERVICE == 'true' }
-                    }
-                    steps {
-                        dir("ml-service") {
-                            bat '''
-                            if exist .venv\\Scripts\\activate.bat (
-                                call .venv\\Scripts\\activate.bat
-                            )
-                            if exist requirements-dev.txt (
-                                pip install -r requirements-dev.txt pytest-cov
-                            ) else if exist requirements.txt (
-                                pip install -r requirements.txt pytest-cov pytest-asyncio anyio
-                            )
-                            python -m pytest --cov --cov-report=xml --junitxml=test-results.xml
-                            '''
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: "ml-service/test-results.xml"
-                        }
-                    }
-                }
+                // TODO: Réintégrer ai-service et ml-service une fois le pipeline Java stabilisé.
+                // Retirés le 2026-07-10 car scikit-learn==1.4.2 incompatible avec Python 3.13
+                // sur l'agent Jenkins (voir historique Git pour le code original des stages).
             }
         }
 
@@ -292,10 +247,8 @@ pipeline {
                         [dir: "weentime-backend\\services\\presence-service",         key: 'weentime-presence-service',        name: 'Presence Service', isMaven: true, flag: 'BUILD_PRESENCE_SERVICE'],
                         [dir: "weentime-backend\\services\\communication-service",    key: 'weentime-communication-service',   name: 'Communication Service', isMaven: true, flag: 'BUILD_COMMUNICATION_SERVICE'],
                         [dir: "weentime-backend\\services\\gateway",                  key: 'weentime-gateway',                 name: 'Gateway', isMaven: true, flag: 'BUILD_GATEWAY']
-                        // TODO: sonar-scanner is not globally available on PATH on this Jenkins agent.
-                        // Reactivate ai-service and ml-service once sonar-scanner is installed.
-                        // [dir: 'ai-service',                                            key: 'weentime-ai-service',              name: 'AI Service', isMaven: false],
-                        // [dir: 'ml-service',                                            key: 'weentime-ml-service',              name: 'ML Service', isMaven: false]
+                        // TODO: Réintégrer ai-service et ml-service une fois le pipeline Java stabilisé
+                        // et sonar-scanner installé sur l'agent Jenkins.
                     ]
                     for (svc in sonarServices) {
                         if (env[svc.flag] == 'true') {
@@ -330,8 +283,8 @@ pipeline {
         stage('Deploy to Nexus') {
             steps {
                 script {
-                    // TODO: ai-service and ml-service are excluded from Nexus deployment because they are Python/FastAPI services.
-                    // Python packages are typically published to PyPI or a private devpi/Nexus PyPI repository, not Maven.
+                    // TODO: ai-service et ml-service exclus — services Python/FastAPI (non déployables via Maven)
+                    // et temporairement retirés du pipeline (scikit-learn==1.4.2 incompatible Python 3.13).
                     def services = [
                         [dir: 'config-server', flag: 'BUILD_CONFIG_SERVER'],
                         [dir: 'discovery', flag: 'BUILD_DISCOVERY'],
