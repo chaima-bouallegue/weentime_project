@@ -117,6 +117,15 @@ public class TwoFactorService {
                 + "&digits=6&period=30";
     }
 
+    public static class TwoFactorException extends RuntimeException {
+        public TwoFactorException(String message) {
+            super(message);
+        }
+        public TwoFactorException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     public String generateQrCodeBase64(String value) {
         try {
             QRCodeWriter writer = new QRCodeWriter();
@@ -125,7 +134,7 @@ public class TwoFactorService {
             MatrixToImageWriter.writeToStream(matrix, "PNG", output);
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray());
         } catch (Exception exception) {
-            throw new IllegalStateException("Impossible de generer le QR code 2FA", exception);
+            throw new TwoFactorException("Impossible de generer le QR code 2FA", exception);
         }
     }
 
@@ -162,7 +171,7 @@ public class TwoFactorService {
             System.arraycopy(encryptedData, 0, combined, iv.length, encryptedData.length);
             return ENCRYPTION_PREFIX + Base64.getEncoder().encodeToString(combined);
         } catch (Exception exception) {
-            throw new IllegalStateException("Erreur de chiffrement AES", exception);
+            throw new TwoFactorException("Erreur de chiffrement AES", exception);
         }
     }
 
@@ -247,7 +256,7 @@ public class TwoFactorService {
     private Key buildAesKey() {
         byte[] keyBytes = encryptionSecret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length != 16 && keyBytes.length != 24 && keyBytes.length != 32) {
-            throw new IllegalStateException("La cle encryption.secret doit contenir 16, 24 ou 32 octets.");
+            throw new TwoFactorException("La cle encryption.secret doit contenir 16, 24 ou 32 octets.");
         }
         return new SecretKeySpec(keyBytes, "AES");
     }

@@ -13,5 +13,6 @@ class AuthServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // This method is intentionally empty to verify that the Spring context loads successfully.
     }
 }

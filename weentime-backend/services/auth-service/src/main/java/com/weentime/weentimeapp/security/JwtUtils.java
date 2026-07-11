@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -18,6 +17,15 @@ import java.util.UUID;
 
 @Component
 public class JwtUtils {
+    private static final String CLAIM_USER_ID = "userId";
+    private static final String CLAIM_ENTREPRISE_ID = "entrepriseId";
+    private static final String CLAIM_ROLES = "roles";
+    private static final String CLAIM_TOKEN_PURPOSE = "tokenPurpose";
+    private static final String CLAIM_TWO_FACTOR_VERIFIED = "twoFactorVerified";
+
+    private static final String PURPOSE_ACCESS = "ACCESS";
+    private static final String PURPOSE_MFA_LOGIN = "MFA_LOGIN";
+
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
     @Value("${jwt.secret}")
@@ -34,15 +42,15 @@ public class JwtUtils {
         return Jwts.builder()
                 .setId(UUID.randomUUID().toString())
                 .setSubject(userPrincipal.getUsername())
-                .claim("userId", userPrincipal.getId())
+                .claim(CLAIM_USER_ID, userPrincipal.getId())
                 .claim("role", userPrincipal.getAuthorities().stream()
                         .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                         .findFirst()
                         .orElse(null))
-                .claim("entrepriseId", userPrincipal.getEntrepriseId())
-                .claim("tokenPurpose", "ACCESS")
-                .claim("twoFactorVerified", true)
-                .claim("roles", userPrincipal.getAuthorities().stream()
+                .claim(CLAIM_ENTREPRISE_ID, userPrincipal.getEntrepriseId())
+                .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_ACCESS)
+                .claim(CLAIM_TWO_FACTOR_VERIFIED, true)
+                .claim(CLAIM_ROLES, userPrincipal.getAuthorities().stream()
                         .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                         .toList())
                 .setIssuedAt(new Date())
@@ -55,12 +63,12 @@ public class JwtUtils {
         return Jwts.builder()
                 .setId(UUID.randomUUID().toString())
                 .setSubject(email)
-                .claim("roles", roles)
+                .claim(CLAIM_ROLES, roles)
                 .claim("role", roles == null || roles.isEmpty() ? null : roles.get(0))
-                .claim("userId", userId)
-                .claim("entrepriseId", entrepriseId)
-                .claim("tokenPurpose", "ACCESS")
-                .claim("twoFactorVerified", true)
+                .claim(CLAIM_USER_ID, userId)
+                .claim(CLAIM_ENTREPRISE_ID, entrepriseId)
+                .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_ACCESS)
+                .claim(CLAIM_TWO_FACTOR_VERIFIED, true)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -71,15 +79,15 @@ public class JwtUtils {
         return Jwts.builder()
                 .setId(UUID.randomUUID().toString())
                 .setSubject(userDetails.getEmail())
-                .claim("userId", userDetails.getId())
+                .claim(CLAIM_USER_ID, userDetails.getId())
                 .claim("role", userDetails.getAuthorities().stream()
                         .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                         .findFirst().orElse(null))
-                .claim("entrepriseId", userDetails.getEntrepriseId())
-                .claim("roles", userDetails.getAuthorities().stream()
+                .claim(CLAIM_ENTREPRISE_ID, userDetails.getEntrepriseId())
+                .claim(CLAIM_ROLES, userDetails.getAuthorities().stream()
                         .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                         .toList())
-                .claim("tokenPurpose", "WS")
+                .claim(CLAIM_TOKEN_PURPOSE, "WS")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + maxAge.toMillis()))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -90,11 +98,11 @@ public class JwtUtils {
         return Jwts.builder()
                 .setId(UUID.randomUUID().toString())
                 .setSubject(email)
-                .claim("userId", userId)
+                .claim(CLAIM_USER_ID, userId)
                 .claim("role", roles == null || roles.isEmpty() ? null : roles.get(0))
-                .claim("entrepriseId", entrepriseId)
-                .claim("roles", roles != null ? roles : List.of())
-                .claim("tokenPurpose", "WS")
+                .claim(CLAIM_ENTREPRISE_ID, entrepriseId)
+                .claim(CLAIM_ROLES, roles != null ? roles : List.of())
+                .claim(CLAIM_TOKEN_PURPOSE, "WS")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + maxAge.toMillis()))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -103,13 +111,13 @@ public class JwtUtils {
 
     public Long getUserIdFromJwtToken(String token) {
         Claims claims = getClaims(token);
-        Object userId = claims.get("userId");
+        Object userId = claims.get(CLAIM_USER_ID);
         return userId == null ? null : Long.valueOf(userId.toString());
     }
 
     public Long getEntrepriseIdFromJwtToken(String token) {
         Claims claims = getClaims(token);
-        Object entrepriseId = claims.get("entrepriseId");
+        Object entrepriseId = claims.get(CLAIM_ENTREPRISE_ID);
         return entrepriseId == null ? null : Long.valueOf(entrepriseId.toString());
     }
 
@@ -122,9 +130,9 @@ public class JwtUtils {
                 .setSubject(email)
                 .claim("type", type)
                 .claim("method", type)
-                .claim("purpose", "MFA_LOGIN")
-                .claim("tokenPurpose", "MFA_LOGIN")
-                .claim("twoFactorVerified", false)
+                .claim("purpose", PURPOSE_MFA_LOGIN)
+                .claim(CLAIM_TOKEN_PURPOSE, PURPOSE_MFA_LOGIN)
+                .claim(CLAIM_TWO_FACTOR_VERIFIED, false)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + 300000)) // 5 minutes
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -139,27 +147,27 @@ public class JwtUtils {
 
     public boolean isTwoFactorToken(String token) {
         String purpose = getTokenPurpose(token);
-        return "MFA_LOGIN".equals(purpose) || "2FA".equals(purpose);
+        return PURPOSE_MFA_LOGIN.equals(purpose) || "2FA".equals(purpose);
     }
 
     public boolean isMfaLoginToken(String token) {
-        return "MFA_LOGIN".equals(getTokenPurpose(token));
+        return PURPOSE_MFA_LOGIN.equals(getTokenPurpose(token));
     }
 
     public boolean isAccessToken(String token) {
         Claims claims = getClaims(token);
-        Object purpose = claims.get("tokenPurpose");
-        boolean hasUserId = claims.get("userId") != null;
+        Object purpose = claims.get(CLAIM_TOKEN_PURPOSE);
+        boolean hasUserId = claims.get(CLAIM_USER_ID) != null;
         if (purpose == null) {
             return hasUserId;
         }
-        return "ACCESS".equals(String.valueOf(purpose))
+        return PURPOSE_ACCESS.equals(String.valueOf(purpose))
                 && hasUserId
-                && isTruthy(claims.get("twoFactorVerified"));
+                && isTruthy(claims.get(CLAIM_TWO_FACTOR_VERIFIED));
     }
 
     public String getTokenPurpose(String token) {
-        Object purpose = getClaims(token).get("tokenPurpose");
+        Object purpose = getClaims(token).get(CLAIM_TOKEN_PURPOSE);
         return purpose == null ? null : String.valueOf(purpose);
     }
 
@@ -203,7 +211,7 @@ public class JwtUtils {
     @SuppressWarnings("unchecked")
     public List<String> getRolesFromJwtToken(String token) {
         Claims claims = getClaims(token);
-        return (List<String>) claims.get("roles");
+        return (List<String>) claims.get(CLAIM_ROLES);
     }
 
     public boolean validateJwtToken(String authToken) {

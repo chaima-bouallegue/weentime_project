@@ -27,22 +27,27 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             LOGGER.debug("Organisation lookup completed with status={}",
                     response != null ? response.getStatusCode() : null);
 
-            if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            if (response == null || !response.getStatusCode().is2xxSuccessful()) {
                 LOGGER.warn("Organisation lookup failed during authentication");
                 throw new UsernameNotFoundException("Utilisateur non trouve");
             }
-
+ 
             UtilisateurAuthDTO dto = response.getBody();
+            if (dto == null) {
+                LOGGER.warn("Organisation lookup returned empty body");
+                throw new UsernameNotFoundException("Utilisateur non trouve");
+            }
             if (!"ACTIF".equals(dto.getStatut())) {
                 LOGGER.warn("Organisation lookup returned inactive account with status={}", dto.getStatut());
                 throw new UsernameNotFoundException("Compte inactif");
             }
-
+ 
             return UserDetailsImpl.build(dto);
         } catch (UsernameNotFoundException exception) {
+            LOGGER.warn("UsernameNotFoundException caught in user service: {}", exception.getMessage());
             throw exception;
         } catch (Exception exception) {
-            LOGGER.error("Authentication lookup failed: {}", exception.getClass().getSimpleName());
+            LOGGER.error("Authentication lookup failed due to unexpected exception", exception);
             throw new UsernameNotFoundException("Erreur d'authentification", exception);
         }
     }

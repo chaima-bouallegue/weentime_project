@@ -22,6 +22,12 @@ public class RefreshTokenService {
     private static final String PREFIX = "jwt:refresh:";
     private static final long TTL_DAYS = 30;
 
+    public static class RefreshTokenSerializationException extends RuntimeException {
+        public RefreshTokenSerializationException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     public String generate(String email, Long userId, Long entrepriseId, List<String> roles) {
         String token = UUID.randomUUID().toString();
         String key = PREFIX + token;
@@ -35,7 +41,7 @@ public class RefreshTokenService {
             redisTemplate.opsForValue().set(key, value, TTL_DAYS, TimeUnit.DAYS);
             log.debug("Refresh token created for userId={}", userId);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize refresh token data", e);
+            throw new RefreshTokenSerializationException("Failed to serialize refresh token data", e);
         }
         return token;
     }
@@ -45,13 +51,13 @@ public class RefreshTokenService {
         String key = PREFIX + token;
         String value = redisTemplate.opsForValue().get(key);
         if (value == null) {
-            return null;
+            return java.util.Collections.emptyMap();
         }
         try {
             return objectMapper.readValue(value, Map.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize refresh token data", e);
-            return null;
+            return java.util.Collections.emptyMap();
         }
     }
 

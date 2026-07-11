@@ -24,6 +24,7 @@ public class UserDetailsImpl implements UserDetails {
     private final String twoFactorType;
     private final String twoFactorSecret;
 
+    @SuppressWarnings("java:S107")
     public UserDetailsImpl(Long id, String email, String password, String statut,
                            Long entrepriseId,
                            Collection<? extends GrantedAuthority> authorities,
@@ -31,6 +32,7 @@ public class UserDetailsImpl implements UserDetails {
         this(id, email, password, null, statut, entrepriseId, authorities, twoFactorEnabled, twoFactorType, twoFactorSecret);
     }
 
+    @SuppressWarnings("java:S107")
     public UserDetailsImpl(Long id, String email, String password, String telephone, String statut,
                            Long entrepriseId,
                            Collection<? extends GrantedAuthority> authorities,

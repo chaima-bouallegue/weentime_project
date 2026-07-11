@@ -1,7 +1,6 @@
 package com.weentime.weentimeapp.security;
 
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
