@@ -18,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.weentime.weentimeproject.entity.Role;
 
 import java.util.HashMap;
 import java.util.List;
@@ -152,7 +153,7 @@ public class EquipeServiceImpl implements EquipeService {
                     member.put("roles", user.getRoles() == null
                             ? List.of()
                             : user.getRoles().stream()
-                                    .map(role -> role.getNom()) // getNom() retourne déjà un String
+                                    .map(Role::getNom)
                                     .toList());
                     if (user.getManager() != null) {
                         member.put("managerId", user.getManager().getId());
