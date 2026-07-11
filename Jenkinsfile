@@ -9,6 +9,7 @@ pipeline {
     environment {
         SONAR_SERVER = 'sonar-server'
         SERVICES_DIR = 'weentime-backend\\services'
+        DOCKERHUB_USER = 'chaimablg'
         MAVEN_OPTS = '-Xmx256m -XX:MaxMetaspaceSize=256m'
         JAVA_TOOL_OPTIONS = '-Xmx256m -XX:MaxMetaspaceSize=256m'
     }
@@ -295,6 +296,61 @@ pipeline {
                             }
                         } else {
                             echo "Skipping SonarQube Analysis for ${svc.name} — no changes detected"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push Docker Images') {
+            steps {
+                script {
+                    def dockerServices = [
+                        'config-server',
+                        'discovery',
+                        'auth-service',
+                        'organisation-service',
+                        'rh-service',
+                        'presence-service',
+                        'communication-service',
+                        'gateway'
+                    ]
+                    def servicesToBuild = []
+                    if (env.FORCE_ALL_BUILD == 'true') {
+                        servicesToBuild = dockerServices
+                    } else {
+                        def changed = (env.CHANGED_SERVICES ?: '').split(',').findAll { it }
+                        for (svc in dockerServices) {
+                            if (changed.contains(svc)) {
+                                servicesToBuild.add(svc)
+                            }
+                        }
+                    }
+
+                    if (servicesToBuild.isEmpty()) {
+                        echo 'No Java service changes — skipping Docker build'
+                        return
+                    }
+
+                    def sha = bat(script: '@echo off\ngit rev-parse --short HEAD', returnStdout: true).trim()
+
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        try {
+                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+
+                            for (svc in servicesToBuild) {
+                                dir("${SERVICES_DIR}\\${svc}") {
+                                    bat "docker build -t ${env.DOCKERHUB_USER}/weentime-${svc}:${sha} -t ${env.DOCKERHUB_USER}/weentime-${svc}:latest ."
+                                    bat "docker push ${env.DOCKERHUB_USER}/weentime-${svc}:${sha}"
+                                    bat "docker push ${env.DOCKERHUB_USER}/weentime-${svc}:latest"
+                                }
+                            }
+                        } finally {
+                            bat 'docker logout'
                         }
                     }
                 }
