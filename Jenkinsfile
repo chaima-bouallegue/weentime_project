@@ -335,7 +335,7 @@ pipeline {
                     def sha = bat(script: '@echo off\ngit rev-parse --short HEAD', returnStdout: true).trim()
 
                     withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-creds',
+                        credentialsId: 'dockerHub',
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
@@ -344,9 +344,9 @@ pipeline {
 
                             for (svc in servicesToBuild) {
                                 dir("${SERVICES_DIR}\\${svc}") {
-                                    bat "docker build -t ${env.DOCKERHUB_USER}/weentime-${svc}:${sha} -t ${env.DOCKERHUB_USER}/weentime-${svc}:latest ."
-                                    bat "docker push ${env.DOCKERHUB_USER}/weentime-${svc}:${sha}"
-                                    bat "docker push ${env.DOCKERHUB_USER}/weentime-${svc}:latest"
+                                    bat "docker build -t ${DOCKER_USER}/weentime-${svc}:${sha} -t ${DOCKER_USER}/weentime-${svc}:latest ."
+                                    bat "docker push ${DOCKER_USER}/weentime-${svc}:${sha}"
+                                    bat "docker push ${DOCKER_USER}/weentime-${svc}:latest"
                                 }
                             }
                         } finally {
