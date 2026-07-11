@@ -61,7 +61,28 @@ pipeline {
                     }
 
                     env.FORCE_ALL_BUILD = forceAll ? "true" : "false"
-                    
+
+                    env.CHANGED_SERVICES = ''
+                    if (!forceAll) {
+                        def changedSvcs = []
+                        for (cs in currentBuild.changeSets) {
+                            if (cs == null || cs.items == null) continue
+                            for (entry in cs.items) {
+                                if (entry == null || entry.affectedPaths == null) continue
+                                for (path in entry.affectedPaths) {
+                                    if (path) {
+                                        def norm = path.replace('\\', '/')
+                                        if (norm.startsWith('weentime-backend/services/')) {
+                                            def svcName = norm.substring('weentime-backend/services/'.length()).split('/')[0]
+                                            changedSvcs.add(svcName)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        env.CHANGED_SERVICES = changedSvcs.unique().join(',')
+                    }
+
                     env.BUILD_CONFIG_SERVER = (forceAll || hasChanges("weentime-backend/services/config-server/")).toString()
                     env.BUILD_DISCOVERY = (forceAll || hasChanges("weentime-backend/services/discovery/")).toString()
                     env.BUILD_AUTH_SERVICE = (forceAll || hasChanges("weentime-backend/services/auth-service/")).toString()
@@ -251,7 +272,7 @@ pipeline {
                         // et sonar-scanner installé sur l'agent Jenkins.
                     ]
                     for (svc in sonarServices) {
-                        if (env.getProperty(svc.flag) == 'true') {
+                        if (env.FORCE_ALL_BUILD == 'true' || (env.CHANGED_SERVICES ?: '').split(',').contains(svc.dir.tokenize('\\/').last())) {
                             withSonarQubeEnv(SONAR_SERVER) {
                                 dir(svc.dir) {
                                     if (svc.isMaven) {
@@ -273,7 +294,7 @@ pipeline {
                                 bat 'del /s /q report-task.txt 2>nul || exit 0'
                             }
                         } else {
-                            echo "Skipping SonarQube Analysis for ${svc.name} because it was not built."
+                            echo "Skipping SonarQube Analysis for ${svc.name} — no changes detected"
                         }
                     }
                 }
