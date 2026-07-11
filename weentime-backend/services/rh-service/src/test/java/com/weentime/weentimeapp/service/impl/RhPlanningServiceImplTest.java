@@ -56,8 +56,14 @@ class RhPlanningServiceImplTest {
 
     private static final long ENTREPRISE_ID = 13L;
 
+    private org.mockito.MockedStatic<LocalDate> mockedLocalDate;
+
     @BeforeEach
     void setUp() {
+        mockedLocalDate = org.mockito.Mockito.mockStatic(LocalDate.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        LocalDate fixedToday = LocalDate.of(2026, 7, 8); // A Wednesday
+        mockedLocalDate.when(LocalDate::now).thenReturn(fixedToday);
+
         service = new RhPlanningServiceImpl(
                 organisationServiceClient,
                 congeRepository,
@@ -80,6 +86,9 @@ class RhPlanningServiceImplTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        if (mockedLocalDate != null) {
+            mockedLocalDate.close();
+        }
     }
 
     private UserResponse user(Long id, String nom, String prenom) {
