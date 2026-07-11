@@ -652,13 +652,36 @@ public class AuthController {
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "id", userDetails.getId(),
-                "email", userDetails.getEmail(),
-                "entrepriseId", userDetails.getEntrepriseId(),
-                "roles", roles
+                KEY_EMAIL, userDetails.getEmail(),
+                KEY_ENTREPRISE_ID, userDetails.getEntrepriseId(),
+                KEY_ROLES, roles
         ), "OK"));
     }
 
     private ResponseEntity<ApiResponse<Object>> sendOtpToUser(UtilisateurAuthDTO user, String method, String purpose, String ipAddress) {
+        ResponseEntity<ApiResponse<Object>> validationError = validateOtpRequest(user, method);
+        if (validationError != null) {
+            return validationError;
+        }
+
+        String code = twoFactorService.generateOtpCode();
+        String resolvedPurpose = (purpose == null || purpose.isBlank()) ? "LOGIN" : purpose;
+        try {
+            storeAndDispatchOtp(user, method, resolvedPurpose, code, ipAddress);
+        } catch (FeignException.Conflict exception) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiResponse.failure("OTP_RESEND_COOLDOWN", "Patientez avant de demander un nouveau code."));
+        } catch (MailException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ApiResponse.failure("EMAIL_OTP_PROVIDER_NOT_CONFIGURED", "Email OTP provider is not configured."));
+        } catch (IllegalStateException exception) {
+            return handleSmsProviderException(exception);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Code envoye."));
+    }
+
+    private ResponseEntity<ApiResponse<Object>> validateOtpRequest(UtilisateurAuthDTO user, String method) {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.failure(ERR_USER_NOT_FOUND, MSG_USER_NOT_FOUND));
@@ -671,41 +694,34 @@ public class AuthController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.failure("PHONE_REQUIRED", "Aucun numéro de téléphone n'est associé à ce compte."));
         }
-
         if ("SMS".equals(method) && !smsOtpSender.isAvailable()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(ApiResponse.failure(ERR_SMS_PROVIDER_NOT_CONFIGURED, "Service SMS indisponible pour le moment."));
         }
+        return null;
+    }
 
-        String code = twoFactorService.generateOtpCode();
-        try {
-            organisationServiceClient.storeTwoFactorOtp(StoreTwoFactorOtpRequest.builder()
-                    .email(user.getEmail())
-                    .method(method)
-                    .purpose(purpose == null || purpose.isBlank() ? "LOGIN" : purpose)
-                    .codeHash(twoFactorService.hashBackupCode(code))
-                    .ipAddress(ipAddress)
-                    .build());
-            if (METHOD_EMAIL.equals(method)) {
-                emailService.sendOtpCode(user.getEmail(), code);
-            } else {
-                smsOtpSender.sendOtpCode(user.getTelephone(), code);
-            }
-        } catch (FeignException.Conflict exception) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(ApiResponse.failure("OTP_RESEND_COOLDOWN", "Patientez avant de demander un nouveau code."));
-        } catch (MailException exception) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(ApiResponse.failure("EMAIL_OTP_PROVIDER_NOT_CONFIGURED", "Email OTP provider is not configured."));
-        } catch (IllegalStateException exception) {
-            if (ERR_SMS_PROVIDER_NOT_CONFIGURED.equals(exception.getMessage())) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                        .body(ApiResponse.failure(ERR_SMS_PROVIDER_NOT_CONFIGURED, "Service SMS indisponible pour le moment."));
-            }
-            throw exception;
+    private void storeAndDispatchOtp(UtilisateurAuthDTO user, String method, String purpose, String code, String ipAddress) {
+        organisationServiceClient.storeTwoFactorOtp(StoreTwoFactorOtpRequest.builder()
+                .email(user.getEmail())
+                .method(method)
+                .purpose(purpose)
+                .codeHash(twoFactorService.hashBackupCode(code))
+                .ipAddress(ipAddress)
+                .build());
+        if (METHOD_EMAIL.equals(method)) {
+            emailService.sendOtpCode(user.getEmail(), code);
+        } else {
+            smsOtpSender.sendOtpCode(user.getTelephone(), code);
         }
+    }
 
-        return ResponseEntity.ok(ApiResponse.success(null, "Code envoye."));
+    private ResponseEntity<ApiResponse<Object>> handleSmsProviderException(IllegalStateException exception) {
+        if (ERR_SMS_PROVIDER_NOT_CONFIGURED.equals(exception.getMessage())) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ApiResponse.failure(ERR_SMS_PROVIDER_NOT_CONFIGURED, "Service SMS indisponible pour le moment."));
+        }
+        throw exception;
     }
 
 

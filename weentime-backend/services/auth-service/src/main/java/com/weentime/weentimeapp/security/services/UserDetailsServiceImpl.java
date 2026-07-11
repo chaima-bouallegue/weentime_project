@@ -31,7 +31,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 LOGGER.warn("Organisation lookup failed during authentication");
                 throw new UsernameNotFoundException("Utilisateur non trouve");
             }
- 
+
             UtilisateurAuthDTO dto = response.getBody();
             if (dto == null) {
                 LOGGER.warn("Organisation lookup returned empty body");
@@ -41,10 +41,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 LOGGER.warn("Organisation lookup returned inactive account with status={}", dto.getStatut());
                 throw new UsernameNotFoundException("Compte inactif");
             }
- 
+
             return UserDetailsImpl.build(dto);
         } catch (UsernameNotFoundException exception) {
-            LOGGER.warn("UsernameNotFoundException caught in user service: {}", exception.getMessage());
             throw exception;
         } catch (Exception exception) {
             LOGGER.error("Authentication lookup failed due to unexpected exception", exception);
