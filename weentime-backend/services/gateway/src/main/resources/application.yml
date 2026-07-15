@@ -163,3 +163,5 @@ springdoc:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
+
+# Test commit: validating Docker Hub credentials fix in pipeline
