@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
+// Test commit: validating Docker Hub credentials fix in pipeline
 @RestController
 @RequestMapping({"/api/v1/presence", "/api/v1/presences", "/api/presence"})
 @RequiredArgsConstructor
