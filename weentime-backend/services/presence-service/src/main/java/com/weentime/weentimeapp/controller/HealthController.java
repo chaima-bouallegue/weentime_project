@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @RestController
 @RequestMapping("/api/v1/health")
 @RequiredArgsConstructor
