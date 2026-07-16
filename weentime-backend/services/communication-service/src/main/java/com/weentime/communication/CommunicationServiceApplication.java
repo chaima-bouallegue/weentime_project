@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 @EnableFeignClients
 @EnableScheduling
