@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @Component
 @RequiredArgsConstructor
 public class JwtGlobalFilter implements GlobalFilter, Ordered {
