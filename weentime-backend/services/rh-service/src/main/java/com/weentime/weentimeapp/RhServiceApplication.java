@@ -7,6 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 import org.springframework.scheduling.annotation.EnableAsync;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @SpringBootApplication
 @EnableCaching
 @EnableFeignClients
