@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @SpringBootApplication
 @EnableScheduling
 @EnableFeignClients(basePackages = "com.weentime.weentimeapp.client")
