@@ -142,3 +142,5 @@ logging:
     org.hibernate.SQL: DEBUG
     com.netflix.discovery: WARN
     com.netflix.eureka: WARN
+
+# Test commit: validating Docker Hub credentials fix in pipeline
