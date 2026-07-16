@@ -29,6 +29,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
 import java.util.UUID;
 
+// Test commit: validating Docker Hub credentials fix in pipeline
 @RestController
 @RequestMapping("/api/v1/communication")
 @RequiredArgsConstructor
