@@ -57,8 +57,8 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     // Angular 21 uses @angular/build:unit-test (Vitest under the hood).
                     // --watch=false disables watch mode explicitly for CI.
-                    // Vitest auto-detects CI environments, but being explicit is safer.
-                    bat 'npm run test -- --watch=false'
+                    // --no-threads prevents worker process crash on limited resource CI agents.
+                    bat 'npm run test -- --watch=false --no-threads'
                 }
             }
             // TODO: Enable JUnit reporting once test files exist and a reporter is configured.

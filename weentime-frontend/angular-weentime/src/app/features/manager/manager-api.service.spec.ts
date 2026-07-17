@@ -134,6 +134,7 @@ describe('ManagerApiService', () => {
           id: 10,
           nom: 'Lovelace',
           prenom: 'Ada',
+          fullName: 'Ada Lovelace',
           email: 'ada@weentime.io'
         }
       }],
@@ -154,7 +155,7 @@ describe('ManagerApiService', () => {
     const teamsReq = httpMock.expectOne(request =>
       request.url === api.ORGANISATION.GET_EQUIPES &&
       request.params.get('page') === '0' &&
-      request.params.get('size') === '200'
+      request.params.get('size') === '100'
     );
 
     teamsReq.flush({
@@ -165,7 +166,7 @@ describe('ManagerApiService', () => {
       totalElements: 2,
       totalPages: 1,
       number: 0,
-      size: 200
+      size: 100
     });
 
     const membersReq = httpMock.expectOne(request =>
