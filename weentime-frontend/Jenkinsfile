@@ -61,6 +61,7 @@ pipeline {
                     // Angular 21 uses @angular/build:unit-test (Vitest under the hood).
                     // --watch=false disables watch mode explicitly for CI.
                     // (Parallelism/threading limit is controlled via VITEST_MAX_WORKERS env var).
+                    bat 'echo VITEST_MAX_WORKERS=%VITEST_MAX_WORKERS%'
                     bat 'npm run test -- --watch=false'
                 }
             }
