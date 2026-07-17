@@ -37,6 +37,10 @@ pipeline {
             steps {
                 bat 'node -v'
                 bat 'npm -v'
+                dir("${FRONTEND_DIR}") {
+                    // Create environment.ts from template if it doesn't exist (since it's gitignored)
+                    bat 'if not exist src\\environments\\environment.ts copy src\\environments\\environment.example.ts src\\environments\\environment.ts'
+                }
             }
         }
 

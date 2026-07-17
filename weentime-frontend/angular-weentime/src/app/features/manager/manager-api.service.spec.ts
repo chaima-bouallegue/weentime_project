@@ -84,7 +84,7 @@ describe('ManagerApiService', () => {
     });
 
     const req = httpMock.expectOne(request =>
-      request.url === api.RH.GET_MANAGER_ALL_DEMANDS &&
+      request.url === api.RH.GET_MANAGER_ALL_DEMANDS(77) &&
       request.params.get('page') === '0' &&
       request.params.get('size') === '25' &&
       request.params.get('statut') === 'EN_ATTENTE_MANAGER'
