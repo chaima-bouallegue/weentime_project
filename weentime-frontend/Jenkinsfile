@@ -1,0 +1,145 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS20'
+    }
+
+    environment {
+        // Single source of truth for the Angular project directory.
+        // All npm commands execute inside this path relative to the workspace root.
+        FRONTEND_DIR = 'weentime-frontend\\angular-weentime'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Verify Node & npm') {
+            steps {
+                bat 'node -v'
+                bat 'npm -v'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    bat 'npm ci'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    // Angular 21 uses @angular/build:unit-test (Vitest under the hood).
+                    // --watch=false disables watch mode explicitly for CI.
+                    // Vitest auto-detects CI environments, but being explicit is safer.
+                    bat 'npm run test -- --watch=false'
+                }
+            }
+            // TODO: Enable JUnit reporting once test files exist and a reporter is configured.
+            //
+            // Step 1 — Add the Vitest JUnit reporter to angular.json under architect.test.options:
+            //   "reporters": ["default", ["junit", { "outputFile": "test-results/junit.xml" }]]
+            //
+            // Step 2 — Uncomment the post block below:
+            // post {
+            //     always {
+            //         junit allowEmptyResults: true,
+            //              testResults: "${FRONTEND_DIR}/test-results/junit.xml"
+            //     }
+            // }
+        }
+
+        stage('Production Build') {
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    // --configuration production is explicit even though angular.json
+                    // sets it as defaultConfiguration. CI pipelines should never rely
+                    // on implicit defaults — a single angular.json edit could silently
+                    // switch to a dev build.
+                    bat 'npm run build -- --configuration production'
+                }
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // TODO: SonarQube Analysis
+        // ----------------------------------------------------------------
+        // Prerequisites before uncommenting:
+        //   1. Create project 'weentime-frontend' on the SonarQube server
+        //   2. Add sonar-project.properties in angular-weentime/:
+        //        sonar.projectKey=weentime-frontend
+        //        sonar.projectName=Weentime Frontend
+        //        sonar.sources=src
+        //        sonar.exclusions=**/node_modules/**,**/dist/**,**/*.spec.ts
+        //        sonar.tests=src
+        //        sonar.test.inclusions=**/*.spec.ts
+        //        sonar.typescript.lcov.reportPaths=coverage/lcov.info
+        //   3. Ensure sonar-scanner is available (npm devDep or Jenkins tool)
+        //
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         dir("${FRONTEND_DIR}") {
+        //             withSonarQubeEnv('sonar-server') {
+        //                 bat 'npx sonar-scanner'
+        //             }
+        //         }
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
+
+        // ----------------------------------------------------------------
+        // TODO: Docker Build & Push
+        // ----------------------------------------------------------------
+        // Prerequisites before uncommenting:
+        //   1. Create a multi-stage Dockerfile in weentime-frontend/
+        //      (Node build stage → Nginx serve stage)
+        //   2. Configure 'dockerHub' credentials in Jenkins
+        //
+        // stage('Docker Build & Push') {
+        //     steps {
+        //         script {
+        //             def sha = bat(script: '@echo off\ngit rev-parse --short HEAD',
+        //                           returnStdout: true).trim()
+        //             withCredentials([usernamePassword(
+        //                 credentialsId: 'dockerHub',
+        //                 usernameVariable: 'DOCKER_USER',
+        //                 passwordVariable: 'DOCKER_PASS'
+        //             )]) {
+        //                 try {
+        //                     bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+        //                     dir('weentime-frontend') {
+        //                         bat "docker build -t %DOCKER_USER%/weentime-frontend:${sha} -t %DOCKER_USER%/weentime-frontend:latest ."
+        //                         bat "docker push %DOCKER_USER%/weentime-frontend:${sha}"
+        //                         bat "docker push %DOCKER_USER%/weentime-frontend:latest"
+        //                     }
+        //                 } finally {
+        //                     bat 'docker logout'
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+    }
+
+    post {
+        success {
+            echo 'Weentime Frontend pipeline executed successfully!'
+        }
+        failure {
+            echo 'Weentime Frontend pipeline FAILED — check the stage logs above.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
