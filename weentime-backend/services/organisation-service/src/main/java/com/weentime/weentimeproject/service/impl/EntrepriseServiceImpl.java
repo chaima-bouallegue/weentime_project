@@ -8,7 +8,6 @@ import com.weentime.weentimeproject.entity.Entreprise;
 import com.weentime.weentimeproject.mapper.EntrepriseMapper;
 import com.weentime.weentimeproject.repository.EntrepriseRepository;
 import com.weentime.weentimeproject.service.EntrepriseService;
-import jakarta.persistence.EntityNotFoundException;
 import com.weentime.weentimeproject.exception.EntrepriseNotFoundException;
 import com.weentime.weentimeproject.exception.SiretAlreadyExistsException;
 import lombok.RequiredArgsConstructor;

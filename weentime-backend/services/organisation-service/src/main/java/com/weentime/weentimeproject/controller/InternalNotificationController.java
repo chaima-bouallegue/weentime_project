@@ -1,7 +1,6 @@
 package com.weentime.weentimeproject.controller;
 
 import com.weentime.weentimeproject.dto.request.NotificationDispatchRequest;
-import com.weentime.weentimeproject.dto.response.NotificationResponse;
 import com.weentime.weentimeproject.service.InternalServiceKeyValidator;
 import com.weentime.weentimeproject.service.NotificationService;
 import jakarta.validation.Valid;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/notifications/internal")

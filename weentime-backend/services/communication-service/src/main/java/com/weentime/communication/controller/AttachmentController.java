@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -41,10 +40,12 @@ public class AttachmentController {
     public ApiEnvelope<List<AttachmentResponse>> uploadAttachments(@RequestParam("files") List<MultipartFile> files) {
         var currentUser = SecurityUtils.currentUser();
         if (currentUser.entrepriseId() == null) {
-            throw new CommunicationException(HttpStatus.FORBIDDEN, "TENANT_REQUIRED", "Tenant ID is required for file uploads.");
+            throw new CommunicationException(HttpStatus.FORBIDDEN, "TENANT_REQUIRED",
+                    "Tenant ID is required for file uploads.");
         }
         if (files.size() > 5) {
-            throw new CommunicationException(HttpStatus.BAD_REQUEST, "TOO_MANY_FILES", "Maximum 5 files allowed per upload.");
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "TOO_MANY_FILES",
+                    "Maximum 5 files allowed per upload.");
         }
 
         List<AttachmentResponse> responses = new ArrayList<>();
@@ -73,15 +74,17 @@ public class AttachmentController {
     public ResponseEntity<Resource> downloadAttachment(@PathVariable UUID id) {
         var currentUser = SecurityUtils.currentUser();
         CommAttachment attachment = attachmentRepository.findByIdAndEntrepriseId(id, currentUser.entrepriseId())
-                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "ATTACHMENT_NOT_FOUND", "Attachment not found."));
+                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "ATTACHMENT_NOT_FOUND",
+                        "Attachment not found."));
 
         Resource resource = fileStorageService.loadAsResource(attachment.getStoragePath());
 
         String disposition = isImage(attachment.getContentType()) ? "inline" : "attachment";
-        
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(attachment.getContentType()))
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + attachment.getOriginalName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        disposition + "; filename=\"" + attachment.getOriginalName() + "\"")
                 .body(resource);
     }
 
@@ -93,14 +96,16 @@ public class AttachmentController {
         long maxSizeBytes = properties.getStorage().getMaxFileSizeMb() * 1024L * 1024L;
         if (file.getSize() > maxSizeBytes) {
             log.warn("File too large: {} ({} bytes)", file.getOriginalFilename(), file.getSize());
-            throw new CommunicationException(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", 
-                "File " + file.getOriginalFilename() + " exceeds the maximum size of " + properties.getStorage().getMaxFileSizeMb() + "MB.");
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE",
+                    "File " + file.getOriginalFilename() + " exceeds the maximum size of "
+                            + properties.getStorage().getMaxFileSizeMb() + "MB.");
         }
 
         String contentType = file.getContentType();
         if (contentType == null) {
             log.warn("File content type is null: {}", file.getOriginalFilename());
-            throw new CommunicationException(HttpStatus.BAD_REQUEST, "INVALID_FILE_TYPE", "File content type is missing.");
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "INVALID_FILE_TYPE",
+                    "File content type is missing.");
         }
 
         // Clean up content type (remove parameters like charset)
@@ -108,12 +113,13 @@ public class AttachmentController {
         String allowedTypesStr = properties.getStorage().getAllowedTypes().toLowerCase();
         List<String> allowedList = Arrays.asList(allowedTypesStr.split(","));
 
-        log.debug("Validating file: {} with type: {} (cleaned: {})", file.getOriginalFilename(), contentType, cleanContentType);
+        log.debug("Validating file: {} with type: {} (cleaned: {})", file.getOriginalFilename(), contentType,
+                cleanContentType);
 
         if (!allowedList.contains(cleanContentType)) {
             log.warn("File type not allowed: {} for file: {}", contentType, file.getOriginalFilename());
-            throw new CommunicationException(HttpStatus.BAD_REQUEST, "INVALID_FILE_TYPE", 
-                "File type " + contentType + " is not allowed.");
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "INVALID_FILE_TYPE",
+                    "File type " + contentType + " is not allowed.");
         }
     }
 

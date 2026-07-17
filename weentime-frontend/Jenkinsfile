@@ -11,11 +11,25 @@ pipeline {
         FRONTEND_DIR = 'weentime-frontend\\angular-weentime'
     }
 
+    options {
+        // Skip default automatic checkout to avoid cloning the entire history
+        // and allow configuring shallow clone to prevent timeouts.
+        skipDefaultCheckout()
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                // Using shallow clone and a longer timeout to prevent network-related clone failures
+                checkout([
+                    $class: 'GitSCM',
+                    branches: scm.branches,
+                    extensions: scm.extensions + [
+                        [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true, timeout: 20]
+                    ],
+                    userRemoteConfigs: scm.userRemoteConfigs
+                ])
             }
         }
 

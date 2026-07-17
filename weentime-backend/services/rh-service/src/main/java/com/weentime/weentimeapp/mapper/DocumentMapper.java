@@ -2,7 +2,6 @@ package com.weentime.weentimeapp.mapper;
 
 import com.weentime.weentimeapp.dto.DemandeDocumentResponse;
 import com.weentime.weentimeapp.entity.Document;
-import com.weentime.weentimeapp.entity.TypeDocument;
 import com.weentime.weentimeapp.enums.*;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

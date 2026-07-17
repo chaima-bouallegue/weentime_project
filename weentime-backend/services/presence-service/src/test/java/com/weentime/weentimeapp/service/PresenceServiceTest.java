@@ -8,8 +8,6 @@ import com.weentime.weentimeapp.client.UserServiceClient;
 import com.weentime.weentimeapp.config.PresenceProperties;
 import com.weentime.weentimeapp.dto.AttendanceSessionDTO;
 import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
-import com.weentime.weentimeapp.dto.CheckInRequest;
-import com.weentime.weentimeapp.dto.CheckOutRequest;
 import com.weentime.weentimeapp.entity.AttendanceSession;
 import com.weentime.weentimeapp.entity.Overtime;
 import com.weentime.weentimeapp.entity.WorkSchedule;
@@ -41,7 +39,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

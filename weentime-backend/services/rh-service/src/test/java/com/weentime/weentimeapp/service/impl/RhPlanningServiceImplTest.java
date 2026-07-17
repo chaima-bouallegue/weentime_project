@@ -4,7 +4,6 @@ import com.weentime.weentimeapp.client.OrganisationServiceClient;
 import com.weentime.weentimeapp.client.PresenceServiceClient;
 import com.weentime.weentimeapp.dto.UserResponse;
 import com.weentime.weentimeapp.dto.response.PlanningResponseDTO;
-import com.weentime.weentimeapp.entity.Autorisation;
 import com.weentime.weentimeapp.entity.Conge;
 import com.weentime.weentimeapp.entity.Teletravail;
 import com.weentime.weentimeapp.repository.AutorisationRepository;

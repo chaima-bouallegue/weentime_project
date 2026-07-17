@@ -3,7 +3,6 @@ package com.weentime.weentimeapp.controller;
 import com.weentime.weentimeapp.client.OrganisationServiceClient;
 import com.weentime.weentimeapp.dto.CongeDTO;
 import com.weentime.weentimeapp.dto.UserResponse;
-import com.weentime.weentimeapp.enums.StatutDemandeEnum;
 import com.weentime.weentimeapp.security.SecurityUtils;
 import com.weentime.weentimeapp.service.CongeService;
 import lombok.RequiredArgsConstructor;

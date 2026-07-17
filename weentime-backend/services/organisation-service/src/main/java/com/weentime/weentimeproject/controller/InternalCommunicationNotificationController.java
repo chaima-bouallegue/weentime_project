@@ -1,7 +1,6 @@
 package com.weentime.weentimeproject.controller;
 
 import com.weentime.weentimeproject.dto.request.NotificationDispatchRequest;
-import com.weentime.weentimeproject.dto.response.NotificationResponse;
 import com.weentime.weentimeproject.service.InternalServiceKeyValidator;
 import com.weentime.weentimeproject.service.NotificationService;
 import jakarta.validation.Valid;
@@ -26,8 +25,7 @@ public class InternalCommunicationNotificationController {
     public ResponseEntity<Void> sendToUser(
             @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
             @PathVariable Long userId,
-            @Valid @RequestBody NotificationDispatchRequest request
-    ) {
+            @Valid @RequestBody NotificationDispatchRequest request) {
         internalServiceKeyValidator.assertValid(internalServiceKey);
         notificationService.sendToUser(userId, request);
         return ResponseEntity.accepted().build();

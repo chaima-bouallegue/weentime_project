@@ -22,7 +22,6 @@ import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.weentime.weentimeapp.dto.EntrepriseResponse;
@@ -38,10 +37,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 import java.util.Locale;
 
 @Slf4j
