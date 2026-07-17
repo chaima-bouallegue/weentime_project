@@ -7,3 +7,5 @@ communication:
   redis:
     enabled: ${REDIS_ENABLED:false}
     topic: ${REDIS_COMMUNICATION_TOPIC:communication.realtime}
+
+# Test commit: validating Docker Hub credentials fix in pipeline
