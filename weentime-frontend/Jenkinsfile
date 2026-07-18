@@ -9,6 +9,7 @@ pipeline {
         // Single source of truth for the Angular project directory.
         // All npm commands execute inside this path relative to the workspace root.
         FRONTEND_DIR = 'weentime-frontend\\angular-weentime'
+        VITEST_MAX_WORKERS = '2'
     }
 
     options {
