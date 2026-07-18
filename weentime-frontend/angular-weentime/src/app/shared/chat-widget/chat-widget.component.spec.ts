@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Sparkles,
   Trash2,
+  User,
   X,
 } from 'lucide-angular';
 import { Router } from '@angular/router';
@@ -92,6 +93,7 @@ describe('ChatWidgetComponent', () => {
           SendHorizontal,
           ShieldAlert,
           Trash2,
+          User,
         }),
       ],
       providers: [
