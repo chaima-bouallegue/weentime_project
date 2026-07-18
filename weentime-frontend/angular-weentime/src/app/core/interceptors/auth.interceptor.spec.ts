@@ -4,9 +4,8 @@ import '@angular/compiler';
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { Router } from '@angular/router';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAiChatWidgetContext } from '../http/request-context.tokens';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../services/auth.service';
@@ -22,9 +21,7 @@ describe('authInterceptor', () => {
   let authService: FakeAuthService;
   let router: { navigate: ReturnType<typeof vi.fn> };
 
-  beforeAll(() => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
+
 
   beforeEach(() => {
     router = {
@@ -51,9 +48,7 @@ describe('authInterceptor', () => {
     vi.restoreAllMocks();
   });
 
-  afterAll(() => {
-    TestBed.resetTestEnvironment();
-  });
+
 
   it('clears auth state and redirects on regular protected 401 responses', () => {
     http.get('/api/v1/secure/profile').subscribe({ error: () => undefined });

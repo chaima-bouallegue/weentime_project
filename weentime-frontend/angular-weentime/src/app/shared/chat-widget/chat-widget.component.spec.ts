@@ -4,7 +4,6 @@ import '@angular/compiler';
 import { readFile } from 'node:fs/promises';
 import { ɵresolveComponentResources as resolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import {
   ArrowRight,
   Check,
@@ -24,7 +23,7 @@ import {
 } from 'lucide-angular';
 import { Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { AssistantSyncService } from '../../core/services/assistant-sync.service';
@@ -62,10 +61,6 @@ class FakeVoiceAssistantService {
 describe('ChatWidgetComponent', () => {
   let voiceAssistant: FakeVoiceAssistantService;
   let toast: { error: ReturnType<typeof vi.fn> };
-
-  beforeAll(() => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
 
   beforeEach(async () => {
     voiceAssistant = new FakeVoiceAssistantService();

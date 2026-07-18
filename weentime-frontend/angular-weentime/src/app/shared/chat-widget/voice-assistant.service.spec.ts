@@ -3,8 +3,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { VoiceAssistantService } from './voice-assistant.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -16,10 +15,6 @@ class FakeAuthService {
 describe('VoiceAssistantService — single-blob upload contract', () => {
   let service: VoiceAssistantService;
   let httpMock: HttpTestingController;
-
-  beforeAll(() => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
 
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -37,10 +32,6 @@ describe('VoiceAssistantService — single-blob upload contract', () => {
 
   afterEach(() => {
     httpMock.verify();
-  });
-
-  afterAll(() => {
-    TestBed.resetTestEnvironment();
   });
 
   it('posts exactly one /v2/voice request per session, with Authorization and a file', async () => {

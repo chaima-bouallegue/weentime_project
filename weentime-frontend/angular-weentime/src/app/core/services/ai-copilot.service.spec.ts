@@ -5,9 +5,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { firstValueFrom } from 'rxjs';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AiCopilotService,
   buildAiChatRequestPayload,
@@ -80,9 +79,7 @@ describe('AiCopilotService requests', () => {
   let httpMock: HttpTestingController | null = null;
   let auth: FakeAiAuthService;
 
-  beforeAll(() => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
+
 
   afterEach(() => {
     httpMock?.verify();
@@ -91,9 +88,7 @@ describe('AiCopilotService requests', () => {
     vi.unstubAllGlobals();
   });
 
-  afterAll(() => {
-    TestBed.resetTestEnvironment();
-  });
+
 
   function configure(): void {
     auth = new FakeAiAuthService();

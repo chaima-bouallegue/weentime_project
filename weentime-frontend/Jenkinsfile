@@ -9,9 +9,6 @@ pipeline {
         // Single source of truth for the Angular project directory.
         // All npm commands execute inside this path relative to the workspace root.
         FRONTEND_DIR = 'weentime-frontend\\angular-weentime'
-        // Limit Vitest to 1 worker to prevent memory OOM and worker crashes on Jenkins agents,
-        // without passing unsupported CLI flags to ng test.
-        VITEST_MAX_WORKERS = '1'
     }
 
     options {
@@ -60,8 +57,6 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     // Angular 21 uses @angular/build:unit-test (Vitest under the hood).
                     // --watch=false disables watch mode explicitly for CI.
-                    // (Parallelism/threading limit is controlled via VITEST_MAX_WORKERS env var).
-                    bat 'echo VITEST_MAX_WORKERS=%VITEST_MAX_WORKERS%'
                     bat 'npm run test -- --watch=false'
                 }
             }

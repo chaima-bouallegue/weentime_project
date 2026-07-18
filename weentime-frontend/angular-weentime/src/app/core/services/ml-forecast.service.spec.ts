@@ -4,18 +4,13 @@ import '@angular/compiler';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MlForecastService } from './ml-forecast.service';
 import { SKIP_ERROR_TOAST } from '../http/request-context.tokens';
 
 describe('MlForecastService', () => {
   let service: MlForecastService;
   let httpMock: HttpTestingController;
-
-  beforeAll(() => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
 
   beforeEach(() => {
     TestBed.resetTestingModule();

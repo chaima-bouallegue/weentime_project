@@ -3,7 +3,7 @@
 import '@angular/compiler';
 import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
+
 import { readFile } from 'node:fs/promises';
 import { NEVER, of, throwError } from 'rxjs';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,7 +77,6 @@ describe('ForecastDashboardComponent', () => {
   };
 
   beforeAll(async () => {
-    TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
     await ɵresolveComponentResources(url => readFile(new URL(url, import.meta.url), 'utf-8'));
   });
 
