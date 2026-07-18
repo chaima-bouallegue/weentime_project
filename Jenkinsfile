@@ -392,6 +392,19 @@ pipeline {
         }
         failure {
             echo 'Echec du pipeline DevOps. Verifiez les logs.'
+            emailext (
+                subject: "❌ Pipeline BACKEND échoué : ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                    Le build BACKEND a échoué.
+                    
+                    Job : ${env.JOB_NAME}
+                    Build : #${env.BUILD_NUMBER}
+                    Branche : ${env.GIT_BRANCH}
+                    
+                    Voir les logs complets : ${env.BUILD_URL}console
+                """,
+                to: "chaimabouallegue17@gmail.com"
+            )
         }
         always {
             cleanWs()
