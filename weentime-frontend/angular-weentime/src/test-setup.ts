@@ -9,7 +9,7 @@ try {
   });
 } catch (e: unknown) {
   if (e instanceof Error && e.message === 'Cannot set base providers because it has already been called') {
-    // Already initialized by the builder's init-testbed.js — nothing to do.
+    // Already initialized by the builder's init-testbed.js -- nothing to do.
   } else {
     throw e;
   }
