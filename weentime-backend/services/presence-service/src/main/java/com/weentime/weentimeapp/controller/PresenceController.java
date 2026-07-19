@@ -1,5 +1,7 @@
 package com.weentime.weentimeapp.controller;
 
+// trigger ci: re-run frontend pipeline after Lucide icons fix
+
 import com.weentime.weentimeapp.dto.AttendanceSessionDTO;
 import com.weentime.weentimeapp.dto.AttendanceSessionViewDTO;
 import com.weentime.weentimeapp.dto.AttendanceSummaryDTO;
