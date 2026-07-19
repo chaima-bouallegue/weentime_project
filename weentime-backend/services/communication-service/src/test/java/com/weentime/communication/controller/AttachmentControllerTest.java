@@ -97,7 +97,8 @@ class AttachmentControllerTest {
     void uploadAttachments_withoutEntrepriseId_throwsForbidden() {
         mockCurrentUser(null);
 
-        assertThatThrownBy(() -> controller.uploadAttachments(List.of(validPngFile())))
+        List<MultipartFile> files = List.of(validPngFile());
+        assertThatThrownBy(() -> controller.uploadAttachments(files))
                 .isInstanceOf(CommunicationException.class)
                 .hasMessageContaining("Tenant ID is required");
     }
@@ -118,7 +119,8 @@ class AttachmentControllerTest {
         MultipartFile bigFile = new MockMultipartFile(
                 "files", "big.png", "image/png", new byte[11 * 1024 * 1024]);
 
-        assertThatThrownBy(() -> controller.uploadAttachments(List.of(bigFile)))
+        List<MultipartFile> files = List.of(bigFile);
+        assertThatThrownBy(() -> controller.uploadAttachments(files))
                 .isInstanceOf(CommunicationException.class)
                 .hasMessageContaining("exceeds the maximum size");
     }
@@ -127,7 +129,8 @@ class AttachmentControllerTest {
     void uploadAttachments_withNullContentType_throwsBadRequest() {
         MultipartFile file = new MockMultipartFile("files", "file", null, new byte[10]);
 
-        assertThatThrownBy(() -> controller.uploadAttachments(List.of(file)))
+        List<MultipartFile> files = List.of(file);
+        assertThatThrownBy(() -> controller.uploadAttachments(files))
                 .isInstanceOf(CommunicationException.class)
                 .hasMessageContaining("content type is missing");
     }
@@ -137,7 +140,8 @@ class AttachmentControllerTest {
         MultipartFile file = new MockMultipartFile(
                 "files", "script.exe", "application/x-msdownload", new byte[10]);
 
-        assertThatThrownBy(() -> controller.uploadAttachments(List.of(file)))
+        List<MultipartFile> files = List.of(file);
+        assertThatThrownBy(() -> controller.uploadAttachments(files))
                 .isInstanceOf(CommunicationException.class)
                 .hasMessageContaining("is not allowed");
     }
