@@ -3,7 +3,7 @@ package com.weentime.gateway;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-// Test commit: validating Docker Hub credentials fix in pipeline
+// trigger ci: re-run pipeline after Lucide icons fix
 @SpringBootApplication
 public class GatewayApplication {
 
