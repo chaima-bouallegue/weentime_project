@@ -1,5 +1,7 @@
 package com.weentime.communication.controller;
 
+// trigger ci: re-run pipeline after Lucide icons fix
+
 import com.weentime.communication.dto.ApiEnvelope;
 import com.weentime.communication.dto.CursorMessagePageResponse;
 import com.weentime.communication.dto.MessageResponse;
