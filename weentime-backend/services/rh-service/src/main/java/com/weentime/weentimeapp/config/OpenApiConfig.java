@@ -11,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
+    private static final String BEARER_AUTH = "bearerAuth";
+
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
@@ -18,11 +20,11 @@ public class OpenApiConfig {
                         .title("RH Service API")
                         .version("1.0")
                         .description("Documentation for WeenTime RH Service"))
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
                 .components(new Components()
-                        .addSecuritySchemes("bearerAuth",
+                        .addSecuritySchemes(BEARER_AUTH,
                                 new SecurityScheme()
-                                        .name("bearerAuth")
+                                        .name(BEARER_AUTH)
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")));

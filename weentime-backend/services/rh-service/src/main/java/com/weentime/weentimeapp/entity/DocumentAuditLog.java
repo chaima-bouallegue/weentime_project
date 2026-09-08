@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Filter;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 /**
  * Audit trail pour toutes les actions documentaires.

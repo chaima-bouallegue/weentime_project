@@ -8,6 +8,10 @@ import java.util.Map;
 @Component
 public class SecurityUtils {
 
+    private SecurityUtils() {
+        // Utility class
+    }
+
     public static Long getCurrentUserId() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getPrincipal() == null) {
@@ -17,7 +21,7 @@ public class SecurityUtils {
         if (auth.getDetails() instanceof Map) {
             Map<?, ?> details = (Map<?, ?>) auth.getDetails();
             Object uid = details.get("userId");
-            if (uid instanceof Number) return ((Number) uid).longValue();
+            if (uid instanceof Number number) return number.longValue();
         }
         throw new IllegalStateException("User ID not found in security context");
     }
@@ -27,7 +31,7 @@ public class SecurityUtils {
         if (auth != null && auth.getDetails() instanceof Map) {
             Map<?, ?> details = (Map<?, ?>) auth.getDetails();
             Object eid = details.get("entrepriseId");
-            if (eid instanceof Number) return ((Number) eid).longValue();
+            if (eid instanceof Number number) return number.longValue();
         }
         return null;
     }

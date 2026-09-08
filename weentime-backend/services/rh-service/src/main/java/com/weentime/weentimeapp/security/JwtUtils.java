@@ -49,8 +49,8 @@ public class JwtUtils {
                 .parseClaimsJws(token)
                 .getBody();
         Object entrepriseIdObj = claims.get("entrepriseId");
-        if (entrepriseIdObj instanceof Number) {
-            return ((Number) entrepriseIdObj).longValue();
+        if (entrepriseIdObj instanceof Number number) {
+            return number.longValue();
         }
         logger.warn("entrepriseId claim not found or not a number in JWT");
         return null;
@@ -63,8 +63,8 @@ public class JwtUtils {
                 .parseClaimsJws(token)
                 .getBody();
         Object userIdObj = claims.get("userId");
-        if (userIdObj instanceof Number) {
-            return ((Number) userIdObj).longValue();
+        if (userIdObj instanceof Number number) {
+            return number.longValue();
         }
         logger.warn("userId claim not found or not a number in JWT");
         return null;

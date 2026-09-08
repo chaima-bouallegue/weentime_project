@@ -15,7 +15,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/rh/reunions")
@@ -89,7 +88,7 @@ public class ReunionController {
         
         List<Long> ids = Arrays.stream(userIds.split(","))
                 .map(Long::parseLong)
-                .collect(Collectors.toList());
+                .toList();
         
         Long enterpriseId = SecurityUtils.getCurrentEntrepriseId();
         return ResponseEntity.ok(service.checkConflicts(date, heureDebut, heureFin, ids, enterpriseId));

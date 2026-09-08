@@ -106,6 +106,9 @@ public class TypeDocument {
     @Column(name = "retention_mois")
     private Integer retentionMois;
 
-    @Deprecated
+    /**
+     * @deprecated Deprecated since 2.0, dynamic HTML/CSS templates are used instead.
+     */
+    @Deprecated(since = "2.0")
     private Boolean enableTemplate;
 }

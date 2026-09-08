@@ -28,7 +28,7 @@ public class HibernateFilterConfig extends OncePerRequestFilter {
         EntityManager entityManager = entityManagerProvider.getIfAvailable();
         SecurityUtils securityUtils = securityUtilsProvider.getIfAvailable();
         if (entityManager != null && securityUtils != null && !InternalFilterBypass.isActive()) {
-            Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+            Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
             if (entrepriseId != null) {
                 Session session = entityManager.unwrap(Session.class);
                 session.enableFilter("entrepriseFilter")

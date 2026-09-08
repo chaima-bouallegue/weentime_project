@@ -26,6 +26,10 @@ public class InternalRecruitmentController {
 
     private final RecruitmentService recruitmentService;
 
+    private static final String KEY_STATUS = "status";
+    private static final String KEY_MESSAGE = "message";
+    private static final String VAL_ERROR = "error";
+
     @Value("${weentime.internal.secret:WeenTimeInternalSecretKey2026}")
     private String internalSecret;
 
@@ -44,28 +48,28 @@ public class InternalRecruitmentController {
         if (!isInternalSecretValid(requestSecret)) {
             log.warn("🚫 Accès non autorisé : Secret interne partagé invalide ou absent.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                "status", "error",
-                "message", "Access Denied: Invalid internal secret"
+                KEY_STATUS, VAL_ERROR,
+                KEY_MESSAGE, "Access Denied: Invalid internal secret"
             ));
         }
         
         try {
             recruitmentService.processAiResult(id, body);
             return ResponseEntity.ok(Map.of(
-                "status", "saved",
-                "message", "Résultat IA enregistré pour la candidature #" + id
+                KEY_STATUS, "saved",
+                KEY_MESSAGE, "Résultat IA enregistré pour la candidature #" + id
             ));
         } catch (ResponseStatusException e) {
             log.warn("Callback IA refusé pour candidature #{}: {}", id, e.getReason());
             return ResponseEntity.status(e.getStatusCode()).body(Map.of(
-                "status", "error",
-                "message", e.getReason() != null ? e.getReason() : "Callback IA invalide"
+                KEY_STATUS, VAL_ERROR,
+                KEY_MESSAGE, e.getReason() != null ? e.getReason() : "Callback IA invalide"
             ));
         } catch (Exception e) {
             log.error("❌ Erreur traitement callback IA pour candidature #{}: {}", id, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of(
-                "status", "error",
-                "message", e.getMessage() != null ? e.getMessage() : "Erreur interne"
+                KEY_STATUS, VAL_ERROR,
+                KEY_MESSAGE, e.getMessage() != null ? e.getMessage() : "Erreur interne"
             ));
         }
     }

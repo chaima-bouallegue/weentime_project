@@ -8,7 +8,6 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * DTO générique pour la pagination, évitant la sérialisation directe de PageImpl.
@@ -45,7 +44,7 @@ public class PageResponse<T> {
     public static <S, T> PageResponse<T> fromPage(Page<S> page, Function<S, T> mapper) {
         List<T> mappedContent = page.getContent().stream()
                 .map(mapper)
-                .collect(Collectors.toList());
+                .toList();
 
         return PageResponse.<T>builder()
                 .content(mappedContent)

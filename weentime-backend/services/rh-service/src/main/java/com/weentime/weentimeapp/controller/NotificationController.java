@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/rh/notifications")
@@ -31,7 +30,7 @@ public class NotificationController {
         if (auth == null) return List.of();
         return auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @GetMapping("/mes-notifications")

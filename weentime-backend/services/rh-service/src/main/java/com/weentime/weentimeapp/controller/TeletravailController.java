@@ -23,6 +23,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TeletravailController {
 
+    private static final String PARAM_COMMENTAIRE = "commentaire";
+
     private final TeletravailService service;
     private final OrganisationServiceClient organisationClient;
 
@@ -104,7 +106,7 @@ public class TeletravailController {
             @RequestBody(required = false) Map<String, String> body
     ) {
         Long managerId = organisationClient.getUtilisateurForAuth(getUserEmail()).getId();
-        String commentaire = body != null ? body.get("commentaire") : null;
+        String commentaire = body != null ? body.get(PARAM_COMMENTAIRE) : null;
         return ResponseEntity.ok(service.validerManager(id, managerId, commentaire));
     }
 
@@ -115,7 +117,7 @@ public class TeletravailController {
             @RequestBody(required = false) Map<String, String> body
     ) {
         Long managerId = organisationClient.getUtilisateurForAuth(getUserEmail()).getId();
-        String commentaire = body == null ? null : body.get("commentaire");
+        String commentaire = body == null ? null : body.get(PARAM_COMMENTAIRE);
         return ResponseEntity.ok(service.rejeterManager(id, managerId, commentaire));
     }
 
@@ -143,7 +145,7 @@ public class TeletravailController {
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body
     ) {
-        String commentaire = body != null ? body.get("commentaire") : null;
+        String commentaire = body != null ? body.get(PARAM_COMMENTAIRE) : null;
         return ResponseEntity.ok(service.validerRH(id, commentaire));
     }
 
@@ -153,7 +155,7 @@ public class TeletravailController {
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body
     ) {
-        String commentaire = body == null ? null : body.get("commentaire");
+        String commentaire = body == null ? null : body.get(PARAM_COMMENTAIRE);
         return ResponseEntity.ok(service.rejeterRH(id, commentaire));
     }
 
