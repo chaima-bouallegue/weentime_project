@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,5 +80,37 @@ class RhDashboardCompatibilityControllerTest {
         assertThat(requestDistribution.get("CONGE")).isEqualTo(2L);
         assertThat(requestDistribution.get("AUTORISATION")).isEqualTo(1L);
         assertThat(requestDistribution.get("TELETRAVAIL")).isEqualTo(4L);
+    }
+
+    @Test
+    void getDashboardAndMonthlyEvolution() {
+        when(rhDashboardService.getDashboard()).thenReturn(null);
+
+        ResponseEntity<ApiResponse<RhDashboardDTO>> dashRes = controller.getDashboard();
+        assertThat(dashRes.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(dashRes.getBody().getData()).isNotNull();
+
+        ResponseEntity<ApiResponse<Map<Integer, Long>>> evoRes = controller.getMonthlyEvolution();
+        assertThat(evoRes.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(evoRes.getBody().getData()).isNotEmpty();
+    }
+
+    @Test
+    void getStatsOverviewWithZeroEmployeesAndHighlightedEmployees() {
+        RhDashboardDTO dashboard = new RhDashboardDTO();
+        dashboard.setTotalEmployees(0);
+        dashboard.setPendingRequests(List.of(new RhDashboardDTO.DashboardLeaveRequestDTO()));
+        dashboard.setHighlightedEmployees(List.of(
+                RhDashboardDTO.DashboardEmployeeDTO.builder().status("ON_LEAVE").build(),
+                RhDashboardDTO.DashboardEmployeeDTO.builder().status("PRESENT").build()
+        ));
+        when(rhDashboardService.getDashboard()).thenReturn(dashboard);
+
+        ResponseEntity<ApiResponse<Map<String, Object>>> response = controller.getStatsOverview();
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data.get("absenceRate")).isEqualTo(0d);
+        assertThat(data.get("pendingRequests")).isEqualTo(1);
+        assertThat(data.get("employeesOnLeave")).isEqualTo(1L);
     }
 }

@@ -117,6 +117,48 @@ class InternalRecruitmentControllerTest {
                 .andExpect(jsonPath("$.message").value("Candidature introuvable"));
     }
 
+    @Test
+    void callbackHandlesResponseStatusExceptionWithNullReason() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST))
+                .when(recruitmentService)
+                .processAiResult(eq(3L), any(AiRecruitmentResultRequest.class));
+
+        mockMvc.perform(post(CALLBACK_PATH)
+                        .header("X-Internal-Secret", "test-internal-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(successPayload()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Callback IA invalide"));
+    }
+
+    @Test
+    void callbackHandlesGenericException() throws Exception {
+        doThrow(new RuntimeException("Erreur inattendue"))
+                .when(recruitmentService)
+                .processAiResult(eq(3L), any(AiRecruitmentResultRequest.class));
+
+        mockMvc.perform(post(CALLBACK_PATH)
+                        .header("X-Internal-Secret", "test-internal-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(successPayload()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Erreur inattendue"));
+    }
+
+    @Test
+    void callbackHandlesGenericExceptionWithNullMessage() throws Exception {
+        doThrow(new RuntimeException())
+                .when(recruitmentService)
+                .processAiResult(eq(3L), any(AiRecruitmentResultRequest.class));
+
+        mockMvc.perform(post(CALLBACK_PATH)
+                        .header("X-Internal-Secret", "test-internal-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(successPayload()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Erreur interne"));
+    }
+
     private String successPayload() {
         return """
                 {
