@@ -45,9 +45,10 @@ class RhDashboardCompatibilityControllerTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
         Map<String, Long> data = response.getBody().getData();
-        assertThat(data).containsEntry("CONGE", 5L);
-        assertThat(data).containsEntry("AUTORISATION", 3L);
-        assertThat(data).containsEntry("TELETRAVAIL", 7L);
+        assertThat(data)
+                .containsEntry("CONGE", 5L)
+                .containsEntry("AUTORISATION", 3L)
+                .containsEntry("TELETRAVAIL", 7L);
     }
 
     @Test
@@ -69,17 +70,19 @@ class RhDashboardCompatibilityControllerTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
         Map<String, Object> data = response.getBody().getData();
-        assertThat(data).isNotNull();
-        assertThat(data.get("totalEmployees")).isEqualTo(10L);
-        assertThat(data.get("presentToday")).isEqualTo(8L);
-        assertThat(data.get("absentToday")).isEqualTo(2L);
+        assertThat(data)
+                .isNotNull()
+                .containsEntry("totalEmployees", 10L)
+                .containsEntry("presentToday", 8L)
+                .containsEntry("absentToday", 2L);
 
         @SuppressWarnings("unchecked")
         Map<String, Long> requestDistribution = (Map<String, Long>) data.get("requestTypeDistribution");
-        assertThat(requestDistribution).isNotNull();
-        assertThat(requestDistribution.get("CONGE")).isEqualTo(2L);
-        assertThat(requestDistribution.get("AUTORISATION")).isEqualTo(1L);
-        assertThat(requestDistribution.get("TELETRAVAIL")).isEqualTo(4L);
+        assertThat(requestDistribution)
+                .isNotNull()
+                .containsEntry("CONGE", 2L)
+                .containsEntry("AUTORISATION", 1L)
+                .containsEntry("TELETRAVAIL", 4L);
     }
 
     @Test
@@ -109,8 +112,9 @@ class RhDashboardCompatibilityControllerTest {
         ResponseEntity<ApiResponse<Map<String, Object>>> response = controller.getStatsOverview();
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         Map<String, Object> data = response.getBody().getData();
-        assertThat(data.get("absenceRate")).isEqualTo(0d);
-        assertThat(data.get("pendingRequests")).isEqualTo(1);
-        assertThat(data.get("employeesOnLeave")).isEqualTo(1L);
+        assertThat(data)
+                .containsEntry("absenceRate", 0d)
+                .containsEntry("pendingRequests", 1)
+                .containsEntry("employeesOnLeave", 1L);
     }
 }

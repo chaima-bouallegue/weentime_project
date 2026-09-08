@@ -43,12 +43,13 @@ class DocumentPdfGeneratorTest {
 
         String filename = generator.buildDisplayFilename(document);
 
-        assertThat(filename).endsWith(".pdf");
-        assertThat(filename).doesNotStartWith("_");
-        assertThat(filename).doesNotContain("__");
-        assertThat(filename).doesNotContain(" ");
-        assertThat(filename).doesNotContain("'");
-        assertThat(filename).isEqualTo("Acme_Corp_Co_Attestation_d_emploi_42_03_2026.pdf");
+        assertThat(filename)
+                .endsWith(".pdf")
+                .doesNotStartWith("_")
+                .doesNotContain("__")
+                .doesNotContain(" ")
+                .doesNotContain("'")
+                .isEqualTo("Acme_Corp_Co_Attestation_d_emploi_42_03_2026.pdf");
     }
 
     @Test
@@ -59,7 +60,8 @@ class DocumentPdfGeneratorTest {
 
         String filename = generator.buildDisplayFilename(document);
 
-        assertThat(filename).endsWith(".pdf");
-        assertThat(filename).startsWith("Entreprise_Document_1");
+        assertThat(filename)
+                .endsWith(".pdf")
+                .startsWith("Entreprise_Document_1");
     }
 }

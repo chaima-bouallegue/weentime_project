@@ -5,7 +5,6 @@ import com.weentime.weentimeapp.dto.DemandeDTO;
 import com.weentime.weentimeapp.dto.UserResponse;
 import com.weentime.weentimeapp.entity.Autorisation;
 import com.weentime.weentimeapp.entity.Conge;
-import com.weentime.weentimeapp.entity.Demande;
 import com.weentime.weentimeapp.entity.Teletravail;
 import com.weentime.weentimeapp.entity.TypeAutorisation;
 import com.weentime.weentimeapp.entity.TypeConge;
@@ -23,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -35,7 +33,6 @@ import java.util.function.Function;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -153,8 +150,9 @@ class DemandeServiceImplTest {
         DemandeDTO resDto = results.get(0);
         assertThat(resDto.getTypeCongeNom()).isEqualTo("Congé payé");
         assertThat(resDto.getNombreJours()).isEqualTo(5.0);
-        assertThat(resDto.getUtilisateur()).isNotNull();
-        assertThat(resDto.getUtilisateur().get("nom")).isEqualTo("Dupont");
+        assertThat(resDto.getUtilisateur())
+                .isNotNull()
+                .containsEntry("nom", "Dupont");
     }
 
     @Test
