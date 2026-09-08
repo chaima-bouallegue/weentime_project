@@ -72,7 +72,6 @@ public class JwtGlobalFilter implements GlobalFilter, Ordered {
                 || path.equals("/ws-communication")
                 || path.startsWith("/ws-communication/")
                 || path.startsWith("/api/v1/organisations/users/register")
-                || path.startsWith("/api/v1/organisations/users/by-email")
                 || path.startsWith("/api/v1/organisations/entreprises/validate-code/")
                 || path.startsWith("/api/v1/organisations/by-code/")
                 || path.equals("/api/ml/forecast/health")

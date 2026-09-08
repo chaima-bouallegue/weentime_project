@@ -1,5 +1,6 @@
 package com.weentime.gateway;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +11,8 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +31,13 @@ class GatewayApplicationTests {
 
 	@Autowired
 	private RouteLocator routeLocator;
+
+	@BeforeEach
+	void setUp() {
+		this.webTestClient = this.webTestClient.mutate()
+				.responseTimeout(Duration.ofSeconds(30))
+				.build();
+	}
 
 	@Test
 	void contextLoads() {
