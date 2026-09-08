@@ -515,7 +515,7 @@ public class DocumentPdfGenerator {
                 .replaceAll("\\p{InCombiningDiacriticalMarks}", "")
                 .replaceAll("[^a-zA-Z0-9_]", "_")
                 .replaceAll("_+", "_")
-                .replaceAll("^_|_$", "");
+                .replaceAll("(^_)|(_$)", "");
         if (sanitized.length() > 120) sanitized = sanitized.substring(0, 120);
         return sanitized + ".pdf";
     }

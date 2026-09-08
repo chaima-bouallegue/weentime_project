@@ -42,11 +42,7 @@ public class TypeCongeServiceImpl implements TypeCongeService {
         normalizeAndValidate(dto);
         rejectDuplicateLibelle(dto.getLibelle(), entrepriseId, null);
 
-        TypeConge entity = typeCongeMapper.toEntity(dto);
-        if (entity == null) {
-            log.error("TypeConge mapping returned null for entrepriseId={}", entrepriseId);
-            throw new IllegalStateException("Impossible de preparer le type de conge.");
-        }
+        TypeConge entity = Objects.requireNonNull(typeCongeMapper.toEntity(dto), "Impossible de preparer le type de conge.");
         entity.setEntrepriseId(entrepriseId);
         entity.setLibelle(dto.getLibelle());
         entity.setNombreJoursMax(dto.getNombreJoursMax());

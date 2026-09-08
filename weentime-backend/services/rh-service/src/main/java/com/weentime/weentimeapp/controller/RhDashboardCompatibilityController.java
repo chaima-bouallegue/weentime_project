@@ -44,7 +44,7 @@ public class RhDashboardCompatibilityController {
         payload.put("overtimeHours", java.math.BigDecimal.ZERO);
         payload.put("attendanceRate", dashboard.getAttendanceRate());
         payload.put("absenceRate", dashboard.getTotalEmployees() == 0 ? 0d : ((double) dashboard.getAbsentCount() / dashboard.getTotalEmployees()) * 100d);
-        payload.put("requestTypeDistribution", getDemandesByType().getBody().getData());
+        payload.put("requestTypeDistribution", buildDemandesByType(dashboard));
         payload.put("requestStatusDistribution", dashboard.getRequestStatusDistribution());
         payload.put("monthlyRequestEvolution", dashboard.getMonthlyRequestEvolution());
         payload.put("departmentEmployeeCounts", dashboard.getDepartmentEmployeeCounts());
@@ -60,12 +60,19 @@ public class RhDashboardCompatibilityController {
     @GetMapping("/stats/demandes-par-type")
     @PreAuthorize("hasAnyRole('RH','ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getDemandesByType() {
-        RhDashboardDTO.RequestStats requestStats = normalizeDashboard(rhDashboardService.getDashboard()).getRequestStats();
+        RhDashboardDTO dashboard = normalizeDashboard(rhDashboardService.getDashboard());
+        return ResponseEntity.ok(ApiResponse.success(buildDemandesByType(dashboard)));
+    }
+
+    private Map<String, Long> buildDemandesByType(RhDashboardDTO dashboard) {
+        RhDashboardDTO.RequestStats requestStats = dashboard.getRequestStats();
         Map<String, Long> byType = new LinkedHashMap<>();
-        byType.put("CONGE", requestStats.getLeave());
-        byType.put("AUTORISATION", requestStats.getAutorisation());
-        byType.put("TELETRAVAIL", requestStats.getTeletravail());
-        return ResponseEntity.ok(ApiResponse.success(byType));
+        if (requestStats != null) {
+            byType.put("CONGE", requestStats.getLeave());
+            byType.put("AUTORISATION", requestStats.getAutorisation());
+            byType.put("TELETRAVAIL", requestStats.getTeletravail());
+        }
+        return byType;
     }
 
     private RhDashboardDTO normalizeDashboard(RhDashboardDTO source) {

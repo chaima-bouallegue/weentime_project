@@ -73,6 +73,8 @@ class SoldeCongeServiceImplTest {
 
         when(soldeCongeRepository.findByUtilisateurIdInAndAnnee(List.of(24L), 2026))
                 .thenReturn(List.of(legacySolde));
+        when(typeCongeRepository.findAllByEntrepriseId(13L))
+                .thenReturn(List.of(com.weentime.weentimeapp.entity.TypeConge.builder().id(1L).libelle("Congé Payé").build()));
         when(soldeCongeMapper.toDtoList(anyList()))
                 .thenAnswer(invocation -> ((List<SoldeConge>) invocation.getArgument(0)).stream()
                         .map(solde -> SoldeCongeDTO.builder()
