@@ -199,11 +199,11 @@ def train_pipeline(
         random_state=seed,
         stratify=stratify,
     )
-    eval_model = AbsenceLeaveForecastModel()
+    eval_model = AbsenceLeaveForecastModel(entreprise_id=company_id)
     eval_model.fit(X_train, y_train, risk_train, random_state=seed)
     metrics = _evaluate(eval_model, X_test, y_test, risk_test)
 
-    final_model = AbsenceLeaveForecastModel(metrics=metrics)
+    final_model = AbsenceLeaveForecastModel(metrics=metrics, entreprise_id=company_id)
     final_model.fit(features, targets, risk_labels, random_state=seed)
     bundle_path = final_model.save(model_dir or settings.model_dir_path)
     logger.info("forecast model saved at %s", bundle_path)

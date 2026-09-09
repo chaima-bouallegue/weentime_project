@@ -28,4 +28,7 @@ public class Conge extends Demande {
     private Long typeCongeId;
 
     private Boolean justificatifFourni;
+
+    @Column(length = 500)
+    private String justificatifUrl;
 }

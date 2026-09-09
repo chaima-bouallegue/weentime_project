@@ -63,7 +63,7 @@ export class RhDashboardService {
     const attendanceBreakdown = this.buildAttendanceBreakdown(source?.attendanceStats, totalEmployees);
     const requestMix = this.buildRequestMix(source?.requestStats);
     const workflowBuckets = this.buildWorkflowBuckets(source?.requestStats);
-    const departments = this.buildDepartments(source?.departmentEmployeeCounts);
+    const departments = this.buildDepartments(source?.departmentEmployeeCounts, totalEmployees);
     // Dedup activities by id, then by (title|date) to absorb backend retries.
     const activityFeed = Array.isArray(source?.recentActivities)
       ? this.dedupActivities(source!.recentActivities.map(item => this.toActivityFeedItem(item)))
@@ -134,18 +134,18 @@ export class RhDashboardService {
     return 'calm';
   }
 
-  private buildDepartments(counts: Record<string, number> | undefined): DepartmentSlice[] {
+  private buildDepartments(counts: Record<string, number> | undefined, totalEmployees: number): DepartmentSlice[] {
     if (!counts || typeof counts !== 'object') return [];
+    const total = totalEmployees > 0 ? totalEmployees : Math.max(Object.values(counts).reduce((a, b) => a + this.toNumber(b), 0), 1);
     const entries = Object.entries(counts)
       .map(([name, raw]) => ({ name: name || 'Non affecté', count: this.toNumber(raw) }))
       .filter(entry => entry.count > 0)
       .sort((a, b) => b.count - a.count);
     if (entries.length === 0) return [];
-    const max = Math.max(...entries.map(e => e.count), 1);
     return entries.map(entry => ({
       name: entry.name,
       count: entry.count,
-      percent: Math.round((entry.count / max) * 100),
+      percent: Math.round((entry.count / total) * 100),
     }));
   }
 

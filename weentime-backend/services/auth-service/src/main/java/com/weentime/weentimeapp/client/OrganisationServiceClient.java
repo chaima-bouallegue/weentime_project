@@ -27,14 +27,14 @@ public interface OrganisationServiceClient {
     ResponseEntity<com.weentime.weentimeapp.dto.UtilisateurAuthDTO> registerUser(@RequestBody RegisterRequest request);
 
     @PostMapping("/api/v1/organisations/internal/users/2fa/update")
-    ResponseEntity<Void> update2faSettings(@RequestParam("email") String email, 
-                                           @RequestParam("enabled") boolean enabled,
-                                           @RequestParam(value = "type", required = false) String type,
-                                           @RequestParam(value = "secret", required = false) String secret);
+    ResponseEntity<Void> update2faSettings(@RequestParam("email") String email,
+            @RequestParam("enabled") boolean enabled,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "secret", required = false) String secret);
 
     @PostMapping("/api/v1/organisations/internal/users/2fa/backup-codes")
     ResponseEntity<Void> updateBackupCodes(@RequestParam("email") String email,
-                                            @RequestBody java.util.List<String> codes);
+            @RequestBody java.util.List<String> codes);
 
     @PostMapping("/api/v1/organisations/internal/users/2fa/failure")
     ResponseEntity<java.util.Map<String, Object>> register2faFailure(@RequestParam("email") String email);
@@ -49,16 +49,19 @@ public interface OrganisationServiceClient {
     ResponseEntity<Void> storeTwoFactorOtp(@RequestBody StoreTwoFactorOtpRequest request);
 
     @PostMapping("/api/v1/organisations/internal/users/2fa/otp/verify")
-    ResponseEntity<com.weentime.weentimeapp.dto.OtpVerificationResponse> verifyTwoFactorOtp(@RequestBody VerifyTwoFactorOtpRequest request);
+    ResponseEntity<com.weentime.weentimeapp.dto.OtpVerificationResponse> verifyTwoFactorOtp(
+            @RequestBody VerifyTwoFactorOtpRequest request);
 
     @PostMapping("/api/v1/organisations/internal/create-rh")
-    ResponseEntity<com.weentime.weentimeapp.dto.CreateRhResponse> createRhUser(@RequestBody com.weentime.weentimeapp.dto.CreateRhRequest request);
+    ResponseEntity<com.weentime.weentimeapp.dto.CreateRhResponse> createRhUser(
+            @RequestBody com.weentime.weentimeapp.dto.CreateRhRequest request);
 
     @GetMapping("/api/v1/organisations/rh")
     ResponseEntity<ApiResponse<java.util.List<com.weentime.weentimeapp.dto.RhOwnerResponse>>> getAllRh();
 
     @GetMapping("/api/v1/organisations/rh/entreprise/{entrepriseId}")
-    ResponseEntity<ApiResponse<java.util.List<com.weentime.weentimeapp.dto.RhOwnerResponse>>> getRhByEntreprise(@org.springframework.web.bind.annotation.PathVariable("entrepriseId") Long entrepriseId);
+    ResponseEntity<ApiResponse<java.util.List<com.weentime.weentimeapp.dto.RhOwnerResponse>>> getRhByEntreprise(
+            @org.springframework.web.bind.annotation.PathVariable("entrepriseId") Long entrepriseId);
 
     default ResponseEntity<UtilisateurAuthDTO> fallbackGetUserByEmail(String email, Throwable throwable) {
         org.slf4j.LoggerFactory.getLogger(OrganisationServiceClient.class)

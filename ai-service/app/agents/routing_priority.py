@@ -139,8 +139,18 @@ def choose_priority_route(
     ):
         return RoutingDecision("manager", "manager", "manager_anomaly_marker", 0.96, force=True)
 
-    if role == "MANAGER" and _is_manager_decision(text):
+    if role != "RH" and _is_manager_decision(text):
         return RoutingDecision("manager", "manager", "manager_decision_marker", 0.94, force=True)
+
+    manager_capability = _unsupported_manager_capability(text, role)
+    if manager_capability:
+        return RoutingDecision(
+            "capability_unavailable",
+            None,
+            "manager_unsupported_feature",
+            0.88,
+            capability=manager_capability,
+        )
 
     if role == "MANAGER" and _has_any(
         text,
@@ -162,7 +172,6 @@ def choose_priority_route(
         )
 
     # 5. Meeting/planning. Unsupported meeting creation is explicit capability
-    # 5. Meeting/planning. Unsupported meeting creation is explicit capability
     # unavailable; read-only meeting/planning goes to ReunionAgent.
     if _is_meeting_or_planning(text):
         if _has_any(text, _CREATE_TERMS):
@@ -174,16 +183,6 @@ def choose_priority_route(
                 capability="meeting.create",
             )
         return RoutingDecision("reunion", "reunion", "meeting_or_planning_marker", 0.9, force=True)
-
-    manager_capability = _unsupported_manager_capability(text, role)
-    if manager_capability:
-        return RoutingDecision(
-            "capability_unavailable",
-            None,
-            "manager_unsupported_feature",
-            0.88,
-            capability=manager_capability,
-        )
 
     # 6. Documents before leave. "demande de document" contains "demande" but
     # must never be routed to LeaveAgent just because leave also creates requests.
@@ -481,7 +480,7 @@ def _is_telework(text: str) -> bool:
 
 
 def _is_leave(text: str) -> bool:
-    if _has_any(text, ("comment declarer", "comment déclarer", "how to declare", "politique", "policy", "faq")):
+    if _has_any(text, ("comment declarer", "comment déclarer", "how to declare", "politique", "policy", "faq", "سياسة", "قانون")):
         return False
     return _has_any(
         text,

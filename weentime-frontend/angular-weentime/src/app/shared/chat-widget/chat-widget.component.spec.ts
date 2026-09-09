@@ -62,6 +62,7 @@ class FakeVoiceAssistantService {
   readonly events$ = this.events.asObservable();
   start = vi.fn(async () => undefined);
   stop = vi.fn(async () => undefined);
+  cancel = vi.fn();
 
   emit(event: VoiceAssistantEvent): void {
     this.events.next(event);

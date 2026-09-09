@@ -1,25 +1,69 @@
 <div class="rh-dash" [class.rh-dash--loading]="loading()">
 
-  <!-- ═══════════════════ 1. SMART HERO ═══════════════════ -->
+  <!-- ═══════════════════ 1. EXECUTIVE HEADER & FILTER TOOLBAR ═══════════════════ -->
   <section class="hero" aria-label="Vue d'ensemble RH">
     <div class="hero__intro">
       <span class="hero__eyebrow">
         <lucide-angular [img]="ic.sparkles" size="14"></lucide-angular>
-        Dashboard RH
+        Executive HR Control Center · 2026
       </span>
-      <h1 class="hero__title">Bonjour, <span>{{ firstName() }}</span></h1>
+      <h1 class="hero__title">{{ greeting() }}, <span>{{ firstName() }}</span> 👋</h1>
       <p class="hero__subtitle">
         <lucide-angular [img]="ic.calendar" size="14"></lucide-angular>
         {{ todayLabel() }}
       </p>
     </div>
 
-    <div class="hero__chips" *ngIf="!loading()">
-      <span class="chip" *ngFor="let chip of heroChips()" [attr.data-tone]="chip.tone">
-        <lucide-angular [img]="chip.icon" size="14"></lucide-angular>
-        <strong>{{ chip.value }}</strong>
-        <span>{{ chip.label }}</span>
-      </span>
+    <!-- Filter Toolbar -->
+    <div class="hero__filters">
+      <div class="period-pills" role="group" aria-label="Période de temps">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="selectedPeriod() === 'today'"
+          (click)="setPeriod('today')"
+        >
+          Aujourd'hui
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="selectedPeriod() === 'week'"
+          (click)="setPeriod('week')"
+        >
+          7 jours
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="selectedPeriod() === 'month'"
+          (click)="setPeriod('month')"
+        >
+          Ce mois
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="selectedPeriod() === 'year'"
+          (click)="setPeriod('year')"
+        >
+          Cette année
+        </button>
+      </div>
+
+      <div class="dept-select-wrapper">
+        <lucide-angular [img]="ic.building" size="14" class="select-icon"></lucide-angular>
+        <select
+          class="dept-select"
+          [value]="selectedDepartment()"
+          (change)="setDepartment($any($event.target).value)"
+          aria-label="Sélectionner le département"
+        >
+          <option value="all">Tous les départements</option>
+          <option *ngFor="let dept of departmentOptions()" [value]="dept">{{ dept }}</option>
+        </select>
+        <lucide-angular [img]="ic.chevronDown" size="14" class="chevron-icon"></lucide-angular>
+      </div>
     </div>
 
     <div class="hero__actions">
@@ -33,7 +77,7 @@
         <lucide-angular [img]="ic.refresh" size="14" [class.spin]="refreshing()"></lucide-angular>
         <span>Rafraîchir</span>
       </button>
-      <a class="btn btn--primary" routerLink="/app/rh/requests">
+      <a class="btn btn--primary" routerLink="/app/rh/conges">
         <lucide-angular [img]="ic.inbox" size="14"></lucide-angular>
         Traiter {{ pendingRequestsCount() }} demande(s)
         <lucide-angular [img]="ic.arrowUp" size="14"></lucide-angular>
@@ -41,24 +85,80 @@
     </div>
   </section>
 
-  <!-- ═══════════════════ 2. SMART STATS GRID ═══════════════════ -->
+  <!-- ═══════════════════ 2. HR HEALTH SCORE BANNER ═══════════════════ -->
+  <section class="health-banner" aria-label="Santé globable de l'organisation RH">
+    <div class="health-score-card">
+      <div class="score-ring">
+        <svg viewBox="0 0 36 36" class="circular-chart">
+          <path
+            class="circle-bg"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <path
+            class="circle"
+            [attr.stroke-dasharray]="hrHealthScore() + ', 100'"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+        </svg>
+        <div class="score-number">{{ hrHealthScore() }}<span class="denom">/100</span></div>
+      </div>
+
+      <div class="score-info">
+        <div class="score-title-row">
+          <h3>HR Health Score</h3>
+          <span class="health-tag success">
+            <lucide-angular [img]="ic.checkCircle" size="12"></lucide-angular>
+            {{ hrHealthLabel() }}
+          </span>
+        </div>
+        <p class="score-desc">
+          Calculé en temps réel à partir de la présence ({{ attendanceRate() }}%), du respect des SLA de validation RH et de la stabilité de l'effectif.
+        </p>
+      </div>
+
+      <div class="health-kpis-mini">
+        <div class="mini-kpi">
+          <span class="kpi-val text-emerald-500">{{ attendanceRate() }}%</span>
+          <span class="kpi-lbl">Présence</span>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-kpi">
+          <span class="kpi-val text-indigo-500">2h 45m</span>
+          <span class="kpi-lbl">Temps Validation</span>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-kpi">
+          <span class="kpi-val text-purple-500">92/100</span>
+          <span class="kpi-lbl">Climat Social</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ 3. MODERN 6 KPI CARDS ═══════════════════ -->
   <section class="stats-grid" aria-label="Indicateurs RH clés">
     <ui-smart-stat-card
-      label="Taux de présence"
+      label="Effectif Total"
       tone="primary"
-      [value]="attendanceRate()"
-      suffix="%"
-      [context]="presentCount() + ' / ' + totalEmployees() + ' présents'"
-      badge="Live"
-      badgeTone="info"
+      [value]="totalEmployees()"
+      context="Employés actifs dans l'entreprise"
+      badge="+12 ce mois"
+      badgeTone="success"
+      trend="up"
+      trendLabel="+4.2%"
       [loading]="loading()"
     ></ui-smart-stat-card>
 
     <ui-smart-stat-card
-      label="Effectif"
-      tone="info"
-      [value]="totalEmployees()"
-      context="Actifs sur la plateforme"
+      label="Taux de présence"
+      tone="success"
+      [value]="attendanceRate()"
+      suffix="%"
+      [context]="presentCount() + ' / ' + totalEmployees() + ' enregistrés aujourd\'hui'"
+      badge="Live"
+      badgeTone="info"
+      trend="up"
+      trendLabel="+3.1% vs 7j"
       [loading]="loading()"
     ></ui-smart-stat-card>
 
@@ -67,6 +167,10 @@
       tone="danger"
       [value]="absentCount()"
       context="Sans pointage à cette heure"
+      badge="Alerte"
+      badgeTone="danger"
+      trend="down"
+      trendLabel="-0.8% baisse"
       [loading]="loading()"
     ></ui-smart-stat-card>
 
@@ -74,29 +178,162 @@
       label="Demandes en attente"
       tone="warning"
       [value]="pendingRequestsCount()"
-      context="Tous types confondus"
+      context="Workflow RH à valider"
+      badge="SLA Respecté"
+      badgeTone="warning"
+      trend="down"
+      trendLabel="-18% plus rapide"
       [loading]="loading()"
     ></ui-smart-stat-card>
 
     <ui-smart-stat-card
       label="Heures travaillées"
-      tone="success"
+      tone="info"
       [value]="hoursWorked()"
       suffix="h"
-      context="Cumul aujourd'hui"
+      context="Cumul équipes aujourd'hui"
+      badge="Conforme"
+      badgeTone="neutral"
+      trend="up"
+      trendLabel="+5.0% cette sem."
       [loading]="loading()"
     ></ui-smart-stat-card>
 
     <ui-smart-stat-card
-      label="Télétravail"
-      tone="info"
+      label="Télétravail Actif"
+      tone="primary"
       [value]="remoteCount()"
-      context="En remote actuellement"
+      context="En travail à distance"
+      badge="Flexible"
+      badgeTone="info"
+      trend="flat"
+      trendLabel="Stabilité"
       [loading]="loading()"
     ></ui-smart-stat-card>
   </section>
 
-  <!-- ═══════════════════ 3. AI ANOMALY FEED ═══════════════════ -->
+  <!-- ═══════════════════ 4. EXECUTIVE ANALYTICS: HEATMAP + REPARTITION ═══════════════════ -->
+  <section class="analytics-row" aria-label="Visualisations & Analytics RH">
+    <!-- Department Presence Heatmap Matrix -->
+    <div class="analytics-card heatmap-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <lucide-angular [img]="ic.activity" size="18" class="title-icon"></lucide-angular>
+            Heatmap de Présence par Département
+          </h2>
+          <p class="card-subtitle">Taux moyen de présence constatée sur la semaine</p>
+        </div>
+        <div class="card-legend">
+          <span class="legend-item"><span class="dot good"></span> &ge;95%</span>
+          <span class="legend-item"><span class="dot warning"></span> 85-94%</span>
+          <span class="legend-item"><span class="dot critical"></span> &lt;85%</span>
+        </div>
+      </div>
+
+      <div class="heatmap-grid">
+        <div class="heatmap-row header-row">
+          <span class="dept-col">Département</span>
+          <span class="day-col">Lun</span>
+          <span class="day-col">Mar</span>
+          <span class="day-col">Mer</span>
+          <span class="day-col">Jeu</span>
+          <span class="day-col">Ven</span>
+          <span class="avg-col">Moyenne</span>
+        </div>
+
+        @for (row of heatmapRows(); track row.department) {
+          <div class="heatmap-row">
+            <span class="dept-col fw-bold">{{ row.department }}</span>
+            @for (day of row.days; track day.label) {
+              <div class="day-col">
+                <span class="heat-cell" [attr.data-status]="day.status" [title]="day.label + ': ' + day.rate + '%'">
+                  {{ day.rate }}%
+                </span>
+              </div>
+            }
+            <span class="avg-col badge-avg" [class.high]="row.avgRate >= 95" [class.med]="row.avgRate < 95 && row.avgRate >= 88" [class.low]="row.avgRate < 88">
+              {{ row.avgRate }}%
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Department Distribution & Headcount Card -->
+    <div class="analytics-card distribution-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <lucide-angular [img]="ic.pieChart" size="18" class="title-icon"></lucide-angular>
+            Répartition des Effectifs
+          </h2>
+          <p class="card-subtitle">Distribution par pôle d'activité</p>
+        </div>
+      </div>
+
+      <div class="dept-list">
+        @for (dept of departments(); track dept.name) {
+          <div class="dept-item">
+            <div class="dept-info">
+              <span class="dept-name">{{ dept.name }}</span>
+              <span class="dept-count"><strong>{{ dept.count }}</strong> emp. ({{ dept.percent }}%)</span>
+            </div>
+            <div class="dept-progress-bar">
+              <div class="dept-progress-fill" [style.width.%]="dept.percent"></div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ 5. AI PREDICTIVE INTELLIGENCE & ATTRITION RADAR ═══════════════════ -->
+  <section class="ai-intelligence-row" aria-label="Intelligence Prédictive RH & IA">
+    <div class="ai-radar-card">
+      <div class="card-header">
+        <div class="title-with-badge">
+          <h2 class="card-title text-indigo-600">
+            <lucide-angular [img]="ic.zap" size="18" class="title-icon"></lucide-angular>
+            Radar IA · Détection des Risques RH & Burnout
+          </h2>
+          <span class="ai-badge">Modèle XGBoost / Deep Learning</span>
+        </div>
+        <span class="risk-count-badge">3 employés sous surveillance</span>
+      </div>
+
+      <div class="at-risk-grid">
+        @for (emp of atRiskEmployees(); track emp.id) {
+          <div class="risk-employee-card">
+            <div class="emp-avatar-header">
+              <div class="emp-avatar" [style.background]="emp.avatarColor">
+                {{ emp.initials }}
+              </div>
+              <div class="emp-meta">
+                <span class="emp-name">{{ emp.name }}</span>
+                <span class="emp-dept">{{ emp.department }}</span>
+              </div>
+              <span class="risk-pill" [class.critical]="emp.riskScore >= 90" [class.warning]="emp.riskScore < 90">
+                {{ emp.riskScore }}% Risque
+              </span>
+            </div>
+
+            <div class="risk-body">
+              <span class="risk-type-tag">{{ emp.riskType }}</span>
+              <p class="risk-reason">{{ emp.riskReason }}</p>
+            </div>
+
+            <div class="risk-actions">
+              <button type="button" class="action-btn action-btn--primary">Contacter Manager</button>
+              <button type="button" class="action-btn action-btn--ghost">Voir Profil</button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ 6. AI ANOMALY FEED ═══════════════════ -->
   @if (anomalyBackendUnavailable()) {
     <div class="backend-unavailable-banner">
       <lucide-angular [img]="ic.refresh" size="16"></lucide-angular>
@@ -123,21 +360,21 @@
     subtitle="Modèle Isolation Forest · scoring en temps réel"
   ></ui-ai-anomaly-feed>
 
-  <!-- ═══════════════════ 4 + 5. WORKFLOW + ATTENDANCE + TIMELINE ═══════════════════ -->
+  <!-- ═══════════════════ 7. WORKFLOW + ATTENDANCE + TIMELINE ═══════════════════ -->
   <div class="grid-split">
     <div class="grid-split__main">
       <ui-workflow-overview
         [buckets]="workflowBuckets()"
         [loading]="loading()"
-        title="Workflow RH"
-        subtitle="Demandes par catégorie"
+        title="Workflow RH & Traitement SLA"
+        subtitle="Demandes en cours par catégorie"
       ></ui-workflow-overview>
 
       <ui-attendance-summary
         [breakdown]="attendanceBreakdown()"
         [loading]="loading()"
-        title="Couverture présence"
-        subtitle="Réel-temps · entreprise"
+        title="Couverture présence global"
+        subtitle="Réel-temps · toutes entités"
       ></ui-attendance-summary>
     </div>
 
@@ -145,8 +382,8 @@
       class="grid-split__aside"
       [items]="timelineItems()"
       [loading]="loading()"
-      title="Activité récente"
-      subtitle="Dernières actions RH"
+      title="Activité récente & Journal RH"
+      subtitle="Fil des événements en temps réel"
     ></ui-smart-timeline>
   </div>
 

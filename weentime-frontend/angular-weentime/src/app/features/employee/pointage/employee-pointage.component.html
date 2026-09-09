@@ -620,6 +620,80 @@
       </div>
     </section>
 
+    <!-- Check-In Confirmation Modal -->
+    <div *ngIf="showCheckInConfirmModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
+      aria-labelledby="checkin-modal-title">
+      <section class="overtime-modal pointage-confirm-modal">
+        <div class="overtime-modal-icon pointage-modal-icon--checkin">
+          <lucide-angular *ngIf="iconPlay" [img]="iconPlay" size="22"></lucide-angular>
+        </div>
+        <div class="overtime-modal-copy">
+          <h2 id="checkin-modal-title">Confirmation du pointage d'entrée</h2>
+          <p class="pointage-modal-subtitle">Vous allez démarrer votre session de travail pour la journée.</p>
+          
+          <div class="pointage-modal-details">
+            <div class="pointage-detail-row">
+              <lucide-angular *ngIf="iconClock" [img]="iconClock" size="16"></lucide-angular>
+              <span><strong>Horodatage :</strong> {{ currentDateTimeFormatted() }}</span>
+            </div>
+            <div *ngIf="latestLocationLabel()" class="pointage-detail-row">
+              <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="16"></lucide-angular>
+              <span><strong>Localisation :</strong> {{ latestLocationLabel() }}</span>
+            </div>
+          </div>
+
+          <p class="pointage-confirm-question">Voulez-vous confirmer votre pointage d'entrée ?</p>
+        </div>
+        <div class="overtime-modal-actions">
+          <button type="button" class="secondary-action" (click)="cancelCheckInModal()" [disabled]="isLoading()">
+            Annuler
+          </button>
+          <button type="button" class="primary-action btn-confirm-checkin" (click)="confirmCheckIn()" [disabled]="isLoading()">
+            Confirmer
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Check-Out Confirmation Modal -->
+    <div *ngIf="showCheckOutConfirmModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
+      aria-labelledby="checkout-modal-title">
+      <section class="overtime-modal pointage-confirm-modal">
+        <div class="overtime-modal-icon pointage-modal-icon--checkout">
+          <lucide-angular *ngIf="iconSquare" [img]="iconSquare" size="20"></lucide-angular>
+        </div>
+        <div class="overtime-modal-copy">
+          <h2 id="checkout-modal-title">Confirmation du pointage de sortie</h2>
+          <p class="pointage-modal-subtitle">Vous allez clôturer votre session de travail actuelle.</p>
+          
+          <div class="pointage-modal-details">
+            <div class="pointage-detail-row">
+              <lucide-angular *ngIf="iconClock" [img]="iconClock" size="16"></lucide-angular>
+              <span><strong>Horodatage :</strong> {{ currentDateTimeFormatted() }}</span>
+            </div>
+            <div class="pointage-detail-row">
+              <lucide-angular *ngIf="iconHourglass" [img]="iconHourglass" size="16"></lucide-angular>
+              <span><strong>Durée de session :</strong> {{ dailyDuration() }}</span>
+            </div>
+            <div *ngIf="latestLocationLabel()" class="pointage-detail-row">
+              <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="16"></lucide-angular>
+              <span><strong>Localisation :</strong> {{ latestLocationLabel() }}</span>
+            </div>
+          </div>
+
+          <p class="pointage-confirm-question">Voulez-vous confirmer votre pointage de sortie ?</p>
+        </div>
+        <div class="overtime-modal-actions">
+          <button type="button" class="secondary-action" (click)="cancelCheckOutModal()" [disabled]="isLoading()">
+            Annuler
+          </button>
+          <button type="button" class="primary-action btn-confirm-checkout" (click)="confirmCheckOut()" [disabled]="isLoading()">
+            Confirmer
+          </button>
+        </div>
+      </section>
+    </div>
+
     <!-- Overtime modal backdrop -->
     <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
       aria-labelledby="overtime-modal-title">

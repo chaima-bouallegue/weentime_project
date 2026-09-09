@@ -24,4 +24,12 @@ public interface UserServiceClient {
 
     @GetMapping("/api/v1/organisations/internal/users/active")
     List<UserSummaryDTO> getActiveUsers();
+
+    @GetMapping("/api/v1/organisations/internal/users/entreprise/{entrepriseId}/ids")
+    List<Long> findUserIdsByEntrepriseId(@PathVariable("entrepriseId") Long entrepriseId);
+
+    @GetMapping("/api/v1/organisations/internal/users/entreprise/{entrepriseId}/role/{role}/ids")
+    List<Long> findUserIdsByEntrepriseAndRole(
+            @PathVariable("entrepriseId") Long entrepriseId,
+            @PathVariable("role") String role);
 }

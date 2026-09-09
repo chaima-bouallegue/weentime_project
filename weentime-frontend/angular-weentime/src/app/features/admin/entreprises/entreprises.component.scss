@@ -29,15 +29,33 @@
   border-left-width: 3px !important;
 }
 
-/* Smooth backdrop transitions */
-.backdrop-blur-\[2px\] {
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+  z-index: 0;
 }
 
-.backdrop-blur-\[3px\] {
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+:host-context(.dark) .drawer-backdrop {
+  background-color: rgba(2, 6, 23, 0.65);
+}
+
+/* Smooth backdrop transitions */
+.backdrop-blur-\[2px\],
+.backdrop-blur-\[3px\],
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.backdrop-blur-md,
+.backdrop-blur-\[6px\],
+.backdrop-blur-\[8px\] {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* ─── Force border-radius on all buttons ─── */

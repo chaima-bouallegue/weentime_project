@@ -34,11 +34,26 @@ DATASET_DIR = Path(__file__).resolve().parent / "datasets"
 
 
 class FakeExecutor:
-    def __init__(self) -> None:
+    def __init__(self, expected_intent: str | None = None) -> None:
+        self.expected_intent = expected_intent
         self.calls: list[tuple[str, dict[str, Any], bool]] = []
 
     async def execute(self, tool_name: str, payload: dict[str, Any] | None, context: CurrentUserContext, *, confirmed: bool = False, **kwargs):
         self.calls.append((tool_name, payload or {}, confirmed))
+        if tool_name == "get_pointage_status":
+            if self.expected_intent == "attendance.check_out":
+                return ToolResult.ok({
+                    "status": "ACTIVE",
+                    "checkIn": "08:30",
+                    "active": True,
+                    "text": "ok:get_pointage_status",
+                    "count": 1,
+                })
+            return ToolResult.ok({
+                "status": "NOT_CHECKED_IN",
+                "text": "ok:get_pointage_status",
+                "count": 1,
+            })
         return ToolResult.ok({"text": f"ok:{tool_name}", "count": 1})
 
 
@@ -94,7 +109,7 @@ async def evaluate_row(row: dict[str, Any]) -> dict[str, Any]:
             "scores": score_case(row, actual),
         }
 
-    executor = FakeExecutor()
+    executor = FakeExecutor(row.get("expected_intent"))
     store = ConfirmationStore()
     attendance = AttendanceAgent(executor, store)  # type: ignore[arg-type]
     router = RouterAgent(
@@ -133,7 +148,18 @@ async def evaluate_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_actual(row: dict[str, Any], response: AgentResponse, executor: FakeExecutor, context: CurrentUserContext) -> dict[str, Any]:
-    tool = response.toolCalls[0].name if response.toolCalls else (executor.calls[-1][0] if executor.calls else None)
+    tool = None
+    if response.toolCalls:
+        pending = [tc.name for tc in response.toolCalls if tc.status == "pending_confirmation"]
+        if pending:
+            tool = pending[0]
+        elif len(response.toolCalls) > 1 and response.toolCalls[0].name == "get_pointage_status":
+            tool = response.toolCalls[-1].name
+        else:
+            tool = response.toolCalls[0].name
+    elif executor.calls:
+        tool = executor.calls[-1][0]
+
     behavior = response.type
     if response.type == "error" and "forbidden" in response.intent:
         behavior = "forbidden"

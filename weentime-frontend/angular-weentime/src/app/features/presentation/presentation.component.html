@@ -1,0 +1,1086 @@
+<!-- ═══════════════════════════════════════════════════
+     HERO IMMERSIF
+     ═══════════════════════════════════════════════════ -->
+<section class="relative overflow-hidden min-h-screen flex items-center">
+  <div class="blob hero-blob-1"></div>
+  <div class="blob hero-blob-2"></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 py-20 w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+      <!-- Left column -->
+      <div class="max-w-xl">
+        <span class="reveal inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-6">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 pulse-dot"></span>
+          Plateforme RH IA 2026
+        </span>
+
+        <h1 class="reveal reveal-d1 text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight mb-6 leading-[1.05]">
+          Le pilotage RH et temps de travail<br class="hidden sm:block" />
+          <span class="text-gradient">augmenté par l'IA</span>
+        </h1>
+
+        <p class="reveal reveal-d2 text-base sm:text-lg text-slate-600 dark:text-slate-400 font-medium mb-8 leading-relaxed">
+          WeenTime réunit présences, congés, télétravail, documents RH et recrutement dans une seule plateforme —
+          pilotée par une IA qui comprend, anticipe et automatise.
+        </p>
+
+        <div class="reveal reveal-d3 flex flex-wrap items-center gap-4 mb-8">
+          <button class="btn-primary px-7 py-3.5 rounded-xl font-bold text-white text-sm">Essai gratuit — 30 jours</button>
+          <a routerLink="/" class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:border-indigo-400 transition-all text-sm">
+            <lucide-icon name="play-circle" [size]="18"></lucide-icon>
+            Voir la démo
+          </a>
+        </div>
+
+        <!-- Mini social proof -->
+        <div class="reveal reveal-d4 flex items-center gap-6">
+          <div class="flex -space-x-2">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white text-[10px] font-bold">SL</div>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white text-[10px] font-bold">MD</div>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white text-[10px] font-bold">AB</div>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white text-[10px] font-bold">+5</div>
+          </div>
+          <div class="text-sm">
+            <div class="flex items-center gap-1 text-amber-400">
+              <lucide-icon name="star" [size]="14"></lucide-icon>
+              <lucide-icon name="star" [size]="14"></lucide-icon>
+              <lucide-icon name="star" [size]="14"></lucide-icon>
+              <lucide-icon name="star" [size]="14"></lucide-icon>
+              <lucide-icon name="star" [size]="14"></lucide-icon>
+            </div>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">4.9/5 par 120+ RH</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: Dashboard + floating cards -->
+      <div class="reveal reveal-d2 relative">
+        <!-- Dashboard -->
+        <div class="dashboard-mockup">
+          <div class="rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900">
+            <div class="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex items-center gap-3">
+              <div class="flex gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              </div>
+              <span class="text-[11px] font-semibold text-slate-400 tracking-wide">WeenTime — Tableau de bord</span>
+            </div>
+            <div class="p-6 space-y-4">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="bg-indigo-50 dark:bg-indigo-500/10 rounded-xl p-3">
+                  <div class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">Présence</div>
+                  <div class="text-xl font-black text-slate-900 dark:text-white">96<small class="text-xs text-slate-400">%</small></div>
+                </div>
+                <div class="bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3">
+                  <div class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Congés</div>
+                  <div class="text-xl font-black text-slate-900 dark:text-white">12<small class="text-xs text-slate-400"> en cours</small></div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-3">
+                  <div class="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">Alertes</div>
+                  <div class="text-xl font-black text-slate-900 dark:text-white">3<small class="text-xs text-slate-400"> anomalies</small></div>
+                </div>
+              </div>
+              <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Demandes récentes</span>
+                  <span class="text-[10px] text-indigo-600 font-bold">Voir tout</span>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between bg-white dark:bg-white/5 rounded-lg px-3 py-2">
+                    <div><span class="text-xs font-bold text-slate-700 dark:text-slate-300">Sarah K.</span><span class="text-[10px] text-slate-400 ml-2">Congé</span></div>
+                    <span class="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">Validé</span>
+                  </div>
+                  <div class="flex items-center justify-between bg-white dark:bg-white/5 rounded-lg px-3 py-2">
+                    <div><span class="text-xs font-bold text-slate-700 dark:text-slate-300">Ahmed M.</span><span class="text-[10px] text-slate-400 ml-2">Télétravail</span></div>
+                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-500/10 px-2 py-0.5 rounded-full">En cours</span>
+                  </div>
+                  <div class="flex items-center justify-between bg-white dark:bg-white/5 rounded-lg px-3 py-2">
+                    <div><span class="text-xs font-bold text-slate-700 dark:text-slate-300">Léa M.</span><span class="text-[10px] text-slate-400 ml-2">Document</span></div>
+                    <span class="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">Signature</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 floating cards -->
+        <div class="hidden lg:block">
+          @for (card of floatingCards; track card.text; let i = $index) {
+            <div class="absolute floating-card" [style.animation-delay]="i * 0.4 + 's'"
+                 [ngClass]="[
+                   i === 0 ? '-top-5 -right-6 w-48' : '',
+                   i === 1 ? '-bottom-2 -left-7 w-44' : '',
+                   i === 2 ? 'top-1/4 -right-8 w-44' : '',
+                   i === 3 ? 'bottom-1/3 -left-8 w-44' : '',
+                   i === 4 ? 'top-3/4 -right-5 w-48' : '',
+                 ]">
+              <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-lg border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <lucide-icon [name]="card.icon" [ngClass]="card.color === 'emerald' ? 'text-emerald-500' : card.color === 'violet' ? 'text-violet-500' : 'text-indigo-500'" [size]="14"></lucide-icon>
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">{{ card.text }}</span>
+                </div>
+                <div class="text-[10px] text-slate-400 pl-6">{{ card.sub }}</div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     LOGOS CLIENTS
+     ═══════════════════════════════════════════════════ -->
+<section class="py-14 overflow-hidden border-t border-b border-slate-100 dark:border-white/5">
+  <p class="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6">Ils font confiance à WeenTime pour leur transformation RH</p>
+  <div class="relative">
+    <div class="flex animate-marquee gap-16 items-center">
+      @for (partner of partners; track partner.name) {
+        <div class="flex items-center gap-2 shrink-0 text-slate-400 dark:text-slate-500">
+          <lucide-icon [name]="partner.icon" [size]="18"></lucide-icon>
+          <span class="text-sm font-bold whitespace-nowrap">{{ partner.name }}</span>
+        </div>
+      }
+      @for (partner of partners; track partner.name) {
+        <div class="flex items-center gap-2 shrink-0 text-slate-400 dark:text-slate-500">
+          <lucide-icon [name]="partner.icon" [size]="18"></lucide-icon>
+          <span class="text-sm font-bold whitespace-nowrap">{{ partner.name }}</span>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     POURQUOI WEENTIME (Problème → Solution + KPI + Parcours)
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 relative">
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-16">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Pourquoi WeenTime</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Le constat est simple : les RH perdent des heures<br class="hidden sm:block" />
+        chaque semaine <span class="text-gradient">en tâches répétitives</span>
+      </h2>
+    </div>
+
+    <!-- Problèmes -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+      <div class="reveal p-6 rounded-2xl bg-red-50 dark:bg-red-500/5 border border-red-100 dark:border-red-500/10">
+        <lucide-icon name="file-spreadsheet" class="text-red-500 mb-3" [size]="24"></lucide-icon>
+        <h3 class="text-base font-black text-slate-900 dark:text-white mb-2">Suivi manuel</h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400">Fichiers Excel, emails, justificatifs papier — des heures perdues chaque semaine.</p>
+      </div>
+      <div class="reveal reveal-d1 p-6 rounded-2xl bg-amber-50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10">
+        <lucide-icon name="mail" class="text-amber-500 mb-3" [size]="24"></lucide-icon>
+        <h3 class="text-base font-black text-slate-900 dark:text-white mb-2">Process lents</h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400">Des allers-retours sans fin pour une simple demande de congé.</p>
+      </div>
+      <div class="reveal reveal-d2 p-6 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+        <lucide-icon name="search" class="text-slate-500 mb-3" [size]="24"></lucide-icon>
+        <h3 class="text-base font-black text-slate-900 dark:text-white mb-2">Données dispersées</h3>
+        <p class="text-sm text-slate-600 dark:text-slate-400">Aucune visibilité, impossible d'anticiper les absences ou détecter les anomalies.</p>
+      </div>
+    </div>
+
+    <!-- Solution + KPI -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-20">
+      <div class="reveal">
+        <div class="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-3xl p-8 sm:p-10 text-white relative overflow-hidden">
+          <div class="blob hero-blob-1 !opacity-20" style="top:-80px;right:-80px;width:300px;height:300px;"></div>
+          <lucide-icon name="sparkles" class="text-white/30 mb-4" [size]="32"></lucide-icon>
+          <h3 class="text-2xl font-black mb-3 relative z-10">WeenTime automatise tout ça.</h3>
+          <p class="text-white/80 text-sm leading-relaxed mb-6 relative z-10 max-w-md">
+            Une plateforme unique qui centralise, automatise et sécurise vos processus RH — pilotée par une IA qui analyse, anticipe et alerte en temps réel.
+          </p>
+          <ul class="space-y-3 relative z-10">
+            <li class="flex items-center gap-3 text-sm font-semibold">
+              <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0"><lucide-icon name="check" [size]="12"></lucide-icon></span>
+              Centralisation des données en temps réel
+            </li>
+            <li class="flex items-center gap-3 text-sm font-semibold">
+              <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0"><lucide-icon name="check" [size]="12"></lucide-icon></span>
+              Automatisation des validations et alertes
+            </li>
+            <li class="flex items-center gap-3 text-sm font-semibold">
+              <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0"><lucide-icon name="check" [size]="12"></lucide-icon></span>
+              IA prédictive pour anticiper les absences
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="reveal reveal-d2 grid grid-cols-2 gap-4">
+        <div class="text-center p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+          <div class="text-3xl font-black text-indigo-600 dark:text-indigo-400 mb-1">+40%</div>
+          <div class="text-xs font-bold text-slate-500">Productivité RH</div>
+        </div>
+        <div class="text-center p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+          <div class="text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-1">-70%</div>
+          <div class="text-xs font-bold text-slate-500">Tâches admin.</div>
+        </div>
+        <div class="text-center p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+          <div class="text-3xl font-black text-violet-600 dark:text-violet-400 mb-1">100%</div>
+          <div class="text-xs font-bold text-slate-500">Conformité RGPD</div>
+        </div>
+        <div class="text-center p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+          <div class="text-3xl font-black text-amber-500 mb-1">4.9/5</div>
+          <div class="text-xs font-bold text-slate-500">Satisfaction</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini parcours utilisateur -->
+    <div class="reveal grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div class="text-center p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+        <div class="w-9 h-9 rounded-full bg-indigo-500/10 flex items-center justify-center mx-auto mb-3">
+          <lucide-icon name="user" class="text-indigo-600 dark:text-indigo-400" [size]="18"></lucide-icon>
+        </div>
+        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">1. Employé</div>
+        <div class="text-[11px] text-slate-400">Pointage et demandes en un clic</div>
+      </div>
+      <div class="text-center p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+        <div class="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
+          <lucide-icon name="users" class="text-emerald-600 dark:text-emerald-400" [size]="18"></lucide-icon>
+        </div>
+        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">2. Manager</div>
+        <div class="text-[11px] text-slate-400">Validation et vue d'équipe</div>
+      </div>
+      <div class="text-center p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+        <div class="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center mx-auto mb-3">
+          <lucide-icon name="building-2" class="text-violet-600 dark:text-violet-400" [size]="18"></lucide-icon>
+        </div>
+        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">3. RH</div>
+        <div class="text-[11px] text-slate-400">Pilotage et automatisation</div>
+      </div>
+      <div class="text-center p-5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+        <div class="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center mx-auto mb-3">
+          <lucide-icon name="sparkles" class="text-slate-600 dark:text-slate-300" [size]="18"></lucide-icon>
+        </div>
+        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">4. IA</div>
+        <div class="text-[11px] text-slate-400">Analyse, prévisions et alertes</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     LE PRODUIT EN ACTION
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 bg-slate-50 dark:bg-slate-900/50 relative">
+  <div class="blob hero-blob-2 !opacity-10"></div>
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Découvrez l'interface</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Le produit en <span class="text-gradient">action</span>
+      </h2>
+      <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+        Explorez les modules clés — cliquez sur un onglet pour voir l'interface réelle de WeenTime.
+      </p>
+    </div>
+
+    <div class="reveal reveal-d1 flex flex-wrap justify-center gap-2 mb-10">
+      @for (tab of demoNavTabs; track tab.id) {
+        <button (click)="setDemoTab(tab.id)"
+                [ngClass]="{
+                  'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25': activeDemoTab() === tab.id,
+                  'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-white/10': activeDemoTab() !== tab.id
+                }"
+                class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300">
+          <lucide-icon [name]="tab.icon" [size]="16" class="inline mr-1.5 align-middle"></lucide-icon>
+          {{ tab.label }}
+        </button>
+      }
+    </div>
+
+    <div class="reveal reveal-d2 relative">
+      <div class="dashboard-mockup rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 transition-all duration-500">
+        <div class="px-6 py-3 border-b border-slate-100 dark:border-white/5 flex items-center gap-3 bg-slate-50 dark:bg-white/5">
+          <div class="flex gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-400 tracking-wide">WeenTime — {{ activeDemoTabLabel }}</span>
+        </div>
+
+        <div class="p-8 min-h-[320px]">
+          @switch (activeDemoTab()) {
+            @case ('overview') {
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-black text-slate-900 dark:text-white">Vue d'ensemble</h3>
+                    <span class="text-[10px] font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-full">Aujourd'hui</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl p-4 text-white">
+                      <div class="text-xs font-semibold opacity-80 mb-1">Présence</div>
+                      <div class="text-2xl font-black">96%</div>
+                      <div class="text-xs opacity-70 mt-1">+2% vs hier</div>
+                    </div>
+                    <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-4 text-white">
+                      <div class="text-xs font-semibold opacity-80 mb-1">Productivité</div>
+                      <div class="text-2xl font-black">+40%</div>
+                      <div class="text-xs opacity-70 mt-1">vs avant WeenTime</div>
+                    </div>
+                  </div>
+                  <div class="bg-slate-50 dark:bg-white/5 rounded-2xl p-4">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Activité récente</div>
+                    <div class="space-y-2">
+                      <div class="flex items-center gap-3">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span class="text-xs text-slate-600 dark:text-slate-400"><strong>Marie L.</strong> a validé une demande</span>
+                        <span class="text-[10px] text-slate-400 ml-auto">2 min</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        <span class="text-xs text-slate-600 dark:text-slate-400"><strong>Thomas R.</strong> a pointé (télétravail)</span>
+                        <span class="text-[10px] text-slate-400 ml-auto">15 min</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        <span class="text-xs text-slate-600 dark:text-slate-400"><strong>Anomalie</strong> détectée sur le pointage</span>
+                        <span class="text-[10px] text-slate-400 ml-auto">1 h</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="space-y-4">
+                  <div class="bg-slate-50 dark:bg-white/5 rounded-2xl p-4">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">À valider</div>
+                    <div class="text-3xl font-black text-slate-900 dark:text-white mb-1">7</div>
+                    <div class="text-xs text-slate-400">Demandes en attente</div>
+                  </div>
+                  <div class="bg-slate-50 dark:bg-white/5 rounded-2xl p-4">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alertes IA</div>
+                    <div class="text-3xl font-black text-amber-500 mb-1">3</div>
+                    <div class="text-xs text-slate-400">Anomalies détectées</div>
+                  </div>
+                  <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-4 text-white">
+                    <div class="text-xs font-semibold opacity-80 mb-1">Documents RH</div>
+                    <div class="text-2xl font-black">12</div>
+                    <div class="text-xs opacity-70 mt-1">Ce mois-ci</div>
+                  </div>
+                </div>
+              </div>
+            }
+            @case ('conges') {
+              <div>
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white">Gestion des congés</h3>
+                  <button class="text-xs font-bold text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors">+ Nouvelle demande</button>
+                </div>
+                <div class="overflow-hidden rounded-2xl border border-slate-100 dark:border-white/5">
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="bg-slate-50 dark:bg-white/5">
+                        <th class="text-left px-4 py-3 font-bold text-slate-500 uppercase tracking-wider">Employé</th>
+                        <th class="text-left px-4 py-3 font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                        <th class="text-left px-4 py-3 font-bold text-slate-500 uppercase tracking-wider">Dates</th>
+                        <th class="text-left px-4 py-3 font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-white/5">
+                      <tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Sarah K.</td>
+                        <td class="px-4 py-3 text-slate-500">Congé annuel</td>
+                        <td class="px-4 py-3 text-slate-500">15-19 août</td>
+                        <td class="px-4 py-3"><span class="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-full">Validé</span></td>
+                      </tr>
+                      <tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Ahmed M.</td>
+                        <td class="px-4 py-3 text-slate-500">Télétravail</td>
+                        <td class="px-4 py-3 text-slate-500">22-26 août</td>
+                        <td class="px-4 py-3"><span class="text-[10px] font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-full">En cours</span></td>
+                      </tr>
+                      <tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">Léa D.</td>
+                        <td class="px-4 py-3 text-slate-500">Maladie</td>
+                        <td class="px-4 py-3 text-slate-500">18-19 août</td>
+                        <td class="px-4 py-3"><span class="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-1 rounded-full">En attente</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+            @case ('pointage') {
+              <div>
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white">Pointage en temps réel</h3>
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
+                    <span class="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">Live</span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="bg-slate-50 dark:bg-white/5 rounded-2xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Présents aujourd'hui</span>
+                      <span class="text-2xl font-black text-slate-900 dark:text-white">42</span>
+                    </div>
+                    <div class="w-full bg-slate-200 dark:bg-white/10 rounded-full h-2"><div class="bg-indigo-500 h-2 rounded-full" style="width:84%"></div></div>
+                    <div class="flex justify-between mt-2 text-[10px] text-slate-400"><span>42 / 50 employés</span><span>84%</span></div>
+                  </div>
+                  <div class="bg-slate-50 dark:bg-white/5 rounded-2xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">En télétravail</span>
+                      <span class="text-2xl font-black text-slate-900 dark:text-white">8</span>
+                    </div>
+                    <div class="w-full bg-slate-200 dark:bg-white/10 rounded-full h-2"><div class="bg-violet-500 h-2 rounded-full" style="width:16%"></div></div>
+                    <div class="flex justify-between mt-2 text-[10px] text-slate-400"><span>8 / 50 employés</span><span>16%</span></div>
+                  </div>
+                </div>
+              </div>
+            }
+            @case ('ai') {
+              <div>
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="text-lg font-black text-slate-900 dark:text-white">Assistant IA en action</h3>
+                  <span class="flex items-center gap-1.5 text-[10px] font-bold text-rose-600 bg-rose-500/10 px-2 py-1 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-dot"></span>
+                    Vocal actif
+                  </span>
+                </div>
+                <div class="bg-gradient-to-br from-slate-50 to-indigo-50/50 dark:from-white/5 dark:to-indigo-500/5 rounded-2xl p-5">
+                  <div class="flex items-start gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">W</div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-xs">
+                      <p class="text-xs text-slate-600 dark:text-slate-400">Bonjour ! Je suis l'assistant WeenTime. Je peux vous aider à gérer vos présences, congés, documents RH et plus encore. Que puis-je faire pour vous ?</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-3 mb-4 flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white text-xs font-bold shrink-0">M</div>
+                    <div class="bg-rose-500 rounded-2xl rounded-tr-sm p-3 shadow-sm">
+                      <p class="text-xs text-white">Je veux poser un congé du 15 au 19 août.</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">W</div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm p-3 shadow-sm">
+                      <p class="text-xs text-slate-700 dark:text-slate-300 font-semibold mb-2">Analyse en cours...</p>
+                      <div class="space-y-1.5">
+                        <div class="flex items-center gap-2 text-[11px]"><span class="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center"><lucide-icon name="check" class="text-emerald-600" [size]="10"></lucide-icon></span><span class="text-slate-600 dark:text-slate-400">Solde vérifié : 12 jours disponibles</span></div>
+                        <div class="flex items-center gap-2 text-[11px]"><span class="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center"><lucide-icon name="check" class="text-emerald-600" [size]="10"></lucide-icon></span><span class="text-slate-600 dark:text-slate-400">Planning : aucune absence en conflit</span></div>
+                        <div class="flex items-center gap-2 text-[11px]"><span class="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center"><lucide-icon name="check" class="text-emerald-600" [size]="10"></lucide-icon></span><span class="text-slate-600 dark:text-slate-400">Manager disponible pour validation</span></div>
+                        <div class="flex items-center gap-2 text-[11px]"><span class="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center"><lucide-icon name="send" class="text-amber-600" [size]="10"></lucide-icon></span><span class="text-slate-600 dark:text-slate-400">Demande prête à être envoyée</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     FONCTIONNALITÉS (4 alternées)
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24">
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-16">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Fonctionnalités</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Tout ce dont vos RH ont besoin,<br class="hidden sm:block" />
+        <span class="text-gradient">en un seul endroit</span>
+      </h2>
+    </div>
+
+    @for (feature of features; track feature.id; let i = $index) {
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-28 last:mb-0">
+        @if (i % 2 === 0) {
+          <div class="reveal max-w-lg">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-5">
+              <lucide-icon [name]="feature.icon" class="text-indigo-600 dark:text-indigo-400" [size]="24"></lucide-icon>
+            </div>
+            <h3 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-4">{{ feature.title }}</h3>
+            <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed mb-6">{{ feature.desc }}</p>
+            <ul class="space-y-3">
+              @for (item of feature.items; track item) {
+                <li class="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  {{ item }}
+                </li>
+              }
+            </ul>
+          </div>
+          <div class="reveal reveal-d2">
+            @switch (feature.id) {
+              @case ('temps-presence') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500">Pointage en cours</span>
+                        <span class="flex items-center gap-1 text-[10px] font-bold text-emerald-600"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot"></span> Actif</span>
+                      </div>
+                      <div class="text-center py-4">
+                        <div class="text-3xl font-black text-slate-900 dark:text-white">09:32</div>
+                        <div class="text-xs text-slate-400">Pointage enregistré</div>
+                      </div>
+                      <div class="flex justify-between mt-3 pt-3 border-t border-slate-200 dark:border-white/10 text-[10px] text-slate-400">
+                        <span>📍 Bureaux Paris</span>
+                        <span>📱 NFC activé</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+              @case ('conges-teletravail') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="flex items-center justify-between mb-4">
+                      <span class="text-xs font-bold text-slate-500">Demandes en cours</span>
+                      <span class="text-[10px] text-indigo-600 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">3 actives</span>
+                    </div>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Sarah K. — Congé</span>
+                        <span class="text-[10px] font-bold text-emerald-600">Validé ✓</span>
+                      </div>
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Ahmed M. — Télétravail</span>
+                        <span class="text-[10px] font-bold text-indigo-600">En cours</span>
+                      </div>
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Léa D. — Maladie</span>
+                        <span class="text-[10px] font-bold text-amber-600">En attente</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+              @case ('organisation-rh') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold text-slate-500">Organigramme</span>
+                        <span class="text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded-full">12 équipes</span>
+                      </div>
+                      <div class="space-y-1.5 text-[10px] text-left">
+                        <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span><span class="text-slate-500">Direction — <strong class="text-slate-700 dark:text-slate-300">M. Laurent</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span class="text-slate-500">RH — <strong class="text-slate-700 dark:text-slate-300">S. K.</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span class="text-slate-500">Marketing — <strong class="text-slate-700 dark:text-slate-300">T. R.</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span class="text-slate-500">Logistique — <strong class="text-slate-700 dark:text-slate-300">A. M.</strong></span></div>
+                      </div>
+                    </div>
+                    <div class="text-[10px] text-violet-500 font-bold mt-3">📄 Documents générés par IA</div>
+                  </div>
+                </div>
+              }
+              @case ('ia-previsions') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center gap-2 justify-center mb-4">
+                        <span class="flex items-center gap-1.5 text-[10px] font-bold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full">
+                          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-dot"></span>
+                          IA active
+                        </span>
+                      </div>
+                      <div class="text-left space-y-2">
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-500">Prévision absences J+7</span><span class="font-bold text-rose-600">89%</span></div>
+                        <div class="w-full bg-slate-200 dark:bg-white/10 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full" style="width:89%"></div></div>
+                        <div class="flex justify-between text-[11px] mt-2"><span class="text-slate-500">Anomalies détectées</span><span class="font-bold text-amber-600">3</span></div>
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-500">Recommandations</span><span class="font-bold text-indigo-600">5</span></div>
+                      </div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-3">🎤 Assistant vocal FR/EN/AR</div>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        } @else {
+          <div class="reveal order-2 lg:order-1">
+            @switch (feature.id) {
+              @case ('temps-presence') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500">Pointage en cours</span>
+                        <span class="flex items-center gap-1 text-[10px] font-bold text-emerald-600"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot"></span> Actif</span>
+                      </div>
+                      <div class="text-center py-4">
+                        <div class="text-3xl font-black text-slate-900 dark:text-white">09:32</div>
+                        <div class="text-xs text-slate-400">Pointage enregistré</div>
+                      </div>
+                      <div class="flex justify-between mt-3 pt-3 border-t border-slate-200 dark:border-white/10 text-[10px] text-slate-400">
+                        <span>📍 Bureaux Paris</span>
+                        <span>📱 NFC activé</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+              @case ('conges-teletravail') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="flex items-center justify-between mb-4">
+                      <span class="text-xs font-bold text-slate-500">Demandes en cours</span>
+                      <span class="text-[10px] text-indigo-600 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">3 actives</span>
+                    </div>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Sarah K. — Congé</span>
+                        <span class="text-[10px] font-bold text-emerald-600">Validé ✓</span>
+                      </div>
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Ahmed M. — Télétravail</span>
+                        <span class="text-[10px] font-bold text-indigo-600">En cours</span>
+                      </div>
+                      <div class="flex items-center justify-between bg-slate-50 dark:bg-white/5 rounded-lg px-3 py-2">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">Léa D. — Maladie</span>
+                        <span class="text-[10px] font-bold text-amber-600">En attente</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+              @case ('organisation-rh') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold text-slate-500">Organigramme</span>
+                        <span class="text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded-full">12 équipes</span>
+                      </div>
+                      <div class="space-y-1.5 text-[10px] text-left">
+                        <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span><span class="text-slate-500">Direction — <strong class="text-slate-700 dark:text-slate-300">M. Laurent</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span class="text-slate-500">RH — <strong class="text-slate-700 dark:text-slate-300">S. K.</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span class="text-slate-500">Marketing — <strong class="text-slate-700 dark:text-slate-300">T. R.</strong></span></div>
+                        <div class="flex items-center gap-2 pl-3"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span class="text-slate-500">Logistique — <strong class="text-slate-700 dark:text-slate-300">A. M.</strong></span></div>
+                      </div>
+                    </div>
+                    <div class="text-[10px] text-violet-500 font-bold mt-3">📄 Documents générés par IA</div>
+                  </div>
+                </div>
+              }
+              @case ('ia-previsions') {
+                <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 p-8 min-h-[280px] flex items-center justify-center">
+                  <div class="text-center w-full max-w-xs">
+                    <div class="bg-slate-50 dark:bg-white/5 rounded-xl p-5">
+                      <div class="flex items-center gap-2 justify-center mb-4">
+                        <span class="flex items-center gap-1.5 text-[10px] font-bold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full">
+                          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 pulse-dot"></span>
+                          IA active
+                        </span>
+                      </div>
+                      <div class="text-left space-y-2">
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-500">Prévision absences J+7</span><span class="font-bold text-rose-600">89%</span></div>
+                        <div class="w-full bg-slate-200 dark:bg-white/10 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full" style="width:89%"></div></div>
+                        <div class="flex justify-between text-[11px] mt-2"><span class="text-slate-500">Anomalies détectées</span><span class="font-bold text-amber-600">3</span></div>
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-500">Recommandations</span><span class="font-bold text-indigo-600">5</span></div>
+                      </div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-3">🎤 Assistant vocal FR/EN/AR</div>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+          <div class="reveal reveal-d2 order-1 lg:order-2 max-w-lg lg:ml-auto">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-5">
+              <lucide-icon [name]="feature.icon" class="text-indigo-600 dark:text-indigo-400" [size]="24"></lucide-icon>
+            </div>
+            <h3 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-4">{{ feature.title }}</h3>
+            <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed mb-6">{{ feature.desc }}</p>
+            <ul class="space-y-3">
+              @for (item of feature.items; track item) {
+                <li class="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  {{ item }}
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     ANALYTICS — Mini tableau de bord
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Analytics</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Des données <span class="text-gradient">en temps réel</span> pour piloter
+      </h2>
+      <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+        Vos données → Notre IA les analyse → Vous recevez des recommandations actionnables.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <!-- Chart -->
+      <div class="reveal lg:col-span-3 rounded-3xl p-8 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Présence hebdomadaire</h3>
+          <div class="flex gap-1.5">
+            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg">L</span>
+            <span class="text-[10px] font-bold text-white bg-indigo-600 px-2 py-1 rounded-lg">M</span>
+            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg">M</span>
+            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg">J</span>
+            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg">V</span>
+          </div>
+        </div>
+        <div class="flex items-end gap-3 h-40">
+          <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-indigo-500 rounded-t-lg animate-grow-bar" style="height:70%"></div><span class="text-[10px] text-slate-400">Lun</span></div>
+          <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-indigo-500 rounded-t-lg animate-grow-bar" style="height:90%"></div><span class="text-[10px] text-slate-400">Mar</span></div>
+          <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-indigo-500 rounded-t-lg animate-grow-bar" style="height:85%"></div><span class="text-[10px] text-slate-400">Mer</span></div>
+          <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-indigo-500 rounded-t-lg animate-grow-bar" style="height:75%"></div><span class="text-[10px] text-slate-400">Jeu</span></div>
+          <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gradient-to-t from-indigo-500 to-violet-500 rounded-t-lg animate-grow-bar" style="height:95%"></div><span class="text-[10px] text-slate-400">Ven</span></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="reveal reveal-d1 lg:col-span-2 space-y-4">
+        <div class="rounded-2xl p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center justify-between">
+            <div><div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Taux de présence</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1">96.2%</div></div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center"><lucide-icon name="trending-up" class="text-emerald-600" [size]="20"></lucide-icon></div>
+          </div>
+          <div class="mt-3 w-full bg-slate-200 dark:bg-white/10 rounded-full h-1.5"><div class="bg-emerald-500 h-1.5 rounded-full" style="width:96%"></div></div>
+        </div>
+        <div class="rounded-2xl p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center justify-between">
+            <div><div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Anomalies détectées</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1">7</div></div>
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center"><lucide-icon name="alert-triangle" class="text-amber-600" [size]="20"></lucide-icon></div>
+          </div>
+          <div class="mt-3 flex items-center gap-2 text-[10px]"><span class="text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">+2 cette semaine</span></div>
+        </div>
+        <div class="rounded-2xl p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center justify-between">
+            <div><div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Prévision IA (J+7)</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1">89%</div></div>
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center"><lucide-icon name="brain" class="text-indigo-600" [size]="20"></lucide-icon></div>
+          </div>
+          <div class="mt-3 flex items-center gap-2 text-[10px]"><span class="text-indigo-600 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">Tendance stable</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     ASSISTANT IA — CHAT AVEC WORKFLOW
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 relative overflow-hidden">
+  <div class="blob hero-blob-1 !opacity-10"></div>
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Assistant IA</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Votre copilote RH <span class="text-gradient">intelligent</span>
+      </h2>
+      <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+        Posez vos questions en langage naturel — l'assistant comprend, analyse et exécute.
+      </p>
+    </div>
+
+    <div class="reveal reveal-d1 max-w-3xl mx-auto">
+      <div class="rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900">
+        <!-- Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"><lucide-icon name="bot" class="text-white" [size]="18"></lucide-icon></div>
+          <div class="flex-1">
+            <div class="text-sm font-bold text-white">Assistant WeenTime</div>
+            <div class="text-[10px] text-white/70 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+              En ligne · Mode vocal activé
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"><lucide-icon name="mic" class="text-white" [size]="14"></lucide-icon></button>
+            <button class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"><lucide-icon name="maximize-2" class="text-white" [size]="14"></lucide-icon></button>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="p-6 space-y-4 min-h-[340px] max-h-[420px] overflow-y-auto custom-scrollbar">
+          @for (msg of chatMessages(); track $index) {
+            <div class="flex items-start gap-3" [class.flex-row-reverse]="msg.role === 'user'">
+              <div [ngClass]="msg.role === 'assistant' ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'"
+                   class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold">
+                {{ msg.role === 'assistant' ? 'W' : 'M' }}
+              </div>
+              <div class="max-w-[80%]" [class.order-1]="msg.role === 'user'">
+                <div [ngClass]="msg.role === 'user' ? 'bg-rose-500 text-white rounded-tr-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm'"
+                     class="rounded-2xl px-4 py-3 text-xs leading-relaxed whitespace-pre-line">
+                  {{ msg.text }}
+                </div>
+                <div class="text-[10px] text-slate-400 mt-1" [class.text-right]="msg.role === 'user'">{{ msg.time }}</div>
+              </div>
+            </div>
+          }
+          @if (isAiTyping()) {
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">W</div>
+              <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3">
+                <div class="flex gap-1">
+                  <span class="w-2 h-2 rounded-full bg-slate-400" style="animation: typingBounce 1.4s ease-in-out infinite;"></span>
+                  <span class="w-2 h-2 rounded-full bg-slate-400" style="animation: typingBounce 1.4s ease-in-out infinite; animation-delay:150ms"></span>
+                  <span class="w-2 h-2 rounded-full bg-slate-400" style="animation: typingBounce 1.4s ease-in-out infinite; animation-delay:300ms"></span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Quick prompts -->
+        <div class="px-6 py-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap gap-2">
+          @for (prompt of aiPrompts; track prompt) {
+            <button (click)="sendAiPrompt(prompt)"
+                    class="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors whitespace-nowrap">
+              {{ prompt }}
+            </button>
+          }
+        </div>
+
+        <!-- Input -->
+        <div class="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex items-center gap-3">
+          <input type="text" [(ngModel)]="chatInput" (keydown.enter)="sendChatMessage()"
+                 placeholder="Posez votre question..."
+                 class="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none" />
+          <button (click)="sendChatMessage()" class="w-9 h-9 rounded-xl bg-rose-500 hover:bg-rose-600 flex items-center justify-center transition-colors">
+            <lucide-icon name="send" class="text-white" [size]="16"></lucide-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     AVANT / APRÈS
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 bg-slate-50 dark:bg-slate-900/50">
+  <div class="max-w-7xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Transformation</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Avant <span class="text-gradient">WeenTime</span> — Après WeenTime
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div class="reveal">
+        <div class="rounded-3xl p-8 bg-white dark:bg-slate-800/80 border border-red-200 dark:border-red-500/20 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center"><lucide-icon name="x-circle" class="text-red-500" [size]="22"></lucide-icon></div>
+            <div><div class="text-xs font-bold text-red-500 uppercase tracking-wider">Avant</div><div class="text-lg font-black text-slate-900 dark:text-white">Sans WeenTime</div></div>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-500/5">
+              <lucide-icon name="file-spreadsheet" class="text-red-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Fichiers Excel disparates</div><div class="text-xs text-slate-500">Données éparpillées, pas de vue d'ensemble</div></div>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-500/5">
+              <lucide-icon name="mail" class="text-red-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Emails à n'en plus finir</div><div class="text-xs text-slate-500">Validations par chaîne d'emails interminable</div></div>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-500/5">
+              <lucide-icon name="file-signature" class="text-red-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Signature manuelle</div><div class="text-xs text-slate-500">Impression, signature scannée, renvoi par email</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal reveal-d2">
+        <div class="rounded-3xl p-8 bg-white dark:bg-slate-800/80 border border-emerald-200 dark:border-emerald-500/20 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center"><lucide-icon name="check-circle" class="text-emerald-500" [size]="22"></lucide-icon></div>
+            <div><div class="text-xs font-bold text-emerald-500 uppercase tracking-wider">Après</div><div class="text-lg font-black text-slate-900 dark:text-white">Avec WeenTime</div></div>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/5">
+              <lucide-icon name="layout-dashboard" class="text-emerald-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Workflow centralisé</div><div class="text-xs text-slate-500">Toutes les données en temps réel, tableau de bord unique</div></div>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/5">
+              <lucide-icon name="bell" class="text-emerald-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Notifications automatiques</div><div class="text-xs text-slate-500">Validations en un clic, alertes intelligentes</div></div>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/5">
+              <lucide-icon name="pen-tool" class="text-emerald-400 shrink-0" [size]="18"></lucide-icon>
+              <div><div class="text-sm font-bold text-slate-700 dark:text-slate-300">Signature électronique</div><div class="text-xs text-slate-500">Document signé en ligne, sans papier ni impression</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     TÉMOIGNAGES (2 grands)
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24">
+  <div class="max-w-5xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">Témoignages</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Ce que disent <span class="text-gradient">nos clients</span>
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      @for (t of testimonials; track t.name) {
+        <div class="reveal rounded-3xl p-8 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <div class="flex items-center gap-1 mb-4">
+            @for (star of [1,2,3,4,5]; track star) {
+              <lucide-icon name="star" class="text-amber-400" [size]="16" [class.text-amber-200]="star > t.rating"></lucide-icon>
+            }
+          </div>
+          <p class="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed mb-6">"{{ t.text }}"</p>
+          <div class="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+            <div [ngClass]="t.color === 'indigo' ? 'from-indigo-500 to-indigo-600' : 'from-emerald-500 to-emerald-600'"
+                 class="w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold">
+              {{ getInitial(t.name) }}
+            </div>
+            <div>
+              <div class="text-sm font-bold text-slate-700 dark:text-slate-300">{{ t.name }}</div>
+              <div class="text-[11px] text-slate-500">{{ t.role }}</div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     FAQ
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24 bg-slate-50 dark:bg-slate-900/50">
+  <div class="max-w-3xl mx-auto px-6 lg:px-16">
+    <div class="reveal text-center max-w-3xl mx-auto mb-14">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-extrabold uppercase tracking-[0.15em] mb-4">FAQ</span>
+      <h2 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+        Questions <span class="text-gradient">fréquentes</span>
+      </h2>
+    </div>
+
+    <div class="space-y-3">
+      @for (item of faqItems; track item.question; let i = $index) {
+        <div class="reveal rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-800/80 overflow-hidden transition-all duration-300" [class.shadow-lg]="openFaqIndex() === i">
+          <button (click)="toggleFaq(i)" class="w-full px-6 py-5 flex items-center justify-between text-left">
+            <span class="text-sm font-bold text-slate-700 dark:text-slate-300 pr-4">{{ item.question }}</span>
+            <lucide-icon [name]="openFaqIndex() === i ? 'chevron-up' : 'chevron-down'" class="text-slate-400 shrink-0 transition-transform duration-300" [size]="18"></lucide-icon>
+          </button>
+          @if (openFaqIndex() === i) {
+            <div class="px-6 pb-5"><p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{{ item.answer }}</p></div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     CTA FINAL + FOOTER
+     ═══════════════════════════════════════════════════ -->
+<section class="py-24">
+  <div class="max-w-5xl mx-auto px-6 lg:px-16">
+    <div class="reveal cta-gradient rounded-3xl px-8 py-16 text-center relative overflow-hidden">
+      <div class="blob hero-blob-1 !opacity-20" style="top:-100px;right:-100px;width:400px;height:400px;"></div>
+      <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight mb-4 relative z-10">Prêt à transformer votre gestion RH ?</h2>
+      <p class="text-white/80 mb-8 max-w-lg mx-auto relative z-10 text-base">Rejoignez les entreprises qui pilotent déjà leur temps et leurs talents avec WeenTime.</p>
+      <div class="flex flex-wrap items-center justify-center gap-4 relative z-10">
+        <button class="px-8 py-3.5 rounded-xl font-bold bg-white text-indigo-700 hover:scale-105 transition-transform shadow-xl">Essai gratuit — 30 jours</button>
+        <button class="px-8 py-3.5 rounded-xl font-bold text-white border border-white/30 hover:bg-white/10 transition-all">Planifier une démo</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+  <div class="max-w-7xl mx-auto px-6 lg:px-16 py-16">
+    <div class="grid grid-cols-2 md:grid-cols-12 gap-8">
+      <!-- Brand -->
+      <div class="col-span-2 md:col-span-4">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center"><lucide-icon name="clock" class="text-white" [size]="16"></lucide-icon></div>
+          <span class="text-base font-black text-slate-900 dark:text-white">WeenTime</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed mb-6 max-w-xs">La plateforme RH augmentée par l'IA — présences, congés, documents et recrutement centralisés.</p>
+        <div class="flex items-center gap-3">
+          <a href="#" class="w-8 h-8 rounded-lg bg-slate-200 dark:bg-white/5 flex items-center justify-center hover:bg-indigo-500/10 transition-colors"><lucide-icon name="linkedin" class="text-slate-500" [size]="16"></lucide-icon></a>
+          <a href="#" class="w-8 h-8 rounded-lg bg-slate-200 dark:bg-white/5 flex items-center justify-center hover:bg-indigo-500/10 transition-colors"><lucide-icon name="github" class="text-slate-500" [size]="16"></lucide-icon></a>
+          <a href="#" class="w-8 h-8 rounded-lg bg-slate-200 dark:bg-white/5 flex items-center justify-center hover:bg-indigo-500/10 transition-colors"><lucide-icon name="twitter" class="text-slate-500" [size]="16"></lucide-icon></a>
+        </div>
+      </div>
+
+      <!-- Produit -->
+      <div class="col-span-1 md:col-span-2">
+        <h4 class="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.12em] mb-4">Produit</h4>
+        <ul class="space-y-3">
+          @for (link of footerLinks.produit; track link) {
+            <li><a href="#" class="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ link }}</a></li>
+          }
+        </ul>
+      </div>
+
+      <!-- Entreprise -->
+      <div class="col-span-1 md:col-span-2">
+        <h4 class="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.12em] mb-4">Entreprise</h4>
+        <ul class="space-y-3">
+          @for (link of footerLinks.entreprise; track link) {
+            <li><a href="#" class="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ link }}</a></li>
+          }
+        </ul>
+      </div>
+
+      <!-- Ressources -->
+      <div class="col-span-1 md:col-span-2">
+        <h4 class="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.12em] mb-4">Ressources</h4>
+        <ul class="space-y-3">
+          @for (link of footerLinks.ressources; track link) {
+            <li><a href="#" class="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ link }}</a></li>
+          }
+        </ul>
+      </div>
+
+      <!-- Newsletter -->
+      <div class="col-span-2 md:col-span-2">
+        <h4 class="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.12em] mb-4">Newsletter</h4>
+        <p class="text-xs text-slate-500 mb-3">Recevez nos actualités RH chaque mois.</p>
+        <div class="flex gap-2">
+          <input type="email" placeholder="votre@email.com"
+                 class="flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-colors" />
+          <button class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="border-t border-slate-200 dark:border-white/5 py-6">
+    <div class="max-w-7xl mx-auto px-6 lg:px-16 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-slate-400">&copy; 2026 WeenTime. Tous droits réservés.</p>
+      <div class="flex items-center gap-6 text-xs text-slate-400">
+        <a href="#" class="hover:text-indigo-600 transition-colors">Mentions légales</a>
+        <a href="#" class="hover:text-indigo-600 transition-colors">Confidentialité</a>
+        <a href="#" class="hover:text-indigo-600 transition-colors">CGU</a>
+      </div>
+    </div>
+  </div>
+</footer>

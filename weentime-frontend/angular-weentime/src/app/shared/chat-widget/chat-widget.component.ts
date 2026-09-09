@@ -67,6 +67,7 @@ interface ConfirmationSummary {
   month?: string | null;
   time?: string | null;
   motif?: string | null;
+  createdViaCopilot?: boolean;
 }
 
 interface ActionResultDisplay {
@@ -109,6 +110,8 @@ interface ChatMessage {
   pendingFlow?: PendingFlowStatus | null;
   confirmationSummary?: ConfirmationSummary | null;
   isStreaming?: boolean;
+  attachment?: { url: string; fileName: string; type?: string } | null;
+  actionResult?: UnknownRecord | null;
 }
 
 interface CachedChatMessage {
@@ -178,6 +181,9 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   readonly ghostText = signal('');
   readonly ghostActive = signal(false);
   readonly ghostDisappearing = signal(false);
+
+  readonly pendingAttachment = signal<{ url: string; fileName: string } | null>(null);
+  readonly uploadingFile = signal(false);
 
   private _doneFlashTimer?: any;
   private statusPillTimeout?: any;
@@ -271,6 +277,14 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   });
 
   readonly quickActions = computed((): QuickAction[] => {
+    const leaveTypeOptions = this.latestLeaveTypePromptOptions();
+    if (leaveTypeOptions && leaveTypeOptions.length > 0) {
+      return leaveTypeOptions.map(opt => ({
+        displayLabel: opt.label,
+        payload: opt.value,
+      }));
+    }
+
     const followUp = this.followUpChips(this.lastAssistantIntent());
     if (followUp && !this.latestPendingDocumentMonthFlow()) {
       return followUp;
@@ -285,17 +299,21 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     switch (this.assistantRole()) {
       case 'MANAGER':
         return [
-          { displayLabel: 'Demandes en attente', payload: 'manager.pending_approvals' },
-          { displayLabel: 'Présence équipe', payload: 'get_team_presence' },
-          { displayLabel: 'Mes demandes de télétravail', payload: 'telework.list_manager_requests' },
-          { displayLabel: 'Résumé équipe', payload: "Today's team summary" },
+          { displayLabel: 'Demandes en attente',         payload: 'manager.pending_approvals' },
+          { displayLabel: 'Présence équipe',              payload: 'get_team_presence' },
+          { displayLabel: 'Demander un congé',            payload: 'Je veux un congé demain' },
+          { displayLabel: 'Demander du télétravail',      payload: 'Je veux télétravailler demain' },
+          { displayLabel: 'Mes demandes de télétravail',  payload: 'telework.list_manager_requests' },
+          { displayLabel: 'Résumé équipe',                payload: "Today's team summary" },
         ];
       case 'RH':
         return [
-          { displayLabel: 'Mes demandes de congé', payload: 'leave.list_manager_requests' },
-          { displayLabel: 'Suivi dossiers RH', payload: 'RH backlog' },
-          { displayLabel: 'Présence équipe', payload: 'get_team_presence' },
-          { displayLabel: 'Validations en cours', payload: 'Pending validations' },
+          { displayLabel: 'Demander un congé',            payload: 'Je veux un congé demain' },
+          { displayLabel: 'Demander du télétravail',      payload: 'Je veux télétravailler demain' },
+          { displayLabel: 'Mes demandes de congé',        payload: 'leave.list_manager_requests' },
+          { displayLabel: 'Suivi dossiers RH',            payload: 'RH backlog' },
+          { displayLabel: 'Présence équipe',              payload: 'get_team_presence' },
+          { displayLabel: 'Validations en cours',         payload: 'Pending validations' },
         ];
       case 'ADMIN':
         return [
@@ -305,20 +323,26 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
         ];
         default:
           return [
-            { displayLabel: 'Mes demandes de congé',        payload: 'Montre mes demandes de conge' },
-            { displayLabel: 'Mon solde de congés',          payload: 'Check my leave balance' },
             { displayLabel: 'Demander un congé',            payload: 'Je veux un congé demain' },
-            { displayLabel: 'Mes demandes de télétravail',  payload: 'Montre mes demandes de teletravail' },
+            { displayLabel: 'Mon solde de congés',          payload: 'Check my leave balance' },
+            { displayLabel: 'Mes demandes de congé',        payload: 'Montre mes demandes de conge' },
+            { displayLabel: 'Annuler un congé',            payload: 'Je veux annuler ma demande de congé' },
             { displayLabel: 'Demander du télétravail',      payload: 'Je veux télétravailler demain' },
-            { displayLabel: 'Mes documents RH',             payload: 'Montre mes documents' },
-            { displayLabel: 'Demander un document',         payload: 'Je veux une attestation de travail' },
-            { displayLabel: 'Mes autorisations',            payload: 'Montre mes autorisations' },
+            { displayLabel: 'Mes demandes de télétravail',  payload: 'Montre mes demandes de teletravail' },
             { displayLabel: 'Demander une autorisation',    payload: 'Je veux une autorisation demain de 14h à 16h pour rendez-vous médical' },
-            { displayLabel: 'Mon pointage du jour',         payload: 'Check my pointage' },
+            { displayLabel: 'Mes autorisations',            payload: 'Montre mes autorisations' },
+            { displayLabel: 'Demander un document',         payload: 'Je veux une attestation de travail' },
+            { displayLabel: 'Mes documents RH',             payload: 'Montre mes documents' },
             { displayLabel: "Pointer l'entrée",             payload: "Je viens d'arriver" },
             { displayLabel: 'Pointer la sortie',            payload: 'pointer ma sortie' },
-            { displayLabel: 'Mes réunions',                 payload: 'My meetings' },
+            { displayLabel: 'Mon pointage du jour',         payload: 'Check my pointage' },
+            { displayLabel: 'Historique de pointage',       payload: 'Montre mon historique de pointage' },
+            { displayLabel: 'Heures de la semaine',         payload: 'Mes heures travaillées cette semaine' },
             { displayLabel: 'Prochaine réunion',            payload: 'Ma prochaine réunion' },
+            { displayLabel: 'Mes réunions',                 payload: 'My meetings' },
+            { displayLabel: 'Mon planning de la semaine',   payload: 'Quel est mon planning cette semaine ?' },
+            { displayLabel: 'Politique des congés',         payload: 'Quelle est la politique de congé ?' },
+            { displayLabel: 'Politique de télétravail',     payload: 'Règlement du télétravail' },
             { displayLabel: 'Résumé du jour',               payload: 'Show my daily summary' },
           ];
     }
@@ -461,6 +485,10 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.recording()) {
+      this.cancelRecording();
+      return;
+    }
     if (this.isOpen()) this.closeChat();
   }
 
@@ -528,20 +556,75 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     }
   }
 
+  onAttachFile(): void {
+    if (typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        this.pushMessage({
+          id: this.createMessageId(),
+          sender: 'assistant',
+          text: 'Le fichier dépasse la taille maximale autorisée (10 Mo).',
+          timestamp: new Date(),
+          isError: true,
+        });
+        return;
+      }
+      this.uploadingFile.set(true);
+      this.chatService.uploadJustificatif(file).pipe(
+        finalize(() => this.uploadingFile.set(false)),
+      ).subscribe({
+        next: (res) => {
+          this.pendingAttachment.set({ url: res.justificatifUrl, fileName: res.fileName });
+          this.pushMessage({
+            id: this.createMessageId(),
+            sender: 'user',
+            text: `[Justificatif joint : ${res.fileName}]`,
+            timestamp: new Date(),
+            origin: 'text',
+            attachment: { url: res.justificatifUrl, fileName: res.fileName },
+          });
+        },
+        error: () => {
+          this.pushMessage({
+            id: this.createMessageId(),
+            sender: 'assistant',
+            text: "L'envoi du justificatif a échoué. Veuillez réessayer.",
+            timestamp: new Date(),
+            isError: true,
+          });
+        },
+      });
+    };
+    input.click();
+  }
+
   sendMessage(): void {
     const message = this.input().trim();
     if (!message || this.loading()) return;
+
+    const attachment = this.pendingAttachment();
+    const metadata: Record<string, unknown> | undefined = attachment
+      ? { justificatif_url: attachment.url, justificatifUrl: attachment.url, file_name: attachment.fileName, fileName: attachment.fileName }
+      : undefined;
+
     this.pushMessage({
       id: this.createMessageId(),
       sender: 'user',
       text: message,
       timestamp: new Date(),
       origin: 'text',
+      attachment: attachment ? { url: attachment.url, fileName: attachment.fileName } : null,
     });
     this.lastSubmittedText = message;
     this.input.set('');
+    this.pendingAttachment.set(null);
     this.loading.set(true);
-    this.chatService.sendMessage(message).pipe(finalize(() => this.loading.set(false))).subscribe({
+    this.chatService.sendMessage(message, metadata).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: response => { this.pushAssistantReply(response, 'text'); },
       error: error => this.handleRequestFailure(this.resolveErrorMessage(error), 'text'),
     });
@@ -558,6 +641,21 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     this.ghostActive.set(false);
     this.ghostDisappearing.set(false);
     await this.voiceAssistant.start();
+  }
+
+  cancelRecording(): void {
+    if (!this.recording()) return;
+    this.voiceAssistant.cancel();
+    this.liveTranscript.set('');
+    this.ghostText.set('');
+    this.ghostActive.set(false);
+    this.ghostDisappearing.set(false);
+    this.voiceState.set('idle');
+  }
+
+  async confirmAndSendRecording(): Promise<void> {
+    if (!this.recording()) return;
+    await this.voiceAssistant.stop();
   }
 
   playMessageAudio(message: ChatMessage): void {
@@ -801,7 +899,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     if (!item || typeof item !== 'object') return 'Element';
     const record = item as UnknownRecord;
     return this.firstDisplayString(
-      record['title'], record['label'], record['name'], record['nom'],
+      record['title'], record['label'], record['name'], record['nom'], record['typeCongeNom'],
       record['type'], record['typeLabel'], record['typeDemande'],
       record['objet'], record['motif'], record['statut'], record['status'],
     ) ?? 'Element';
@@ -810,10 +908,19 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   readItemStatus(item: unknown): string | null {
     if (!item || typeof item !== 'object') return null;
     const record = item as UnknownRecord;
-    return this.firstDisplayString(
+    const status = this.firstDisplayString(
       record['status'], record['statut'], record['date'],
       record['dateDebut'], record['createdAt'],
     );
+    if (status) return status;
+    const joursRestants = record['joursRestants'];
+    if (typeof joursRestants === 'number' && Number.isFinite(joursRestants)) {
+      const formatted = Number.isInteger(joursRestants)
+        ? String(joursRestants)
+        : joursRestants.toFixed(1);
+      return `${formatted} jours restants`;
+    }
+    return null;
   }
 
   pendingFieldLabel(field: string): string {
@@ -1023,6 +1130,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       readResult,
       pendingFlow,
       confirmationSummary,
+      actionResult: this.asRecord(actionResultSource),
     };
     this.pushMessage(message);
 
@@ -1554,11 +1662,52 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     return null;
   }
 
+  private latestLeaveTypePromptOptions(): Array<{ label: string; value: string }> | null {
+    const msgs = this.messages();
+    let lastAssistant: ChatMessage | null = null;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].sender === 'assistant') {
+        lastAssistant = msgs[i];
+        break;
+      }
+    }
+    if (!lastAssistant || !lastAssistant.actionResult) {
+      return null;
+    }
+    const kind = lastAssistant.actionResult['kind'];
+    if (kind !== 'leave_type_prompt') {
+      return null;
+    }
+    const rawOptions = lastAssistant.actionResult['options'];
+    if (!Array.isArray(rawOptions) || rawOptions.length === 0) {
+      return null;
+    }
+    const validOptions: Array<{ label: string; value: string }> = [];
+    for (const opt of rawOptions) {
+      if (opt && typeof opt === 'object') {
+        const rec = opt as Record<string, unknown>;
+        const label = typeof rec['label'] === 'string' ? rec['label'].trim() : '';
+        const value = typeof rec['value'] === 'string' ? rec['value'].trim() : label;
+        if (label) {
+          validOptions.push({ label, value: value || label });
+        }
+      }
+    }
+    return validOptions.length > 0 ? validOptions : null;
+  }
+
   private extractConfirmationSummary(value: unknown): ConfirmationSummary | null {
     const root = this.asRecord(value);
     const data = this.asRecord(root?.['data']);
     const summary = this.asRecord(root?.['summary']) ?? this.asRecord(data?.['summary']);
     if (!summary) return null;
+    // Detect copilot source flag from various locations in the payload
+    const copilotFlag =
+      root?.['createdViaCopilot'] === true ||
+      data?.['createdViaCopilot'] === true ||
+      root?.['source'] === 'AI_COPILOT' ||
+      data?.['source'] === 'AI_COPILOT' ||
+      summary['createdViaCopilot'] === true;
     return {
       type: this.firstDisplayString(summary['type']),
       date: this.firstDisplayString(summary['date']),
@@ -1566,6 +1715,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       month: this.firstDisplayString(summary['month'], summary['moisConcerne'], summary['mois_concerne']),
       time: this.firstDisplayString(summary['time']),
       motif: this.firstDisplayString(summary['motif'], summary['reason']),
+      createdViaCopilot: copilotFlag || false,
     };
   }
 

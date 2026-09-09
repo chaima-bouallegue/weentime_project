@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, User, Lock, Activity, Building, Calendar, ShieldCheck, Camera, Mail, Phone, MoreHorizontal, Briefcase, MapPin, Check, AlertCircle, ExternalLink, Sparkles, ChevronRight } from 'lucide-angular';
+import { LucideAngularModule, User, Lock, Activity, Building, Calendar, ShieldCheck, Camera, Mail, Phone, MoreHorizontal, Briefcase, MapPin, Check, AlertCircle, ExternalLink, ChevronRight } from 'lucide-angular';
 import { ProfileService, UserProfile } from './profile.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ProfileAvatarComponent } from './components/profile-avatar/profile-avatar.component';
@@ -53,7 +53,6 @@ export class ProfileComponent {
   readonly iconCheck = Check;
   readonly iconAlertCircle = AlertCircle;
   readonly iconExternalLink = ExternalLink;
-  readonly iconSparkles = Sparkles;
   readonly iconChevronRight = ChevronRight;
 
   profile = signal<UserProfile | null>(null);

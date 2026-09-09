@@ -41,6 +41,7 @@ import {
   AnomalyRecord,
   MlAnomalyService,
 } from '../../../core/services/ml-anomaly.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { AiAnomalyFeedComponent } from '../../../shared/dashboard/ai-anomaly-feed/ai-anomaly-feed.component';
 
 interface RecentCompanyVm {
@@ -91,6 +92,7 @@ interface HealthItem {
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(AdminApiService);
   private readonly mlAnomaly = inject(MlAnomalyService);
+  private readonly authService = inject(AuthService);
 
   /** Global SOC anomaly feed for the admin role. */
   readonly globalAnomalies = signal<AnomalyRecord[]>([]);
@@ -334,14 +336,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   /* ── helpers ───────────────────────────────────────── */
   private loadFirstName(): void {
-    try {
-      const raw = localStorage.getItem('auth_user') ?? localStorage.getItem('user') ?? localStorage.getItem('currentUser');
-      if (raw) {
-        const u = JSON.parse(raw);
-        this.firstName.set(u?.prenom ?? u?.firstName ?? u?.name?.split(' ')[0] ?? 'Admin');
-      }
-    } catch {
-      /* ignore */
+    const user = this.authService.currentUser();
+    if (user?.prenom) {
+      this.firstName.set(user.prenom);
     }
   }
 

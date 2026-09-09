@@ -76,6 +76,7 @@ eureka:
 application:
   config:
     organisation-service: http://localhost:8190
+    presence-url: ${PRESENCE_SERVICE_URL:http://localhost:8193}
 
 # ── AI Document Engine Configuration ──
 gemini:
@@ -101,5 +102,10 @@ weentime:
     from: ${MAIL_FROM:recrutement@weentime.com}
     company-name: ${COMPANY_NAME:WeenTime}
   internal:
-    secret: ${INTERNAL_SECRET}
+    secret: ${INTERNAL_SECRET:WeenTimeInternalSecretKey2026}
+
+spring.cloud.openfeign.client.config:
+  default:
+    connect-timeout: 10000
+    read-timeout: 20000
 

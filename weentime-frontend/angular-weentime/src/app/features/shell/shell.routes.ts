@@ -94,6 +94,7 @@ import {
   RefreshCw,
   Umbrella,
   CalendarX2,
+  CircleMinus,
   Clock10,
   Target,
   Settings2,
@@ -101,6 +102,7 @@ import {
   LayoutGrid,
   Star,
   Heart,
+  HeartPulse,
   Flame,
   ShieldAlert,
   Brain,
@@ -300,7 +302,13 @@ export const shellRoutes: Routes = [
           Calendar,
           BarChart,
           TrendingUp,
-          TrendingDown
+          TrendingDown,
+          Umbrella,
+          Heart,
+          Clock,
+          HeartPulse,
+          Star,
+          CircleMinus
         })
       }
     ]

@@ -89,6 +89,23 @@ public class InternalUtilisateurController {
         return ResponseEntity.ok(utilisateurService.getActiveUsers());
     }
 
+    @GetMapping("/users/entreprise/{entrepriseId}/ids")
+    public ResponseEntity<java.util.List<Long>> getUserIdsByEntreprise(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long entrepriseId) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
+        return ResponseEntity.ok(utilisateurService.getUtilisateurIdsByEntreprise(entrepriseId));
+    }
+
+    @GetMapping("/users/entreprise/{entrepriseId}/role/{role}/ids")
+    public ResponseEntity<java.util.List<Long>> getUserIdsByEntrepriseAndRole(
+            @RequestHeader("X-Internal-Service-Key") String internalServiceKey,
+            @PathVariable Long entrepriseId,
+            @PathVariable String role) {
+        internalServiceKeyValidator.assertValid(internalServiceKey);
+        return ResponseEntity.ok(utilisateurService.getUtilisateurIdsByEntrepriseAndRole(entrepriseId, role));
+    }
+
     @PostMapping("/users/2fa/update")
     public ResponseEntity<Void> update2faSettings(
             @RequestHeader("X-Internal-Service-Key") String internalServiceKey,

@@ -80,27 +80,13 @@
                   {{ tab.label }}
                 </div>
                 <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                  {{ tab.key === 'info' ? 'Coordonnées & Poste' : (tab.key === 'security' ? 'Mot de passe & 2FA' : 'Historique de connexion') }}
+                  {{ tab.key === 'info' ? 'Coordonnées & Poste' : (tab.key === 'security' ? 'Mot de passe & 2FA' : 'Journal des activités') }}
                 </div>
               </div>
               <lucide-angular [img]="iconChevronRight" size="16" class="opacity-0 group-hover:opacity-100 transition-all"></lucide-angular>
             </button>
           }
         </nav>
-
-        <!-- Help Box -->
-        <div class="mt-8 p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-          <div class="flex items-center gap-3 mb-4">
-            <lucide-angular [img]="iconSparkles" size="18" class="text-indigo-500"></lucide-angular>
-            <span class="text-xs font-black uppercase tracking-widest">Support RH</span>
-          </div>
-          <p class="text-[11px] text-slate-500 font-medium leading-relaxed mb-4">
-            Une erreur dans vos informations ? Contactez votre gestionnaire RH.
-          </p>
-          <button class="w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 transition-colors">
-            Ouvrir un ticket
-          </button>
-        </div>
       </div>
     </aside>
 
@@ -168,7 +154,7 @@
                     <span class="w-2 h-10 bg-indigo-500 rounded-full"></span>
                     Journal d'Activité
                   </h3>
-                  <p class="text-sm text-slate-500 font-medium">Historique de vos dernières connexions.</p>
+                  <p class="text-sm text-slate-500 font-medium">Journal de vos actions, connexions et événements de sécurité.</p>
                 </div>
                 <app-profile-activity />
               }

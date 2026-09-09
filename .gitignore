@@ -90,3 +90,6 @@ powershell
 read_log.py
 ai-service/storage/
 weentime-frontend/angular-weentime/scratch/
+test_output_*.txt
+*.webm
+*.png

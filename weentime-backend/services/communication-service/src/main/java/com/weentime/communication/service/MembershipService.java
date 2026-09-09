@@ -51,6 +51,23 @@ public class MembershipService {
         return channelMemberRepository.findByChannel_IdAndLeftAtIsNull(channelId);
     }
 
+    public CommChannelMember assertCanManage(UUID channelId, CommunicationUserPrincipal currentUser) {
+        CommChannelMember member = assertActiveMember(channelId, currentUser);
+        if (member.getRole() != ChannelMemberRole.OWNER && member.getRole() != ChannelMemberRole.ADMIN) {
+            throw new CommunicationException(HttpStatus.FORBIDDEN, "COMM_CHANNEL_MANAGE_FORBIDDEN",
+                    "You do not have permission to manage this conversation.", Map.of("channelId", channelId));
+        }
+        return member;
+    }
+
+    public CommChannelMember getMemberOrThrow(UUID channelId, Long userId, Long entrepriseId) {
+        return channelMemberRepository.findByChannel_IdAndEntrepriseIdAndId_UserIdAndLeftAtIsNull(
+                        channelId, entrepriseId, userId)
+                .orElseThrow(() -> new CommunicationException(HttpStatus.NOT_FOUND, "COMM_MEMBER_NOT_FOUND",
+                        "This user is not a member of the conversation.",
+                        Map.of("channelId", channelId, "userId", userId)));
+    }
+
     public ChannelPermissionResponse permissionsFor(CommChannel channel, CommChannelMember member) {
         boolean canManage = member.getRole() == ChannelMemberRole.OWNER || member.getRole() == ChannelMemberRole.ADMIN;
         boolean canWrite = !channel.isArchived() && member.getRole() != ChannelMemberRole.READONLY;

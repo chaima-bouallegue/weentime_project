@@ -198,7 +198,12 @@ class _FakeForecastRepository:
         )
 
 
-def test_forecast_service_uses_real_dataset_and_fallback_without_model():
+def test_forecast_service_uses_real_dataset_and_fallback_without_model(monkeypatch):
+    monkeypatch.setattr(
+        AbsenceLeaveForecastModel,
+        "load_latest",
+        lambda *args, **kwargs: None,
+    )
     repository = _FakeForecastRepository()
     service = ForecastService(repository=repository, model=AbsenceLeaveForecastModel())
 

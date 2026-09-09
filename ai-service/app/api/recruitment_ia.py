@@ -159,7 +159,7 @@ Retourne UNIQUEMENT un JSON valide :
         )
 
         result = await _generate_gemini(gen_req, response_mime_type="application/json")
-        raw_content = result.content or ""
+        raw_content = (result.content if result and hasattr(result, "content") else "") or ""
         logger.info(
             "Gemini raw response length=%s preview=%r",
             len(raw_content),
@@ -260,6 +260,13 @@ RÈGLES :
   resume_evaluation, competences_trouvees, competences_manquantes,
   annees_experience_detectees, niveau_confiance
 
+CONTRAINTES DE LONGUEUR (STRICTES) :
+- points_forts : maximum 3 éléments, 15 mots maximum par élément
+- points_faibles : maximum 3 éléments, 15 mots maximum par élément
+- competences_trouvees : maximum 8 éléments, noms courts uniquement (pas de phrases)
+- competences_manquantes : maximum 8 éléments, noms courts uniquement (pas de phrases)
+- resume_evaluation : maximum 2 phrases concises
+
 Retourne uniquement cet objet JSON :
 {
   "score_global": <0-100>,
@@ -269,7 +276,7 @@ Retourne uniquement cet objet JSON :
   "recommandation": "<FORTEMENT_RECOMMANDE|RECOMMANDE|A_EVALUER|REJETE>",
   "points_forts": ["...", "...", "..."],
   "points_faibles": ["...", "..."],
-  "resume_evaluation": "<2 phrases factuelles et objectives>",
+  "resume_evaluation": "<2 phrases concises>",
   "competences_trouvees": ["..."],
   "competences_manquantes": ["..."],
   "annees_experience_detectees": <number ou null>,
@@ -291,13 +298,14 @@ CV DU CANDIDAT :
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.1,
+            max_tokens=3000,
             provider="gemini"
         )
 
         result = await _generate_gemini(gen_req, response_mime_type="application/json")
 
         # Parser et valider le JSON
-        raw_content = result.content or ""
+        raw_content = (result.content if result and hasattr(result, "content") else "") or ""
         logger.info(
             "Gemini raw response length=%s preview=%r",
             len(raw_content),

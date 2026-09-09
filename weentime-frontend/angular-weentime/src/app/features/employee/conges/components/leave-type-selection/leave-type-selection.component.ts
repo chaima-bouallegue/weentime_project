@@ -96,9 +96,9 @@ export class LeaveTypeSelectionComponent implements OnInit {
       Umbrella: 'Umbrella',
       Heart: 'Heart',
       Clock: 'Clock',
-      Baby: 'Baby',
+      HeartPulse: 'HeartPulse',
       Star: 'Star',
-      MinusCircle: 'MinusCircle'
+      CircleMinus: 'CircleMinus'
     };
     return iconMap[type.icon] || 'CalendarDays';
   }

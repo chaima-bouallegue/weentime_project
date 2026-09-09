@@ -558,7 +558,10 @@ class RHAgent(ConfirmationMixin, DomainAgent):
         decision = "APPROVE" if raw_intent.endswith(".approve") else "REJECT"
         tool_name = approve_tool if decision == "APPROVE" else reject_tool
         source_text = _source_text(message, context)
-        request_id = _extract_id_after(source_text, ("demande", "request", "id"))
+        request_id = _extract_id_after(
+            source_text,
+            ("demande", "request", "id", "conge", "congé", "conges", "congés", "leave", "teletravail", "télétravail", "telework", "autorisation", "authorization", "document"),
+        )
         if request_id is not None:
             return self.confirmation_response(
                 context=context,

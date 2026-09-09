@@ -358,6 +358,11 @@ export class AiAnomalyFeedComponent implements AfterViewInit {
     this.detailsAnomaly = anomaly;
   }
 
+  openContactFromDetails(anomaly: AnomalyRecord): void {
+    this.detailsAnomaly = null;
+    this.openContact(anomaly);
+  }
+
   openContact(anomaly: AnomalyRecord): void {
     this.contactAnomaly = anomaly;
     this.contactMessage = this.defaultContactMessage(anomaly);

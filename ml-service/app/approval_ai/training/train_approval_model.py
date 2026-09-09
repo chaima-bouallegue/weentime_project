@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from app.approval_ai.features.approval_features import ApprovalFeatureEngineer
 from app.approval_ai.models.approval_model import ApprovalModel
@@ -85,15 +86,27 @@ def train(force_synthetic: bool = False) -> dict:
         df, reference = load_or_generate(min_records=500)
 
     X, y = prepare_training_data(df, reference)
-    model = ApprovalModel()
-    metrics = model.train(X, y)
-    bundle_path = model.save(settings.model_dir_path)
+
+    unique, counts = np.unique(y, return_counts=True)
+    stratify = y if len(unique) > 1 and min(counts) > 1 else None
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=stratify,
+    )
+
+    eval_model = ApprovalModel()
+    eval_model.train(X_train, y_train)
+    eval_metrics = eval_model.evaluate(X_test, y_test)
+
+    final_model = ApprovalModel(evaluation_metrics=eval_metrics)
+    final_metrics = final_model.train(X, y)
+    bundle_path = final_model.save(settings.model_dir_path)
 
     duration = time.time() - started
     result = {
         "records_used": int(len(df)),
-        "model_version": model.model_version,
-        "accuracy": metrics.get("accuracy"),
+        "model_version": final_model.model_version,
+        "accuracy": final_metrics.get("accuracy"),
+        "evaluation_metrics": eval_metrics,
         "bundle_path": bundle_path,
         "training_duration_seconds": duration,
     }

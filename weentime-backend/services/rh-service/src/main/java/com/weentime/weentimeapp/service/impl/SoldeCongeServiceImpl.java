@@ -61,10 +61,13 @@ public class SoldeCongeServiceImpl implements SoldeCongeService {
         );
         
         java.util.Map<Long, String> typeMap = typeCongeRepository.findAllByEntrepriseId(entrepriseId).stream()
-                .collect(java.util.stream.Collectors.toMap(TypeConge::getId, TypeConge::getLibelle));
-                
-        dtos.forEach(dto -> dto.setTypeCongeNom(typeMap.getOrDefault(dto.getTypeCongeId(), "Inconnu")));
-        return dtos;
+                .filter(t -> t.getId() != null && t.getLibelle() != null)
+                .collect(java.util.stream.Collectors.toMap(TypeConge::getId, TypeConge::getLibelle, (a, b) -> a));
+
+        return dtos.stream()
+                .filter(dto -> typeMap.containsKey(dto.getTypeCongeId()))
+                .peek(dto -> dto.setTypeCongeNom(typeMap.get(dto.getTypeCongeId())))
+                .toList();
     }
 
     private SoldeCongeDTO defaultSolde(Long utilisateurId, Long typeCongeId, Integer annee) {

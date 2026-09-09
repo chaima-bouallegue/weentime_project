@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation, HostListener, ElementRef, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, MinusCircle, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, MoreVertical } from 'lucide-angular';
+import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, CircleMinus, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, MoreVertical } from 'lucide-angular';
 import { DemandeDocument, StatutDocument, TypeDocumentConfig } from '../../models/document.model';
 import { DocumentStatusBadgeComponent } from '../document-status-badge/document-status-badge.component';
 
@@ -60,7 +60,7 @@ export class DocumentHistoriqueComponent {
   readonly iconCheck = Check;
   readonly iconX = X;
   readonly iconAlert = AlertCircle;
-  readonly iconMinus = MinusCircle;
+  readonly iconMinus = CircleMinus;
   readonly iconTrash = Trash2;
   readonly iconFilter = Filter;
 

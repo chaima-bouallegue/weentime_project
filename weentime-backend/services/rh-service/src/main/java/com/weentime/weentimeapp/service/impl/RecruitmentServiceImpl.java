@@ -11,6 +11,8 @@ import com.weentime.weentimeapp.service.RecruitmentEmailService;
 import com.weentime.weentimeapp.service.NotificationSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -371,6 +373,83 @@ public class RecruitmentServiceImpl implements RecruitmentService {
         } catch (Exception wsEx) {
             log.warn("WebSocket push échoué (non bloquant) : {}", wsEx.getMessage());
         }
+    }
+
+    @Override
+    public ApplicationDTO reevaluateAi(Long applicationId, Long entrepriseId) {
+        Application app = applicationRepository.findByIdAndEntrepriseId(applicationId, entrepriseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Candidature introuvable"));
+
+        triggerAiEvaluation(app);
+        return mapper.toDto(app);
+    }
+
+    @Override
+    public int retryPendingAiEvaluations(Long entrepriseId) {
+        List<Application> apps = applicationRepository.findByEntrepriseIdOrderBySubmittedAtDesc(entrepriseId);
+        List<Application> toRetry = apps.stream()
+                .filter(a -> a.getAiAnalysisJson() == null || "FAILED".equals(a.getAiStatus()) || "ANALYZING".equals(a.getAiStatus()))
+                .toList();
+
+        for (Application app : toRetry) {
+            try {
+                triggerAiEvaluation(app);
+            } catch (Exception e) {
+                log.error("Erreur lors de la relance IA pour candidature #{}: {}", app.getId(), e.getMessage());
+            }
+        }
+        return toRetry.size();
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void autoRetryPendingEvaluationsOnStartup() {
+        try {
+            List<Application> pendingApps = applicationRepository.findAll().stream()
+                    .filter(a -> a.getAiAnalysisJson() == null && ("ANALYZING".equals(a.getAiStatus()) || "PENDING".equals(a.getAiStatus()) || "FAILED".equals(a.getAiStatus())))
+                    .toList();
+            if (!pendingApps.isEmpty()) {
+                log.info("🔄 [RECOVERY] {} candidature(s) non analysée(s) détectée(s) au démarrage. Relance automatique de l'analyse IA...", pendingApps.size());
+                for (int i = 0; i < pendingApps.size(); i++) {
+                    Application app = pendingApps.get(i);
+                    try {
+                        triggerAiEvaluation(app);
+                        if (i < pendingApps.size() - 1) {
+                            Thread.sleep(2500); // Espacement pour respecter le rate limit Gemini (5 req/min)
+                        }
+                    } catch (Exception ex) {
+                        log.error("Erreur auto-retry startup candidature #{}: {}", app.getId(), ex.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible d'exécuter la récupération automatique des évaluations IA au démarrage: {}", e.getMessage());
+        }
+    }
+
+    private void triggerAiEvaluation(Application app) {
+        app.setStatus(ApplicationStatus.AI_ANALYZING);
+        app.setAiStatus("ANALYZING");
+        applicationRepository.save(app);
+
+        JobPosting job = app.getJobPosting();
+        List<String> competences = job.getRequiredSkills() != null
+                ? Arrays.stream(job.getRequiredSkills().split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList()
+                : List.of();
+
+        aiService.evaluateCvAsync(
+                app.getId(),
+                app.getEntrepriseId(),
+                app.getCvStoragePath(),
+                job.getTitle(),
+                job.getDescription(),
+                competences,
+                job.getMinExperienceYears(),
+                job.getExperienceLevel()
+        );
+        log.info("Évaluation IA relancée pour candidature #{}", app.getId());
     }
 
     // ── Helpers ──

@@ -26,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", default="policy_sources.json", help="Manifest filename inside source-dir.")
     parser.add_argument("--dry-run", action="store_true", default=True, help="Validate and prepare chunks without writing to Chroma. Default.")
     parser.add_argument("--commit", action="store_true", help="Write prepared chunks to ChromaDB. Required for indexing.")
+    parser.add_argument("--delete-collection-first", action="store_true", help="Delete the collection before ingesting (migration path).")
     return parser
 
 
@@ -44,6 +45,8 @@ def run_ingestion(args: argparse.Namespace, *, retriever_factory: RetrieverFacto
         return 2
 
     retriever = retriever_factory(source_dir) if retriever_factory is not None else _build_retriever(source_dir)
+    if commit and getattr(args, "delete_collection_first", False) and hasattr(retriever, "delete_collection"):
+        retriever.delete_collection()
     result = ingest_policy_sources(
         retriever,
         manifest.sources,
@@ -62,8 +65,9 @@ def _build_retriever(source_dir: Path) -> ChromaPolicyRetriever:
         LocalPolicyStore(source_dir),
         persist_dir=getattr(settings, "chroma_persist_dir", PROJECT_ROOT / "storage" / "chroma"),
         collection_name=str(getattr(settings, "chroma_collection_name", "weentime_policy")),
-        embedding_model=str(getattr(settings, "chroma_embedding_model", "nomic-embed-text")),
-        ollama_base_url=str(getattr(settings, "ollama_base_url", "http://localhost:11434")),
+        embedding_backend=str(getattr(settings, "rag_embedding_backend", "sentence_transformers")),
+        embedding_model=str(getattr(settings, "sentence_transformer_model", "intfloat/multilingual-e5-base")),
+        min_score=float(getattr(settings, "rag_score_threshold", "0.7")),
         top_k=int(getattr(settings, "chroma_top_k", 5)),
     )
 

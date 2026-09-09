@@ -12,11 +12,12 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "presence-service", url = "${application.config.presence-url:http://localhost:8093}")
+@FeignClient(name = "presence-service", url = "${application.config.presence-url:http://localhost:8193}")
 public interface PresenceServiceClient {
 
     @GetMapping("/api/v1/presence/company/today")
@@ -36,6 +37,7 @@ public interface PresenceServiceClient {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
     class PresenceResponse {
         private List<MemberStatus> members;
         private Kpis kpis;
@@ -45,6 +47,7 @@ public interface PresenceServiceClient {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
     class MemberStatus {
         private Long utilisateurId;
         private String nomComplet;
@@ -62,6 +65,7 @@ public interface PresenceServiceClient {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
     class Kpis {
         private int totalMembers;
         private int presentCount;
@@ -70,3 +74,4 @@ public interface PresenceServiceClient {
         private double averagePunctuality;
     }
 }
+

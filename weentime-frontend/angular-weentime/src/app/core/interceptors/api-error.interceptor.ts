@@ -101,7 +101,7 @@ function shouldSilenceToast(req: HttpRequest<unknown>, error: HttpErrorResponse)
   }
 
   const url = req.url.toLowerCase();
-  if (url.includes('/api/v1/communication/unread-summary')) {
+  if (url.includes('/api/v1/communication/unread-summary') || url.includes('/organisations/users/by-email')) {
     return true;
   }
   const details = String(

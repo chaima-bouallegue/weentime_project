@@ -4,7 +4,7 @@ import {
   LucideAngularModule,
   Calendar, AlertCircle, Info, Trash2,
   CheckCircle, Clock, XCircle, Umbrella, Heart,
-  Star, ShieldCheck, MinusCircle, HelpCircle, Baby,
+  Star, ShieldCheck, CircleMinus, HelpCircle, HeartPulse,
   Eye, Pencil
 } from 'lucide-angular';
 import { DemandeConge, StatutDemande, TypeConge } from '../../models/conge.model';
@@ -26,6 +26,7 @@ export class HistoriqueListComponent {
   @Output() filterChange = new EventEmitter<StatutDemande | 'TOUS'>();
   @Output() cancelRequest = new EventEmitter<DemandeConge>();
   @Output() viewRequest = new EventEmitter<DemandeConge>();
+  @Output() editRequest = new EventEmitter<DemandeConge>();
 
   readonly iconCalendar = Calendar;
   readonly iconAlert   = AlertCircle;
@@ -38,9 +39,9 @@ export class HistoriqueListComponent {
   readonly iconHeart   = Heart;
   readonly iconStar    = Star;
   readonly iconShield  = ShieldCheck;
-  readonly iconMinus   = MinusCircle;
+  readonly iconMinus   = CircleMinus;
   readonly iconHelp    = HelpCircle;
-  readonly iconBaby    = Baby;
+  readonly iconBaby    = HeartPulse;
   readonly iconEye     = Eye;
   readonly iconPen     = Pencil;
 
@@ -124,7 +125,7 @@ export class HistoriqueListComponent {
     this.viewRequest.emit(demande);
   }
 
-  editRequest(demande: DemandeConge) {
-    alert(`Modification de la demande :\nCette fonctionnalité sera bientôt disponible.`);
+  onEditRequest(demande: DemandeConge) {
+    this.editRequest.emit(demande);
   }
 }

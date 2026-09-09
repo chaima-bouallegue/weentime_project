@@ -84,7 +84,7 @@
                 class="btn-action btn-edit"
                 [class.invisible]="!canCancel(demande)"
                 [disabled]="!canCancel(demande)"
-                (click)="editRequest(demande)"
+                (click)="onEditRequest(demande)"
                 title="Modifier"
               >
                 <lucide-angular [img]="iconPen" size="14"></lucide-angular>

@@ -15,11 +15,18 @@ import {
   AssistantWorkflowStep,
 } from '../../core/models/assistant.model';
 
+export interface ChatAttachment {
+  url: string;
+  fileName: string;
+  type?: string;
+}
+
 export interface ChatHistoryMessage {
   user_id: number;
   sender: string;
   message: string;
   timestamp: string;
+  attachment?: ChatAttachment | null;
 }
 
 export interface ChatHistoryResponse {
@@ -78,9 +85,10 @@ export class ChatService {
   private readonly authService = inject(AuthService);
   private readonly aiCopilot = inject(AiCopilotService);
   private readonly endpoint = environment.gatewayUrl + '/api/v1/ai';
+  private readonly rhEndpoint = environment.gatewayUrl + '/api/v1/rh';
 
-  sendMessage(message: string): Observable<ChatApiResponse> {
-    return this.aiCopilot.sendChatV2(message).pipe(
+  sendMessage(message: string, extraMetadata?: Record<string, unknown>): Observable<ChatApiResponse> {
+    return this.aiCopilot.sendChatV2(message, extraMetadata).pipe(
       map(response => this.fromV2Envelope(response)),
       catchError(error => {
         if (error instanceof HttpErrorResponse && error.status === 404) {
@@ -88,6 +96,16 @@ export class ChatService {
         }
         return this.rethrowApiError(error, "La demande RH n'a pas pu etre envoyee.");
       }),
+    );
+  }
+
+  uploadJustificatif(file: File): Observable<{ justificatifUrl: string; fileName: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ justificatifUrl: string; fileName: string }>(
+      `${this.rhEndpoint}/conges/justificatifs/upload`,
+      formData,
+      { withCredentials: true },
     );
   }
 

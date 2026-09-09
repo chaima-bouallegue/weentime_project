@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -323,7 +324,7 @@ public class CommunicationProvisioningService {
                 team.entrepriseId(),
                 ChannelType.TEAM,
                 ChannelVisibility.PUBLIC,
-                slugify(team.nom()),
+                slugifyTeam(team.nom()),
                 team.nom(),
                 team.description(),
                 team.id(),
@@ -408,9 +409,11 @@ public class CommunicationProvisioningService {
             accumulator.channelsUpdated++;
         }
 
+        String uniqueSlug = resolveUniqueSlug(entrepriseId, slug, channel.getId(), accumulator);
+
         channel.setType(type);
         channel.setVisibility(visibility);
-        channel.setSlug(slug);
+        channel.setSlug(uniqueSlug);
         channel.setName(name);
         channel.setDescription(description);
         channel.setEquipeId(equipeId);
@@ -584,9 +587,52 @@ public class CommunicationProvisioningService {
         if (value == null || value.isBlank()) {
             return UUID.randomUUID().toString();
         }
-        return value.trim().toLowerCase()
+        String normalized = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .trim()
+                .toLowerCase()
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("(^-|-$)", "");
+        return normalized.isBlank() ? UUID.randomUUID().toString() : normalized;
+    }
+
+    private String slugifyTeam(String value) {
+        String base = slugify(value);
+        if (base.startsWith("equipe-") || base.startsWith("team-")) {
+            return base;
+        }
+        return "equipe-" + base;
+    }
+
+    private String resolveUniqueSlug(
+            Long entrepriseId,
+            String rawSlug,
+            UUID currentChannelId,
+            SyncAccumulator accumulator
+    ) {
+        if (rawSlug == null || rawSlug.isBlank()) {
+            return null;
+        }
+        String normalizedBase = slugify(rawSlug);
+        String candidate = normalizedBase;
+        int counter = 1;
+
+        while (true) {
+            String lowerCandidate = candidate.toLowerCase();
+            boolean takenInBatch = accumulator != null && accumulator.allocatedSlugs.contains(lowerCandidate);
+            Optional<CommChannel> existing = channelRepository.findFirstByEntrepriseIdAndSlugIgnoreCaseAndIsArchivedFalse(entrepriseId, candidate);
+            boolean takenInDb = existing.isPresent() && (currentChannelId == null || !Objects.equals(existing.get().getId(), currentChannelId));
+
+            if (!takenInBatch && !takenInDb) {
+                if (accumulator != null) {
+                    accumulator.allocatedSlugs.add(lowerCandidate);
+                }
+                return candidate;
+            }
+
+            counter++;
+            candidate = normalizedBase + "-" + counter;
+        }
     }
 
     private record EnterpriseContext(
@@ -605,6 +651,7 @@ public class CommunicationProvisioningService {
         private int membersAdded;
         private int membersRemoved;
         private final List<String> warnings = new ArrayList<>();
+        private final Set<String> allocatedSlugs = new LinkedHashSet<>();
 
         private SyncAccumulator(Long entrepriseId) {
             this.entrepriseId = entrepriseId;

@@ -44,6 +44,7 @@ import {
   AnomalyRecord,
   MlAnomalyService,
 } from '../../../core/services/ml-anomaly.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { AiAnomalyFeedComponent } from '../../../shared/dashboard/ai-anomaly-feed/ai-anomaly-feed.component';
 import {
   ManagerDashboardData,
@@ -87,6 +88,7 @@ interface DashAlert {
 export class ManagerDashboardComponent implements OnInit, OnDestroy {
   private readonly svc = inject(ManagerDashboardService);
   private readonly mlAnomaly = inject(MlAnomalyService);
+  private readonly authService = inject(AuthService);
 
   /* ── icons ──────────────────────────────────────────── */
   protected readonly ic = {
@@ -148,6 +150,11 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   private anomalySub?: Subscription;
 
   /* ── computed ───────────────────────────────────────── */
+  readonly greeting = computed(() => {
+    const h = this.now().getHours();
+    return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+  });
+
   readonly todayLabel = computed(() =>
     this.now().toLocaleDateString('fr-FR', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -305,13 +312,10 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadFirstName(): void {
-    try {
-      const raw = localStorage.getItem('auth_user') ?? localStorage.getItem('user');
-      if (raw) {
-        const u = JSON.parse(raw);
-        this.firstName.set(u?.prenom ?? u?.firstName ?? 'Manager');
-      }
-    } catch { /* ignore */ }
+    const user = this.authService.currentUser();
+    if (user?.prenom) {
+      this.firstName.set(user.prenom);
+    }
   }
 
   initials(name: string): string {

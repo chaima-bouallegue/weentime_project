@@ -15,6 +15,7 @@ import { CommunicationConnectionState } from '../../services/communication-webso
           <div class="comm-header-title-row">
             <span class="comm-header-hash">#</span>
             <h1>{{ channel.name }}</h1>
+            <span *ngIf="channel.isArchived" class="channel-archived-tag">Archivé</span>
             <span class="comm-header-dot">·</span>
             <p class="comm-header-desc">{{ channel.description || 'Canal RH pour les échanges' }}</p>
           </div>
@@ -35,13 +36,6 @@ import { CommunicationConnectionState } from '../../services/communication-webso
                 </div>
               </div>
               <span class="member-count">{{ channel.members.length }} membres</span>
-            </div>
-            <span class="comm-header-dot">·</span>
-            <div class="connection-status" [class]="connectionState">
-              <span class="status-indicator" [class.pulse]="connectionState === 'connecting'"></span>
-              <span class="status-text">
-                {{ connectionState === 'connected' ? 'En direct' : connectionState === 'connecting' ? 'Connexion...' : 'Hors ligne' }}
-              </span>
             </div>
           </div>
         </div>
@@ -135,6 +129,17 @@ import { CommunicationConnectionState } from '../../services/communication-webso
       font-weight: 800;
       color: #1e1b4b;
       letter-spacing: -0.01em;
+    }
+
+    .channel-archived-tag {
+      font-size: 11px;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #b45309;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .comm-header-dot {

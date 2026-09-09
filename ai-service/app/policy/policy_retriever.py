@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import logging
 import re
 import unicodedata
 from time import perf_counter
@@ -13,6 +12,8 @@ from .chromadb_retriever import ChromaPolicyRetriever, ChromaUnavailableError
 from .policy_models import PolicyCitation, PolicySearchResult, PolicySource
 from .policy_store import LocalPolicyStore
 from .retriever_base import BasePolicyRetriever
+
+logger = logging.getLogger(__name__)
 
 
 class KeywordPolicyRetriever(BasePolicyRetriever):
@@ -66,6 +67,7 @@ class PolicyRetriever(BasePolicyRetriever):
     ) -> None:
         self.store = store
         self.settings = settings or get_settings()
+        self.score_threshold = float(getattr(self.settings, "rag_score_threshold", 0.7) or 0.7)
         self.keyword = KeywordPolicyRetriever(store, min_score=min_score)
         self._chroma = chroma_retriever
         self._chroma_error: str | None = None
@@ -77,6 +79,21 @@ class PolicyRetriever(BasePolicyRetriever):
         success = True
         retrieval_error_type: str | None = None
         retrieval_error_message: str | None = None
+        chroma_enabled = bool(getattr(self.settings, "chroma_enabled", False))
+        should_chroma = self._should_use_chroma()
+        logger.info(
+            "[AUDIT] RAG search -> provider='%s', chroma_enabled=%s, should_use_chroma=%s, tenant_id=%s, language='%s'",
+            provider,
+            chroma_enabled,
+            should_chroma,
+            tenant_id,
+            language,
+        )
+        if tenant_id is None:
+            logger.warning(
+                "[RAG_DIAGNOSTIC] policy_retriever.search() called with tenant_id=None! "
+                "(organisation-service unavailable or JWT missing entreprise_id claim. RAG search will return 0 results)"
+            )
         with start_span(
             "rag.search",
             {
@@ -151,6 +168,9 @@ class PolicyRetriever(BasePolicyRetriever):
             "chroma_enabled": bool(getattr(self.settings, "chroma_enabled", False)),
             "collection_name": getattr(self.settings, "chroma_collection_name", "weentime_policy"),
             "top_k": getattr(self.settings, "chroma_top_k", 5),
+            "embedding_backend": getattr(self.settings, "rag_embedding_backend", "sentence_transformers"),
+            "embedding_model": getattr(self.settings, "sentence_transformer_model", "intfloat/multilingual-e5-base"),
+            "score_threshold": self.score_threshold,
             "citation_required": bool(getattr(self.settings, "rag_require_citations", True)),
             "tenant_filter_required": bool(getattr(self.settings, "rag_tenant_filter_required", True)),
             "fallback": "local_keyword",
@@ -167,9 +187,11 @@ class PolicyRetriever(BasePolicyRetriever):
                 self.store,
                 persist_dir=getattr(self.settings, "chroma_persist_dir", "./storage/chroma"),
                 collection_name=str(getattr(self.settings, "chroma_collection_name", "weentime_policy")),
-                embedding_model=str(getattr(self.settings, "chroma_embedding_model", "nomic-embed-text")),
+                embedding_backend=str(getattr(self.settings, "rag_embedding_backend", "sentence_transformers")),
+                embedding_model=str(getattr(self.settings, "sentence_transformer_model", "intfloat/multilingual-e5-base")),
                 ollama_base_url=str(getattr(self.settings, "ollama_base_url", "http://localhost:11434")),
                 top_k=int(getattr(self.settings, "chroma_top_k", 5)),
+                min_score=self.score_threshold,
             )
         return self._chroma
 

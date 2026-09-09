@@ -62,6 +62,7 @@ class RecoveryDirective:
 
 def classify_recovery_message(message: str | None) -> RecoveryDirective:
     normalized = normalize_recovery_message(message)
+    word_count = len(normalized.split())
 
     if normalized in POSITIVE_RECOVERY_TOKENS:
         return RecoveryDirective(action="approve", normalized_message=normalized)
@@ -71,6 +72,9 @@ def classify_recovery_message(message: str | None) -> RecoveryDirective:
 
     if normalized in CONTINUE_RECOVERY_TOKENS:
         return RecoveryDirective(action="continue", normalized_message=normalized)
+
+    if word_count > 2:
+        return RecoveryDirective(action="none", normalized_message=normalized)
 
     for token in POSITIVE_RECOVERY_TOKENS:
         if re.search(rf"\b{re.escape(token)}\b", normalized):

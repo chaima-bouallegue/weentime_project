@@ -96,7 +96,7 @@ class Settings:
         self.voice_ollama_max_tokens = max(32, int(os.getenv("VOICE_OLLAMA_MAX_TOKENS", "160")))
         self.voice_ollama_temperature = float(os.getenv("VOICE_OLLAMA_TEMPERATURE", "0.2"))
 
-        self.stt_model = os.getenv("WHISPER_MODEL", os.getenv("STT_MODEL", "tiny")).strip() or "tiny"
+        self.stt_model = os.getenv("WHISPER_MODEL", os.getenv("STT_MODEL", "small")).strip() or "small"
         self.stt_language = os.getenv("STT_LANGUAGE", "fr")
         self.stt_device = os.getenv("STT_DEVICE", "cpu").strip().lower()
         self.stt_compute_type = os.getenv("STT_COMPUTE_TYPE", "int8").strip() or "int8"
@@ -153,6 +153,10 @@ class Settings:
         self.chroma_collection_name = os.getenv("CHROMA_COLLECTION_NAME", "weentime_policy").strip()
         self.chroma_embedding_model = os.getenv("CHROMA_EMBEDDING_MODEL", "nomic-embed-text").strip()
         self.chroma_top_k = max(1, int(os.getenv("CHROMA_TOP_K", "5")))
+        self.rag_embedding_backend = os.getenv("RAG_EMBEDDING_BACKEND", "sentence_transformers").strip().lower()
+        self.sentence_transformer_model = os.getenv("SENTENCE_TRANSFORMER_MODEL", "intfloat/multilingual-e5-base").strip()
+        self.rag_score_threshold = float(os.getenv("RAG_SCORE_THRESHOLD", "0.55"))
+        self.rag_overscan = max(1, int(os.getenv("RAG_OVERSCAN", "3")))
         self.rag_require_citations = _to_bool(os.getenv("RAG_REQUIRE_CITATIONS"), True)
         self.rag_tenant_filter_required = _to_bool(os.getenv("RAG_TENANT_FILTER_REQUIRED"), True)
         self.cors_origins = _safe_cors_origins(os.getenv("CORS_ORIGINS"))
@@ -193,6 +197,7 @@ class Settings:
 
         # ── AI Providers Configuration ──
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")

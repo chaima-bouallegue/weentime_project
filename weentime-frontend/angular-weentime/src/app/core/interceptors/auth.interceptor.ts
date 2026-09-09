@@ -17,6 +17,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const isBackendCall = req.url.startsWith(environment.apiUrl)
                      || req.url.includes('localhost:8');
   const isRefreshCall = req.url.includes('/auth/refresh');
+  const isAuthEntryCall = req.url.includes('/auth/login')
+                       || req.url.includes('/auth/register')
+                       || req.url.includes('/auth/verify-2fa')
+                       || req.url.includes('/auth/ws-token');
 
   let clonedRequest: HttpRequest<unknown> = req;
   if (isBackendCall) {
@@ -25,7 +29,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(clonedRequest).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !isRefreshCall && !req.url.includes('/auth/ws-token') && !isRefreshing) {
+      if (isAuthEntryCall) {
+        return throwError(() => error);
+      }
+
+      if (error.status === 401 && !isRefreshCall && !isRefreshing) {
         isRefreshing = true;
         return authService.refreshToken().pipe(
           switchMap(success => {

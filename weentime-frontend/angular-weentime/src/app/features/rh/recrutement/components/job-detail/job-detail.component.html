@@ -159,11 +159,11 @@
                         <span class="btn-label">CV</span>
                       </button>
                     }
-                    <button class="action-btn approve" title="Présélectionner" (click)="shortlistCandidate(app.id)">
+                    <button class="action-btn approve" title="Présélectionner" (click)="openDecisionModal(app, 'SHORTLISTED')">
                       <i-lucide [img]="CheckCircle" class="w-4 h-4"></i-lucide>
                       <span class="btn-label">Shortlister</span>
                     </button>
-                    <button class="action-btn reject" title="Refuser" (click)="rejectCandidate(app.id)">
+                    <button class="action-btn reject" title="Refuser" (click)="openDecisionModal(app, 'REJECTED')">
                       <i-lucide [img]="XCircle" class="w-4 h-4"></i-lucide>
                       <span class="btn-label">Rejeter</span>
                     </button>
@@ -299,6 +299,102 @@
         <div class="modal-footer">
           <button class="btn-secondary" (click)="closeDeleteModal()">Annuler</button>
           <button class="btn-danger" (click)="confirmDelete()">Supprimer définitivement</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Candidate Decision Modal (Accept/Reject with Reason) -->
+  @if (showDecisionModal()) {
+    <div class="modal-overlay" (click)="closeDecisionModal()">
+      <div class="modal-card decision-modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header-custom" [class.is-reject]="decisionType() === 'REJECTED'" [class.is-accept]="decisionType() === 'SHORTLISTED'">
+          <div class="header-icon-badge">
+            @if (decisionType() === 'SHORTLISTED') {
+              <i-lucide [img]="CheckCircle" class="w-6 h-6 text-emerald-600 dark:text-emerald-400"></i-lucide>
+            } @else {
+              <i-lucide [img]="XCircle" class="w-6 h-6 text-rose-600 dark:text-rose-400"></i-lucide>
+            }
+          </div>
+          <div class="header-text-group">
+            <h3 class="modal-title-custom">
+              @if (decisionType() === 'SHORTLISTED') {
+                Présélectionner le candidat
+              } @else {
+                Refuser la candidature
+              }
+            </h3>
+            <p class="modal-subtitle-custom">
+              Candidat : <strong>{{ targetApp()?.firstName }} {{ targetApp()?.lastName }}</strong>
+            </p>
+          </div>
+          <button class="modal-close-btn" (click)="closeDecisionModal()" aria-label="Fermer">✕</button>
+        </div>
+
+        <div class="modal-body-custom">
+          <label class="input-label-custom">
+            @if (decisionType() === 'SHORTLISTED') {
+              Motif ou commentaire d'acceptation <span class="opt-tag">(Optionnel)</span>
+            } @else {
+              Motif du refus <span class="opt-tag">(Recommandé)</span>
+            }
+          </label>
+
+          <!-- Preset Chips -->
+          <div class="preset-chips-container">
+            <span class="preset-label">Suggérés :</span>
+            <div class="preset-chips-wrap">
+              @if (decisionType() === 'SHORTLISTED') {
+                @for (preset of acceptPresets; track preset) {
+                  <button type="button" class="preset-chip accept" (click)="selectPreset(preset)">
+                    + {{ preset }}
+                  </button>
+                }
+              } @else {
+                @for (preset of rejectPresets; track preset) {
+                  <button type="button" class="preset-chip reject" (click)="selectPreset(preset)">
+                    + {{ preset }}
+                  </button>
+                }
+              }
+            </div>
+          </div>
+
+          <textarea
+            class="modal-textarea-custom"
+            rows="4"
+            [ngModel]="decisionReason()"
+            (ngModelChange)="decisionReason.set($event)"
+            [placeholder]="decisionType() === 'SHORTLISTED' ? 'Ex : Excellent profil technique, expérience très pertinente...' : 'Ex : Profil manquant de compétences requises en...'"
+          ></textarea>
+          <p class="textarea-hint-custom">
+            <i-lucide [img]="Brain" class="w-3.5 h-3.5 inline mr-1"></i-lucide>
+            Ce commentaire sera enregistré dans l'historique et la fiche du candidat.
+          </p>
+        </div>
+
+        <div class="modal-footer-custom">
+          <button class="btn-secondary-custom" (click)="closeDecisionModal()" [disabled]="isSubmittingDecision()">
+            Annuler
+          </button>
+          <button
+            class="btn-confirm-custom"
+            [class.btn-reject-custom]="decisionType() === 'REJECTED'"
+            [class.btn-accept-custom]="decisionType() === 'SHORTLISTED'"
+            (click)="confirmDecision()"
+            [disabled]="isSubmittingDecision()"
+          >
+            @if (isSubmittingDecision()) {
+              <i-lucide [img]="Loader2" class="w-4 h-4 animate-spin inline mr-1"></i-lucide>
+              Enregistrement...
+            } @else {
+              @if (decisionType() === 'SHORTLISTED') {
+                Confirmer la présélection
+              } @else {
+                Confirmer le refus
+              }
+            }
+          </button>
         </div>
       </div>
     </div>

@@ -31,7 +31,7 @@ $env:RAG_REQUIRE_CITATIONS="true"
 $env:RAG_TENANT_FILTER_REQUIRED="true"
 
 # 4. Configuration Braintrust (Désactivé pour économiser la RAM)
-$env:BRAINTRUST_ENABLED="false"
+$env:BRAINTRUST_ENABLED="true"
 
 # 5. Configuration Mode Dev & Services
 $env:APP_ENV="development"

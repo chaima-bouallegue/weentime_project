@@ -49,6 +49,7 @@ export class EmployeeCongesComponent implements OnInit {
 
   isLoading = signal(true);
   showDrawer = signal(false);
+  demandeModifier = signal<DemandeConge | null>(null);
   demandeAnnuler = signal<DemandeConge | null>(null);
   demandeConsulter = signal<DemandeConge | null>(null);
   isAnnulating = signal(false);
@@ -119,6 +120,22 @@ export class EmployeeCongesComponent implements OnInit {
     this.filtreStatut.set(filter);
   }
 
+  openNewRequest() {
+    this.demandeModifier.set(null);
+    this.showDrawer.set(true);
+  }
+
+  onEditRequest(demande: DemandeConge) {
+    this.demandeConsulter.set(null);
+    this.demandeModifier.set(demande);
+    this.showDrawer.set(true);
+  }
+
+  closeDrawer() {
+    this.showDrawer.set(false);
+    this.demandeModifier.set(null);
+  }
+
   onCancelRequest(demande: DemandeConge) {
     this.demandeAnnuler.set(demande);
   }
@@ -140,16 +157,23 @@ export class EmployeeCongesComponent implements OnInit {
   }
 
   soumettreDemande(request: NouvelleDemandeRequest) {
+    const editTarget = this.demandeModifier();
     this.isSubmittingRequest.set(true);
-    this.congeService.soumettreDemande(request).subscribe({
+
+    const operation$ = editTarget
+      ? this.congeService.modifierDemande(editTarget.id, request)
+      : this.congeService.soumettreDemande(request);
+
+    operation$.subscribe({
       next: () => {
         this.isSubmittingRequest.set(false);
         this.showDrawer.set(false);
-        this.toastService.success('Votre demande a été soumise avec succès');
+        this.demandeModifier.set(null);
+        this.toastService.success(editTarget ? 'Votre demande a été modifiée avec succès' : 'Votre demande a été soumise avec succès');
         this.refreshState();
       },
       error: (error) => {
-        this.toastService.error(this.extractErrorMessage(error, 'Impossible de soumettre la demande.'));
+        this.toastService.error(this.extractErrorMessage(error, editTarget ? 'Impossible de modifier la demande.' : 'Impossible de soumettre la demande.'));
         this.isSubmittingRequest.set(false);
       }
     });

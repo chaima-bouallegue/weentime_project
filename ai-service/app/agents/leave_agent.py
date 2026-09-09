@@ -4,6 +4,7 @@ from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse
 from app.tools.executor import ToolExecutor
+from app.tools.leave_tools import list_type_conges
 
 from .base_domain_agent import DomainAgent
 from .hr_agent_utils import ConfirmationMixin, extract_payload, has_any
@@ -70,18 +71,54 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
                 if not payload.get("reason"):
                     payload["reason"] = "maladie"
             if not payload.get("start_date") or not payload.get("end_date"):
+                lang = getattr(context, "language", "fr")
+                date_text = "Pour quelle date souhaitez-vous demander ce conge ?"
+                if lang == "en":
+                    date_text = "Which dates would you like to request for this leave?"
+                elif lang == "ar":
+                    date_text = "ما هي التواريخ التي ترغب في طلب الإجازة خلالها؟"
+                elif lang == "tn":
+                    date_text = "anehi date theb tekhedh feha congé?"
                 return AgentResponse(
                     type="ask",
-                    text="Pour quelle date souhaitez-vous demander ce conge ?",
+                    text=date_text,
                     intent=intent,
                     confidence=confidence,
                 )
             if not payload.get("leave_type_label") and not payload.get("type_conge_id"):
+                options: list[dict[str, str]] = []
+                backend_client = getattr(self.executor, "backend_client", None)
+                types = await list_type_conges(backend_client, context) if backend_client else []
+                labels = [t.get("libelle") for t in types if isinstance(t, dict) and t.get("libelle")]
+                lang = getattr(context, "language", "fr")
+                if labels:
+                    example_text = ", ".join(labels[:3])
+                    options = [{"label": label, "value": label} for label in labels]
+                    if lang == "en":
+                        text = f"Which leave type would you like to request? For example: {example_text}."
+                    elif lang == "ar":
+                        text = f"ما نوع الإجازة التي ترغب في طلبها؟ على سبيل المثال: {example_text}."
+                    elif lang == "tn":
+                        text = f"Chnowa l type de conge? Mathalan: {example_text}."
+                    else:
+                        text = f"Quel type de conge souhaitez-vous demander ? Par exemple: {example_text}."
+                else:
+                    if lang == "en":
+                        text = "Which leave type would you like to request?"
+                    elif lang == "ar":
+                        text = "ما نوع الإجازة التي ترغب في طلبها؟"
+                    elif lang == "tn":
+                        text = "Chnowa l type de conge?"
+                    else:
+                        text = "Quel type de conge souhaitez-vous demander ?"
+
+                action_result = {"kind": "leave_type_prompt", "options": options} if options else None
                 return AgentResponse(
                     type="ask",
-                    text="Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT.",
+                    text=text,
                     intent=intent,
                     confidence=confidence,
+                    actionResult=action_result,
                 )
             # Specific leave types ARE their own reason — never re-prompt a user
             # who already said "conge maladie / maternite / sans solde" etc.
@@ -141,10 +178,10 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
         # "malade" / "sick" / "marid" trigger sick-leave creation even when
         # the message does not contain a leave noun ("je suis malade
         # aujourd'hui"). The leave_type/reason is pre-inferred in handle().
-        sick_terms = ("malade", "maladie", "sick", "marid", "marida", "مريض", "مريضة")
-        if not has_any(text, ("congÃ©", "congé", "conge", "leave", "vacance", "absence", "reste", *sick_terms)):
+        sick_terms = ("malade", "maladie", "sick", "mridh", "mridha", "مريض", "مريضة")
+        if not has_any(text, ("congé", "conge", "counji", "leave", "vacance", "absence", "reste", "mazel", "mazali", "mazeli", *sick_terms)):
             return None, 0.0
-        if has_any(text, ("combien", "solde", "jours restants", "how many", "balance", "reste")):
+        if has_any(text, ("combien", "solde", "jours restants", "how many", "balance", "reste", "mazel", "mazali", "mazeli", "9adeh", "b9a", "رصيد", "كم بقي")):
             return "leave.balance", 0.91
         if has_any(text, ("statut", "status", "suivi", "historique", "mes demandes", "list", "liste")):
             return "leave.status", 0.82
@@ -157,7 +194,7 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
 
 def _looks_like_sick_leave(message: str) -> bool:
     text = (message or "").lower()
-    return any(term in text for term in ("malade", "maladie", "sick", "marid", "marida", "مريض", "مريضة"))
+    return any(term in text for term in ("malade", "maladie", "sick", "mridh", "mridha", "مريض", "مريضة"))
 
 
 def _reason_from_leave_type(leave_type_label) -> str | None:

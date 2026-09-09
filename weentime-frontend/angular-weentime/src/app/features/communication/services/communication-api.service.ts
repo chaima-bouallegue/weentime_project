@@ -17,7 +17,9 @@ import {
   SendMessageRequest,
   UpdateMessageRequest,
   UnreadSummaryModel,
-  AttachmentModel
+  AttachmentModel,
+  UpdateChannelRequest,
+  AddChannelMembersRequest
 } from '../models/communication.models';
 
 @Injectable({
@@ -40,6 +42,32 @@ export class CommunicationApiService {
   createChannel(request: CreateChannelRequest): Observable<ChannelModel> {
     const url = this.apiConfig.buildUrl('/communication/channels');
     return this.http.post<ApiEnvelope<ChannelModel>>(url, request).pipe(this.unwrapResponse('POST', url));
+  }
+
+  updateChannel(channelId: string, request: UpdateChannelRequest): Observable<ChannelModel> {
+    const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}`);
+    return this.http.put<ApiEnvelope<ChannelModel>>(url, request).pipe(this.unwrapResponse('PUT', url));
+  }
+
+  archiveChannel(channelId: string): Observable<ChannelModel> {
+    const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/archive`);
+    return this.http.put<ApiEnvelope<ChannelModel>>(url, {}).pipe(this.unwrapResponse('PUT', url));
+  }
+
+  addChannelMembers(channelId: string, userIds: number[]): Observable<ChannelModel> {
+    const payload: AddChannelMembersRequest = { userIds };
+    const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/members`);
+    return this.http.post<ApiEnvelope<ChannelModel>>(url, payload).pipe(this.unwrapResponse('POST', url));
+  }
+
+  removeChannelMember(channelId: string, userId: number): Observable<ChannelModel> {
+    const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/members/${userId}`);
+    return this.http.delete<ApiEnvelope<ChannelModel>>(url).pipe(this.unwrapResponse('DELETE', url));
+  }
+
+  leaveChannel(channelId: string): Observable<void> {
+    const url = this.apiConfig.buildUrl(`/communication/channels/${channelId}/leave`);
+    return this.http.post<ApiEnvelope<void>>(url, {}).pipe(this.unwrapResponse('POST', url));
   }
 
   openDirectMessage(userId: number): Observable<ChannelModel> {

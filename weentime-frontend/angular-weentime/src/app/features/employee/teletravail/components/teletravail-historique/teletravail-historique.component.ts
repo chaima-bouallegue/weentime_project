@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Filter, Search, Calendar, Clock, CheckCircle, XCircle, MinusCircle, Laptop, Sun, Sunrise, Sunset, Home, Trash2, Info, ArrowRight, Eye, Pencil } from 'lucide-angular';
+import { LucideAngularModule, Filter, Search, Calendar, Clock, CheckCircle, XCircle, CircleMinus, Laptop, Sun, Sunrise, Sunset, Home, Trash2, Info, ArrowRight, Eye, Pencil } from 'lucide-angular';
 import { DemandeTeletravail, StatutTeletravail, TypeTeletravail } from '../../models/teletravail.model';
 
 interface FilterChip {
@@ -35,7 +35,7 @@ export class TeletravailHistoriqueComponent {
   readonly iconClock = Clock;
   readonly iconCheck = CheckCircle;
   readonly iconX = XCircle;
-  readonly iconMinus = MinusCircle;
+  readonly iconMinus = CircleMinus;
   readonly iconLaptop = Laptop;
   readonly iconSun = Sun;
   readonly iconSunrise = Sunrise;

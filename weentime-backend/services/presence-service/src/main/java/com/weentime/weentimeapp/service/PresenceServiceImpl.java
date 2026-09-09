@@ -93,6 +93,7 @@ public class PresenceServiceImpl implements PresenceService {
     private final java.util.Map<String, CacheEntry<Boolean>> teleworkCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, CacheEntry<Boolean>> holidayCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<Long, CacheEntry<UserSummaryDTO>> userCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, CacheEntry<WorkSchedule>> scheduleCache = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long CACHE_TTL_MS = 15000L; // 15s TTL
 
     private Clock clock = Clock.systemUTC();
@@ -1836,8 +1837,15 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private WorkSchedule resolveSchedule(Long utilisateurId, LocalDate date) {
+        String key = utilisateurId + "_" + date;
+        CacheEntry<WorkSchedule> entry = scheduleCache.get(key);
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            return entry.value;
+        }
         try {
-            return horaireManagementService.resolveEffectiveWorkSchedule(utilisateurId, date);
+            WorkSchedule result = horaireManagementService.resolveEffectiveWorkSchedule(utilisateurId, date);
+            scheduleCache.put(key, new CacheEntry<>(result));
+            return result;
         } catch (Exception exception) {
             log.warn("Unable to resolve effective schedule for user {} on {}: {}", utilisateurId, date, exception.getMessage());
             return workScheduleRepository.findByUtilisateurId(utilisateurId)

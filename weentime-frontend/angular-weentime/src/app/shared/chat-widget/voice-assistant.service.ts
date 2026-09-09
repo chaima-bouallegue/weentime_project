@@ -153,7 +153,7 @@ export class VoiceAssistantService {
 
       this.emitState('listening');
       this.startStatusMessageSequence();
-      this.recorder.start(VoiceAssistantService.RECORDER_TIMESLICE_MS);
+      this.recorder.start();
       if (this.maxDurationTimer !== null) {
         clearTimeout(this.maxDurationTimer);
       }
@@ -176,6 +176,26 @@ export class VoiceAssistantService {
     }
     this.emitState('stopping');
     this.recorder.stop();
+  }
+
+  cancel(): void {
+    this.stopStatusMessageSequence();
+    this.clearSilenceTimer();
+    if (this.maxDurationTimer !== null) {
+      clearTimeout(this.maxDurationTimer);
+      this.maxDurationTimer = null;
+    }
+    this.finalized = true;
+    if (this.recorder) {
+      this.recorder.onstop = null;
+      if (this.recorder.state !== 'inactive') {
+        try {
+          this.recorder.stop();
+        } catch {}
+      }
+    }
+    this.cleanupMedia();
+    this.emitState('idle');
   }
 
   isRecording(): boolean {

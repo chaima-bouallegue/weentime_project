@@ -1,0 +1,176 @@
+:host {
+  display: block;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ================================================================
+   ANIMATIONS & KEYFRAMES
+   ================================================================ */
+@keyframes float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -20px) scale(1.05); }
+  50% { transform: translate(-10px, 25px) scale(0.95); }
+  75% { transform: translate(20px, 10px) scale(1.02); }
+}
+@keyframes float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 15px) scale(1.08); }
+  66% { transform: translate(15px, -25px) scale(0.92); }
+}
+@keyframes float-3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(15px, -15px); }
+}
+
+@keyframes voice-wave {
+  0%, 100% { height: 4px; }
+  50%      { height: 16px; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes panel-fade {
+  0% { opacity: 0; transform: translateY(12px) scale(0.98); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.animate-panel-fade {
+  animation: panel-fade 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ================================================================
+   PURPLE PANEL (LEFT / RIGHT ANIMATED)
+   ================================================================ */
+.purple-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  will-change: left, transform;
+
+  &.is-register {
+    left: 0;
+    border-top-right-radius: 2.5rem;
+    border-bottom-right-radius: 2.5rem;
+    box-shadow: 15px 0 45px -10px rgba(79, 70, 229, 0.25);
+  }
+
+  &.is-login {
+    left: 50%;
+    border-top-left-radius: 2.5rem;
+    border-bottom-left-radius: 2.5rem;
+    box-shadow: -15px 0 45px -10px rgba(79, 70, 229, 0.25);
+  }
+}
+
+/* 3D Spheres */
+.sphere {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+
+  &.s1 {
+    width: 320px; height: 320px;
+    background: radial-gradient(circle at 35% 30%, #818cf8 0%, #4f46e5 50%, #3730a3 100%);
+    top: -80px; left: -80px;
+    box-shadow: inset -12px -12px 40px rgba(0,0,0,0.15), 8px 8px 24px rgba(79,70,229,0.25);
+    animation: float-1 14s ease-in-out infinite;
+  }
+  &.s2 {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle at 30% 25%, #a78bfa 0%, #7c3aed 50%, #5b21b6 100%);
+    bottom: -100px; right: -120px;
+    box-shadow: inset -12px -12px 40px rgba(0,0,0,0.15), 8px 8px 24px rgba(124,58,237,0.25);
+    animation: float-2 18s ease-in-out infinite;
+  }
+  &.s3 {
+    width: 120px; height: 120px;
+    background: radial-gradient(circle at 35% 30%, #c4b5fd 0%, #8b5cf6 70%);
+    top: 35%; right: 15%;
+    box-shadow: inset -6px -6px 20px rgba(0,0,0,0.1);
+    animation: float-3 10s ease-in-out infinite;
+    opacity: 0.5;
+  }
+}
+
+/* Glass rings */
+.glass-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Activity cards & Voice Module */
+.activity-card {
+  animation: slide-up 0.6s ease-out both;
+}
+
+.voice-bar {
+  width: 3px;
+  background: white;
+  border-radius: 2px;
+  margin: 0 1px;
+  animation: voice-wave 1s ease-in-out infinite;
+
+  &.b1 { animation-delay: 0.1s; }
+  &.b2 { animation-delay: 0.3s; }
+  &.b3 { animation-delay: 0.2s; }
+}
+
+.voice-wave-container {
+  overflow: hidden;
+  &:hover .voice-bar {
+    background: #818cf8;
+  }
+}
+
+/* ================================================================
+   FORM PANEL WRAPPER
+   ================================================================ */
+.form-panel-wrapper {
+  will-change: transform, opacity;
+}
+
+/* ================================================================
+   THEME FAB
+   ================================================================ */
+.theme-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(226, 232, 240, 0.8);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transition: all 0.2s ease;
+
+  &:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+  &:active { transform: scale(0.95); }
+}
+
+:host-context(.dark) .theme-fab {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+@media (max-width: 1023px) {
+  .purple-panel { display: none !important; }
+  .form-panel-wrapper { width: 100% !important; margin: 0 !important; }
+}

@@ -32,12 +32,12 @@ public class RefreshTokenService {
         String token = UUID.randomUUID().toString();
         String key = PREFIX + token;
         try {
-            String value = objectMapper.writeValueAsString(Map.of(
-                    "email", email,
-                    "userId", userId,
-                    "entrepriseId", entrepriseId,
-                    "roles", roles
-            ));
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("email", email);
+            map.put("userId", userId);
+            map.put("entrepriseId", entrepriseId);
+            map.put("roles", roles);
+            String value = objectMapper.writeValueAsString(map);
             redisTemplate.opsForValue().set(key, value, TTL_DAYS, TimeUnit.DAYS);
             log.debug("Refresh token created for userId={}", userId);
         } catch (JsonProcessingException e) {

@@ -60,6 +60,7 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
                         @Param("entrepriseId") Long entrepriseId,
                         @Param("roleName") String roleName);
 
+        @EntityGraph(attributePaths = { "roles", "departement", "equipe", "entreprise", "manager" })
         @Query("""
                         select distinct u
                         from Utilisateur u
@@ -79,7 +80,7 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
         @EntityGraph(attributePaths = { "roles", "departement", "equipe", "entreprise", "manager" })
         List<Utilisateur> findByEntrepriseIdOrderByPrenomAscNomAsc(Long entrepriseId);
 
-        @EntityGraph(attributePaths = { "roles", "departement", "equipe", "entreprise", "manager" })
+        @EntityGraph(attributePaths = { "departement", "equipe", "entreprise", "manager" })
         @Query(value = "select distinct u from Utilisateur u where u.entrepriseId = :entrepriseId", countQuery = "select count(distinct u.id) from Utilisateur u where u.entrepriseId = :entrepriseId")
         Page<Utilisateur> findByEntrepriseId(
                         @Param("entrepriseId") Long entrepriseId,
@@ -104,6 +105,9 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
         @EntityGraph(attributePaths = { "roles", "departement", "equipe", "entreprise", "manager" })
         List<Utilisateur> findByManagerId(Long managerId);
 
-        @EntityGraph(attributePaths = { "roles", "departement", "equipe", "entreprise", "manager" })
+        @EntityGraph(attributePaths = { "departement", "equipe", "entreprise", "manager" })
         List<Utilisateur> findByStatut(StatutUtilisateurEnum statut);
+
+        @Query("SELECT u.id, r FROM Utilisateur u JOIN u.roles r WHERE u.id IN :ids")
+        List<Object[]> findRolesByUtilisateurIds(@Param("ids") Collection<Long> ids);
 }

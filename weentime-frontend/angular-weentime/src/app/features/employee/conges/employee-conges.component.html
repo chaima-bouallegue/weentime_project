@@ -6,7 +6,7 @@
       <h1 class="page-title">Mes Congés</h1>
       <p class="page-subtitle">Gérez vos absences et consultez vos soldes</p>
     </div>
-    <button class="btn-new-request" (click)="showDrawer.set(true)">
+    <button class="btn-new-request" (click)="openNewRequest()">
       <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
       <span>Nouvelle demande</span>
     </button>
@@ -75,6 +75,7 @@
           (filterChange)="onFilterChange($event)"
           (cancelRequest)="onCancelRequest($event)"
           (viewRequest)="demandeConsulter.set($event)"
+          (editRequest)="onEditRequest($event)"
         ></app-historique-list>
       </div>
     </main>
@@ -105,8 +106,9 @@
     [soldes]="soldes()"
     [joursFeries]="joursFeries()"
     [historique]="historique()"
+    [demandeToEdit]="demandeModifier()"
     [isSubmitting]="isSubmittingRequest()"
-    (close)="showDrawer.set(false)"
+    (close)="closeDrawer()"
     (submitted)="soumettreDemande($event)"
   ></app-demande-drawer>
 }
@@ -124,5 +126,6 @@
   <app-consultation-modal
     [demande]="demandeConsulter()"
     (close)="demandeConsulter.set(null)"
+    (edit)="onEditRequest($event)"
   ></app-consultation-modal>
 }

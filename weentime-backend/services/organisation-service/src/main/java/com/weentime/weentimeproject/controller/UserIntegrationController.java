@@ -50,7 +50,7 @@ public class UserIntegrationController {
     }
 
     private Utilisateur findUser(Long id) {
-        return utilisateurRepository.findById(id)
+        return utilisateurRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable: " + id));
     }
 

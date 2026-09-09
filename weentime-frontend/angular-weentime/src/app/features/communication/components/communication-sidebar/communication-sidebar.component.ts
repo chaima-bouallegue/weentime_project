@@ -90,6 +90,11 @@ import { DirectMessageListItemComponent } from '../direct-message-list-item/dire
                 [route]="'/app/messages/channel/' + channel.id"
                 [active]="channel.id === activeChannelId">
               </app-direct-message-list-item>
+
+              <button type="button" class="add-channel-btn" (click)="newDirectRequested.emit()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Nouveau message direct</span>
+              </button>
             </div>
           </section>
         </ng-container>
@@ -286,4 +291,5 @@ export class CommunicationSidebarComponent {
   @Output() retry = new EventEmitter<void>();
   @Output() syncRequested = new EventEmitter<void>();
   @Output() addChannelRequested = new EventEmitter<void>();
+  @Output() newDirectRequested = new EventEmitter<void>();
 }

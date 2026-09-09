@@ -74,8 +74,12 @@ export class VocalQuickActionsComponent {
 
   suggestions = [
     { label: "Mon solde de congés", icon: "calendar", phrase: "Quel est mon solde de congés restant ?" },
+    { label: "Demander un congé", icon: "file-plus", phrase: "Je veux un congé demain" },
     { label: "Pointer mon arrivée", icon: "arrow-right-circle", phrase: "Je pointe mon entrée" },
+    { label: "Pointer ma sortie", icon: "power", phrase: "Je pointe ma sortie" },
     { label: "Demande télétravail", icon: "laptop", phrase: "Je veux faire une demande de télétravail pour demain" },
+    { label: "Attestation de travail", icon: "file-text", phrase: "Je veux une attestation de travail" },
+    { label: "Demander autorisation", icon: "clock", phrase: "Je veux une autorisation demain de 14h à 16h" },
     { label: "Absences équipe", icon: "users", phrase: "Qui est absent aujourd'hui dans mon équipe ?" },
     { label: "Check planning", icon: "calendar-clock", phrase: "Quel est mon planning cette semaine ?" }
   ];

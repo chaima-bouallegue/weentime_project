@@ -108,11 +108,18 @@ def preload_model(
     )
 
 
+DEFAULT_HR_INITIAL_PROMPT = (
+    "WeenTime, congé, maladie, télétravail, pointage, solde de congés, "
+    "politique de congé, chnowa, nheb, demande congé, autorisation, 💡"
+)
+
+
 def transcribe_audio_result(
     file_path: str | Path,
     *,
     model_name: str = "base",
     language: str | None = None,
+    initial_prompt: str | None = None,
     device: str = "cpu",
     compute_type: str = "int8",
     cpu_threads: int = 1,
@@ -134,10 +141,12 @@ def transcribe_audio_result(
     if not model:
         return WhisperTranscriptionResult(text="", error="stt_unavailable")
 
+    prompt_to_use = initial_prompt if initial_prompt is not None else DEFAULT_HR_INITIAL_PROMPT
     try:
         segments, info = model.transcribe(
             str(file_path),
             language=language or None,
+            initial_prompt=prompt_to_use or None,
             vad_filter=vad_filter,
             beam_size=max(1, int(beam_size or 1)),
             best_of=max(1, int(best_of or 1)),

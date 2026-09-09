@@ -41,6 +41,7 @@ public class CongeDTO {
     private String typeCongeNom;
 
     private Boolean justificatifFourni;
+    private String justificatifUrl;
 
     @JsonProperty("createdAt")
     public LocalDateTime getCreatedAt() {

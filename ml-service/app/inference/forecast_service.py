@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -102,24 +103,47 @@ class ForecastService:
     ) -> None:
         self.repository = repository or ForecastDataRepository()
         self.feature_builder = ForecastFeatureBuilder()
-        if model is not None:
-            self.model = model
-        else:
-            settings = get_settings()
-            self.model = AbsenceLeaveForecastModel.load_latest(settings.model_dir_path)
+        self._models_by_tenant: dict[int | None, AbsenceLeaveForecastModel] = {}
+        self._model_lock = threading.Lock()
 
-    def reload_model(self) -> None:
+    def _get_model_for_tenant(self, company_id: int | None) -> AbsenceLeaveForecastModel | None:
+        model = self._models_by_tenant.get(company_id)
+        if model is not None:
+            return model
+        with self._model_lock:
+            model = self._models_by_tenant.get(company_id)
+            if model is not None:
+                return model
+            settings = get_settings()
+            model = AbsenceLeaveForecastModel.load_latest(settings.model_dir_path, entreprise_id=company_id)
+            if model is not None:
+                self._models_by_tenant[company_id] = model
+            return model
+
+    def reload_model(self, company_id: int | None = None) -> None:
         settings = get_settings()
-        self.model = AbsenceLeaveForecastModel.load_latest(settings.model_dir_path)
+        if company_id is not None:
+            with self._model_lock:
+                self._models_by_tenant.pop(company_id, None)
+            model = AbsenceLeaveForecastModel.load_latest(settings.model_dir_path, entreprise_id=company_id)
+            if model is not None:
+                self._models_by_tenant[company_id] = model
+        else:
+            with self._model_lock:
+                self._models_by_tenant.clear()
+            model = AbsenceLeaveForecastModel.load_latest(settings.model_dir_path, entreprise_id=None)
+            if model is not None:
+                self._models_by_tenant[None] = model
 
     def health(self) -> ForecastHealthResponse:
-        model_loaded = bool(self.model and self.model.is_ready)
+        model = self._get_model_for_tenant(None)
+        model_loaded = bool(model and model.is_ready)
         return ForecastHealthResponse(
             success=True,
             status="ok",
             model_loaded=model_loaded,
-            model_version=self.model.model_version if self.model else None,
-            metrics=self.model.metrics if self.model else {},
+            model_version=model.model_version if model else None,
+            metrics=model.metrics if model else {},
         )
 
     def build_dashboard(
@@ -129,8 +153,8 @@ class ForecastService:
     ) -> ForecastDashboardResponse:
         period, dataset, quality = self._load(query, context)
         group = self._overall_group(dataset)
-        bundle = self._predict_group(dataset, period, group, quality)
-        teams = self._team_predictions(dataset, period, quality)
+        bundle = self._predict_group(dataset, period, group, quality, company_id=query.company_id)
+        teams = self._team_predictions(dataset, period, quality, company_id=query.company_id)
         summary = self._summary(bundle.series, group.employee_count)
         summary.risk_level = self._max_risk([bundle.risk, *(team.risk_level for team in teams)])
         summary.predicted_workload = self._workload_level(dataset, period, group.employee_count)
@@ -154,7 +178,7 @@ class ForecastService:
     ) -> ForecastListResponse:
         period, dataset, quality = self._load(query, context)
         group = self._overall_group(dataset)
-        bundle = self._predict_group(dataset, period, group, quality)
+        bundle = self._predict_group(dataset, period, group, quality, company_id=query.company_id)
         items = []
         for point in bundle.series:
             if kind == "leaves":
@@ -193,7 +217,7 @@ class ForecastService:
             success=True,
             period=period.label,
             generated_at=datetime.now(timezone.utc),
-            teams=self._team_predictions(dataset, period, quality),
+            teams=self._team_predictions(dataset, period, quality, company_id=query.company_id),
             data_quality=quality,
         )
 
@@ -251,7 +275,7 @@ class ForecastService:
             forecast_end=period.end,
             filters=filters,
         )
-        quality = self._data_quality(dataset, period)
+        quality = self._data_quality(dataset, period, company_id=query.company_id)
         return period, dataset, quality
 
     @staticmethod
@@ -277,7 +301,7 @@ class ForecastService:
             requested = "next_30_days"
         return _ResolvedPeriod(label=requested, start=start, end=end)
 
-    def _data_quality(self, dataset: ForecastDataset, period: _ResolvedPeriod) -> ForecastDataQuality:
+    def _data_quality(self, dataset: ForecastDataset, period: _ResolvedPeriod, company_id: int | None = None) -> ForecastDataQuality:
         historical_days = self._historical_days(dataset, period.start)
         any_source_ok = any(dataset.source_ok.values())
         source = "database" if all(dataset.source_ok.values()) else "partial_database"
@@ -297,7 +321,8 @@ class ForecastService:
                 historical_days=historical_days,
                 source=source,
             )
-        if not (self.model and self.model.is_ready):
+        model = self._get_model_for_tenant(company_id)
+        if not (model and model.is_ready):
             return ForecastDataQuality(
                 status=ForecastDataQualityStatus.OK,
                 fallback_used=True,
@@ -331,6 +356,7 @@ class ForecastService:
         period: _ResolvedPeriod,
         group: _GroupMeta,
         quality: ForecastDataQuality,
+        company_id: int | None = None,
     ) -> _PredictionBundle:
         if group.employee_count <= 0:
             return _PredictionBundle(
@@ -353,9 +379,10 @@ class ForecastService:
             rows.append(row)
             fallback_values.append(self._fallback_values(dataset, day, period.start, group))
 
+        model = self._get_model_for_tenant(company_id)
         use_model = (
-            self.model is not None
-            and self.model.is_ready
+            model is not None
+            and model.is_ready
             and quality.status == ForecastDataQualityStatus.OK
             and not quality.fallback_used
         )
@@ -363,7 +390,7 @@ class ForecastService:
         if use_model:
             try:
                 features = self.feature_builder.to_dataframe(rows)
-                regression, risks = self.model.predict(features)
+                regression, risks = model.predict(features)
                 model_values = []
                 for idx, predicted in enumerate(regression):
                     raw = list(predicted) if hasattr(predicted, "__iter__") else [float(predicted)]
@@ -695,11 +722,12 @@ class ForecastService:
         dataset: ForecastDataset,
         period: _ResolvedPeriod,
         quality: ForecastDataQuality,
+        company_id: int | None = None,
     ) -> list[ForecastTeamPrediction]:
         teams = self._team_groups(dataset)
         predictions: list[ForecastTeamPrediction] = []
         for group in teams:
-            bundle = self._predict_group(dataset, period, group, quality)
+            bundle = self._predict_group(dataset, period, group, quality, company_id=company_id)
             summary = self._summary(bundle.series, group.employee_count)
             explanation = self._team_explanation(group, summary)
             predictions.append(

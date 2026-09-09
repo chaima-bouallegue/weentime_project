@@ -2,7 +2,6 @@ package com.weentime.communication.service;
 
 import com.weentime.communication.dto.OrganisationUserSummary;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,13 +16,13 @@ public interface OrganisationDirectoryClient {
 
     @GetMapping("/api/v1/organisations/internal/users/{id}/summary")
     OrganisationUserSummary getUserSummary(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-Internal-Service-Key") String internalApiKey,
             @PathVariable("id") Long id
     );
 
     @PostMapping("/api/v1/organisations/internal/users/summaries")
     List<OrganisationUserSummary> getUserSummaries(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestHeader("X-Internal-Service-Key") String internalApiKey,
             @RequestBody Collection<Long> ids
     );
 }

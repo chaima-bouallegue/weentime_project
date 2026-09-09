@@ -397,7 +397,7 @@ public class UtilisateurServiceImpl implements UtilisateurService {
 
     @Override
     public UtilisateurResponse getUtilisateurById(Long id) {
-        return utilisateurRepository.findById(id)
+        return utilisateurRepository.findWithDetailsById(id)
                 .map(this::enforceSingleBusinessRole)
                 .map(utilisateurMapper::toResponse)
                 .orElseThrow(() -> new EntityNotFoundException(USER_NOT_FOUND_ID + id));
@@ -480,7 +480,24 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     @Override
     @Transactional(readOnly = true)
     public List<UserSummaryResponse> getActiveUsers() {
-        return utilisateurRepository.findByStatut(StatutUtilisateurEnum.ACTIF).stream()
+        List<Utilisateur> users = utilisateurRepository.findByStatut(StatutUtilisateurEnum.ACTIF);
+        if (users.isEmpty()) return List.of();
+
+        List<Long> ids = users.stream().map(Utilisateur::getId).toList();
+        List<Object[]> roleRows = utilisateurRepository.findRolesByUtilisateurIds(ids);
+
+        Map<Long, Set<Role>> rolesByUserId = new HashMap<>();
+        for (Object[] row : roleRows) {
+            Long userId = (Long) row[0];
+            Role role = (Role) row[1];
+            rolesByUserId.computeIfAbsent(userId, k -> new HashSet<>()).add(role);
+        }
+
+        for (Utilisateur u : users) {
+            u.setRoles(rolesByUserId.get(u.getId()));
+        }
+
+        return users.stream()
                 .map(this::toUserSummary)
                 .toList();
     }
@@ -1160,13 +1177,23 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     private String mapActionToIcon(String action) {
         if (action == null) return "activity";
         return switch (action) {
-            case "LOGIN"           -> "log-in";
-            case "LOGOUT"          -> "log-out";
-            case "PROFILE_UPDATE"  -> "user";
-            case "CHANGE_PASSWORD" -> "lock";
-            case "CREATE_USER"     -> "user-plus";
-            case "DELETE_USER"     -> "user-minus";
-            default                -> "activity";
+            case "LOGIN"                 -> "log-in";
+            case "LOGOUT"                -> "log-out";
+            case "PROFILE_UPDATE"        -> "user";
+            case "PROFILE_AVATAR_UPDATE" -> "camera";
+            case "CHANGE_PASSWORD"       -> "lock";
+            case "UPDATE_2FA"            -> "shield-check";
+            case "UPDATE_BACKUP_CODES"   -> "key";
+            case "CREATE_USER"           -> "user-plus";
+            case "UPDATE_USER"           -> "user-cog";
+            case "DELETE_USER"           -> "user-minus";
+            case "VALIDATE_USER"         -> "user-check";
+            case "REJECT_USER"           -> "user-x";
+            case "TOGGLE_USER_STATUS"    -> "toggle-right";
+            case "CREATE_RH"             -> "user-plus";
+            case "UPDATE_RH"             -> "user-cog";
+            case "DELETE_RH"             -> "user-minus";
+            default                      -> "activity";
         };
     }
 

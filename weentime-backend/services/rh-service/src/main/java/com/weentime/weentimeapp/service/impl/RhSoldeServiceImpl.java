@@ -97,7 +97,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
                 .collect(Collectors.groupingBy(SoldeConge::getUtilisateurId));
 
         // 3. Fetch active leave types for this enterprise
-        List<TypeConge> activeTypes = typeCongeRepository.findAll();
+        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(eid);
 
         // 4. Merge
         List<EmployeeSoldeResponse> content = pagedUsers.stream().map(u -> {
@@ -162,7 +162,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
             targetIds = organisationServiceClient.findUserIdsByEntrepriseId(eid);
         }
 
-        List<TypeConge> types = typeCongeRepository.findAll();
+        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
 
         for (Long uid : targetIds) {
             for (TypeConge type : types) {
@@ -202,7 +202,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         // enterprise
         // For simplicity, we just proceed but we could check the AuditLog
 
-        List<TypeConge> types = typeCongeRepository.findAll();
+        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(eid);
         Map<Long, TypeConge> typeMap = types.stream().collect(Collectors.toMap(TypeConge::getId, t -> t));
 
         for (Long uid : targetIds) {
@@ -264,7 +264,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         log.info("Fetching audit logs for utilisateurId: {}", utilisateurId);
         List<SoldeAuditLog> logs = auditLogRepository.findByUtilisateurIdOrderByTimestampDesc(utilisateurId);
 
-        List<TypeConge> types = typeCongeRepository.findAll();
+        List<TypeConge> types = typeCongeRepository.findAllByEntrepriseId(getEntrepriseId());
         Map<Long, String> typeNomMap = new HashMap<>();
         for (TypeConge t : types) {
             if (t.getId() != null) {
@@ -293,7 +293,7 @@ public class RhSoldeServiceImpl implements RhSoldeService {
         int targetAnnee = LocalDate.now().getYear();
         List<SoldeConge> userSoldes = soldeCongeRepository
                 .findByUtilisateurIdInAndAnnee(Collections.singletonList(utilisateurId), targetAnnee);
-        List<TypeConge> activeTypes = typeCongeRepository.findAll();
+        List<TypeConge> activeTypes = typeCongeRepository.findAllByEntrepriseId(getEntrepriseId());
 
         return activeTypes.stream().map(t -> {
             Optional<SoldeConge> sc = userSoldes.stream().filter(s -> s.getTypeCongeId().equals(t.getId())).findFirst();

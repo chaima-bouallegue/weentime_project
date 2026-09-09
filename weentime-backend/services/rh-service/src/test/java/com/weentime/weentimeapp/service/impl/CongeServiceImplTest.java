@@ -199,6 +199,109 @@ class CongeServiceImplTest {
         assertThat(captor.getValue().getJoursRestants()).isEqualTo(8.0);
     }
 
+    @Test
+    void employeeCanUpdatePendingLeaveRequest() {
+        setSecurity(List.of("ROLE_EMPLOYEE"));
+        Conge conge = Conge.builder()
+                .id(8L)
+                .utilisateurId(24L)
+                .entrepriseId(13L)
+                .typeCongeId(1L)
+                .dateDebut(LocalDate.of(2026, 6, 1))
+                .dateFin(LocalDate.of(2026, 6, 3))
+                .nombreJours(3)
+                .statut(StatutDemandeEnum.EN_ATTENTE_MANAGER)
+                .motif("Motif initial")
+                .build();
+        TypeConge type = TypeConge.builder()
+                .id(1L)
+                .entrepriseId(13L)
+                .decompteJours(true)
+                .requireJustificatif(false)
+                .build();
+        SoldeConge solde = SoldeConge.builder()
+                .utilisateurId(24L)
+                .typeCongeId(1L)
+                .annee(2026)
+                .joursRestants(10.0)
+                .joursEnAttente(3.0)
+                .build();
+
+        CongeDTO updateDto = CongeDTO.builder()
+                .typeCongeId(1L)
+                .dateDebut(LocalDate.of(2026, 6, 1))
+                .dateFin(LocalDate.of(2026, 6, 2))
+                .motif("Motif modifie")
+                .build();
+
+        when(congeRepository.findById(8L)).thenReturn(Optional.of(conge));
+        when(congeRepository.existsOverlappingCongeExcludingId(24L, 8L, updateDto.getDateDebut(), updateDto.getDateFin()))
+                .thenReturn(false);
+        when(typeCongeRepository.findById(1L)).thenReturn(Optional.of(type));
+        when(soldeCongeRepository.findWithLockByUtilisateurIdAndTypeCongeIdAndAnnee(24L, 1L, 2026))
+                .thenReturn(Optional.of(solde));
+        when(congeRepository.save(any(Conge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(congeMapper.toDto(any(Conge.class))).thenAnswer(invocation -> {
+            Conge saved = invocation.getArgument(0);
+            return CongeDTO.builder()
+                    .id(saved.getId())
+                    .statut(saved.getStatut())
+                    .nombreJours(saved.getNombreJours())
+                    .motif(saved.getMotif())
+                    .build();
+        });
+
+        CongeDTO result = service.update(8L, updateDto);
+
+        assertThat(result.getNombreJours()).isEqualTo(2);
+        assertThat(result.getMotif()).isEqualTo("Motif modifie");
+        assertThat(conge.getNombreJours()).isEqualTo(2);
+        // Old 3 pending released (3-3=0), then new 2 added (0+2=2)
+        assertThat(solde.getJoursEnAttente()).isEqualTo(2.0);
+    }
+
+    @Test
+    void cannotUpdateApprovedLeaveRequest() {
+        setSecurity(List.of("ROLE_EMPLOYEE"));
+        Conge conge = Conge.builder()
+                .id(8L)
+                .utilisateurId(24L)
+                .entrepriseId(13L)
+                .statut(StatutDemandeEnum.APPROUVE)
+                .build();
+        when(congeRepository.findById(8L)).thenReturn(Optional.of(conge));
+
+        CongeDTO updateDto = leaveDto();
+
+        assertThatThrownBy(() -> service.update(8L, updateDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void cannotUpdateWithOverlappingDates() {
+        setSecurity(List.of("ROLE_EMPLOYEE"));
+        Conge conge = Conge.builder()
+                .id(8L)
+                .utilisateurId(24L)
+                .entrepriseId(13L)
+                .typeCongeId(1L)
+                .dateDebut(LocalDate.of(2026, 6, 1))
+                .dateFin(LocalDate.of(2026, 6, 3))
+                .nombreJours(3)
+                .statut(StatutDemandeEnum.EN_ATTENTE_MANAGER)
+                .build();
+        when(congeRepository.findById(8L)).thenReturn(Optional.of(conge));
+        when(congeRepository.existsOverlappingCongeExcludingId(24L, 8L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3)))
+                .thenReturn(true);
+
+        CongeDTO updateDto = leaveDto();
+
+        assertThatThrownBy(() -> service.update(8L, updateDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
     private CongeDTO leaveDto() {
         return CongeDTO.builder()
                 .typeCongeId(1L)

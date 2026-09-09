@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { RecrutementService, JobPosting, Application } from '../../services/recrutement.service';
 import { LucideAngularModule } from 'lucide-angular';
@@ -16,7 +17,7 @@ import { Subscription } from 'rxjs';
 @Component({
   selector: 'app-job-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, RouterModule, LucideAngularModule],
   templateUrl: './job-detail.component.html',
   styleUrls: ['./job-detail.component.scss']
 })
@@ -31,6 +32,27 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   applications = signal<Application[]>([]);
   isLoading = signal(true);
   showDeleteModal = signal(false);
+
+  // Decision Modal State
+  showDecisionModal = signal(false);
+  decisionType = signal<'SHORTLISTED' | 'REJECTED' | null>(null);
+  targetApp = signal<Application | null>(null);
+  decisionReason = signal('');
+  isSubmittingDecision = signal(false);
+
+  readonly acceptPresets = [
+    'Profil très pertinent',
+    'Excellentes compétences techniques',
+    'Solide expérience terrain',
+    'Bonne adéquation avec l\'équipe'
+  ];
+
+  readonly rejectPresets = [
+    'Manque d\'expérience requise',
+    'Compétences techniques clés absentes',
+    'Prétentions salariales hors grille',
+    'Indisponibilité sur les dates prévues'
+  ];
 
   private wsSub?: Subscription;
 
@@ -256,20 +278,51 @@ export class JobDetailComponent implements OnInit, OnDestroy {
 
   // ── Candidate Actions ──
 
-  shortlistCandidate(appId: number) {
-    this.recruitmentService.updateApplicationStatus(appId, 'SHORTLISTED').subscribe({
-      next: () => {
-        this.toast.success('Candidat présélectionné.');
-        this.refreshApplications();
-      }
-    });
+  openDecisionModal(app: Application, type: 'SHORTLISTED' | 'REJECTED') {
+    this.targetApp.set(app);
+    this.decisionType.set(type);
+    this.decisionReason.set('');
+    this.showDecisionModal.set(true);
   }
 
-  rejectCandidate(appId: number) {
-    this.recruitmentService.updateApplicationStatus(appId, 'REJECTED', 'Ne correspond pas au profil').subscribe({
+  closeDecisionModal() {
+    this.showDecisionModal.set(false);
+    this.targetApp.set(null);
+    this.decisionType.set(null);
+    this.decisionReason.set('');
+    this.isSubmittingDecision.set(false);
+  }
+
+  selectPreset(preset: string) {
+    const current = this.decisionReason();
+    if (!current) {
+      this.decisionReason.set(preset);
+    } else if (!current.includes(preset)) {
+      this.decisionReason.set(current + ' • ' + preset);
+    }
+  }
+
+  confirmDecision() {
+    const app = this.targetApp();
+    const type = this.decisionType();
+    if (!app || !type) return;
+
+    const reason = this.decisionReason().trim();
+
+    this.isSubmittingDecision.set(true);
+    this.recruitmentService.updateApplicationStatus(app.id, type, reason).subscribe({
       next: () => {
-        this.toast.success('Candidature refusée.');
+        const msg = type === 'SHORTLISTED'
+          ? `Candidature de ${app.firstName} ${app.lastName} présélectionnée !`
+          : `Candidature de ${app.firstName} ${app.lastName} refusée.`;
+        this.toast.success(msg);
+        this.closeDecisionModal();
         this.refreshApplications();
+      },
+      error: (err) => {
+        console.error('Erreur mise à jour statut:', err);
+        this.toast.error('Erreur lors de la mise à jour de la candidature.');
+        this.isSubmittingDecision.set(false);
       }
     });
   }

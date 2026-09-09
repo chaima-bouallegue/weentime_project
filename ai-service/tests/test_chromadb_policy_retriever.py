@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from app.policy import LocalPolicyStore, PolicyRetriever
 from app.policy.chromadb_retriever import ChromaPolicyRetriever, ChromaUnavailableError
 from app.policy.policy_models import PolicySource
-from app.policy.source_registry import build_policy_chunks
+from app.policy.source_registry import PolicyChunk, build_policy_chunks
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "policies"
 
@@ -95,11 +95,12 @@ def test_chromadb_query_uses_tenant_approved_and_language_filter() -> None:
     assert collection.last_query is not None
     assert collection.last_query["where"] == {
         "$and": [
-            {"tenant_id": {"$eq": 42}},
+            {"entreprise_id": {"$eq": 42}},
             {"approved": {"$eq": True}},
             {"language": {"$eq": "fr"}},
         ]
     }
+    assert collection.last_query["n_results"] == 9
     assert result.citations[0].source_id == "src1"
     assert result.citations[0].title == "Policy"
     assert result.citations[0].chunk_id is None
@@ -162,12 +163,27 @@ def test_ingestion_redacts_jwt_before_embedding_payload() -> None:
     assert "[REDACTED]" in payload_text
 
 
+def test_index_rejects_chunk_without_entreprise_id() -> None:
+    chunk = PolicyChunk(
+        id="bad:0",
+        text="chunk without an entreprise_id cannot be indexed",
+        metadata={"approved": True, "source_id": "bad"},
+    )
+    collection = FakeCollection()
+    retriever = ChromaPolicyRetriever(LocalPolicyStore(FIXTURE_DIR), client=FakeClient(collection), embedding_function=object())
+
+    indexed = retriever.index_chunks([chunk])
+
+    assert indexed == 0
+    assert collection.upserts == []
+
+
 def test_citations_include_source_title_and_chunk_location() -> None:
     collection = FakeCollection(
         {
             "documents": [["Approved FAQ answer"]],
             "metadatas": [[{"tenant_id": 42, "approved": True, "language": "en", "source_id": "faq1", "source_title": "FAQ", "chunk_id": "faq1:0", "citation_label": "FAQ#1"}]],
-            "distances": [[0.5]],
+            "distances": [[0.1]],
         }
     )
     retriever = ChromaPolicyRetriever(LocalPolicyStore(FIXTURE_DIR), client=FakeClient(collection), embedding_function=object())

@@ -1,14 +1,21 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { CommunicationSidebarComponent } from '../components/communication-sidebar/communication-sidebar.component';
 import { CreateChannelModalComponent } from '../components/create-channel-modal/create-channel-modal.component';
+import { NewDirectMessageModalComponent } from '../components/new-direct-modal/new-direct-modal.component';
 import { CommunicationStoreService } from '../services/communication-store.service';
 
 @Component({
   selector: 'app-communication-shell-page',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, CommunicationSidebarComponent, CreateChannelModalComponent],
+  imports: [
+    CommonModule, 
+    RouterOutlet, 
+    CommunicationSidebarComponent, 
+    CreateChannelModalComponent,
+    NewDirectMessageModalComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="comm-page">
@@ -37,7 +44,8 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           [syncError]="store.syncError()"
           (retry)="store.loadChannels()"
           (syncRequested)="store.runCommunicationSync()"
-          (addChannelRequested)="showCreateModal.set(true)">
+          (addChannelRequested)="showCreateModal.set(true)"
+          (newDirectRequested)="showDirectModal.set(true)">
         </app-communication-sidebar>
 
         <app-create-channel-modal
@@ -45,6 +53,12 @@ import { CommunicationStoreService } from '../services/communication-store.servi
           (close)="showCreateModal.set(false)"
           (create)="onCreateChannel($event)">
         </app-create-channel-modal>
+
+        <app-new-direct-modal
+          *ngIf="showDirectModal()"
+          (close)="showDirectModal.set(false)"
+          (userSelected)="onUserSelectedForDirect($event)">
+        </app-new-direct-modal>
 
         <div class="comm-conversation">
           <router-outlet />
@@ -105,8 +119,10 @@ import { CommunicationStoreService } from '../services/communication-store.servi
   `]
 })
 export class CommunicationShellPage implements OnInit {
+  private readonly router = inject(Router);
   readonly store = inject(CommunicationStoreService);
   showCreateModal = signal(false);
+  showDirectModal = signal(false);
 
   ngOnInit(): void {
     this.store.initialize();
@@ -116,7 +132,19 @@ export class CommunicationShellPage implements OnInit {
     this.store.createChannel(request).subscribe({
       next: () => this.showCreateModal.set(false),
       error: () => {
-        // Handle error (optional: show toast)
+        // Handle error
+      }
+    });
+  }
+
+  onUserSelectedForDirect(userId: number): void {
+    this.showDirectModal.set(false);
+    this.store.openDirect(userId).subscribe({
+      next: channel => {
+        void this.router.navigate(['/app/messages/channel', channel.id]);
+      },
+      error: () => {
+        // Handle error
       }
     });
   }

@@ -114,6 +114,11 @@ class HRTools:
         if payload.get("reason"):
             body["motif"] = payload["reason"]
 
+        justificatif_url = payload.get("justificatif_url") or payload.get("justificatifUrl")
+        if justificatif_url:
+            body["justificatifUrl"] = justificatif_url
+            body["justificatifFourni"] = True
+
         result = await self.api.post(
             "/v1/conges",
             access_token=access_token,

@@ -2241,6 +2241,73 @@ app-employee-pointage {
   transform: translateY(-1px);
 }
 
+.pointage-modal-icon--checkin {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+}
+
+.pointage-modal-icon--checkout {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+}
+
+.pointage-modal-subtitle {
+  margin: 0.25rem 0 0.5rem !important;
+  font-size: 0.9rem !important;
+  color: #64748B !important;
+}
+
+.pointage-modal-details {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.75rem 1rem;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pointage-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  color: #334155;
+
+  lucide-angular {
+    color: #64748B;
+    flex-shrink: 0;
+  }
+}
+
+.pointage-confirm-question {
+  margin-top: 0.75rem !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+  font-size: 0.95rem !important;
+}
+
+.overtime-modal-actions .btn-confirm-checkin {
+  background-color: #10B981;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+
+  &:hover {
+    background-color: #059669;
+  }
+}
+
+.overtime-modal-actions .btn-confirm-checkout {
+  background-color: #F59E0B;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+
+  &:hover {
+    background-color: #D97706;
+  }
+}
+
 /* Admin view layout fallbacks */
 .admin-grid {
   display: grid;

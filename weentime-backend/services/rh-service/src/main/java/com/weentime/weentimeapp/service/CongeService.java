@@ -5,6 +5,7 @@ import java.util.List;
 
 public interface CongeService {
     CongeDTO create(CongeDTO dto);
+    CongeDTO update(Long id, CongeDTO dto);
     CongeDTO getById(Long id);
     CongeDTO validateByManager(Long id, Long managerId);
     CongeDTO validateByRH(Long id, Long rhId);

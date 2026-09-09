@@ -16,6 +16,7 @@ from typing import Any
 import joblib
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
 
 from app.approval_ai.features.approval_features import APPROVAL_FEATURE_NAMES
@@ -33,11 +34,12 @@ REJECT_THRESHOLD = 0.35
 
 
 class ApprovalModel:
-    def __init__(self) -> None:
+    def __init__(self, evaluation_metrics: dict[str, Any] | None = None) -> None:
         self.model: LogisticRegression | None = None
         self.scaler: StandardScaler | None = None
         self.model_version: str | None = None
         self.feature_names: tuple[str, ...] = APPROVAL_FEATURE_NAMES
+        self.evaluation_metrics: dict[str, Any] = evaluation_metrics or {}
 
     @property
     def is_ready(self) -> bool:
@@ -60,6 +62,30 @@ class ApprovalModel:
         accuracy = float(self.model.score(X_scaled, y))
         logger.info("approval model trained version=%s accuracy=%.3f rows=%d", self.model_version, accuracy, len(y))
         return {"accuracy": accuracy, "model_version": self.model_version}
+
+    def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> dict[str, Any]:
+        if not self.is_ready or self.model is None or self.scaler is None:
+            raise RuntimeError("model not trained")
+        X_scaled = self.scaler.transform(X_test)
+        y_pred = self.model.predict(X_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, zero_division=0)
+        recall = recall_score(y_test, y_pred, zero_division=0)
+        f1 = f1_score(y_test, y_pred, zero_division=0)
+        cm = confusion_matrix(y_test, y_pred).tolist()
+        metrics = {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "confusion_matrix": cm,
+        }
+        self.evaluation_metrics = metrics
+        logger.info(
+            "evaluation metrics accuracy=%.4f precision=%.4f recall=%.4f f1=%.4f",
+            accuracy, precision, recall, f1,
+        )
+        return metrics
 
     # -- inference --------------------------------------------------------
 
@@ -135,19 +161,20 @@ class ApprovalModel:
                 "scaler": self.scaler,
                 "feature_names": list(self.feature_names),
                 "model_version": self.model_version,
+                "evaluation_metrics": self.evaluation_metrics if self.evaluation_metrics else None,
             },
             bundle_path,
         )
+        metadata = {
+            "model_version": self.model_version,
+            "feature_names": list(self.feature_names),
+            "approve_threshold": APPROVE_THRESHOLD,
+            "reject_threshold": REJECT_THRESHOLD,
+        }
+        if self.evaluation_metrics:
+            metadata["evaluation_metrics"] = self.evaluation_metrics
         (model_dir / f"approval_model_metadata_{self.model_version}.json").write_text(
-            json.dumps(
-                {
-                    "model_version": self.model_version,
-                    "feature_names": list(self.feature_names),
-                    "approve_threshold": APPROVE_THRESHOLD,
-                    "reject_threshold": REJECT_THRESHOLD,
-                },
-                indent=2,
-            ),
+            json.dumps(metadata, indent=2),
             encoding="utf-8",
         )
         return str(bundle_path)
@@ -158,6 +185,7 @@ class ApprovalModel:
         self.scaler = bundle["scaler"]
         self.feature_names = tuple(bundle["feature_names"])
         self.model_version = bundle["model_version"]
+        self.evaluation_metrics = bundle.get("evaluation_metrics") or {}
 
     @classmethod
     def load_latest(cls, model_dir: Path) -> "ApprovalModel | None":

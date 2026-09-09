@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -11,7 +11,7 @@ from .backend_client import BackendClient
 from .registry import ToolRegistry
 from .result import ToolResult, build_read_result
 
-TELEWORK_CREATE_ROLES = {"EMPLOYEE"}
+TELEWORK_CREATE_ROLES = {"EMPLOYEE", "MANAGER", "RH"}
 TELEWORK_READ_ROLES = {"EMPLOYEE", "MANAGER", "RH"}
 TELEWORK_MANAGER_ROLES = {"MANAGER"}
 TELEWORK_RH_ROLES = {"RH"}
@@ -172,11 +172,23 @@ class TeleworkTools:
         )
 
     async def create_request(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        role = (getattr(context, "role", "EMPLOYEE") or "EMPLOYEE").upper().replace("ROLE_", "")
         body = {
             "type": _normalize_telework_type(getattr(payload, "telework_type", None)),
             "dateDebut": getattr(payload, "start_date"),
             "dateFin": getattr(payload, "end_date"),
+            "createdViaCopilot": True,
+            "source": "AI_COPILOT",
         }
+        if role == "RH":
+            body["autoApprove"] = True
+            body["targetStatus"] = "APPROVED"
+        elif role == "MANAGER":
+            body["skipManagerApproval"] = True
+            body["targetStatus"] = "PENDING_RH"
+        else:
+            body["targetStatus"] = "PENDING_MANAGER"
+
         period = _normalize_period(getattr(payload, "period", None))
         reason = _clean_optional(getattr(payload, "reason", None))
         if period:

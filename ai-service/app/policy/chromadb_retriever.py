@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
+from .embeddings import get_embedding_function
+
+logger = logging.getLogger("weentime.retriever.chroma")
 from .policy_models import PolicyCitation, PolicySearchResult, PolicySource
 from .policy_store import LocalPolicyStore
 from .source_registry import PolicyChunk
@@ -26,9 +30,12 @@ class ChromaPolicyRetriever:
         *,
         persist_dir: str | Path = "./storage/chroma",
         collection_name: str = "weentime_policy",
-        embedding_model: str = "nomic-embed-text",
+        embedding_model: str = "intfloat/multilingual-e5-base",
+        embedding_backend: str = "sentence_transformers",
         ollama_base_url: str = "http://localhost:11434",
         top_k: int = 5,
+        min_score: float = 0.7,
+        overscan: int = 3,
         client: Any | None = None,
         collection: Any | None = None,
         embedding_function: Any | None = None,
@@ -36,9 +43,12 @@ class ChromaPolicyRetriever:
         self.store = store
         self.persist_dir = Path(persist_dir)
         self.collection_name = collection_name or "weentime_policy"
-        self.embedding_model = embedding_model or "nomic-embed-text"
+        self.embedding_model = embedding_model or "intfloat/multilingual-e5-base"
+        self.embedding_backend = (embedding_backend or "sentence_transformers").strip().lower()
         self.ollama_base_url = (ollama_base_url or "http://localhost:11434").rstrip("/")
         self.top_k = max(1, int(top_k or 5))
+        self.min_score = float(min_score or 0.7)
+        self.overscan = max(1, int(overscan or 3))
         self._client = client
         self._collection = collection
         self._embedding_function = embedding_function
@@ -56,21 +66,87 @@ class ChromaPolicyRetriever:
             self._available_error = str(exc)
             return False
 
-    def search(self, *, query: str, tenant_id: int | None, language: str | None = None, limit: int = 5) -> PolicySearchResult:
+    def search(
+        self,
+        *,
+        query: str,
+        tenant_id: int | None,
+        language: str | None = None,
+        limit: int = 5,
+        query_embeddings: list[list[float]] | None = None,
+    ) -> PolicySearchResult:
         if tenant_id is None:
             return PolicySearchResult(query=query, tenant_id=tenant_id, citations=[])
+        result_citations = self._exec_query(
+            query=query,
+            tenant_id=tenant_id,
+            language=language,
+            limit=limit,
+            query_embeddings=query_embeddings,
+        )
+        if not result_citations.citations and language is not None:
+            logger.info(
+                "[AUDIT] Chroma search with language='%s' returned 0 citations for tenant_id=%s. Fallback search with language=None (cross-lingual RAG).",
+                language,
+                tenant_id,
+            )
+            result_citations = self._exec_query(
+                query=query,
+                tenant_id=tenant_id,
+                language=None,
+                limit=limit,
+                query_embeddings=query_embeddings,
+            )
+        return result_citations
+
+    def _exec_query(
+        self,
+        *,
+        query: str,
+        tenant_id: int,
+        language: str | None,
+        limit: int,
+        query_embeddings: list[list[float]] | None,
+    ) -> PolicySearchResult:
         collection = self._get_collection()
         where = _tenant_where(tenant_id=tenant_id, language=language)
+        n_results = max(1, int(limit or self.top_k)) * self.overscan
         try:
-            result = collection.query(
-                query_texts=[query],
-                n_results=max(1, int(limit or self.top_k)),
-                where=where,
-                include=["documents", "metadatas", "distances"],
-            )
+            # Always pre-compute query embeddings with the correct "query: " prefix.
+            # ChromaDB's query_texts path calls __call__ on the embedding function
+            # which uses "passage: " prefix — wrong for E5 models that require
+            # "query: " for queries and "passage: " for documents.
+            if query_embeddings is None:
+                ef = self._build_embedding_function()
+                if ef is not None and hasattr(ef, "encode_queries"):
+                    query_embeddings = ef.encode_queries([query])
+
+            if query_embeddings is not None:
+                result = collection.query(
+                    query_embeddings=query_embeddings,
+                    n_results=n_results,
+                    where=where,
+                    include=["documents", "metadatas", "distances"],
+                )
+            else:
+                result = collection.query(
+                    query_texts=[query],
+                    n_results=n_results,
+                    where=where,
+                    include=["documents", "metadatas", "distances"],
+                )
         except Exception as exc:  # noqa: BLE001 - vector store is optional
             raise ChromaUnavailableError(str(exc)) from exc
         citations = _citations_from_query_result(result, tenant_id=tenant_id, language=language)
+        logger.info(
+            "[AUDIT] Chroma raw query -> tenant_id=%s, language=%s, found_before_threshold=%d, min_score=%.2f, scores=%s",
+            tenant_id,
+            language,
+            len(citations),
+            self.min_score,
+            [c.score for c in citations],
+        )
+        citations = [citation for citation in citations if citation.score >= self.min_score]
         return PolicySearchResult(query=query, tenant_id=tenant_id, citations=citations[:limit])
 
     def get_source(self, *, source_id: str, tenant_id: int | None) -> PolicySource | None:
@@ -88,6 +164,19 @@ class ChromaPolicyRetriever:
         )
         return len(safe_chunks)
 
+    def delete_collection(self) -> None:
+        """Drop the collection (used by the CLI migration path)."""
+        if self._client is None:
+            chromadb = _import_chromadb()
+            self.persist_dir.mkdir(parents=True, exist_ok=True)
+            self._client = chromadb.PersistentClient(path=str(self.persist_dir))
+        try:
+            self._client.delete_collection(self.collection_name)
+        except Exception as exc:  # noqa: BLE001 - missing collection is fine
+            if "not found" not in str(exc).lower() and "does not exist" not in str(exc).lower():
+                raise
+        self._collection = None
+
     def _get_collection(self) -> Any:
         if self._collection is not None:
             return self._collection
@@ -101,13 +190,21 @@ class ChromaPolicyRetriever:
             kwargs["embedding_function"] = embedding_function
         try:
             self._collection = self._client.get_or_create_collection(**kwargs)
-        except TypeError:
+        except TypeError as exc:
+            logger.warning("chromadb_embedding_function_kwarg_unsupported: %s", exc)
             self._collection = self._client.get_or_create_collection(self.collection_name)
         return self._collection
 
     def _build_embedding_function(self) -> Any | None:
         if self._embedding_function is not None:
             return self._embedding_function
+        if self.embedding_backend == "sentence_transformers":
+            try:
+                self._embedding_function = get_embedding_function(model_name=self.embedding_model)
+                return self._embedding_function
+            except Exception as exc:  # noqa: BLE001 - optional dependency boundary
+                self._available_error = f"sentence_transformers_unavailable:{exc}"
+                raise ChromaUnavailableError(self._available_error) from exc
         try:
             from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
         except Exception as exc:  # noqa: BLE001 - optional dependency
@@ -128,7 +225,7 @@ def _import_chromadb() -> Any:
 
 def _tenant_where(*, tenant_id: int, language: str | None) -> dict[str, Any]:
     filters: list[dict[str, Any]] = [
-        {"tenant_id": {"$eq": int(tenant_id)}},
+        {"entreprise_id": {"$eq": int(tenant_id)}},
         {"approved": {"$eq": True}},
     ]
     if language:
@@ -176,7 +273,7 @@ def _first_list(value: Any) -> list[Any]:
 
 def _metadata_matches(metadata: dict[str, Any], *, tenant_id: int, language: str | None) -> bool:
     try:
-        if int(metadata.get("tenant_id")) != int(tenant_id):
+        if int(_metadata_tenant(metadata)) != int(tenant_id):
             return False
     except (TypeError, ValueError):
         return False
@@ -188,7 +285,14 @@ def _metadata_matches(metadata: dict[str, Any], *, tenant_id: int, language: str
 
 
 def _metadata_is_safe(metadata: dict[str, Any]) -> bool:
-    return metadata.get("approved") is True and metadata.get("tenant_id") is not None and bool(metadata.get("source_id"))
+    return metadata.get("approved") is True and _metadata_tenant(metadata) is not None and bool(metadata.get("source_id"))
+
+
+def _metadata_tenant(metadata: dict[str, Any]) -> Any:
+    tenant = metadata.get("entreprise_id")
+    if tenant is None:
+        tenant = metadata.get("tenant_id")
+    return tenant
 
 
 def _distance_to_score(distance: Any) -> float:
@@ -198,4 +302,8 @@ def _distance_to_score(distance: Any) -> float:
         return 0.5
     if value < 0:
         return 0.0
+    # For unit-normalized embeddings (e.g. E5), Chroma's L2 distance = 2 - 2*cos(theta).
+    # Convert L2 distance to Cosine Similarity: cos(theta) = 1.0 - L2_dist / 2.0
+    if value <= 2.0:
+        return round(max(0.0, 1.0 - (value / 2.0)), 3)
     return round(1.0 / (1.0 + value), 3)

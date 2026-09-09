@@ -68,7 +68,13 @@ import { SettingsPanelComponent } from '../components/settings-panel/settings-pa
           <span class="typing-text">{{ store.typingLabel() }} est en train d'écrire...</span>
         </div>
 
+        <div class="comm-archived-notice" *ngIf="store.activeChannel()?.isArchived">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+          <span>Ce canal est archivé. Seule la consultation de l'historique est autorisée.</span>
+        </div>
+
         <app-message-composer
+          *ngIf="!store.activeChannel()?.isArchived"
           [disabled]="!store.canSend()"
           [typingLabel]="store.typingLabel()"
           (submitMessage)="store.sendMessage($event.text, $event.attachmentIds)"
@@ -183,6 +189,27 @@ import { SettingsPanelComponent } from '../components/settings-panel/settings-pa
     app-message-composer {
       flex-shrink: 0;
       z-index: 20;
+    }
+
+    .comm-archived-notice {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: #fffbeb;
+      border-top: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .comm-archived-notice svg {
+      width: 18px;
+      height: 18px;
+      color: #b45309;
+      flex-shrink: 0;
     }
 
     app-thread-panel {

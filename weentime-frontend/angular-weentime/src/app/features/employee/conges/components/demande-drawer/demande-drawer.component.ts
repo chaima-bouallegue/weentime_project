@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed, inject, ChangeDetectionStrategy, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, inject, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -22,10 +22,11 @@ interface CalendarDay {
   styleUrl: './demande-drawer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DemandeDrawerComponent implements OnInit {
+export class DemandeDrawerComponent implements OnInit, OnChanges {
   @Input() soldes: SoldeConge[] = [];
   @Input() joursFeries: JourFerie[] = [];
   @Input() historique: DemandeConge[] = [];
+  @Input() demandeToEdit: DemandeConge | null = null;
   @Input() isSubmitting = false;
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<NouvelleDemandeRequest>();
@@ -54,12 +55,49 @@ export class DemandeDrawerComponent implements OnInit {
     this.congeService.getTypesConge().subscribe({
       next: (types: any[]) => {
         this.leaveTypes.set(types);
-        this.applyAssistantDraft();
+        if (this.demandeToEdit) {
+          this.applyEditDraft();
+        } else {
+          this.applyAssistantDraft();
+        }
       },
       error: (error) => {
         this.validationError.set(this.extractErrorMessage(error, 'Impossible de charger les types de conge.'));
       }
     });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['demandeToEdit'] && this.leaveTypes().length > 0) {
+      if (this.demandeToEdit) {
+        this.applyEditDraft();
+      }
+    }
+  }
+
+  private applyEditDraft(): void {
+    if (!this.demandeToEdit) {
+      return;
+    }
+
+    const type = this.resolveDraftType(this.demandeToEdit.typeCongeNom || this.demandeToEdit.type, this.demandeToEdit.typeCongeId);
+    const startDate = this.toDate(this.demandeToEdit.dateDebut);
+    const endDate = this.toDate(this.demandeToEdit.dateFin);
+
+    if (type) {
+      this.selectedType.set(type);
+    }
+    if (startDate) {
+      this.startDate.set(startDate);
+      this.viewDate.set(new Date(startDate));
+    }
+    if (endDate) {
+      this.endDate.set(endDate);
+    }
+    if (this.demandeToEdit.motif) {
+      this.motifForm.patchValue({ motif: this.demandeToEdit.motif });
+    }
+    this.step.set(2);
   }
 
   private applyAssistantDraft(): void {
@@ -242,7 +280,14 @@ export class DemandeDrawerComponent implements OnInit {
              normalizedSearch.includes(normLabel);
     });
     
-    return solde?.disponible || 0;
+    let dispo = solde?.disponible || 0;
+    if (this.demandeToEdit) {
+      const editNorm = this.normalize(this.demandeToEdit.typeCongeNom || this.demandeToEdit.type);
+      if (editNorm === normalizedSearch || editNorm.includes(normalizedSearch) || normalizedSearch.includes(editNorm)) {
+        dispo += (this.demandeToEdit.nombreJours || 0);
+      }
+    }
+    return dispo;
   }
 
   isBalanceTracked(type: any): boolean {
@@ -324,7 +369,8 @@ export class DemandeDrawerComponent implements OnInit {
     const start = startDate.toISOString().split('T')[0];
     const end = endDate.toISOString().split('T')[0];
     return this.historique.find(demande =>
-      this.isBlockingStatus(demande.statut)
+      (!this.demandeToEdit || demande.id !== this.demandeToEdit.id)
+      && this.isBlockingStatus(demande.statut)
       && demande.dateDebut <= end
       && demande.dateFin >= start
     ) ?? null;
@@ -351,6 +397,9 @@ export class DemandeDrawerComponent implements OnInit {
     const days: CalendarDay[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const minSelectableDate = this.demandeToEdit && this.startDate() && this.startDate()! < today
+      ? this.startDate()!
+      : today;
 
     for (let i = 0; i < 42; i++) {
       const current = new Date(calendarStart);
@@ -366,7 +415,7 @@ export class DemandeDrawerComponent implements OnInit {
         isCurrentMonth: current.getMonth() === date.getMonth(),
         isWeekend,
         holiday,
-        isSelectable: !isWeekend && !holiday && current >= today
+        isSelectable: !isWeekend && !holiday && current >= minSelectableDate
       });
     }
 

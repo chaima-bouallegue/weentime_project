@@ -27,6 +27,7 @@ from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse, ToolCallRecord
 from app.tools.executor import ToolExecutor
+from app.tools.leave_tools import list_type_conges
 from core.entity_extractor import extract_entities
 
 from .conversation_state import ConversationStateStore, PendingConversationFlow
@@ -126,14 +127,46 @@ async def continue_pending_flow(
     missing = _missing_fields(flow)
     if missing:
         flow.missing_fields = missing
-        flow.last_question = _question_for_missing(flow.intent, missing[0], flow)
+        action_result = _slot_result(flow)
+        if flow.intent == "leave.create" and missing[0] == "type":
+            backend_client = getattr(executor, "backend_client", None)
+            types = await list_type_conges(backend_client, context) if backend_client else []
+            labels = [t.get("libelle") for t in types if isinstance(t, dict) and t.get("libelle")]
+            lang = getattr(flow, "language", "fr")
+            if labels:
+                example_text = ", ".join(labels[:3])
+                options = [{"label": label, "value": label} for label in labels]
+                if lang == "en":
+                    flow.last_question = f"Which leave type would you like to request? For example: {example_text}."
+                elif lang == "ar":
+                    flow.last_question = f"ما نوع الإجازة التي ترغب في طلبها؟ على سبيل المثال: {example_text}."
+                elif lang == "tn":
+                    flow.last_question = f"Chnowa l type de conge? Mathalan: {example_text}."
+                else:
+                    flow.last_question = f"Quel type de conge souhaitez-vous demander ? Par exemple: {example_text}."
+                action_result = {
+                    "kind": "leave_type_prompt",
+                    "options": options,
+                }
+            else:
+                if lang == "en":
+                    flow.last_question = "Which leave type would you like to request?"
+                elif lang == "ar":
+                    flow.last_question = "ما نوع الإجازة التي ترغب في طلبها؟"
+                elif lang == "tn":
+                    flow.last_question = "Chnowa l type de conge?"
+                else:
+                    flow.last_question = "Quel type de conge souhaitez-vous demander ?"
+        else:
+            flow.last_question = _question_for_missing(flow.intent, missing[0], flow)
+
         store.save(context, flow, session_id)
         return AgentResponse(
             type="ask",
             text=flow.last_question,
             intent=flow.intent,
             confidence=0.92,
-            actionResult=_slot_result(flow),
+            actionResult=action_result,
         )
 
     if flow.intent == "rh.document_generate":
@@ -430,12 +463,37 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
 
 def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow) -> str:
     if intent == "leave.create":
+        lang = getattr(flow, "language", "fr")
         if field == "date":
+            if lang == "en":
+                return "Which dates would you like to request for this leave?"
+            if lang == "ar":
+                return "ما هي التواريخ التي ترغب في طلب الإجازة خلالها؟"
+            if lang == "tn":
+                return "anehi date theb tekhedh feha congé?"
             return "Pour quelle date souhaitez-vous demander ce conge ?"
         if field == "type":
-            return "Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT."
+            if lang == "en":
+                return "Which leave type would you like to request?"
+            if lang == "ar":
+                return "ما نوع الإجازة التي ترغب في طلبها؟"
+            if lang == "tn":
+                return "Chnowa l type de conge?"
+            return "Quel type de conge souhaitez-vous demander ?"
         if field == "reason" and _is_no_reason(flow.collected_fields.get("raw_last_message")):
+            if lang == "en":
+                return "Reason is required for this request. What reason would you like to provide?"
+            if lang == "ar":
+                return "السبب مطلوب لهذا الطلب. ما هو السبب الذي ترغب في تقديمه؟"
+            if lang == "tn":
+                return "El motif obligatoire. Chnowa l motif mte3ek?"
             return "Le motif est requis pour cette demande. Quel motif souhaitez-vous indiquer ?"
+        if lang == "en":
+            return "What reason would you like to provide for this leave request?"
+        if lang == "ar":
+            return "ما هو السبب الذي ترغب في تقديمه لطلب الإجازة هذا؟"
+        if lang == "tn":
+            return "Chnowa l motif mte3ek leconge hedha?"
         return "Quel motif souhaitez-vous indiquer pour cette demande de conge ?"
     if intent == "authorization.create":
         if field == "date":

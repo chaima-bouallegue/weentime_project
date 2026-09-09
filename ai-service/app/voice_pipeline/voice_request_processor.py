@@ -70,7 +70,9 @@ class VoiceRequestProcessor:
 
         stt_started = perf_counter()
         with start_span("voice.stt", {"size_bytes": stored.size_bytes}):
-            stt_result = await self.stt_service.aprocess(stored.path)
+            normalized_lang = _canonical_voice_language(language_hint)
+            whisper_lang = "ar" if normalized_lang == "tn" else normalized_lang
+            stt_result = await self.stt_service.aprocess(stored.path, language=whisper_lang)
             stt_duration_ms = round((perf_counter() - stt_started) * 1000, 2)
             log_event(
                 "voice.stt",

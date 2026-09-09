@@ -63,7 +63,8 @@ public class CongeServiceImpl implements CongeService {
         }
 
         TypeConge typeConge = findAccessibleTypeConge(dto.getTypeCongeId(), entrepriseId);
-        if (Boolean.TRUE.equals(typeConge.getRequireJustificatif()) && !Boolean.TRUE.equals(dto.getJustificatifFourni())) {
+        boolean hasJustificatif = Boolean.TRUE.equals(dto.getJustificatifFourni()) || (dto.getJustificatifUrl() != null && !dto.getJustificatifUrl().isBlank());
+        if (Boolean.TRUE.equals(typeConge.getRequireJustificatif()) && !hasJustificatif) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Un justificatif est obligatoire pour ce type de conge.");
         }
 
@@ -82,6 +83,10 @@ public class CongeServiceImpl implements CongeService {
         Conge conge = congeMapper.toEntity(dto);
         conge.setUtilisateurId(userId);
         conge.setEntrepriseId(entrepriseId);
+        if (dto.getJustificatifUrl() != null && !dto.getJustificatifUrl().isBlank()) {
+            conge.setJustificatifUrl(dto.getJustificatifUrl());
+            conge.setJustificatifFourni(true);
+        }
         conge.setNombreJours(nombreJours);
         conge.setManagerId(managerId);
         conge.setDateCreation(LocalDateTime.now());
@@ -105,6 +110,88 @@ public class CongeServiceImpl implements CongeService {
         CongeDTO savedDto = congeMapper.toDto(savedConge);
 
         sendCreateNotification(userId, managerId, user, savedDto, entrepriseId, isRh);
+        return savedDto;
+    }
+
+    @Override
+    public CongeDTO update(Long id, CongeDTO dto) {
+        Conge conge = congeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande de conge introuvable"));
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        boolean isRh = hasCurrentRole("ROLE_RH");
+        if (!isRh && (currentUserId == null || !Objects.equals(currentUserId, conge.getUtilisateurId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'avez pas le droit de modifier cette demande.");
+        }
+
+        if (!isPending(conge.getStatut())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande deja validee, refusee ou annulee ne peut plus etre modifiee.");
+        }
+
+        validateCreatePayload(dto);
+
+        int newNombreJours = calculateBusinessDays(dto.getDateDebut(), dto.getDateFin());
+        if (newNombreJours <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La periode selectionnee ne contient aucun jour ouvre.");
+        }
+
+        Long userId = conge.getUtilisateurId();
+        Long entrepriseId = conge.getEntrepriseId();
+
+        if (congeRepository.existsOverlappingCongeExcludingId(userId, id, dto.getDateDebut(), dto.getDateFin())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande de conge existe deja sur cette periode.");
+        }
+
+        Long newTypeCongeId = dto.getTypeCongeId() != null ? dto.getTypeCongeId() : conge.getTypeCongeId();
+        TypeConge newTypeConge = findAccessibleTypeConge(newTypeCongeId, entrepriseId);
+
+        boolean hasJustificatif = Boolean.TRUE.equals(dto.getJustificatifFourni())
+                || (dto.getJustificatifUrl() != null && !dto.getJustificatifUrl().isBlank())
+                || Boolean.TRUE.equals(conge.getJustificatifFourni());
+        if (Boolean.TRUE.equals(newTypeConge.getRequireJustificatif()) && !hasJustificatif) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Un justificatif est obligatoire pour ce type de conge.");
+        }
+
+        // Release old pending balance if applicable
+        TypeConge oldTypeConge = typeCongeRepository.findById(conge.getTypeCongeId()).orElse(null);
+        if (oldTypeConge != null) {
+            releasePendingBalance(conge, oldTypeConge);
+        }
+
+        // Reserve new pending balance if applicable
+        if (Boolean.TRUE.equals(newTypeConge.getDecompteJours())) {
+            SoldeConge newSolde = findOrCreateSolde(userId, entrepriseId, newTypeCongeId, dto.getDateDebut().getYear(), newTypeConge);
+            if (availableDays(newSolde) < newNombreJours) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solde insuffisant.");
+            }
+            newSolde.setJoursEnAttente(safe(newSolde.getJoursEnAttente()) + newNombreJours);
+            soldeCongeRepository.save(newSolde);
+        }
+
+        conge.setTypeCongeId(newTypeCongeId);
+        conge.setDateDebut(dto.getDateDebut());
+        conge.setDateFin(dto.getDateFin());
+        conge.setNombreJours(newNombreJours);
+        if (dto.getMotif() != null) {
+            conge.setMotif(dto.getMotif());
+        }
+        if (dto.getJustificatifUrl() != null && !dto.getJustificatifUrl().isBlank()) {
+            conge.setJustificatifUrl(dto.getJustificatifUrl());
+            conge.setJustificatifFourni(true);
+        }
+
+        // Re-evaluate pending status if employee updated
+        if (!isRh) {
+            conge.setStatut(conge.getManagerId() == null ? StatutDemandeEnum.EN_ATTENTE_RH : StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        }
+
+        Conge savedConge = congeRepository.save(conge);
+        CongeDTO savedDto = congeMapper.toDto(savedConge);
+        enrichDto(savedDto);
+
+        UserResponse user = resolveUser(userId);
+        sendCreateNotification(userId, conge.getManagerId(), user, savedDto, entrepriseId, isRh);
+
         return savedDto;
     }
 

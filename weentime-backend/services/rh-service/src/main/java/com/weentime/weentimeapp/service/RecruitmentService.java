@@ -23,8 +23,10 @@ public interface RecruitmentService {
     void addNote(Long applicationId, String content, boolean isPrivate, Long authorId, Long entrepriseId);
     org.springframework.core.io.Resource getCvFile(Long applicationId, Long entrepriseId);
     
-    // --- AI Callback ---
+    // --- AI Callback & Relance ---
     void processAiResult(Long applicationId, AiRecruitmentResultRequest aiResult);
+    ApplicationDTO reevaluateAi(Long applicationId, Long entrepriseId);
+    int retryPendingAiEvaluations(Long entrepriseId);
     
     // --- Page Publique ---
     List<JobPostingDTO> getPublicJobs(String companySlug);

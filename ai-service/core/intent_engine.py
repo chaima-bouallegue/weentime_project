@@ -40,7 +40,7 @@ QUESTION_PREFIXES = (
 
 GREETING_TERMS = ("bonjour", "salut", "hello", "bonsoir", "hey")
 QUERY_TERMS = ("voir", "afficher", "montrer", "lister", "consulter", "suivre", "historique", "statut")
-LEAVE_TERMS = ("conge", "conges", "vacance", "vacances", "leave")
+LEAVE_TERMS = ("conge", "conges", "vacance", "vacances", "leave", "vacation", "holiday", "time off", "time-off")
 AUTHORIZATION_TERMS = (
     "autorisation",
     "permission",
@@ -69,6 +69,13 @@ CREATE_TERMS = (
     "genere moi",
     "fournis",
     "prepare",
+    "create",
+    "request",
+    "want",
+    "need",
+    "take",
+    "apply",
+    "book",
 )
 OPEN_TERMS = ("ouvre", "ouvrir", "telecharge", "telecharger", "consulte", "voir", "affiche")
 APPROVE_TERMS = ("approuve", "approuver", "valide", "valider", "accepte", "accepter")

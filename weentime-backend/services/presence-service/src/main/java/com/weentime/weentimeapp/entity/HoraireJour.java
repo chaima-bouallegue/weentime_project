@@ -48,7 +48,7 @@ public class HoraireJour {
     private Boolean estTravaille;
 
     @Default
-    @OneToMany(mappedBy = "jour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "jour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("ordre ASC, id ASC")
     private List<HorairePlage> plages = new ArrayList<>();
 }

@@ -22,6 +22,8 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
+
 from app.features.attendance_features import FEATURE_NAMES
 from app.schemas.anomaly_schemas import RiskLevel
 
@@ -36,6 +38,10 @@ class TrainResult:
     duration_seconds: float
     bundle_path: str
     data_source: str = "unknown"
+    precision: float | None = None
+    recall: float | None = None
+    f1: float | None = None
+    confusion_matrix: list[list[int]] | None = None
 
 
 class AttendanceAnomalyModel:
@@ -50,6 +56,7 @@ class AttendanceAnomalyModel:
         high_threshold: float = 0.70,
         medium_threshold: float = 0.40,
         auto_calibrate_thresholds: bool = True,
+        entreprise_id: int | None = None,
     ) -> None:
         self.contamination = contamination
         self.n_estimators = n_estimators
@@ -58,6 +65,7 @@ class AttendanceAnomalyModel:
         self.high_threshold = high_threshold
         self.medium_threshold = medium_threshold
         self.auto_calibrate_thresholds = auto_calibrate_thresholds
+        self.entreprise_id = entreprise_id
 
         self.model: IsolationForest | None = None
         self.scaler: StandardScaler | None = None
@@ -67,10 +75,39 @@ class AttendanceAnomalyModel:
         # raw decision_function output into a 0..1 anomaly score.
         self._score_min: float = -0.5
         self._score_max: float = 0.5
+        self._precision: float | None = None
+        self._recall: float | None = None
+        self._f1: float | None = None
+        self._confusion_matrix: list[list[int]] | None = None
 
     # -- training ---------------------------------------------------------
 
-    def train(self, features_df: pd.DataFrame) -> TrainResult:
+    def _evaluate(
+        self,
+        test_features_df: pd.DataFrame,
+        y_test: list[bool | None],
+    ) -> dict[str, Any]:
+        X_test = test_features_df[list(self.feature_names)].astype(float).to_numpy()
+        X_test_scaled = self.scaler.transform(X_test)
+        test_preds = self.model.predict(X_test_scaled)
+        y_pred_bin = [p == -1 for p in test_preds]
+        valid = [(int(yt), int(yp)) for yt, yp in zip(y_test, y_pred_bin) if yt is not None]
+        if not valid:
+            return {"precision": None, "recall": None, "f1": None, "confusion_matrix": None}
+        y_true, y_pred = zip(*valid)
+        return {
+            "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+            "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+            "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+            "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        }
+
+    def train(
+        self,
+        features_df: pd.DataFrame,
+        test_features_df: pd.DataFrame | None = None,
+        y_test: list[bool | None] | None = None,
+    ) -> TrainResult:
         if features_df.empty:
             raise ValueError("empty training frame")
 
@@ -98,6 +135,20 @@ class AttendanceAnomalyModel:
         if self.auto_calibrate_thresholds:
             self._calibrate_thresholds(raw_scores)
 
+        # Évaluation supervisée sur le test set si les labels sont fournis
+        if test_features_df is not None and y_test is not None:
+            metrics = self._evaluate(test_features_df, y_test)
+            self._precision = metrics["precision"]
+            self._recall = metrics["recall"]
+            self._f1 = metrics["f1"]
+            self._confusion_matrix = metrics["confusion_matrix"]
+            logger.info(
+                "evaluation metrics precision=%.4f recall=%.4f f1=%.4f",
+                self._precision or 0.0,
+                self._recall or 0.0,
+                self._f1 or 0.0,
+            )
+
         # Observed contamination -- sanity check.
         predictions = self.model.predict(X_scaled)
         observed = float(np.mean(predictions == -1))
@@ -118,6 +169,10 @@ class AttendanceAnomalyModel:
             contamination_observed=observed,
             duration_seconds=duration,
             bundle_path="",  # filled by save()
+            precision=self._precision,
+            recall=self._recall,
+            f1=self._f1,
+            confusion_matrix=self._confusion_matrix,
         )
 
     # -- inference --------------------------------------------------------
@@ -284,7 +339,15 @@ class AttendanceAnomalyModel:
             raise RuntimeError("nothing to save")
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        bundle_path = model_dir / f"isolation_forest_{self.model_version}.joblib"
+        ns = f"{self.entreprise_id}_" if self.entreprise_id is not None else ""
+        bundle_path = model_dir / f"isolation_forest_{ns}{self.model_version}.joblib"
+
+        if self.entreprise_id is None:
+            logger.warning(
+                "Saving model without entreprise_id namespace (legacy). "
+                "Tenant-specific models should use the entreprise_id parameter."
+            )
+
         joblib.dump(
             {
                 "model": self.model,
@@ -300,11 +363,18 @@ class AttendanceAnomalyModel:
                     "medium": self.medium_threshold,
                 },
                 "auto_calibrate_thresholds": self.auto_calibrate_thresholds,
+                "entreprise_id": self.entreprise_id,
+                "evaluation_metrics": {
+                    "precision": self._precision,
+                    "recall": self._recall,
+                    "f1": self._f1,
+                    "confusion_matrix": self._confusion_matrix,
+                } if self._precision is not None else None,
             },
             bundle_path,
         )
 
-        metadata_path = model_dir / f"model_metadata_{self.model_version}.json"
+        metadata_path = model_dir / f"model_metadata_{ns}{self.model_version}.json"
         metadata_path.write_text(
             json.dumps(
                 {
@@ -319,6 +389,13 @@ class AttendanceAnomalyModel:
                         "medium": self.medium_threshold,
                     },
                     "auto_calibrate_thresholds": self.auto_calibrate_thresholds,
+                    "entreprise_id": self.entreprise_id,
+                    "evaluation_metrics": {
+                        "precision": self._precision,
+                        "recall": self._recall,
+                        "f1": self._f1,
+                        "confusion_matrix": self._confusion_matrix,
+                    } if self._precision is not None else None,
                 },
                 indent=2,
             ),
@@ -343,11 +420,33 @@ class AttendanceAnomalyModel:
             "auto_calibrate_thresholds",
             self.auto_calibrate_thresholds,
         )
+        self.entreprise_id = bundle.get("entreprise_id")
+        eval_metrics = bundle.get("evaluation_metrics")
+        if eval_metrics:
+            self._precision = eval_metrics.get("precision")
+            self._recall = eval_metrics.get("recall")
+            self._f1 = eval_metrics.get("f1")
+            self._confusion_matrix = eval_metrics.get("confusion_matrix")
 
     @classmethod
-    def load_latest(cls, model_dir: Path) -> "AttendanceAnomalyModel | None":
-        candidates = sorted(model_dir.glob("isolation_forest_v*.joblib"), reverse=True)
+    def load_latest(
+        cls,
+        model_dir: Path,
+        entreprise_id: int | None = None,
+    ) -> "AttendanceAnomalyModel | None":
+        if entreprise_id is not None:
+            pattern = f"isolation_forest_{entreprise_id}_v*.joblib"
+        else:
+            pattern = "isolation_forest_v*.joblib"
+        candidates = sorted(model_dir.glob(pattern), reverse=True)
         if not candidates:
+            if entreprise_id is not None:
+                logger.warning(
+                    "No tenant-specific model found for entreprise_id=%s, "
+                    "falling back to legacy global model",
+                    entreprise_id,
+                )
+                return cls.load_latest(model_dir, entreprise_id=None)
             return None
         instance = cls()
         instance.load(candidates[0])

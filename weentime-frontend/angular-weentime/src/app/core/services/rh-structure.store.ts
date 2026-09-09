@@ -1,6 +1,7 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { Observable, tap, forkJoin, of } from 'rxjs';
 import { StructureService } from '../../features/rh/structure/structure.service';
+import { AuthService } from './auth.service';
 import { Departement, Equipe, EmployeRH } from '../../features/rh/structure/models/structure.model';
 
 /**
@@ -10,6 +11,15 @@ import { Departement, Equipe, EmployeRH } from '../../features/rh/structure/mode
 @Injectable({ providedIn: 'root' })
 export class RhStructureStore {
   private readonly structureService = inject(StructureService);
+  private readonly authService = inject(AuthService);
+
+  constructor() {
+    effect(() => {
+      if (!this.authService.currentUser()) {
+        this.reset();
+      }
+    });
+  }
 
   // ── State signals ──
   private readonly _departements = signal<Departement[]>([]);
@@ -29,6 +39,21 @@ export class RhStructureStore {
   readonly managers = computed(() => this._managers());
   readonly isLoading = computed(() => this._loading());
   readonly error = computed(() => this._error());
+
+  /**
+   * Wipe all cached state. Called automatically when the authenticated user
+   * disappears (logout, session expiry) so cached data from a previous
+   * tenant is never served to the next account.
+   */
+  reset(): void {
+    this._departements.set([]);
+    this._equipes.set([]);
+    this._employes.set([]);
+    this._pendingEmployes.set([]);
+    this._managers.set([]);
+    this._loading.set(false);
+    this._error.set(null);
+  }
 
   /**
    * Refresh the entire structure data in parallel.

@@ -46,6 +46,12 @@ SAFE_NO_EVIDENCE_INTENTS = {
     "manager.team_attendance",
     "planning.list",
     "meetings.list",
+    "role_intelligence.employee_digest",
+    "role_intelligence.manager_digest",
+    "role_intelligence.rh_digest",
+    "role_intelligence.admin_digest",
+    "role_intelligence.digest",
+    "role_intelligence_digest",
 }
 
 SAFE_AUTHORITATIVE_RESPONSE_KINDS = set(SAFE_CHATBOT_RESPONSE_CONTRACTS) | {
@@ -65,6 +71,7 @@ SAFE_AUTHORITATIVE_RESPONSE_KINDS = set(SAFE_CHATBOT_RESPONSE_CONTRACTS) | {
     "rag_status_report",
     "diagnostics_summary",
     "slot_filling",
+    "leave_type_prompt",
     "confirmation_summary",
     "confirmation_result",
     "manager_pending_summary",

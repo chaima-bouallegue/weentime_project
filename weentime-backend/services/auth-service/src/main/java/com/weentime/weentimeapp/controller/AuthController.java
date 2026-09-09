@@ -609,10 +609,16 @@ public class AuthController {
         String newJwt = jwtUtils.generateToken(userId.longValue(), email, entrepriseId != null ? entrepriseId.longValue() : null, roles);
         String newRefreshToken = refreshTokenService.generate(email, userId.longValue(), entrepriseId != null ? entrepriseId.longValue() : null, roles);
         log.info("Token refresh success for userId={}", userId.longValue());
+        java.util.Map<String, Object> refreshBody = new java.util.HashMap<>();
+        refreshBody.put(KEY_EMAIL, email);
+        refreshBody.put(KEY_USER_ID, userId.longValue());
+        if (entrepriseId != null) refreshBody.put(KEY_ENTREPRISE_ID, entrepriseId.longValue());
+        refreshBody.put(KEY_ROLES, roles);
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, buildJwtCookie(newJwt))
                 .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(newRefreshToken))
-                .body(ApiResponse.success(Map.of(KEY_EMAIL, email, KEY_USER_ID, userId.longValue(), KEY_ENTREPRISE_ID, entrepriseId != null ? entrepriseId.longValue() : null, KEY_ROLES, roles), "Token rafraichi avec succes"));
+                .body(ApiResponse.success(refreshBody, "Token rafraichi avec succes"));
     }
 
     @PostMapping("/logout")
@@ -650,12 +656,12 @@ public class AuthController {
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                 .toList();
-        return ResponseEntity.ok(ApiResponse.success(Map.of(
-                "id", userDetails.getId(),
-                KEY_EMAIL, userDetails.getEmail(),
-                KEY_ENTREPRISE_ID, userDetails.getEntrepriseId(),
-                KEY_ROLES, roles
-        ), "OK"));
+        java.util.Map<String, Object> meBody = new java.util.HashMap<>();
+        meBody.put("id", userDetails.getId());
+        meBody.put(KEY_EMAIL, userDetails.getEmail());
+        if (userDetails.getEntrepriseId() != null) meBody.put(KEY_ENTREPRISE_ID, userDetails.getEntrepriseId());
+        meBody.put(KEY_ROLES, roles);
+        return ResponseEntity.ok(ApiResponse.success(meBody, "OK"));
     }
 
     private ResponseEntity<ApiResponse<Object>> sendOtpToUser(UtilisateurAuthDTO user, String method, String purpose, String ipAddress) {

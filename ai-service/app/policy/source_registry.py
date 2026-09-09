@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from .chunking import chunk_text, redact_sensitive_text
+from .chunking import chunk_by_tokens, redact_sensitive_text
 from .policy_models import PolicySource
 
 ALLOWED_SOURCE_TYPES = {
@@ -146,12 +147,12 @@ def is_indexable_policy_source(source: PolicySource) -> bool:
     return bool((source.content or "").strip())
 
 
-def build_policy_chunks(source: PolicySource, *, max_chars: int = 900, overlap_chars: int = 120) -> list[PolicyChunk]:
+def build_policy_chunks(source: PolicySource, *, max_tokens: int = 500, overlap_tokens: int = 50) -> list[PolicyChunk]:
     approved_source = approved_source_from_policy_source(source)
     if approved_source is None:
         return []
     chunks: list[PolicyChunk] = []
-    for chunk in chunk_text(approved_source.content, max_chars=max_chars, overlap_chars=overlap_chars):
+    for chunk in chunk_by_tokens(approved_source.content, max_tokens=max_tokens, overlap_tokens=overlap_tokens):
         chunk_id = f"{approved_source.source_id}:{chunk.index}"
         citation_label = f"{approved_source.citation_label}#{chunk.index + 1}"
         chunks.append(
@@ -160,6 +161,10 @@ def build_policy_chunks(source: PolicySource, *, max_chars: int = 900, overlap_c
                 text=chunk.text,
                 metadata={
                     "tenant_id": approved_source.tenant_id,
+                    "entreprise_id": approved_source.tenant_id,
+                    "source": approved_source.title,
+                    "type_document": approved_source.source_type,
+                    "date_indexation": _iso_now(),
                     "source_id": approved_source.source_id,
                     "source_title": approved_source.title,
                     "source_type": approved_source.source_type,
@@ -169,10 +174,16 @@ def build_policy_chunks(source: PolicySource, *, max_chars: int = 900, overlap_c
                     "chunk_id": chunk_id,
                     "chunk_index": chunk.index,
                     "citation_label": citation_label,
+                    "section_title": chunk.section_title or "",
+                    "page_number": chunk.page_number,
                 },
             )
         )
     return chunks
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def iter_approved_sources(sources: Iterable[PolicySource]) -> list[ApprovedPolicySource]:
@@ -205,6 +216,10 @@ def _source_from_manifest_entry(entry: dict[str, Any], *, root: Path, tenant_id:
     relative_path = _required_str(entry, "path", index=index)
     source_path = _safe_manifest_path(root, relative_path, source_id=source_id)
     content = source_path.read_text(encoding="utf-8-sig", errors="ignore").strip()
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            content = parts[2].strip()
     if not content:
         raise ManifestValidationError(f"empty_source:{source_id}")
     return PolicySource(

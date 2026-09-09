@@ -3,7 +3,7 @@ package com.weentime.communication.service;
 import com.weentime.communication.dto.OrganisationUserSummary;
 import com.weentime.communication.exception.CommunicationException;
 import com.weentime.communication.security.CommunicationUserPrincipal;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +14,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class UserDirectoryService {
 
     private final OrganisationDirectoryClient organisationDirectoryClient;
+    private final String internalApiKey;
+
+    public UserDirectoryService(
+            OrganisationDirectoryClient organisationDirectoryClient,
+            @Value("${integration.organisation-service.internal-api-key}") String internalApiKey
+    ) {
+        this.organisationDirectoryClient = organisationDirectoryClient;
+        this.internalApiKey = internalApiKey;
+    }
 
     public OrganisationUserSummary getUserSummary(CommunicationUserPrincipal currentUser, Long userId) {
         try {
-            OrganisationUserSummary summary = organisationDirectoryClient.getUserSummary(currentUser.authorizationHeader(), userId);
+            OrganisationUserSummary summary = organisationDirectoryClient.getUserSummary(internalApiKey, userId);
             if (summary == null) {
                 throw notFound(userId);
             }
@@ -40,7 +48,7 @@ public class UserDirectoryService {
 
         try {
             Map<Long, OrganisationUserSummary> summaries = organisationDirectoryClient
-                    .getUserSummaries(currentUser.authorizationHeader(), ids)
+                    .getUserSummaries(internalApiKey, ids)
                     .stream()
                     .collect(Collectors.toMap(OrganisationUserSummary::id, item -> item, (left, right) -> left, LinkedHashMap::new));
 

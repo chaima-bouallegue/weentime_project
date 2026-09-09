@@ -1,11 +1,13 @@
 package com.weentime.communication.service;
 
+import com.weentime.communication.dto.AddChannelMembersRequest;
 import com.weentime.communication.dto.ChannelResponse;
 import com.weentime.communication.dto.CreateChannelRequest;
 import com.weentime.communication.dto.CreateWorkflowChannelRequest;
 import com.weentime.communication.dto.MessageResponse;
 import com.weentime.communication.dto.OrganisationUserSummary;
 import com.weentime.communication.dto.OpenDirectRequest;
+import com.weentime.communication.dto.UpdateChannelRequest;
 import com.weentime.communication.entity.ChannelMemberRole;
 import com.weentime.communication.entity.ChannelType;
 import com.weentime.communication.entity.ChannelVisibility;
@@ -125,12 +127,21 @@ public class ChannelService {
         Map<Long, OrganisationUserSummary> userSummaries = userDirectoryService.getUserSummaries(currentUser, memberIds);
         ensureEnterpriseMatch(userSummaries.values(), currentUser.entrepriseId());
 
+        String slug = blankToNull(request.slug());
+        if (slug != null) {
+            slug = slug.trim().toLowerCase();
+            if (channelRepository.findFirstByEntrepriseIdAndSlugIgnoreCaseAndIsArchivedFalse(currentUser.entrepriseId(), slug).isPresent()) {
+                throw new CommunicationException(HttpStatus.CONFLICT, "COMM_CHANNEL_SLUG_EXISTS",
+                        "Un canal avec cet identifiant (slug) existe déjà.", Map.of("slug", slug));
+            }
+        }
+
         Instant now = Instant.now();
         CommChannel channel = new CommChannel();
         channel.setEntrepriseId(currentUser.entrepriseId());
         channel.setType(type);
         channel.setVisibility(parseVisibility(request.visibility(), type));
-        channel.setSlug(blankToNull(request.slug()));
+        channel.setSlug(slug);
         channel.setName(request.name().trim());
         channel.setDescription(blankToNull(request.description()));
         channel.setEquipeId(request.equipeId());
@@ -224,57 +235,219 @@ public class ChannelService {
                     "You cannot open a direct channel with yourself.", Map.of("userId", request.userId()));
         }
 
-        Map<Long, OrganisationUserSummary> users = userDirectoryService.getUserSummaries(currentUser,
-                List.of(currentUser.userId(), request.userId()));
-        ensureEnterpriseMatch(users.values(), currentUser.entrepriseId());
-        if (users.values().stream().anyMatch(summary -> !summary.active())) {
-            throw new CommunicationException(HttpStatus.CONFLICT, "COMM_DIRECT_USER_INACTIVE",
-                    "Inactive users cannot be added to direct conversations.", Map.of("userId", request.userId()));
+        String participantHash = participantHash(List.of(currentUser.userId(), request.userId()));
+        synchronized (("COMM_DIRECT:" + currentUser.entrepriseId() + ":" + participantHash).intern()) {
+            CommDirectChannelParticipant existing = directChannelParticipantRepository
+                    .findByEntrepriseIdAndParticipantHash(currentUser.entrepriseId(), participantHash)
+                    .orElse(null);
+            if (existing != null) {
+                return getChannel(existing.getChannelId(), currentUser);
+            }
+
+            Map<Long, OrganisationUserSummary> users = userDirectoryService.getUserSummaries(currentUser,
+                    List.of(currentUser.userId(), request.userId()));
+            ensureEnterpriseMatch(users.values(), currentUser.entrepriseId());
+            if (users.values().stream().anyMatch(summary -> !summary.active())) {
+                throw new CommunicationException(HttpStatus.CONFLICT, "COMM_DIRECT_USER_INACTIVE",
+                        "Inactive users cannot be added to direct conversations.", Map.of("userId", request.userId()));
+            }
+
+            Instant now = Instant.now();
+            OrganisationUserSummary targetUser = users.get(request.userId());
+            CommChannel channel = new CommChannel();
+            channel.setEntrepriseId(currentUser.entrepriseId());
+            channel.setType(ChannelType.DIRECT);
+            channel.setVisibility(ChannelVisibility.PRIVATE);
+            channel.setName(targetUser.resolvedFullName());
+            channel.setPrivate(true);
+            channel.setCreatedBy(currentUser.userId());
+            channel.setCreatedAt(now);
+            channel.setUpdatedAt(now);
+            channel = channelRepository.save(channel);
+
+            List<Long> participantIds = List.of(currentUser.userId(), request.userId());
+            for (Long participantId : participantIds) {
+                CommChannelMember member = new CommChannelMember();
+                member.setId(new CommChannelMemberId(channel.getId(), participantId));
+                member.setChannel(channel);
+                member.setEntrepriseId(currentUser.entrepriseId());
+                member.setRole(ChannelMemberRole.MEMBER);
+                member.setJoinedAt(now);
+                channelMemberRepository.save(member);
+            }
+
+            CommDirectChannelParticipant participant = new CommDirectChannelParticipant();
+            participant.setChannelId(channel.getId());
+            participant.setEntrepriseId(currentUser.entrepriseId());
+            participant.setParticipantHash(participantHash);
+            participant.setParticipantCount(participantIds.size());
+            directChannelParticipantRepository.save(participant);
+
+            auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channel.getId().toString(),
+                    "direct.opened", Map.of("participantIds", participantIds));
+
+            return buildChannelResponse(channel, currentUser);
+        }
+    }
+
+    @Transactional
+    public ChannelResponse updateChannel(UUID channelId, UpdateChannelRequest request, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        membershipService.assertCanManage(channelId, currentUser);
+        CommChannel channel = membershipService.getChannelOrThrow(channelId, currentUser.entrepriseId());
+
+        assertNotDirectChannel(channel, "update");
+
+        if (request.name() == null && request.description() == null) {
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "COMM_CHANNEL_UPDATE_EMPTY",
+                    "At least one field (name or description) must be provided.", Map.of("channelId", channelId));
         }
 
-        String participantHash = participantHash(List.of(currentUser.userId(), request.userId()));
-        CommDirectChannelParticipant existing = directChannelParticipantRepository
-                .findByEntrepriseIdAndParticipantHash(currentUser.entrepriseId(), participantHash)
-                .orElse(null);
-        if (existing != null) {
-            return getChannel(existing.getChannelId(), currentUser);
+        if (request.name() != null) {
+            channel.setName(request.name().trim());
+        }
+        if (request.description() != null) {
+            channel.setDescription(blankToNull(request.description()));
+        }
+        channel.setUpdatedAt(Instant.now());
+        channelRepository.save(channel);
+
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channelId.toString(),
+                "channel.updated", Map.of(
+                        "name", channel.getName(),
+                        "descriptionUpdated", request.description() != null
+                ));
+
+        return buildChannelResponse(channel, currentUser);
+    }
+
+    @Transactional
+    public ChannelResponse archiveChannel(UUID channelId, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        membershipService.assertCanManage(channelId, currentUser);
+        CommChannel channel = membershipService.getChannelOrThrow(channelId, currentUser.entrepriseId());
+
+        assertNotDirectChannel(channel, "archive");
+
+        if (channel.isArchived()) {
+            throw new CommunicationException(HttpStatus.CONFLICT, "COMM_CHANNEL_ALREADY_ARCHIVED",
+                    "This conversation is already archived.", Map.of("channelId", channelId));
         }
 
         Instant now = Instant.now();
-        OrganisationUserSummary targetUser = users.get(request.userId());
-        CommChannel channel = new CommChannel();
-        channel.setEntrepriseId(currentUser.entrepriseId());
-        channel.setType(ChannelType.DIRECT);
-        channel.setVisibility(ChannelVisibility.PRIVATE);
-        channel.setName(targetUser.resolvedFullName());
-        channel.setPrivate(true);
-        channel.setCreatedBy(currentUser.userId());
-        channel.setCreatedAt(now);
+        channel.setArchived(true);
+        channel.setArchivedAt(now);
         channel.setUpdatedAt(now);
-        channel = channelRepository.save(channel);
+        channelRepository.save(channel);
 
-        List<Long> participantIds = List.of(currentUser.userId(), request.userId());
-        for (Long participantId : participantIds) {
-            CommChannelMember member = new CommChannelMember();
-            member.setId(new CommChannelMemberId(channel.getId(), participantId));
-            member.setChannel(channel);
-            member.setEntrepriseId(currentUser.entrepriseId());
-            member.setRole(ChannelMemberRole.MEMBER);
-            member.setJoinedAt(now);
-            channelMemberRepository.save(member);
-        }
-
-        CommDirectChannelParticipant participant = new CommDirectChannelParticipant();
-        participant.setChannelId(channel.getId());
-        participant.setEntrepriseId(currentUser.entrepriseId());
-        participant.setParticipantHash(participantHash);
-        participant.setParticipantCount(participantIds.size());
-        directChannelParticipantRepository.save(participant);
-
-        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channel.getId().toString(),
-                "direct.opened", Map.of("participantIds", participantIds));
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channelId.toString(),
+                "channel.archived", Map.of());
 
         return buildChannelResponse(channel, currentUser);
+    }
+
+    @Transactional
+    public ChannelResponse addMembers(UUID channelId, AddChannelMembersRequest request, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        membershipService.assertCanManage(channelId, currentUser);
+        CommChannel channel = membershipService.getChannelOrThrow(channelId, currentUser.entrepriseId());
+
+        assertNotDirectChannel(channel, "add members to");
+
+        if (channel.isArchived()) {
+            throw new CommunicationException(HttpStatus.CONFLICT, "COMM_CHANNEL_ARCHIVED",
+                    "Cannot add members to an archived conversation.", Map.of("channelId", channelId));
+        }
+
+        Map<Long, OrganisationUserSummary> userSummaries = userDirectoryService.getUserSummaries(currentUser, request.userIds());
+        ensureEnterpriseMatch(userSummaries.values(), currentUser.entrepriseId());
+
+        List<Long> addedIds = new ArrayList<>();
+        Instant now = Instant.now();
+        for (Long userId : request.userIds()) {
+            CommChannelMemberId memberId = new CommChannelMemberId(channelId, userId);
+            var existing = channelMemberRepository.findById(memberId).orElse(null);
+
+            if (existing != null && existing.getLeftAt() == null) {
+                continue; // already an active member
+            }
+
+            if (existing != null) {
+                // Re-join: clear leftAt
+                existing.setLeftAt(null);
+                existing.setJoinedAt(now);
+                existing.setRole(ChannelMemberRole.MEMBER);
+                channelMemberRepository.save(existing);
+            } else {
+                CommChannelMember member = new CommChannelMember();
+                member.setId(memberId);
+                member.setChannel(channel);
+                member.setEntrepriseId(currentUser.entrepriseId());
+                member.setRole(ChannelMemberRole.MEMBER);
+                member.setJoinedAt(now);
+                channelMemberRepository.save(member);
+            }
+            addedIds.add(userId);
+        }
+
+        channel.setUpdatedAt(now);
+        channelRepository.save(channel);
+
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channelId.toString(),
+                "channel.members.added", Map.of("addedUserIds", addedIds));
+
+        return buildChannelResponse(channel, currentUser);
+    }
+
+    @Transactional
+    public ChannelResponse removeMember(UUID channelId, Long targetUserId, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        membershipService.assertCanManage(channelId, currentUser);
+        CommChannel channel = membershipService.getChannelOrThrow(channelId, currentUser.entrepriseId());
+
+        assertNotDirectChannel(channel, "remove members from");
+
+        CommChannelMember targetMember = membershipService.getMemberOrThrow(channelId, targetUserId, currentUser.entrepriseId());
+
+        if (targetMember.getRole() == ChannelMemberRole.OWNER) {
+            throw new CommunicationException(HttpStatus.FORBIDDEN, "COMM_CANNOT_REMOVE_OWNER",
+                    "The owner of the conversation cannot be removed.", Map.of("channelId", channelId));
+        }
+
+        targetMember.setLeftAt(Instant.now());
+        channelMemberRepository.save(targetMember);
+
+        channel.setUpdatedAt(Instant.now());
+        channelRepository.save(channel);
+
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channelId.toString(),
+                "channel.member.removed", Map.of("removedUserId", targetUserId));
+
+        return buildChannelResponse(channel, currentUser);
+    }
+
+    @Transactional
+    public void leaveChannel(UUID channelId, CommunicationUserPrincipal currentUser) {
+        assertTenantContext(currentUser);
+        CommChannelMember membership = membershipService.assertActiveMember(channelId, currentUser);
+        CommChannel channel = membershipService.getChannelOrThrow(channelId, currentUser.entrepriseId());
+
+        assertNotDirectChannel(channel, "leave");
+
+        if (membership.getRole() == ChannelMemberRole.OWNER) {
+            throw new CommunicationException(HttpStatus.FORBIDDEN, "COMM_OWNER_CANNOT_LEAVE",
+                    "The owner cannot leave the conversation. Transfer ownership first.",
+                    Map.of("channelId", channelId));
+        }
+
+        membership.setLeftAt(Instant.now());
+        channelMemberRepository.save(membership);
+
+        channel.setUpdatedAt(Instant.now());
+        channelRepository.save(channel);
+
+        auditService.record(currentUser.entrepriseId(), currentUser.userId(), "CHANNEL", channelId.toString(),
+                "channel.member.left", Map.of());
     }
 
     @Transactional
@@ -327,6 +500,14 @@ public class ChannelService {
         if (!(roles.contains("ADMIN") || roles.contains("RH"))) {
             throw new CommunicationException(HttpStatus.FORBIDDEN, "COMM_CHANNEL_CREATE_FORBIDDEN",
                     "You are not allowed to create channels.", Map.of());
+        }
+    }
+
+    private void assertNotDirectChannel(CommChannel channel, String action) {
+        if (channel.getType() == ChannelType.DIRECT || channel.getType() == ChannelType.GROUP_DM) {
+            throw new CommunicationException(HttpStatus.BAD_REQUEST, "COMM_CHANNEL_DIRECT_NOT_ALLOWED",
+                    "Cannot " + action + " a direct conversation.",
+                    Map.of("channelId", channel.getId(), "type", channel.getType().name()));
         }
     }
 

@@ -138,8 +138,9 @@ async def _generate_gemini(
     
     last_call_time = time.time()
 
-    # Modèle Free Tier : gemini-2.5-flash
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    # Modèle configuré : gemini-3.6-flash par défaut, modifiable via GEMINI_MODEL
+    model_name = settings.gemini_model or "gemini-3.6-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
     headers = {
         "x-goog-api-key": settings.gemini_api_key,
     }
@@ -163,24 +164,39 @@ async def _generate_gemini(
     if response_mime_type:
         payload["generationConfig"]["responseMimeType"] = response_mime_type
 
-    max_retries = 3
+    max_retries = 4
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
-                logger.info(f"Appel Gemini 2.5 (Essai {attempt + 1})")
+                logger.info(f"Appel Gemini ({model_name}) Essai {attempt + 1}")
                 response = await client.post(url, json=payload, headers=headers)
+                
+                if response.status_code == 429:
+                    wait_time = (attempt + 1) * 8
+                    try:
+                        err_data = response.json()
+                        details = err_data.get("error", {}).get("details", [])
+                        for detail in details:
+                            if "retryDelay" in detail:
+                                delay_str = str(detail["retryDelay"]).rstrip("s")
+                                wait_time = max(int(float(delay_str)) + 1, 5)
+                                break
+                    except Exception:
+                        pass
+                    
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Quota Gemini dépassé (429). Pause de {wait_time}s avant nouvel essai ({attempt + 1}/{max_retries})...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"Quota Gemini dépassé (429) après {max_retries} essais.")
+                        raise HTTPException(429, f"Quota Gemini dépassé (429). Réessayez dans quelques secondes.")
                 
                 if response.status_code != 200:
                     logger.error(f"Erreur API : {response.status_code}")
                     logger.error(f"Détails : {response.text}")
-                
-                if response.status_code == 429:
-                    wait_time = 2 ** (attempt + 1)
-                    logger.warning(f"Quota dépassé (429). Retry in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                    continue
-                
-                response.raise_for_status()
+                    response.raise_for_status()
+
                 data = response.json()
 
             text = _clean_markdown_fences(data["candidates"][0]["content"]["parts"][0]["text"])
@@ -188,7 +204,7 @@ async def _generate_gemini(
 
             return DocumentGenerationResponse(
                 content=text,
-                model_used="gemini-2.5-flash",
+                model_used=model_name,
                 tokens_used=tokens,
                 provider="gemini",
             )
@@ -196,10 +212,12 @@ async def _generate_gemini(
             raise
         except Exception as e:
             if attempt < max_retries - 1:
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
                 continue
             logger.error(f"Gemini generation failed: {str(e)}")
             raise HTTPException(500, f"Gemini API error: {str(e)}")
+
+    raise HTTPException(500, "Gemini API non disponible après plusieurs essais.")
 
 async def _generate_ollama(req: DocumentGenerationRequest) -> DocumentGenerationResponse:
     """Fallback vers Gemma 3 local via Ollama."""

@@ -192,6 +192,52 @@ def _generate_piper_audio(
     return target_path.exists() and target_path.stat().st_size > 0
 
 
+def _clean_text_for_speech(text: str) -> str:
+    if not text:
+        return ""
+    import re
+    cleaned = re.sub(r"#{1,6}\s*", "", text)
+    cleaned = re.sub(r"[•\*]\s*", ". ", cleaned)
+    cleaned = re.sub(r"^\s*-\s*", ". ", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", cleaned)
+    cleaned = re.sub(r"\(http[^\)]+\)", "", cleaned)
+    cleaned = re.sub(r"\n+", ". ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _generate_edge_audio(text: str, target_path: Path, language: str = "fr") -> bool:
+    try:
+        import asyncio
+        import edge_tts
+
+        voice_map = {
+            "fr": "fr-FR-HenriNeural",
+            "en": "en-US-GuyNeural",
+            "ar": "ar-TN-HediNeural",
+            "tn": "ar-TN-HediNeural",
+        }
+        voice = voice_map.get(language, "fr-FR-HenriNeural")
+        cleaned_text = _clean_text_for_speech(text)
+        if not cleaned_text:
+            return False
+
+        mp3_path = target_path.with_suffix(".mp3")
+
+        async def _save():
+            communicate = edge_tts.Communicate(cleaned_text, voice)
+            await communicate.save(str(mp3_path))
+
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            pool.submit(asyncio.run, _save()).result(timeout=15)
+
+        return mp3_path.exists() and mp3_path.stat().st_size > 0
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("edge_tts_failed language=%s error=%s", language, exc)
+        return False
+
+
 def generate_audio(
     text,
     *,
@@ -213,7 +259,32 @@ def generate_audio(
     target_path = _audio_cache_path(target_dir, normalized, resolved_language)
     if target_path.exists() and target_path.stat().st_size > 0:
         return str(target_path)
+    mp3_target = target_path.with_suffix(".mp3")
+    if mp3_target.exists() and mp3_target.stat().st_size > 0:
+        return str(mp3_target)
 
+    # 1. Fast Edge TTS (Supports neural FR and native Tunisian AR ar-TN-HediNeural)
+    if _generate_edge_audio(normalized, target_path, language=resolved_language):
+        final_mp3 = target_path.with_suffix(".mp3")
+        logger.info("tts_generated engine=edge_tts language=%s path=%s", resolved_language, final_mp3.name)
+        return str(final_mp3)
+
+    # 2. Fast Piper TTS (ONNX local)
+    if _generate_piper_audio(
+        normalized,
+        target_path,
+        piper_binary=piper_binary,
+        piper_model_path=piper_model_path,
+    ):
+        logger.info(
+            "tts_generated language=%s model=piper text_length=%s path=%s",
+            resolved_language,
+            len(normalized),
+            target_path,
+        )
+        return str(target_path)
+
+    # 3. Fallback Coqui TTS
     engine = _get_tts(resolved_model, use_gpu)
     if engine:
         try:
@@ -237,20 +308,6 @@ def generate_audio(
         except Exception as exc:  # noqa: BLE001
             target_path.unlink(missing_ok=True)
             logger.warning("Coqui TTS generation failed for model=%s: %s", resolved_model, exc)
-
-    if _generate_piper_audio(
-        normalized,
-        target_path,
-        piper_binary=piper_binary,
-        piper_model_path=piper_model_path,
-    ):
-        logger.info(
-            "tts_generated language=%s model=piper text_length=%s path=%s",
-            resolved_language,
-            len(normalized),
-            target_path,
-        )
-        return str(target_path)
 
     target_path.unlink(missing_ok=True)
     return None

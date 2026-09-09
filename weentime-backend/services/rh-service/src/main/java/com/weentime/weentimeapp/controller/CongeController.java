@@ -12,6 +12,17 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import com.weentime.weentimeapp.dto.JustificatifUploadResponse;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Objects;
+import java.util.UUID;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +39,12 @@ public class CongeController {
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<CongeDTO> create(@RequestBody CongeDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
+    public ResponseEntity<CongeDTO> update(@PathVariable Long id, @RequestBody CongeDTO dto) {
+        return ResponseEntity.ok(service.update(id, dto));
     }
 
     @GetMapping
@@ -111,6 +128,35 @@ public class CongeController {
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<CongeDTO> cancel(@PathVariable Long id) {
         return ResponseEntity.ok(service.cancel(id));
+    }
+
+    @PostMapping("/justificatifs/upload")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
+    public ResponseEntity<JustificatifUploadResponse> uploadJustificatif(
+            @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le fichier est vide.");
+        }
+
+        Long entrepriseId = SecurityUtils.getCurrentEntrepriseId();
+        if (entrepriseId == null) {
+            entrepriseId = 0L;
+        }
+
+        try {
+            Path root = Paths.get("uploads", String.valueOf(entrepriseId), "justificatifs");
+            Files.createDirectories(root);
+
+            String cleanOriginalName = Objects.requireNonNullElse(file.getOriginalFilename(), "justificatif");
+            String fileName = UUID.randomUUID() + "_" + cleanOriginalName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            Path target = root.resolve(fileName);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            String url = "/uploads/" + entrepriseId + "/justificatifs/" + fileName;
+            return ResponseEntity.ok(new JustificatifUploadResponse(url, cleanOriginalName));
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur lors du stockage du justificatif.");
+        }
     }
 
     private List<CongeDTO> resolveListForCurrentRole() {

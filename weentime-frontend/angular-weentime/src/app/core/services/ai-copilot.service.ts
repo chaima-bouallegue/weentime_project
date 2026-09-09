@@ -237,6 +237,7 @@ export function buildAiChatRequestPayload(
     companyId?: number | null;
     currentPage?: string | null;
     sessionId?: string | null;
+    extraMetadata?: Record<string, unknown>;
   },
 ): AiChatRequestPayload {
   const resolvedOptions = typeof options === 'number' ? { userId: options } : options;
@@ -275,8 +276,8 @@ export function buildAiChatRequestPayload(
     metadata.entrepriseId = resolvedOptions.entrepriseId;
   }
   const companyId = resolvedOptions?.companyId ?? resolvedOptions?.entrepriseId;
-  if (typeof companyId === 'number' && companyId > 0) {
-    metadata.companyId = companyId;
+  if (resolvedOptions?.extraMetadata) {
+    Object.assign(metadata, resolvedOptions.extraMetadata);
   }
   return {
     message,
@@ -298,7 +299,7 @@ export class AiCopilotService {
   private readonly router = inject(Router);
   private readonly endpoint = environment.gatewayUrl + '/api/v1/ai';
 
-  sendChatV2(message: string): Observable<AiCopilotEnvelope> {
+  sendChatV2(message: string, extraMetadata?: Record<string, unknown>): Observable<AiCopilotEnvelope> {
     const user = this.authService.currentUser();
     if (!this.authService.isAuthenticated()) {
       return throwError(() => new Error('Votre session a expiré. Veuillez vous reconnecter.'));
@@ -313,6 +314,7 @@ export class AiCopilotService {
         companyId: user?.entrepriseId ?? user?.entreprise?.id,
         currentPage: this.currentPage(),
         sessionId: resolveAiConversationId(),
+        extraMetadata,
       });
     const headers = this.authHeaders(requestId, user);
     this.debugChatRequest('chat.v2', requestId, url, payload, headers);

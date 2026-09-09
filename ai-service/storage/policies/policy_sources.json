@@ -3,12 +3,32 @@
     {
       "source_id": "leave-policy",
       "tenant_id": 9,
-      "title": "Leave Policy",
-      "language": "en",
+      "title": "Politique des congés",
+      "language": "fr",
       "source_type": "hr_policy",
       "approved": true,
       "path": "leave-policy.md",
-      "citation_label": "Leave Policy"
+      "citation_label": "Politique des congés"
+    },
+    {
+      "source_id": "attendance-policy",
+      "tenant_id": 9,
+      "title": "Politique de pointage et présence",
+      "language": "fr",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "attendance-policy.md",
+      "citation_label": "Politique de pointage"
+    },
+    {
+      "source_id": "general-hr-policy",
+      "tenant_id": 9,
+      "title": "Règlement intérieur et politique RH",
+      "language": "fr",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "general-hr-policy.md",
+      "citation_label": "Règlement intérieur"
     }
   ]
 }

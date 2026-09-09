@@ -36,6 +36,14 @@ public interface CongeRepository extends JpaRepository<Conge, Long> {
        boolean existsOverlappingConge(@Param("userId") Long userId, @Param("debut") LocalDate debut,
                      @Param("fin") LocalDate fin);
 
+       @Query("SELECT COUNT(c) > 0 FROM Conge c WHERE c.utilisateurId = :userId " +
+                     "AND c.id <> :congeId " +
+                     "AND c.statut NOT IN (com.weentime.weentimeapp.enums.StatutDemandeEnum.REFUSE, com.weentime.weentimeapp.enums.StatutDemandeEnum.ANNULE) "
+                     +
+                     "AND NOT (c.dateFin < :debut OR c.dateDebut > :fin)")
+       boolean existsOverlappingCongeExcludingId(@Param("userId") Long userId, @Param("congeId") Long congeId,
+                     @Param("debut") LocalDate debut, @Param("fin") LocalDate fin);
+
        @Query("SELECT c FROM Conge c WHERE c.entrepriseId = :entrepriseId AND c.statut = com.weentime.weentimeapp.enums.StatutDemandeEnum.APPROUVE "
                      +
                      "AND NOT (c.dateFin < :debut OR c.dateDebut > :fin)")

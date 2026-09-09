@@ -1,0 +1,136 @@
+<div class="h-screen w-full flex overflow-hidden bg-white dark:bg-[#0f172a] relative">
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PURPLE PANEL (50%) - Animated position (Left or Right)     -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div
+    class="purple-panel hidden lg:flex w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-950 px-12 xl:px-16 shrink-0 flex-col justify-between py-12 absolute top-0 bottom-0 z-20 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
+    [ngClass]="{
+      'is-register left-0 rounded-r-[2.5rem]': isRegister(),
+      'is-login left-1/2 rounded-l-[2.5rem]': isLogin()
+    }">
+
+    <!-- 3D Spheres -->
+    <div class="sphere s1"></div>
+    <div class="sphere s2"></div>
+    <div class="sphere s3"></div>
+
+    <!-- Glass rings -->
+    <div class="glass-ring" style="width:300px;height:300px;top:-50px;left:-60px"></div>
+    <div class="glass-ring" style="width:200px;height:200px;bottom:100px;right:-40px"></div>
+
+    <!-- Top: Logo -->
+    <div class="relative z-10">
+      <app-logo [variant]="'white'" [size]="12" />
+    </div>
+
+    <!-- Center Content: Contextual based on mode -->
+    <div class="relative z-10 flex-1 flex flex-col justify-center py-10 max-w-md panel-content-transition">
+
+      @if (isRegister()) {
+        <div class="space-y-6 animate-panel-fade">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold backdrop-blur-md">
+            <lucide-icon name="sparkles" size="14" class="text-amber-300"></lucide-icon>
+            <span>Solution RH Nouvelle Génération</span>
+          </div>
+          <div>
+            <h2 class="text-3xl xl:text-4xl font-black text-white leading-tight tracking-tight">
+              Optimisez le temps de vos collaborateurs.
+            </h2>
+            <p class="text-indigo-200/80 text-sm font-semibold mt-3 leading-relaxed">
+              Rejoignez des milliers d'entreprises qui font confiance à WeenTime pour la gestion intelligente du suivi du temps et des absences.
+            </p>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div class="flex items-center gap-3 text-white/90 text-xs font-bold">
+              <div class="w-6 h-6 rounded-full bg-emerald-400/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                <lucide-icon name="check" size="14"></lucide-icon>
+              </div>
+              <span>Validation automatique & Workflow RH fluide</span>
+            </div>
+            <div class="flex items-center gap-3 text-white/90 text-xs font-bold">
+              <div class="w-6 h-6 rounded-full bg-emerald-400/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                <lucide-icon name="check" size="14"></lucide-icon>
+              </div>
+              <span>Intelligence artificielle & Vocalisation de suivi</span>
+            </div>
+            <div class="flex items-center gap-3 text-white/90 text-xs font-bold">
+              <div class="w-6 h-6 rounded-full bg-emerald-400/20 text-emerald-400 flex items-center justify-center border border-emerald-400/30 shrink-0">
+                <lucide-icon name="check" size="14"></lucide-icon>
+              </div>
+              <span>Analytique en temps réel & Exportations rapides</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (isLogin()) {
+        <div class="space-y-6 animate-panel-fade">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold backdrop-blur-md">
+            <lucide-icon name="shield-check" size="14" class="text-emerald-400"></lucide-icon>
+            <span>Connexion Sécurisée AES-256</span>
+          </div>
+          <div>
+            <h2 class="text-3xl xl:text-4xl font-black text-white leading-tight tracking-tight">
+              Bienvenue sur votre espace WeenTime.
+            </h2>
+            <p class="text-indigo-200/80 text-sm font-semibold mt-3 leading-relaxed">
+              Accédez directement à vos pointeuses, demandes de congés, plannings et tableaux de bord en un instant.
+            </p>
+          </div>
+
+          <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-5 space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/30 border border-indigo-400/30 flex items-center justify-center text-white shrink-0">
+                <lucide-icon name="lock" size="20"></lucide-icon>
+              </div>
+              <div>
+                <p class="text-white text-xs font-bold">Double Authentification MFA/2FA</p>
+                <p class="text-indigo-200/70 text-[11px] font-semibold mt-0.5">Protection renforcée de vos données RH</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+    </div>
+
+    <!-- Bottom: Voice Module -->
+    <div class="relative z-10">
+      <div class="activity-card flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/[0.12] backdrop-blur-xl border border-white/[0.2] shadow-xl max-w-xs overflow-hidden group">
+        <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="voice-wave-container flex items-center justify-center w-9 h-9 rounded-full bg-indigo-500/20 border border-indigo-400/25 shrink-0">
+          <div class="voice-bar b1"></div>
+          <div class="voice-bar b2"></div>
+          <div class="voice-bar b3"></div>
+          <lucide-icon name="mic" [size]="14" class="text-white absolute"></lucide-icon>
+        </div>
+        <div>
+          <p class="text-white text-[13px] font-bold leading-tight">Interaction Vocale IA</p>
+          <p class="text-indigo-200/60 text-[11px] font-semibold mt-0.5">Dites "Je veux pointer"</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- FORM CONTAINER (50% desktop, 100% mobile)                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div
+    class="form-panel-wrapper w-full lg:w-1/2 h-full flex flex-col justify-center items-center overflow-y-auto px-4 sm:px-6 relative z-10 transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
+    [ngClass]="{
+      'lg:ml-auto': isRegister(),
+      'lg:mr-auto': isLogin()
+    }">
+    <router-outlet></router-outlet>
+  </div>
+
+  <!-- Theme Toggle FAB -->
+  <button type="button" (click)="themeService.toggleTheme()" class="theme-fab" aria-label="Changer de thème">
+    <lucide-icon [name]="themeService.isDark() ? 'sun' : 'moon'" [size]="20"
+      [class]="themeService.isDark() ? 'text-amber-400' : 'text-indigo-600'"></lucide-icon>
+  </button>
+
+</div>

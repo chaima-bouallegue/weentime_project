@@ -28,6 +28,13 @@ import { LogoComponent } from '../logo/logo.component';
     .nav-link-active span {
         @apply scale-x-100 !important;
     }
+    .drawer-enter {
+        animation: drawerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes drawerFadeIn {
+        from { opacity: 0; transform: translateY(8px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
   `]
 })
 export class NavbarComponent {
@@ -60,12 +67,46 @@ export class NavbarComponent {
         { code: 'AR', label: 'AR' },
     ];
 
+    featuresDrawer = {
+        groups: [
+            {
+                title: 'Temps & Présence',
+                items: [
+                    { label: 'Pointage mobile', desc: 'Géolocalisation, NFC, QR code', icon: 'map-pin', route: '/', fragment: 'features' },
+                    { label: 'Planning', desc: 'Horaires et absences centralisés', icon: 'clock', route: '/', fragment: 'features' },
+                ]
+            },
+            {
+                title: 'Congés & Télétravail',
+                items: [
+                    { label: 'Demandes de congés', desc: 'Workflow validation intelligent', icon: 'calendar', route: '/', fragment: 'features' },
+                    { label: 'Télétravail', desc: 'Planification et suivi', icon: 'home', route: '/', fragment: 'features' },
+                ]
+            },
+            {
+                title: 'RH & Documents',
+                items: [
+                    { label: 'Documents RH', desc: 'Génération IA + signature', icon: 'file-text', route: '/', fragment: 'features' },
+                    { label: 'Recrutement', desc: 'Scoring CV par IA', icon: 'users', route: '/', fragment: 'features' },
+                ]
+            },
+            {
+                title: 'IA & Analytics',
+                items: [
+                    { label: 'Assistant IA', desc: 'Vocal, prédictions, alertes', icon: 'sparkles', route: '/', fragment: 'assistant-ia' },
+                    { label: 'Tableaux de bord', desc: 'Métriques en temps réel', icon: 'bar-chart-3', route: '/', fragment: 'features' },
+                ]
+            },
+        ]
+    };
+
+    featuresDropdownOpen = signal(false);
+
     navLinks = [
         { label: 'Accueil', path: '/' },
-        { label: 'Présentation', path: '/', fragment: 'presentation' },
-        { label: 'Fonctionnalités', path: '/', fragment: 'features' },
-        { label: 'Carrières', path: '/careers' },
-        { label: 'Blog', path: '/blog' }
+        { label: 'Présentation', path: '/presentation' },
+        { label: 'Fonctionnalités', path: '/', fragment: 'features', hasDrawer: true },
+        { label: 'Carrières', path: '/careers' }
     ];
 
     @HostListener('window:scroll', [])

@@ -103,6 +103,8 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(false);
   readonly pageReady = signal(false);
   readonly isDayOff = signal(false);
+  readonly showCheckInConfirmModal = signal(false);
+  readonly showCheckOutConfirmModal = signal(false);
 
   readonly attendanceState = this.pointageService.attendanceState;
   readonly checkInTime = this.pointageService.checkInTime;
@@ -424,7 +426,16 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.showCheckInConfirmModal.set(true);
+  }
+
+  confirmCheckIn(): void {
+    this.showCheckInConfirmModal.set(false);
     this.performPointageAction(true);
+  }
+
+  cancelCheckInModal(): void {
+    this.showCheckInConfirmModal.set(false);
   }
 
   onCheckOut(): void {
@@ -432,14 +443,23 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.showCheckOutConfirmModal.set(true);
+  }
+
+  confirmCheckOut(): void {
+    this.showCheckOutConfirmModal.set(false);
     this.performPointageAction(false);
+  }
+
+  cancelCheckOutModal(): void {
+    this.showCheckOutConfirmModal.set(false);
   }
 
   onCheckoutFromOvertimeModal(): void {
     if (this.isLoading()) {
       return;
     }
-    this.performPointageAction(false);
+    this.showCheckOutConfirmModal.set(true);
   }
 
   onContinueOvertime(): void {

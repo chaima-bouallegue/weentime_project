@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,8 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from app.features.forecast_features import FEATURE_NAMES
 
+logger = logging.getLogger(__name__)
+
 
 class AbsenceLeaveForecastModel:
     def __init__(
@@ -22,11 +25,13 @@ class AbsenceLeaveForecastModel:
         *,
         model_version: str | None = None,
         metrics: dict[str, Any] | None = None,
+        entreprise_id: int | None = None,
     ) -> None:
         self.regressor = regressor
         self.classifier = classifier
         self.model_version = model_version or f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         self.metrics = metrics or {}
+        self.entreprise_id = entreprise_id
 
     @property
     def is_ready(self) -> bool:
@@ -66,7 +71,16 @@ class AbsenceLeaveForecastModel:
         if not self.is_ready:
             raise RuntimeError("nothing_to_save")
         model_dir.mkdir(parents=True, exist_ok=True)
-        bundle_path = model_dir / f"forecast_absence_leave_{self.model_version}.joblib"
+
+        ns = f"{self.entreprise_id}_" if self.entreprise_id is not None else ""
+        bundle_path = model_dir / f"forecast_absence_leave_{ns}{self.model_version}.joblib"
+
+        if self.entreprise_id is None:
+            logger.warning(
+                "Saving model without entreprise_id namespace (legacy). "
+                "Tenant-specific models should use the entreprise_id parameter."
+            )
+
         joblib.dump(
             {
                 "regressor": self.regressor,
@@ -74,33 +88,53 @@ class AbsenceLeaveForecastModel:
                 "feature_names": list(FEATURE_NAMES),
                 "model_version": self.model_version,
                 "metrics": self.metrics,
+                "entreprise_id": self.entreprise_id,
             },
             bundle_path,
         )
+
         metadata = {
             "modelVersion": self.model_version,
             "featureNames": list(FEATURE_NAMES),
             "metrics": self.metrics,
             "savedAt": datetime.now(timezone.utc).isoformat(),
+            "entreprise_id": self.entreprise_id,
         }
-        (model_dir / f"forecast_absence_leave_metadata_{self.model_version}.json").write_text(
+        (model_dir / f"forecast_absence_leave_metadata_{ns}{self.model_version}.json").write_text(
             json.dumps(metadata, ensure_ascii=True, indent=2),
             encoding="utf-8",
         )
         return str(bundle_path)
 
+    def load(self, bundle_path: Path) -> None:
+        bundle = joblib.load(bundle_path)
+        self.regressor = bundle.get("regressor")
+        self.classifier = bundle.get("classifier")
+        self.model_version = str(bundle.get("model_version") or bundle_path.stem)
+        self.metrics = dict(bundle.get("metrics") or {})
+        self.entreprise_id = bundle.get("entreprise_id")
+
     @classmethod
-    def load_latest(cls, model_dir: Path) -> "AbsenceLeaveForecastModel | None":
-        candidates = sorted(model_dir.glob("forecast_absence_leave_v*.joblib"), reverse=True)
+    def load_latest(
+        cls,
+        model_dir: Path,
+        entreprise_id: int | None = None,
+    ) -> "AbsenceLeaveForecastModel | None":
+        if entreprise_id is not None:
+            pattern = f"forecast_absence_leave_{entreprise_id}_v*.joblib"
+        else:
+            pattern = "forecast_absence_leave_v*.joblib"
+        candidates = sorted(model_dir.glob(pattern), reverse=True)
         if not candidates:
+            if entreprise_id is not None:
+                logger.warning(
+                    "No tenant-specific model found for entreprise_id=%s, "
+                    "falling back to legacy global model",
+                    entreprise_id,
+                )
+                return cls.load_latest(model_dir, entreprise_id=None)
             return None
-        bundle = joblib.load(candidates[0])
-        feature_names = tuple(bundle.get("feature_names") or ())
-        if feature_names != FEATURE_NAMES:
-            return None
-        return cls(
-            regressor=bundle.get("regressor"),
-            classifier=bundle.get("classifier"),
-            model_version=str(bundle.get("model_version") or candidates[0].stem),
-            metrics=dict(bundle.get("metrics") or {}),
-        )
+        instance = cls()
+        instance.load(candidates[0])
+        logger.info("loaded model %s from %s", instance.model_version, candidates[0])
+        return instance

@@ -181,6 +181,7 @@ export class ApiConfigService {
     GET_MANAGER_CONGES: `${this.API_BASE}/rh/conges/manager`,
     GET_CONGE_BY_ID: (id: number) => `${this.API_BASE}/rh/conges/${id}`,
     CREATE_CONGE: `${this.API_BASE}/rh/conges`,
+    UPDATE_CONGE: (id: number) => `${this.API_BASE}/rh/conges/${id}`,
     VALIDATE_CONGE_MANAGER: (id: number) => `${this.API_BASE}/rh/conges/${id}/valider`,
     REJECT_CONGE_MANAGER: (id: number) => `${this.API_BASE}/rh/conges/${id}/refuser`,
     VALIDATE_CONGE_RH: (id: number) => `${this.API_BASE}/rh/conges/${id}/valider-rh`,

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import unicodedata
 from typing import Any
@@ -13,7 +13,7 @@ from .registry import ToolRegistry
 from .result import ToolResult, build_read_result
 
 LEAVE_READ_ROLES = {"EMPLOYEE", "MANAGER", "RH"}
-LEAVE_WRITE_ROLES = {"EMPLOYEE"}
+LEAVE_WRITE_ROLES = {"EMPLOYEE", "MANAGER", "RH"}
 LEAVE_MANAGER_ROLES = {"MANAGER"}
 LEAVE_RH_ROLES = {"RH"}
 LEAVE_UNAVAILABLE = "Cette action conge n'est pas encore disponible pour votre role."
@@ -45,6 +45,19 @@ class DecideLeaveInput(BaseModel):
 class RHLeaveDecisionInput(BaseModel):
     request_id: int = Field(gt=0)
     comment: str | None = None
+
+
+async def list_type_conges(backend_client: Any, context: CurrentUserContext) -> list[dict[str, Any]]:
+    """Retourne la liste brute des types de conge de l'entreprise (id + libelle)."""
+    if not backend_client:
+        return []
+    try:
+        result = await backend_client.get("/rh/type-conges", context=context)
+        if not getattr(result, "success", True):
+            return []
+        return _as_list(getattr(result, "data", result))
+    except Exception:
+        return []
 
 
 class LeaveTools:
@@ -190,11 +203,24 @@ class LeaveTools:
             return self._read_failure("leave.get_balance", result)
         balances = _as_list(result.data)
         total = _sum_number(balances, "joursRestants")
-        summary = (
-            f"Il vous reste {self._format_number(total)} jours de conge."
-            if balances
-            else "Aucun solde de conge disponible pour votre compte."
-        )
+        if balances:
+            detail_lines = []
+            for item in sorted(
+                (b for b in balances if isinstance(b, dict) and b.get("typeCongeNom")),
+                key=lambda b: b["typeCongeNom"],
+            ):
+                reste = item.get("joursRestants")
+                reste = reste if isinstance(reste, (int, float)) else 0
+                detail_lines.append(
+                    f"  • {item['typeCongeNom']} : {self._format_number(reste)} jours restants"
+                )
+            summary = (
+                "Voici votre solde de conge :\n" + "\n".join(detail_lines)
+                if detail_lines
+                else "Aucun solde de conge disponible pour votre compte."
+            )
+        else:
+            summary = "Aucun solde de conge disponible pour votre compte."
         return ToolResult.ok(
             {
                 "read_result": build_read_result(
@@ -274,13 +300,25 @@ class LeaveTools:
                 status_code=400,
             )
 
+        role = (getattr(context, "role", "EMPLOYEE") or "EMPLOYEE").upper().replace("ROLE_", "")
         body = {
             "dateDebut": getattr(payload, "start_date"),
             "dateFin": getattr(payload, "end_date"),
             "motif": getattr(payload, "reason"),
             "commentaire": getattr(payload, "reason"),
             "typeCongeId": type_conge_id,
+            "createdViaCopilot": True,
+            "source": "AI_COPILOT",
         }
+        if role == "RH":
+            body["autoApprove"] = True
+            body["targetStatus"] = "APPROVED"
+        elif role == "MANAGER":
+            body["skipManagerApproval"] = True
+            body["targetStatus"] = "PENDING_RH"
+        else:
+            body["targetStatus"] = "PENDING_MANAGER"
+
         justificatif = getattr(payload, "justificatif_fourni", None)
         if justificatif is not None:
             body["justificatifFourni"] = justificatif
@@ -322,14 +360,17 @@ class LeaveTools:
         label = "approuvee" if decision == "APPROVE" else "refusee"
         return _write_success(f"leave.{role}_decide", f"La demande de conge a ete {label}.", result)
 
+
+    async def list_type_conges(self, context: CurrentUserContext) -> list[dict[str, Any]]:
+        """Retourne la liste brute des types de conge de l'entreprise."""
+        return await list_type_conges(self.backend_client, context)
+
     async def _resolve_type_conge_id(self, label: str | None, context: CurrentUserContext) -> int | None:
         normalized_label = _normalize_label(label)
         if not normalized_label:
             return None
-        result = await self.backend_client.get("/rh/type-conges", context=context)
-        if not result.success:
-            return None
-        for item in _as_list(result.data):
+        types = await self.list_type_conges(context)
+        for item in types:
             if not isinstance(item, dict):
                 continue
             candidate = _normalize_label(item.get("libelle") or item.get("nom") or item.get("name") or item.get("label"))

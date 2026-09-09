@@ -57,6 +57,23 @@ public class HoraireManagementService {
     private final com.weentime.weentimeapp.security.SecurityUtils securityUtils;
     private final NotificationService notificationService;
 
+    // --- Cache for affectations by entreprise (reduces N+1 in parallelStream) ---
+    private static class CacheEntry<T> {
+        final T value;
+        final long timestamp;
+        CacheEntry(T value) {
+            this.value = value;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired(long ttlMs) {
+            return System.currentTimeMillis() - timestamp > ttlMs;
+        }
+    }
+
+    private final java.util.Map<Long, CacheEntry<java.util.List<AffectationHoraire>>> affectationsByEntrepriseCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Long, CacheEntry<java.util.List<HoraireModele>>> defaultHoraireByEntrepriseCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MS = 15000L;
+
     public Page<HoraireDto> getHoraires(Long currentUserId, Pageable pageable) {
         Long entrepriseId = getSafeEntrepriseId(currentUserId);
         Pageable safePageable = pageable == null ? Pageable.unpaged() : pageable;
@@ -359,10 +376,25 @@ public class HoraireManagementService {
         }
 
         if (user.getEntrepriseId() != null) {
-            Optional<HoraireModele> defaultModel = horaireModeleRepository
-                    .findFirstByEntrepriseIdAndIsDefautTrueAndStatutOrderByUpdatedAtDesc(user.getEntrepriseId(), StatutHoraireModele.ACTIF);
-            if (defaultModel.isPresent()) {
-                return toHoraireDto(defaultModel.get());
+            Long entrepriseId = user.getEntrepriseId();
+            CacheEntry<java.util.List<HoraireModele>> entry = defaultHoraireByEntrepriseCache.get(entrepriseId);
+            java.util.List<HoraireModele> defaultModels;
+            if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+                defaultModels = entry.value;
+            } else {
+                defaultModels = horaireModeleRepository
+                        .findDefaultByEntrepriseIdWithJoursAndPlages(entrepriseId, StatutHoraireModele.ACTIF);
+                for (HoraireModele hm : defaultModels) {
+                    if (hm.getJours() != null) {
+                        for (HoraireJour jour : hm.getJours()) {
+                            jour.getPlages().size();
+                        }
+                    }
+                }
+                defaultHoraireByEntrepriseCache.put(entrepriseId, new CacheEntry<>(defaultModels));
+            }
+            if (!defaultModels.isEmpty()) {
+                return toHoraireDto(defaultModels.get(0));
             }
         }
 
@@ -376,7 +408,26 @@ public class HoraireManagementService {
             return Optional.empty();
         }
 
-        return affectationHoraireRepository.findByEntrepriseId(user.getEntrepriseId()).stream()
+        Long entrepriseId = user.getEntrepriseId();
+
+        CacheEntry<java.util.List<AffectationHoraire>> entry = affectationsByEntrepriseCache.get(entrepriseId);
+        java.util.List<AffectationHoraire> affectations;
+        if (entry != null && !entry.isExpired(CACHE_TTL_MS)) {
+            affectations = entry.value;
+        } else {
+            affectations = affectationHoraireRepository.findByEntrepriseId(entrepriseId);
+            // Initialize lazy plages before caching to avoid LazyInitializationException
+            for (AffectationHoraire ah : affectations) {
+                if (ah.getHoraire() != null && ah.getHoraire().getJours() != null) {
+                    for (HoraireJour jour : ah.getHoraire().getJours()) {
+                        jour.getPlages().size();
+                    }
+                }
+            }
+            affectationsByEntrepriseCache.put(entrepriseId, new CacheEntry<>(affectations));
+        }
+
+        return affectations.stream()
                 .filter(item -> matchesUser(item, user))
                 .filter(item -> {
                     if (item.getDateDebut() != null && date != null && date.isBefore(item.getDateDebut())) {

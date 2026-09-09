@@ -82,6 +82,7 @@ class AttendanceRecord:
     department_name: str | None = None
     source: str | None = None
     localisation: str | None = None
+    is_anomaly: bool | None = None
     missing_data_warnings: list[str] = field(default_factory=list)
 
     @property

@@ -41,4 +41,7 @@ public interface PresenceRepository extends JpaRepository<Presence, Long> {
 
     @Query("select sum(p.totalHeuresTravaillees) from Presence p where p.utilisateurId = :utilisateurId and p.date between :dateStart and :dateEnd")
     BigDecimal sumWorkHoursByUtilisateurIdAndDateBetween(@Param("utilisateurId") Long utilisateurId, @Param("dateStart") LocalDate dateStart, @Param("dateEnd") LocalDate dateEnd);
+
+    @Query("select p.utilisateurId, p.date from Presence p where p.utilisateurId in :userIds")
+    List<Object[]> findUtilisateurIdAndDateByUtilisateurIdIn(@Param("userIds") Collection<Long> userIds);
 }

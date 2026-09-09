@@ -12,7 +12,9 @@ import {
   ReadMarkerResponse,
   SendMessageRequest,
   UnreadSummaryModel,
-  UpdateMessageRequest
+  UpdateMessageRequest,
+  UpdateChannelRequest,
+  AddChannelMembersRequest
 } from '../models/communication.models';
 import {
   CommunicationSocketEvent,
@@ -82,7 +84,7 @@ export class CommunicationStoreService {
   });
   readonly directMessages = computed(() => this.channels().filter(channel => channel.type === 'DIRECT' || channel.type === 'GROUP_DM'));
   readonly visibleChannels = computed(() => this.channels().filter(channel => channel.type !== 'DIRECT' && channel.type !== 'GROUP_DM'));
-  readonly canSend = computed(() => this.activeChannel()?.permissions.canWrite ?? false);
+  readonly canSend = computed(() => (this.activeChannel()?.permissions.canWrite ?? false) && !this.activeChannel()?.isArchived);
   readonly pinnedMessages = computed(() => this.activeMessages().filter(m => !!m.pinnedAt));
   readonly typingLabel = computed(() => {
     const channelId = this.activeChannelId();
@@ -309,6 +311,65 @@ export class CommunicationStoreService {
       tap(newChannel => {
         this.channels.update(prev => this.sortChannels([...prev, newChannel]));
         this.selectChannel(newChannel.id);
+      })
+    );
+  }
+
+  updateChannel(channelId: string, request: UpdateChannelRequest): Observable<ChannelModel> {
+    return this.api.updateChannel(channelId, request).pipe(
+      tap(updatedChannel => {
+        this.channels.update(prev =>
+          this.sortChannels(prev.map(ch => (ch.id === channelId ? { ...ch, ...updatedChannel } : ch)))
+        );
+      })
+    );
+  }
+
+  archiveChannel(channelId: string): Observable<ChannelModel> {
+    return this.api.archiveChannel(channelId).pipe(
+      tap(archivedChannel => {
+        this.channels.update(prev =>
+          this.sortChannels(prev.map(ch => (ch.id === channelId ? { ...ch, ...archivedChannel, isArchived: true } : ch)))
+        );
+      })
+    );
+  }
+
+  addChannelMembers(channelId: string, userIds: number[]): Observable<ChannelModel> {
+    return this.api.addChannelMembers(channelId, userIds).pipe(
+      tap(updatedChannel => {
+        this.channels.update(prev =>
+          prev.map(ch =>
+            ch.id === channelId
+              ? { ...ch, members: updatedChannel.members, memberCount: updatedChannel.memberCount }
+              : ch
+          )
+        );
+      })
+    );
+  }
+
+  removeChannelMember(channelId: string, userId: number): Observable<ChannelModel> {
+    return this.api.removeChannelMember(channelId, userId).pipe(
+      tap(updatedChannel => {
+        this.channels.update(prev =>
+          prev.map(ch =>
+            ch.id === channelId
+              ? { ...ch, members: updatedChannel.members, memberCount: updatedChannel.memberCount }
+              : ch
+          )
+        );
+      })
+    );
+  }
+
+  leaveChannel(channelId: string): Observable<void> {
+    return this.api.leaveChannel(channelId).pipe(
+      tap(() => {
+        this.channels.update(prev => prev.filter(ch => ch.id !== channelId));
+        if (this.activeChannelId() === channelId) {
+          this.clearActiveChannel();
+        }
       })
     );
   }

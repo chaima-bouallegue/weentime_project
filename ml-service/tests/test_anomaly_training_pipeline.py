@@ -42,7 +42,7 @@ def test_default_training_uses_real_postgresql_rows(monkeypatch, tmp_path):
     monkeypatch.setattr(
         train_attendance_anomaly,
         "load_real_attendance_data",
-        lambda: _real_frame(),
+        lambda entreprise_id=None: _real_frame(),
     )
 
     result = train_attendance_anomaly.train_pipeline()

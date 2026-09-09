@@ -1,5 +1,6 @@
 package com.weentime.communication.controller;
 
+import com.weentime.communication.dto.AddChannelMembersRequest;
 import com.weentime.communication.dto.ApiEnvelope;
 import com.weentime.communication.dto.ChannelResponse;
 import com.weentime.communication.dto.CreateChannelRequest;
@@ -10,6 +11,7 @@ import com.weentime.communication.dto.OpenDirectRequest;
 import com.weentime.communication.dto.ReadMarkerResponse;
 import com.weentime.communication.dto.UnreadSummaryResponse;
 import com.weentime.communication.dto.UpdateChannelNotificationRequest;
+import com.weentime.communication.dto.UpdateChannelRequest;
 import com.weentime.communication.dto.UpdateNotificationPreferencesRequest;
 import com.weentime.communication.security.SecurityUtils;
 import com.weentime.communication.service.ChannelService;
@@ -17,13 +19,14 @@ import com.weentime.communication.service.NotificationPreferencesService;
 import com.weentime.communication.service.UnreadService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
@@ -63,6 +66,41 @@ public class ChannelController {
     @GetMapping("/channels/workflow/{demandeId}")
     public ApiEnvelope<ChannelResponse> getWorkflowChannel(@PathVariable String demandeId) {
         return ApiEnvelope.success(channelService.getWorkflowChannel(demandeId, SecurityUtils.currentUser()));
+    }
+
+    @PutMapping("/channels/{channelId}")
+    public ApiEnvelope<ChannelResponse> updateChannel(
+            @PathVariable UUID channelId,
+            @Valid @RequestBody UpdateChannelRequest request
+    ) {
+        return ApiEnvelope.success(channelService.updateChannel(channelId, request, SecurityUtils.currentUser()));
+    }
+
+    @PutMapping("/channels/{channelId}/archive")
+    public ApiEnvelope<ChannelResponse> archiveChannel(@PathVariable UUID channelId) {
+        return ApiEnvelope.success(channelService.archiveChannel(channelId, SecurityUtils.currentUser()));
+    }
+
+    @PostMapping("/channels/{channelId}/members")
+    public ApiEnvelope<ChannelResponse> addMembers(
+            @PathVariable UUID channelId,
+            @Valid @RequestBody AddChannelMembersRequest request
+    ) {
+        return ApiEnvelope.success(channelService.addMembers(channelId, request, SecurityUtils.currentUser()));
+    }
+
+    @DeleteMapping("/channels/{channelId}/members/{userId}")
+    public ApiEnvelope<ChannelResponse> removeMember(
+            @PathVariable UUID channelId,
+            @PathVariable Long userId
+    ) {
+        return ApiEnvelope.success(channelService.removeMember(channelId, userId, SecurityUtils.currentUser()));
+    }
+
+    @PostMapping("/channels/{channelId}/leave")
+    public ApiEnvelope<Void> leaveChannel(@PathVariable UUID channelId) {
+        channelService.leaveChannel(channelId, SecurityUtils.currentUser());
+        return ApiEnvelope.success(null);
     }
 
     @PostMapping("/direct")

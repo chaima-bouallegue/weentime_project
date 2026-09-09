@@ -1,0 +1,1 @@
+ALTER TABLE conges ADD COLUMN IF NOT EXISTS justificatif_url VARCHAR(500);

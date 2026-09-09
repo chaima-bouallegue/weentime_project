@@ -185,19 +185,19 @@
 </section>
 
 <div
-  class="action-shell"
+  class="action-shell action-shell--center"
   *ngIf="detailsAnomaly as anomaly"
   role="presentation"
   (click)="closePanels()"
 >
-  <aside
-    class="action-drawer"
+  <section
+    class="action-modal details-modal"
     role="dialog"
     aria-modal="true"
     aria-labelledby="anomaly-details-title"
     (click)="$event.stopPropagation()"
   >
-    <header class="action-drawer__hero">
+    <header class="details-modal__hero">
       <button type="button" class="action-close" aria-label="Fermer les détails" (click)="closePanels()">×</button>
       <div class="detail-hero">
         <span class="detail-hero__avatar" aria-hidden="true">{{ initials(anomaly.employeeName) }}</span>
@@ -213,7 +213,7 @@
       </div>
     </header>
 
-    <div class="action-drawer__body">
+    <div class="details-modal__body">
       <section class="detail-section" *ngIf="scope === 'ADMIN' && selectedEnterpriseLabel">
         <span class="detail-label">Entreprise</span>
         <strong>{{ selectedEnterpriseLabel }}</strong>
@@ -271,7 +271,12 @@
         </dl>
       </details>
     </div>
-  </aside>
+
+    <footer class="details-modal__footer">
+      <button type="button" class="btn btn--ghost" (click)="closePanels()">Fermer</button>
+      <button type="button" class="btn btn--outline" (click)="openContactFromDetails(anomaly)">Contacter</button>
+    </footer>
+  </section>
 </div>
 
 <div

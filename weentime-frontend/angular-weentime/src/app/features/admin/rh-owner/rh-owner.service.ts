@@ -79,14 +79,23 @@ export class RhOwnerService {
   }
 
   checkEmailUnique(email: string, excludedUserId?: number): Observable<boolean> {
-    return this.http.get<any>(this.api.ORGANISATION.GET_USER_BY_EMAIL(email)).pipe(
+    const normalizedEmail = email ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail) {
+      return of(true);
+    }
+    return this.http.get<any>(this.api.ORGANISATION.GET_USER_BY_EMAIL(normalizedEmail), {
+      headers: { 'X-Skip-Error-Toast': 'true' }
+    }).pipe(
       map(response => {
         const payload = response?.data ?? response;
+        if (!payload || (typeof payload === 'object' && Object.keys(payload).length === 0)) {
+          return true;
+        }
         const foundId = Number(payload?.id ?? 0);
         if (excludedUserId && foundId === excludedUserId) {
           return true;
         }
-        return false;
+        return foundId === 0;
       }),
       catchError((err: any) => {
         if (err.status === 404) {

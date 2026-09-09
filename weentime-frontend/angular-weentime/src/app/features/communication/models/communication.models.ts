@@ -168,3 +168,12 @@ export interface CommunicationBootstrapResponse {
   repairedUsers: number;
   warnings: string[];
 }
+
+export interface UpdateChannelRequest {
+  name?: string | null;
+  description?: string | null;
+}
+
+export interface AddChannelMembersRequest {
+  userIds: number[];
+}

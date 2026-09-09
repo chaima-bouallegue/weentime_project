@@ -90,7 +90,7 @@ class SpeechToTextService:
     async def apreload(self) -> bool:
         return await asyncio.to_thread(self.preload)
 
-    def process(self, audio_file: str | Path) -> VoiceProcessingResult:
+    def process(self, audio_file: str | Path, language: str | None = None) -> VoiceProcessingResult:
         pipeline_started = perf_counter()
         timings: dict[str, float] = {}
         source_path = Path(audio_file)
@@ -212,7 +212,7 @@ class SpeechToTextService:
                 transcription_result = transcribe_audio_result(
                     wav_path,
                     model_name=self.settings.stt_model,
-                    language=None,
+                    language=language,
                     device=self.settings.stt_device,
                     compute_type=getattr(self.settings, "stt_compute_type", "int8"),
                     cpu_threads=getattr(self.settings, "stt_cpu_threads", 1),
@@ -336,11 +336,11 @@ class SpeechToTextService:
             if wav_path is not None:
                 wav_path.unlink(missing_ok=True)
 
-    async def aprocess(self, audio_file: str | Path) -> VoiceProcessingResult:
+    async def aprocess(self, audio_file: str | Path, language: str | None = None) -> VoiceProcessingResult:
         timeout_seconds = float(getattr(self.settings, "stt_timeout_seconds", 20.0))
         task: asyncio.Task[VoiceProcessingResult] | None = None
         try:
-            task = asyncio.create_task(asyncio.to_thread(self.process, audio_file))
+            task = asyncio.create_task(asyncio.to_thread(self.process, audio_file, language=language))
             return await asyncio.wait_for(
                 task,
                 timeout=timeout_seconds,

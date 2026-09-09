@@ -296,6 +296,26 @@ async def lifespan(app: FastAPI):
             settings.tts_model,
             (perf_counter() - started) * 1000,
         )
+    app.state.rag_embedding_ready = False
+    if getattr(settings, "rag_embedding_backend", "sentence_transformers") == "sentence_transformers":
+        started = perf_counter()
+        try:
+            from app.policy.embeddings import get_embedding_function
+
+            app.state.rag_embedding_ready = await asyncio.to_thread(
+                lambda: get_embedding_function(
+                    model_name=getattr(settings, "sentence_transformer_model", "intfloat/multilingual-e5-base")
+                ).preload()
+            )
+        except Exception as exc:  # noqa: BLE001 - optional dependency boundary
+            app.state.rag_embedding_ready = False
+            logger.warning("rag_embedding_preload_failed error=%s", exc)
+        logger.info(
+            "rag_embedding_preload ready=%s model=%s load_ms=%.2f",
+            app.state.rag_embedding_ready,
+            getattr(settings, "sentence_transformer_model", "intfloat/multilingual-e5-base"),
+            (perf_counter() - started) * 1000,
+        )
 
     try:
         yield

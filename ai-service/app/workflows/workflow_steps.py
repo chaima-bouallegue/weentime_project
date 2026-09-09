@@ -26,6 +26,8 @@ SAFE_CONTEXT_METADATA_ALIASES: dict[str, tuple[str, ...]] = {
     "conversation_id": ("conversation_id", "conversationId", "conversation"),
     "company_id": ("company_id", "companyId"),
     "entreprise_id": ("entreprise_id", "entrepriseId", "tenant_id", "tenantId"),
+    "justificatif_url": ("justificatif_url", "justificatifUrl"),
+    "file_name": ("file_name", "fileName"),
     "session_id": ("session_id", "sessionId"),
     "channel": ("channel",),
     "language": ("language",),

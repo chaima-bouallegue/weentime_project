@@ -53,6 +53,21 @@ export class CongeService {
     );
   }
 
+  modifierDemande(id: number, request: NouvelleDemandeRequest): Observable<DemandeConge> {
+    const payload = {
+      dateDebut: request.dateDebut,
+      dateFin: request.dateFin,
+      motif: request.motif,
+      typeCongeId: request.typeCongeId,
+      typeCongeNom: request['label'] as string,
+      justificatifFourni: Boolean(request.justificatifFourni || request.justificatif),
+      typeDemande: 'CONGE'
+    };
+    return this.http.put<unknown>(this.apiConfig.RH.UPDATE_CONGE(id), payload).pipe(
+      map(item => this.mapDemande(item))
+    );
+  }
+
   annulerDemande(id: number): Observable<void> {
     return this.http.patch<void>(this.apiConfig.RH.CANCEL_CONGE(id), {});
   }
@@ -167,23 +182,51 @@ export class CongeService {
   private mapSoldes(items: unknown[]): SoldeConge[] {
     return items.map(item => {
       const source = (item ?? {}) as Record<string, unknown>;
-      const type = this.resolveType(source['typeCongeNom'] ?? source['label'] ?? source['type'] ?? 'ANNUEL');
+      const rawNom = String(source['typeCongeNom'] ?? source['label'] ?? source['type'] ?? '').trim();
+      const typeCongeId = this.optionalNumber(source['typeCongeId']);
+
+      let type: TypeConge;
+      if (rawNom && rawNom !== 'Inconnu') {
+        type = this.resolveType(rawNom);
+      } else if (typeCongeId) {
+        type = this.typeIdToTypeConge(typeCongeId);
+      } else {
+        type = 'ANNUEL';
+      }
+
+      let label = rawNom;
+      if (!label || label === 'Inconnu') {
+        label = this.getLabelForType(type);
+      }
+
       const total = Number(source['joursAcquis'] ?? source['total'] ?? 0);
       const pris = Number(source['joursUtilises'] ?? source['pris'] ?? 0);
       const enAttente = Number(source['joursEnAttente'] ?? source['enAttente'] ?? 0);
       const joursRestants = Number(source['joursRestants'] ?? source['disponible'] ?? Math.max(total - pris, 0));
       return {
         type,
-        label: String(source['typeCongeNom'] ?? source['label'] ?? this.getLabelForType(type)),
+        label,
         total,
         pris,
         enAttente,
         disponible: Math.max(joursRestants - enAttente, 0),
         couleur: this.getColorForType(type),
         icone: 'umbrella',
-        typeCongeId: this.optionalNumber(source['typeCongeId'])
+        typeCongeId
       };
     });
+  }
+
+  private typeIdToTypeConge(id: number): TypeConge {
+    const mapping: Record<number, TypeConge> = {
+      1: 'ANNUEL',
+      2: 'MALADIE',
+      3: 'RTT',
+      4: 'MATERNITE_PATERNITE',
+      5: 'EXCEPTIONNEL',
+      6: 'SANS_SOLDE'
+    };
+    return mapping[id] || 'ANNUEL';
   }
 
   private getColorForType(type: TypeConge): string {
@@ -246,13 +289,13 @@ export class CongeService {
 
   private getLabelForType(type: TypeConge): string {
     const labels: Record<TypeConge, string> = {
-      ANNUEL: 'Conges Annuels',
-      MALADIE: 'Conges Maladie',
-      SANS_SOLDE: 'Sans Solde',
-      MATERNITE_PATERNITE: 'Maternite/Paternite',
-      EXCEPTIONNEL: 'Conge Exceptionnel',
+      ANNUEL: 'Congé Annuel',
+      MALADIE: 'Congé Maladie',
+      SANS_SOLDE: 'Congé Sans Solde',
+      MATERNITE_PATERNITE: 'Congé Maternité',
+      EXCEPTIONNEL: 'Congé Exceptionnel',
       RTT: 'RTT'
     };
-    return labels[type];
+    return labels[type] || 'Congé';
   }
 }

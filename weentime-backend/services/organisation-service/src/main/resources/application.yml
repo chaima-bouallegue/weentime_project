@@ -23,11 +23,11 @@ spring:
       # keepalive-time pingue la connexion avant la coupure. max-lifetime en filet de sécurité.
       maximum-pool-size: 10
       minimum-idle: 2
-      max-lifetime: 1500000
-      idle-timeout: 600000
-      keepalive-time: 240000
-      connection-timeout: 5000
-      validation-timeout: 3000
+      max-lifetime: 900000
+      idle-timeout: 300000
+      keepalive-time: 120000
+      connection-timeout: 10000
+      validation-timeout: 5000
       leak-detection-threshold: 30000
 
   cloud:
@@ -79,7 +79,7 @@ application:
     rh-service: ${RH_SERVICE_URL:http://localhost:8192}
 
 integration:
-  internal-api-key: ${INTERNAL_API_KEY}
+  internal-api-key: ${INTERNAL_API_KEY:communication-service-local}
 
 spring.cloud.openfeign.client.config:
   default:

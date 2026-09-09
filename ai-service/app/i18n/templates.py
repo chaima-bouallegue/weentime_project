@@ -8,7 +8,7 @@ PHRASES: Final[dict[str, dict[str, str]]] = {
         "fr": "Pour quelle date souhaitez-vous demander ce conge ?",
         "en": "For which date would you like to request leave?",
         "ar": "لاي تاريخ تريد تقديم طلب العطلة؟",
-        "tn": "L nhar chnowa t7eb taamel demande conge?",
+        "tn": "anehi date theb tekhedh feha congé?",
     },
     "ask.reason.leave": {
         "fr": "Quel motif souhaitez-vous indiquer pour cette demande de conge ?",
@@ -53,10 +53,10 @@ PHRASES: Final[dict[str, dict[str, str]]] = {
         "tn": "Chnowa l motif mtaa l autorisation?",
     },
     "ask.type.leave": {
-        "fr": "Quel type de conge souhaitez-vous demander ? Par exemple: conge annuel, maladie, RTT.",
-        "en": "Which leave type? For example: annual leave, sick leave, RTT.",
-        "ar": "ما نوع العطلة المطلوبة؟ مثلا: عطلة سنوية، عطلة مرضية، عطلة استثنائية.",
-        "tn": "Chnowa l type de conge? Mathalan: conge annuel, maladie, walla RTT.",
+        "fr": "Quel type de conge souhaitez-vous demander ?",
+        "en": "Which leave type would you like to request?",
+        "ar": "ما نوع العطلة المطلوبة؟",
+        "tn": "Chnowa l type de conge?",
     },
     "unavailable.planning": {
         "fr": "Cette fonctionnalite n'est pas encore connectee a l'assistant IA. Vous pouvez consulter l'onglet Planning/Reunions.",

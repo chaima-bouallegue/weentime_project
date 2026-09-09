@@ -55,8 +55,12 @@ Employees must submit leave requests before the planned absence.
     upsert = collection.upserts[0]
     assert upsert["ids"] == ["leave-policy:0"]
     assert upsert["metadatas"][0]["tenant_id"] == 42
+    assert upsert["metadatas"][0]["entreprise_id"] == 42
     assert upsert["metadatas"][0]["approved"] is True
     assert upsert["metadatas"][0]["citation_label"] == "Leave Policy#1"
+    assert upsert["metadatas"][0]["source"] == "Leave Policy"
+    assert upsert["metadatas"][0]["type_document"] == "hr_policy"
+    assert upsert["metadatas"][0]["date_indexation"]
 
 
 def test_unapproved_source_skipped(tmp_path: Path) -> None:

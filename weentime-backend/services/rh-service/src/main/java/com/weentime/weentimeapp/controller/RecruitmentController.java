@@ -105,6 +105,23 @@ public class RecruitmentController {
                 .body(resource);
     }
 
+    @PostMapping("/applications/{id}/re-evaluate-ai")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<ApplicationDTO> reevaluateAi(@PathVariable Long id) {
+        return ResponseEntity.ok(recruitmentService.reevaluateAi(id, getEntrepriseId()));
+    }
+
+    @PostMapping("/applications/retry-pending-ai")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<java.util.Map<String, Object>> retryPendingAi() {
+        int count = recruitmentService.retryPendingAiEvaluations(getEntrepriseId());
+        return ResponseEntity.ok(java.util.Map.of(
+                "status", "success",
+                "message", count + " candidature(s) relancée(s) pour évaluation IA",
+                "count", count
+        ));
+    }
+
     // --- Helpers ---
 
     private Long getEntrepriseId() {
