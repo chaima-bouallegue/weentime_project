@@ -154,16 +154,16 @@
 
                   <div class="action-buttons">
                     @if (app.cvOriginalFilename) {
-                      <button class="action-btn cv" title="Voir le CV" (click)="openCv(app)">
+                      <button type="button" class="candidate-action-btn cv" title="Voir le CV" (click)="openCv(app)">
                         <i-lucide [img]="FileText" class="w-4 h-4"></i-lucide>
                         <span class="btn-label">CV</span>
                       </button>
                     }
-                    <button class="action-btn approve" title="Présélectionner" (click)="openDecisionModal(app, 'SHORTLISTED')">
+                    <button type="button" class="candidate-action-btn approve" title="Présélectionner" (click)="openDecisionModal(app, 'SHORTLISTED')">
                       <i-lucide [img]="CheckCircle" class="w-4 h-4"></i-lucide>
                       <span class="btn-label">Shortlister</span>
                     </button>
-                    <button class="action-btn reject" title="Refuser" (click)="openDecisionModal(app, 'REJECTED')">
+                    <button type="button" class="candidate-action-btn reject" title="Refuser" (click)="openDecisionModal(app, 'REJECTED')">
                       <i-lucide [img]="XCircle" class="w-4 h-4"></i-lucide>
                       <span class="btn-label">Rejeter</span>
                     </button>
