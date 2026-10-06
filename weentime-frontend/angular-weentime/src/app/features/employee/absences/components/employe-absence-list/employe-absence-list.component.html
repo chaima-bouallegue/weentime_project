@@ -107,23 +107,11 @@
                 }
               </td>
               <td class="td-actions">
-                @if (absence.statut === 'EN_ATTENTE') {
-                  <button
-                    class="btn-cancel"
-                    [disabled]="cancelingId() === absence.id"
-                    (click)="annuler(absence.id)"
-                    [id]="'btn-cancel-' + absence.id"
-                  >
-                    @if (cancelingId() === absence.id) {
-                      <span class="spinner-sm"></span>
-                    } @else {
-                      <lucide-icon name="x" [size]="14"></lucide-icon>
-                    }
-                    Annuler
-                  </button>
-                } @else {
-                  <span class="no-action">—</span>
-                }
+                <app-demande-actions-menu
+                  [canCancel]="absence.statut === 'EN_ATTENTE'"
+                  cancelLabel="Annuler l'absence"
+                  (cancel)="onCancelRequest(absence)"
+                ></app-demande-actions-menu>
               </td>
             </tr>
             <!-- Motif refus inline -->
@@ -161,5 +149,17 @@
       </div>
     }
   }
+
+@if (demandeAnnuler()) {
+  <app-confirm-cancellation-modal
+    title="Annuler l'absence"
+    message="Êtes-vous sûr de vouloir annuler cette demande d'absence ?"
+    subMessage="Cette action est irréversible."
+    [previewItems]="absenceCancellationPreviewItems()"
+    [isCancelling]="!!cancelingId()"
+    (close)="demandeAnnuler.set(null)"
+    (confirm)="confirmAnnulation()"
+  ></app-confirm-cancellation-modal>
+}
 
 </div>

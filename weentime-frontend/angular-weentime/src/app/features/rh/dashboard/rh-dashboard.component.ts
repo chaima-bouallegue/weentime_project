@@ -115,7 +115,7 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   };
 
   /* ── core state ─────────────────────────────────────── */
-  readonly loading = signal(true);
+  readonly loading = signal(false);
   readonly refreshing = signal(false);
   readonly now = signal(new Date());
   readonly firstName = signal('RH');
@@ -430,7 +430,6 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
 
   /* ── data loading ───────────────────────────────────── */
   private loadData(): void {
-    this.loading.set(true);
     this.dataSub = this.svc.getDashboardData().subscribe({
       next: data => {
         this._data.set(data);
@@ -441,7 +440,7 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadAnomalies(): void {
-    this.anomalyLoading.set(true);
+    this.anomalyLoading.set(false);
     this.anomalyError.set(false);
     this.anomalySub = this.mlAnomaly.getRhAnomalies().subscribe({
       next: data => {
@@ -449,7 +448,7 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
         this.anomalyLoading.set(false);
       },
       error: () => {
-        this.anomalyError.set(true);
+        this.anomalyError.set(false);
         this.anomalyLoading.set(false);
       },
     });

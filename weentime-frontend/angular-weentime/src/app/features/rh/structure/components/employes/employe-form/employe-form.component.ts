@@ -24,9 +24,11 @@ export class EmployeFormComponent implements OnInit {
   @Input() allowRoleChange = true;
   @Input() pendingUser: EmployeRH | null = null;
   @Input() isValidationMode = false;
+  @Input() defaultDeptId: number | null = null;
+  @Input() defaultEquipeId: number | null = null;
   @Input() employee: EmployeRH | null = null;
   /** When true, rendered inside CDK overlay — no own .drawer-overlay wrapper */
-  @Input() embedded = false;
+  @Input() embedded = true;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
   @Output() validate = new EventEmitter<{id: number, request: any}>();
@@ -86,6 +88,14 @@ export class EmployeFormComponent implements OnInit {
         poste: this.pendingUser.poste
       });
       this.step.set(2); // Skip to assignment step
+    } else {
+      if (this.defaultDeptId) {
+        this.form.patchValue({ departementId: this.defaultDeptId });
+        this.selectedDeptId.set(this.defaultDeptId);
+      }
+      if (this.defaultEquipeId) {
+        this.form.patchValue({ equipeId: this.defaultEquipeId });
+      }
     }
 
     if (!this.isValidationMode && !this.employee) {

@@ -72,63 +72,20 @@
             }
           </div>
 
-          <!-- Actions & Menu block -->
+          <!-- Actions block -->
           <div class="actions-wrapper">
-            
-            <!-- Quick Action Button (Download if ready) -->
-            <div class="quick-action">
-              @if (d.statut === 'PRET' || d.statut === 'READY') {
-                <button class="btn-download" (click)="downloadRequest.emit(d)" title="Télécharger le document">
-                  <lucide-icon name="download" size="16"></lucide-icon>
-                  <span>Télécharger</span>
-                </button>
-              } @else {
-                <span class="no-action-placeholder">&mdash;</span>
-              }
-            </div>
-
-            <!-- Contextual Menu Trigger -->
-            <div class="relative menu-trigger-container">
-              <button class="btn-more-options" (click)="toggleMenu(d.id, $event)" [class.active]="activeMenuId() === d.id" title="Options">
-                <lucide-angular [img]="iconMoreVertical" size="18"></lucide-angular>
-              </button>
-
-              <!-- Dropdown Menu -->
-              @if (activeMenuId() === d.id) {
-                <div class="dropdown-menu-box animate-scale-in">
-                  @if (d.statut === 'PRET' || d.statut === 'READY') {
-                    <button class="dropdown-item" (click)="downloadRequest.emit(d); activeMenuId.set(null)">
-                      <lucide-icon name="download" size="14"></lucide-icon>
-                      <span>Télécharger le document</span>
-                    </button>
-                  }
-                  @if (d.statut === 'EN_ATTENTE' || d.statut === 'PENDING') {
-                    <button class="dropdown-item cancel text-rose-600 dark:text-rose-400" (click)="cancelRequest.emit(d); activeMenuId.set(null)">
-                      <lucide-icon name="trash-2" size="14"></lucide-icon>
-                      <span>Annuler la demande</span>
-                    </button>
-                  }
-                  @if ((d.statut === 'REFUSE' || d.statut === 'REJECTED') && d.commentaireRH) {
-                    <div class="dropdown-info-item text-xs text-slate-500 dark:text-slate-400 p-3">
-                      <strong>Motif de refus :</strong>
-                      <p class="mt-1 font-medium leading-relaxed">{{ d.commentaireRH }}</p>
-                    </div>
-                  }
-                  @if (d.statut === 'EN_COURS' || d.statut === 'GENERATING') {
-                    <div class="dropdown-info-item text-xs text-indigo-500 p-3 font-semibold flex items-center gap-2">
-                      <lucide-icon name="loader-2" size="12" class="animate-spin"></lucide-icon>
-                      <span>Traitement en cours...</span>
-                    </div>
-                  }
-                  @if (d.statut === 'ANNULE') {
-                    <div class="dropdown-info-item text-xs text-slate-400 p-3 font-medium">
-                      <span>Demande annulée</span>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-
+            <app-demande-actions-menu
+              [canView]="true"
+              viewLabel="Consulter les détails"
+              [canDownload]="d.statut === 'PRET' || d.statut === 'READY'"
+              downloadLabel="Télécharger le document"
+              [canEdit]="canEdit(d.statut)"
+              [canCancel]="canEdit(d.statut)"
+              (view)="viewRequest.emit(d)"
+              (download)="downloadRequest.emit(d)"
+              (edit)="editRequest.emit(d)"
+              (cancel)="cancelRequest.emit(d)"
+            ></app-demande-actions-menu>
           </div>
 
         </div>

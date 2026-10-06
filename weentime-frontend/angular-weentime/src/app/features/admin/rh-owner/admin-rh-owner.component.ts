@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { LucideAngularModule, Pencil, Plus, RefreshCw, Trash2, Building2, Link, Search, Mail, ShieldOff, ShieldCheck, UserCog, MoreVertical } from 'lucide-angular';
 import { RhOwnerService } from './rh-owner.service';
 import { EntrepriseSelectItem, RhOwner } from './models/rh-owner.model';
 import { ToastService } from '../../../core/services/toast.service';
+import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 
 type RhModalMode = 'create' | 'update' | 'assign' | null;
 
@@ -20,6 +23,8 @@ export class AdminRhOwnerComponent {
   private readonly rhOwnerService = inject(RhOwnerService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly assistantSync = inject(AssistantSyncService);
 
   // Déclaration de toutes les icônes requises par la nouvelle vue unifiée
   readonly iconRefresh = RefreshCw;
@@ -36,9 +41,9 @@ export class AdminRhOwnerComponent {
   readonly iconMore = MoreVertical;
   readonly iconBuilding = Building2;
 
-  readonly rhOwners = signal<RhOwner[]>([]);
-  readonly entreprises = signal<EntrepriseSelectItem[]>([]);
-  readonly isLoading = signal(true);
+  readonly rhOwners = signal<RhOwner[]>(this.rhOwnerService.getCachedRhOwners() ?? []);
+  readonly entreprises = signal<EntrepriseSelectItem[]>(this.rhOwnerService.getCachedEntreprises() ?? []);
+  readonly isLoading = signal(false);
   readonly isSubmitting = signal(false);
   readonly searchQuery = signal('');
   readonly modalMode = signal<RhModalMode>(null);
@@ -78,27 +83,43 @@ export class AdminRhOwnerComponent {
 
   constructor() {
     this.loadData();
+
+    // Auto-refresh when copilot performs actions on RH owners
+    this.assistantSync.events$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(event => {
+        const isExecuted = event.actionResult?.executed || event.actionResult?.status === 'success';
+        const tool = (event.actionResult?.tool || event.actionResult?.action || event.intent || '').toLowerCase();
+        if (isExecuted && (tool.includes('assign_rh') || tool.includes('rh_owner') || tool.includes('rh-owner') || tool.includes('create_rh'))) {
+          this.loadData();
+          this.toast.success('Données gestionnaires RH actualisées suite à l\'action du copilote.');
+        }
+      });
   }
 
   loadData(): void {
     this.isLoading.set(true);
 
-    this.rhOwnerService.getRhOwners().subscribe({
-      next: (owners) => {
-        this.rhOwners.set(owners);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        this.rhOwners.set([]);
-        this.isLoading.set(false);
-        this.toast.error('Erreur lors du chargement des gestionnaires RH');
-      }
-    });
+    this.rhOwnerService.getRhOwners()
+      .pipe(
+        finalize(() => this.isLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (owners) => {
+          this.rhOwners.set(owners);
+        },
+        error: () => {
+          this.toast.error('Erreur lors du chargement des gestionnaires RH');
+        }
+      });
 
-    this.rhOwnerService.getEntreprisesForSelect().subscribe({
-      next: items => this.entreprises.set(Array.isArray(items) ? items : []),
-      error: () => this.entreprises.set([])
-    });
+    this.rhOwnerService.getEntreprisesForSelect()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: items => this.entreprises.set(Array.isArray(items) ? items : []),
+        error: () => {}
+      });
   }
 
   refresh(): void {

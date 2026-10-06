@@ -1,0 +1,75 @@
+<div class="confirm-modal-overlay" (click)="onBackdropClick()">
+  <div class="confirm-modal-card animate-scale-in" (click)="$event.stopPropagation()">
+    
+    <!-- Close button -->
+    <button
+      type="button"
+      class="close-btn"
+      (click)="close.emit()"
+      [disabled]="isCancelling"
+      title="Fermer"
+    >
+      <lucide-angular [img]="iconX" size="18"></lucide-angular>
+    </button>
+
+    <!-- Header & Warning Icon -->
+    <div class="modal-header">
+      <div class="warning-icon-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="icon-circle">
+          <lucide-angular [img]="iconAlert" size="26"></lucide-angular>
+        </div>
+      </div>
+
+      <h3 class="modal-title">{{ title }}</h3>
+      <p class="modal-message">
+        {{ message }}
+        @if (subMessage) {
+          <span class="modal-submessage">{{ subMessage }}</span>
+        }
+      </p>
+    </div>
+
+    <!-- Preview Items (if any) -->
+    @if (previewItems && previewItems.length > 0) {
+      <div class="preview-box">
+        @for (item of previewItems; track item.label) {
+          <div class="preview-row">
+            <span class="preview-label">{{ item.label }}</span>
+            <span class="preview-value" [class.highlight]="item.highlight">
+              {{ item.value }}
+            </span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Footer Actions -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="close.emit()"
+        [disabled]="isCancelling"
+      >
+        {{ cancelText }}
+      </button>
+
+      <button
+        type="button"
+        class="btn-danger"
+        (click)="onConfirmClick()"
+        [disabled]="isCancelling"
+      >
+        @if (isCancelling) {
+          <lucide-angular [img]="iconLoader" size="18" class="animate-spin"></lucide-angular>
+          <span>Annulation en cours...</span>
+        } @else {
+          <lucide-angular [img]="iconTrash" size="18"></lucide-angular>
+          <span>{{ confirmText }}</span>
+        }
+      </button>
+    </div>
+
+  </div>
+</div>

@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface TeletravailService {
     TeletravailResponseDTO create(TeletravailCreateDTO dto, String userEmail);
+    TeletravailResponseDTO update(Long id, TeletravailCreateDTO dto, String userEmail);
     TeletravailResponseDTO getById(Long id);
     List<TeletravailResponseDTO> getMesDemandes(String userEmail);
     com.weentime.weentimeapp.dto.QuotaTeletravailDTO getQuota(String userEmail);

@@ -190,7 +190,7 @@
 .submit-button {
   flex: 2;
   padding: 1rem;
-  background: #4f46e5;
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
   color: white;
   border-radius: 18px;
   font-weight: 800;
@@ -200,12 +200,12 @@
   justify-content: center;
   gap: 0.75rem;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 10px 20px -5px rgba(107, 93, 211, 0.35);
 
   &:hover:not(:disabled) {
-    background: #4338ca;
+    background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
     transform: translateY(-2px);
-    box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.4);
+    box-shadow: 0 15px 25px -5px rgba(107, 93, 211, 0.45);
   }
 
   &:disabled {

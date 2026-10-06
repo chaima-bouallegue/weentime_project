@@ -2,6 +2,7 @@ import { Injectable, inject, Injector, ComponentRef, Type, signal } from '@angul
 import { Overlay, OverlayConfig, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { filter, take } from 'rxjs/operators';
+import { ModalService } from './modal.service';
 
 export interface DrawerConfig<T> {
   component: Type<T>;
@@ -18,12 +19,14 @@ export interface DrawerRef<T> {
 export class OverlayDrawerService {
   private overlay = inject(Overlay);
   private injector = inject(Injector);
+  private modalService = inject(ModalService);
 
   readonly isOpen = signal(false);
   private overlayRef: OverlayRef | null = null;
 
   open<T>(config: DrawerConfig<T>): DrawerRef<T> {
     this.close();
+    this.modalService.open();
 
     const overlayConfig: OverlayConfig = {
       positionStrategy: this.overlay.position().global().end(),
@@ -55,6 +58,7 @@ export class OverlayDrawerService {
 
   openModal<T>(config: DrawerConfig<T>): DrawerRef<T> {
     this.close();
+    this.modalService.open();
 
     const overlayConfig: OverlayConfig = {
       positionStrategy: this.overlay.position().global().centerHorizontally().centerVertically(),
@@ -102,6 +106,7 @@ export class OverlayDrawerService {
       this.overlayRef.detach();
       this.overlayRef.dispose();
       this.overlayRef = null;
+      this.modalService.close();
     }
     this.isOpen.set(false);
   }

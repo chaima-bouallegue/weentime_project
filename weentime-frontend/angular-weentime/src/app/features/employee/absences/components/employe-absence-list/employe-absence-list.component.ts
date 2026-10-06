@@ -11,11 +11,13 @@ import {
   AbsenceResponse, AbsencePage, AbsenceStatut,
   STATUT_CONFIG, ABSENCE_TYPES
 } from '../../../../rh/absences/absence.models';
+import { ConfirmCancellationModalComponent, CancellationPreviewItem } from '../../../../../shared/components/confirm-cancellation-modal';
+import { DemandeActionsMenuComponent } from '../../../../../shared/components/demande-actions-menu';
 
 @Component({
   selector: 'app-employe-absence-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ConfirmCancellationModalComponent, DemandeActionsMenuComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './employe-absence-list.component.html',
   styleUrls: ['./employe-absence-list.component.scss']
@@ -38,6 +40,17 @@ export class EmployeAbsenceListComponent implements OnInit {
   filterStatut = signal<string>('');
   filterType = signal<string>('');
   cancelingId = signal<number | null>(null);
+  demandeAnnuler = signal<AbsenceResponse | null>(null);
+
+  absenceCancellationPreviewItems = computed<CancellationPreviewItem[]>(() => {
+    const d = this.demandeAnnuler();
+    if (!d) return [];
+    return [
+      { label: 'Type', value: `${this.getTypeEmoji(d.typeAbsenceCode)} ${d.typeAbsenceLibelle}`, highlight: true },
+      { label: 'Période', value: `Du ${this.formatDate(d.dateDebut)} au ${this.formatDate(d.dateFin)}` },
+      { label: 'Durée', value: `${d.dureeJours} jour${d.dureeJours > 1 ? 's' : ''}` }
+    ];
+  });
 
   // ── Config ────────────────────────────────────────────────────────────────
   readonly statutOptions = [
@@ -93,18 +106,26 @@ export class EmployeAbsenceListComponent implements OnInit {
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  annuler(id: number): void {
+  onCancelRequest(absence: AbsenceResponse): void {
     if (this.cancelingId()) return;
-    this.cancelingId.set(id);
-    this.absenceService.annuler(id).subscribe({
+    this.demandeAnnuler.set(absence);
+  }
+
+  confirmAnnulation(): void {
+    const absence = this.demandeAnnuler();
+    if (!absence) return;
+    this.cancelingId.set(absence.id);
+    this.absenceService.annuler(absence.id).subscribe({
       next: () => {
         this.toast.success('Absence annulée avec succès.');
         this.cancelingId.set(null);
+        this.demandeAnnuler.set(null);
         this.loadAbsences();
       },
       error: (err) => {
         this.toast.error(err?.error?.message ?? 'Impossible d\'annuler cette absence.');
         this.cancelingId.set(null);
+        this.demandeAnnuler.set(null);
         this.cdr.markForCheck();
       }
     });

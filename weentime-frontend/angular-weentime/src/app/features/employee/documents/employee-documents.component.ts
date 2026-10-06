@@ -7,7 +7,8 @@ import { TypeDocumentConfig, DemandeDocument, StatutDocument, TypeDocument, Nouv
 import { DocumentTypeGridComponent } from './components/document-type-grid/document-type-grid.component';
 import { DemandeDocumentDrawerComponent } from './components/demande-document-drawer/demande-document-drawer.component';
 import { DocumentHistoriqueComponent } from './components/document-historique/document-historique.component';
-import { AnnulationDocumentModalComponent } from './components/annulation-document-modal/annulation-document-modal.component';
+import { ConfirmCancellationModalComponent, CancellationPreviewItem } from '../../../shared/components/confirm-cancellation-modal';
+import { ConsultationDocumentModalComponent } from './components/consultation-document-modal';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -25,7 +26,8 @@ import { Subscription } from 'rxjs';
     DocumentTypeGridComponent,
     DemandeDocumentDrawerComponent,
     DocumentHistoriqueComponent,
-    AnnulationDocumentModalComponent
+    ConfirmCancellationModalComponent,
+    ConsultationDocumentModalComponent
   ],
   templateUrl: './employee-documents.component.html',
   styleUrl: './employee-documents.component.scss',
@@ -66,7 +68,9 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   isLoading = signal(false);
   showDrawer = signal(false);
   typePreselectionne = signal<TypeDocument | null>(null);
+  demandeModifier = signal<DemandeDocument | null>(null);
   demandeAnnuler = signal<DemandeDocument | null>(null);
+  demandeConsulter = signal<DemandeDocument | null>(null);
   isAnnulating = signal(false);
   isSubmittingRequest = signal(false);
   filtreStatut = signal<StatutDocument | 'TOUS'>('TOUS');
@@ -107,12 +111,26 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
     return historique.filter(d => d.statut === statut).length;
   }
 
+  documentCancellationPreviewItems = computed<CancellationPreviewItem[]>(() => {
+    const d = this.demandeAnnuler();
+    if (!d) return [];
+    const items: CancellationPreviewItem[] = [
+      { label: 'Document', value: d.label, highlight: true },
+      { label: 'Demandé le', value: new Date(d.dateCreation).toLocaleDateString('fr-FR') }
+    ];
+    if (d.moisConcerne) {
+      items.push({ label: 'Mois concerné', value: d.moisConcerne });
+    }
+    return items;
+  });
+
   constructor() {
     effect(() => {
       const draft = this.assistantWorkflow.documentDraft();
       if (!draft?.autoOpen) {
         return;
       }
+      this.demandeModifier.set(null);
       this.typePreselectionne.set(this.resolveDraftType(draft.type));
       this.showDrawer.set(true);
     });
@@ -158,11 +176,13 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
   }
 
   onDemanderType(type: TypeDocument): void {
+    this.demandeModifier.set(null);
     this.typePreselectionne.set(type);
     this.showDrawer.set(true);
   }
 
   onOpenDrawer(): void {
+    this.demandeModifier.set(null);
     this.typePreselectionne.set(null);
     this.showDrawer.set(true);
   }
@@ -171,6 +191,13 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
     this.isSubmittingRequest.set(false);
     this.showDrawer.set(false);
     this.typePreselectionne.set(null);
+    this.demandeModifier.set(null);
+  }
+
+  onEditRequest(demande: DemandeDocument): void {
+    this.demandeConsulter.set(null);
+    this.demandeModifier.set(demande);
+    this.showDrawer.set(true);
   }
 
   onFilterChange(filter: StatutDocument | 'TOUS'): void {
@@ -209,20 +236,42 @@ export class EmployeeDocumentsComponent implements OnInit, OnDestroy {
 
   soumettreDemande(request: NouvelleDemandeDocumentRequest): void {
     this.isSubmittingRequest.set(true);
-    this.documentService.soumettreDemande(request)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.isSubmittingRequest.set(false);
-          this.showDrawer.set(false);
-          this.typePreselectionne.set(null);
-          this.toastService.success('Votre demande a été soumise avec succès');
-          this.refreshData();
-        },
-        error: () => {
-          this.isSubmittingRequest.set(false);
-        }
-      });
+    const currentDemande = this.demandeModifier();
+
+    if (currentDemande) {
+      this.documentService.modifierDemande(currentDemande.id, request)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            this.isSubmittingRequest.set(false);
+            this.showDrawer.set(false);
+            this.demandeModifier.set(null);
+            this.typePreselectionne.set(null);
+            this.toastService.success('Votre demande a été modifiée avec succès');
+            this.refreshData();
+          },
+          error: (err: any) => {
+            this.isSubmittingRequest.set(false);
+            const message = err?.error?.message || err?.message || 'Erreur lors de la modification de la demande';
+            this.toastService.error(message);
+          }
+        });
+    } else {
+      this.documentService.soumettreDemande(request)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            this.isSubmittingRequest.set(false);
+            this.showDrawer.set(false);
+            this.typePreselectionne.set(null);
+            this.toastService.success('Votre demande a été soumise avec succès');
+            this.refreshData();
+          },
+          error: () => {
+            this.isSubmittingRequest.set(false);
+          }
+        });
+    }
   }
 
   private extractFilename(disposition: string | null): string | null {

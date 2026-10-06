@@ -617,7 +617,8 @@ def _is_admin_workflow(text: str) -> bool:
             "entreprises", "companies", "lister entreprises",
             "tenant configuration", "configuration tenant", "tenant configuration issues", "configuration issues",
             "donne role", "donne rôle", "changer role", "changer rôle", "create user", "creer utilisateur",
-            "créer utilisateur", "assigner manager", "assign manager", "affecte rh", "assign rh",
+            "créer utilisateur", "crier utilisateur", "assigner manager", "assign manager", "affecte rh", "assign rh",
+            "comment creer", "comment créer", "comment crier", "comment faire pour", "how to create", "guide",
             "حالة النظام", "حاله النظام", "المستخدمين", "الشركات",
         ),
     )
@@ -633,6 +634,7 @@ def _unsupported_admin_capability(text: str, role: str) -> str | None:
     if (
         _has_any(text, ("creer entreprise", "créer entreprise", "create enterprise", "create company", "nouvelle entreprise"))
         and not _has_any(text, ("utilisateur", "user"))
+        and not _has_any(text, ("siret", "siré", "ciré", "comment", "how", "guide", "procedure", "procédure"))
     ):
         return "admin.enterprise_creation"
     if _has_any(text, ("changer modele", "changer modèle", "change model", "switch model", "switch provider", "passe sur", "anthropic", "openai", "activer memoire", "activer mémoire", "enable memory", "activer stt", "disable ollama", "provider mutation")):

@@ -44,6 +44,7 @@ import {
 } from './mock-enterprises';
 
 import { EntrepriseService, EntrepriseRequest } from './entreprise.service';
+import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 
 // ─────────────────────────────────────────────────────────
 // Pipe relativeTime
@@ -129,6 +130,7 @@ export class EntreprisesComponent {
     private readonly svc = inject(EntrepriseService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly cdr = inject(ChangeDetectorRef);
+    private readonly assistantSync = inject(AssistantSyncService);
 
     // ── Icons ─────────────────────────────────────────────────
     readonly iconPlus = Plus;
@@ -164,23 +166,30 @@ export class EntreprisesComponent {
     readonly iconUpload = Upload;
     readonly iconImage = Image;
 
-    // ── Server-side pagination state ─────────────────────────
-    enterprises = signal<Enterprise[]>([]);
-    totalElements = signal(0);
-    totalPages_ = signal(1);
+    // ── Server-side pagination state initialisé via cache SWR ─────────────────────────
+    enterprises = signal<Enterprise[]>(this.svc.getCachedPage()?.content ?? []);
+    totalElements = signal(this.svc.getCachedPage()?.totalElements ?? 0);
+    totalPages_ = signal(this.svc.getCachedPage()?.totalPages || 1);
     isLoading = signal(false);
 
-    // Stats (single query from backend)
-    statsTotal = signal(0);
-    statsActive = signal(0);
-    statsSuspended = signal(0);
-    statsClosed = signal(0);
+    // Stats (initialisées depuis le cache puis réactualisées)
+    statsTotal = signal(this.svc.getCachedStats()?.total ?? 0);
+    statsActive = signal(this.svc.getCachedStats()?.active ?? 0);
+    statsSuspended = signal(this.svc.getCachedStats()?.suspended ?? 0);
+    statsClosed = signal(this.svc.getCachedStats()?.closed ?? 0);
 
     // ── Filters & Signaux Réactifs ─────────────────────────────
     searchQuery = signal('');
     filterStatus = signal<'ALL' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED'>('ALL');
     currentPage = signal(1);   // 1-indexed pour l'IHM
     pageSize = signal(10);
+    private readonly reloadTrigger = signal<number>(0);
+
+    private static readonly ENTERPRISE_MUTATION_TOOLS = new Set([
+        'admin.create_enterprise',
+        'admin.enterprise.create',
+        'admin.assign_rh_owner',
+    ]);
 
     // Flux de Debounce pour l'input de recherche
     private readonly search$ = new Subject<string>();
@@ -270,12 +279,13 @@ export class EntreprisesComponent {
             this.currentPage.set(1); // Retour automatique en page 1
         });
 
-        // 2. Écoute globale et centralisée des critères (Filtres, Recherche, Pagination)
+        // 2. Écoute globale et centralisée des critères (Filtres, Recherche, Pagination, Rechargement)
         toObservable(computed(() => ({
             status: this.filterStatus(),
             query: this.searchQuery(),
             page: this.currentPage(),
-            size: this.pageSize()
+            size: this.pageSize(),
+            reload: this.reloadTrigger()
         }))).pipe(
             switchMap(params => {
                 this.isLoading.set(true);
@@ -302,9 +312,32 @@ export class EntreprisesComponent {
 
         // Chargement initial des statistiques globales
         this.loadStats();
+
+        // Auto-refresh when the copilot creates or modifies an enterprise
+        this.assistantSync.events$
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(event => {
+                const isExecuted = event.actionResult?.executed || event.actionResult?.status === 'success';
+                const tool = (event.actionResult?.tool || event.actionResult?.action || event.intent || '').toLowerCase();
+                const isEnterpriseAction = EntreprisesComponent.ENTERPRISE_MUTATION_TOOLS.has(tool) ||
+                    tool === 'admin.create_enterprise' ||
+                    tool === 'admin.enterprise.create' ||
+                    tool.includes('create_enterprise') ||
+                    tool.includes('create_entreprise');
+
+                if (isExecuted && isEnterpriseAction) {
+                    this.loadStats();
+                    this.forceReload();
+                    this.showToast('Nouvelle entreprise créée via le copilote – liste actualisée.', 'success');
+                }
+            });
     }
 
     // ── Data loading ─────────────────────────────────────────
+
+    forceReload(): void {
+        this.reloadTrigger.update(v => v + 1);
+    }
 
     loadStats(): void {
         this.svc.getStats()
@@ -321,9 +354,8 @@ export class EntreprisesComponent {
     }
 
     refreshData(): void {
-        // Forcer un rechargement en rafraîchissant les stats et en provoquant une mise à jour d'état cyclique
         this.loadStats();
-        this.currentPage.update(p => p);
+        this.forceReload();
         this.showToast('Données synchronisées avec succès', 'success');
     }
 
@@ -749,7 +781,7 @@ export class EntreprisesComponent {
                         this.loadStats();
  
                         // Pour la création, on force le moteur réactif à recharger toute la page
-                        this.currentPage.update(p => p);
+                        this.forceReload();
                     },
                     error: err => this.showToast(err.message, 'error'),
                 });

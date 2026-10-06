@@ -31,10 +31,12 @@ import {
   AdminEntreprise,
   AdminEquipe,
   AdminPage,
-  AdminUser
+  AdminUser,
+  AdminUserPayload
 } from '../admin-api.service';
 import { UserListItem, UserRole, UserService } from './user.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AdminEmptyStateComponent } from '../../../shared/components/admin-empty-state/admin-empty-state.component';
 import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleton/admin-skeleton.component';
 
@@ -52,23 +54,23 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="flex-1 flex flex-col min-w-0 p-6 gap-6 overflow-auto bg-slate-50/50 dark:bg-slate-950/20">
+    <div class="flex-1 flex flex-col min-w-0 p-3 sm:p-6 gap-4 sm:gap-6 overflow-auto bg-slate-50/50 dark:bg-slate-950/20">
 
-      <header class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs select-none shrink-0 flex flex-col gap-4">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-          <div class="space-y-1.5">
-            <div class="flex items-center gap-2.5">
-              <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Gestion des utilisateurs</h1>
+      <header class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs select-none shrink-0 flex flex-col gap-4">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 sm:gap-6">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Gestion des utilisateurs</h1>
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
                 {{ totalElements() }} utilisateurs
               </span>
             </div>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-xl">
+            <p class="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 max-w-xl">
               Pilotage des comptes, rôles et rattachés managers de votre organisation.
             </p>
           </div>
 
-          <div class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto justify-end flex-1 max-w-2xl">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto justify-end flex-1 max-w-2xl">
             <div class="relative w-full sm:max-w-xs flex-1">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                 <lucide-angular [img]="iconSearch" size="15"></lucide-angular>
@@ -76,52 +78,52 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
               <input type="text"
                 [value]="searchDraft()"
                 (input)="onSearchInput(($any($event.target).value || '').trimStart())"
-                class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                class="w-full pl-10 pr-4 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all shadow-xs"
                 placeholder="Rechercher par nom ou email...">
             </div>
 
             <div class="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
               <button type="button" (click)="onRefresh()" [disabled]="isBusy()"
-                class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-semibold shadow-2xs disabled:opacity-50">
-                <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
+                class="inline-flex items-center justify-center gap-2 h-10 px-4 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-semibold shadow-xs disabled:opacity-50 select-none cursor-pointer">
+                <lucide-angular [img]="iconRefresh" size="15" [class.animate-spin]="isLoading()"></lucide-angular>
                 <span>Actualiser</span>
               </button>
 
               <button type="button" (click)="openCreate()" [disabled]="isSaving() || isActionSaving()"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl transition-colors text-sm font-semibold shadow-2xs">
-                <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
-                <span>Créer un utilisateur</span>
+                class="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#4F46E5] hover:bg-[#4338CA] active:bg-[#3730A3] text-white rounded-xl transition-colors text-sm font-semibold shadow-xs select-none cursor-pointer">
+                <lucide-angular [img]="iconPlus" size="15"></lucide-angular>
+                <span>Créer</span>
               </button>
             </div>
           </div>
         </div>
 
-        <hr class="border-slate-100 dark:border-slate-800 my-1">
+        <hr class="border-slate-100 dark:border-slate-800 my-0.5">
 
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div class="flex bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/40">
+        <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div class="flex bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/40 justify-between sm:justify-start">
             <button (click)="onStatusFilterChange('')"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+              class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-center"
               [class]="statusFilter() === '' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               Toutes
             </button>
-            <button (click)="onStatusFilterChange('ACTIF')"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
-              [class]="statusFilter() === 'ACTIF' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
+            <button (click)="onStatusFilterChange('ACTIVE')"
+              class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center"
+              [class]="statusFilter() === 'ACTIVE' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Actifs
             </button>
-            <button (click)="onStatusFilterChange('INACTIF')"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
-              [class]="statusFilter() === 'INACTIF' ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
+            <button (click)="onStatusFilterChange('INACTIVE')"
+              class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center"
+              [class]="statusFilter() === 'INACTIVE' ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-3xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
               <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
               Inactifs
             </button>
           </div>
 
-          <div class="flex items-center gap-2.5 flex-wrap">
+          <div class="flex items-center gap-2 flex-wrap">
             <select [value]="roleFilter()" (change)="onRoleFilterChange($any($event.target).value)"
-              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
+              class="flex-1 sm:flex-initial bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-2.5 sm:px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
               <option value="">Tous les rôles</option>
               @for (role of createRoleOptions; track role) {
                 <option [value]="role">{{ formatRole(role) }}</option>
@@ -129,7 +131,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
             </select>
 
             <select [value]="entrepriseFilter()" (change)="onEntrepriseFilterChange($any($event.target).value)"
-              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
+              class="flex-1 sm:flex-initial bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-2.5 sm:px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
               <option value="">Toutes les entreprises</option>
               @for (entreprise of entreprises(); track entreprise.id) {
                 <option [value]="entreprise.id">{{ entreprise.nom }}</option>
@@ -137,7 +139,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
             </select>
 
             <select [value]="sortBy()" (change)="onSortChange($any($event.target).value)"
-              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
+              class="flex-1 sm:flex-initial bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-xl px-2.5 sm:px-3 py-2 focus:outline-hidden focus:border-indigo-500 transition-colors shadow-3xs">
               <option value="name-asc">Nom (A-Z)</option>
               <option value="name-desc">Nom (Z-A)</option>
               <option value="role-asc">Rôle (A-Z)</option>
@@ -154,30 +156,35 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
         </div>
       }
 
-      @if (isLoading()) {
+      @if (isLoading() && users().length === 0) {
         <app-admin-skeleton [count]="6" [columns]="5"></app-admin-skeleton>
-      } @else if (listError()) {
+      } @else if (listError() && users().length === 0) {
         <app-admin-empty-state title="Chargement impossible" [description]="listError() || ''" icon="alert-triangle"></app-admin-empty-state>
-      } @else if (filteredUsers().length === 0) {
+      } @else if (filteredUsers().length === 0 && !isLoading()) {
         <app-admin-empty-state title="Aucun utilisateur trouvé" description="Aucun résultat avec les filtres actuels." icon="users"></app-admin-empty-state>
       } @else {
-        <main class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1">
-          <div class="overflow-x-visible lg:overflow-x-auto flex-1 pb-12">
-            <table class="w-full text-left border-collapse select-none">
+        <main class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col flex-1 overflow-hidden relative">
+          @if (isLoading()) {
+            <div class="absolute inset-x-0 top-0 h-0.5 bg-indigo-100 dark:bg-indigo-950 overflow-hidden z-20">
+              <div class="h-full bg-indigo-600 animate-pulse w-full"></div>
+            </div>
+          }
+          <div class="overflow-x-auto w-full flex-1">
+            <table class="w-full min-w-[640px] text-left border-collapse select-none">
               <thead>
                 <tr class="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  <th class="py-3 px-5">Utilisateur</th>
-                  <th class="py-3 px-5">Rôle</th>
-                  <th class="py-3 px-5">Organisation</th>
-                  <th class="py-3 px-5">Statut</th>
-                  <th class="py-3 px-5">Manager</th>
-                  <th class="py-3 px-5 text-right w-12"></th>
+                  <th class="py-3 px-3 sm:px-5">Utilisateur</th>
+                  <th class="py-3 px-3 sm:px-5">Rôle</th>
+                  <th class="py-3 px-3 sm:px-5">Organisation</th>
+                  <th class="py-3 px-3 sm:px-5">Statut</th>
+                  <th class="py-3 px-3 sm:px-5 hidden md:table-cell">Manager</th>
+                  <th class="py-3 px-3 sm:px-5 text-right w-12"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium text-slate-700 dark:text-slate-300">
                 @for (user of filteredUsers(); track user.id) {
                   <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group relative">
-                    <td class="py-4 px-5">
+                    <td class="py-3.5 px-3 sm:px-5">
                       <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-full text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-3xs"
                           [style.background]="avatarColor(user)">
@@ -193,7 +200,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                       </div>
                     </td>
 
-                    <td class="py-4 px-5 vertical-middle">
+                    <td class="py-3.5 px-3 sm:px-5 vertical-middle">
                       <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold border tracking-wide"
                         [ngClass]="getRoleBadgeClass(primaryRole(user))">
                         {{ formatRole(primaryRole(user)) }}
@@ -201,7 +208,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                       <div class="text-[10px] text-slate-400 mt-0.5 font-medium">{{ user.permissions?.length || 0 }} permission(s)</div>
                     </td>
 
-                   <td class="py-4 px-5">
+                   <td class="py-3.5 px-3 sm:px-5">
                       <div class="flex flex-col min-w-0">
                         <span class="font-semibold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5 truncate">
                           <lucide-angular [img]="iconBriefcase" size="11" class="text-slate-400 shrink-0"></lucide-angular>
@@ -213,7 +220,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                       </div>
                     </td>
 
-                    <td class="py-4 px-5">
+                    <td class="py-3.5 px-3 sm:px-5">
                       <button (click)="toggleStatus(user)" [disabled]="isActionSaving()"
                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors cursor-pointer disabled:opacity-50"
                         [ngClass]="user.statut === 'ACTIF'
@@ -224,7 +231,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                       </button>
                     </td>
 
-                    <td class="py-4 px-5 text-xs font-semibold">
+                    <td class="py-3.5 px-3 sm:px-5 text-xs font-semibold hidden md:table-cell">
                       @if (user.managerNom) {
                         <span class="text-slate-700 dark:text-slate-300">{{ managerName(user) }}</span>
                       } @else {
@@ -232,7 +239,7 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
                       }
                     </td>
 
-                    <td class="py-4 px-5 text-right relative overflow-visible w-12">
+                    <td class="py-3.5 px-3 sm:px-5 text-right relative overflow-visible w-12">
                       <button class="w-8 h-8 inline-flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                         (click)="toggleMenu(user.id, $event)">
                         <lucide-angular [img]="iconMore" size="14"></lucide-angular>
@@ -266,22 +273,37 @@ import { AdminSkeletonComponent } from '../../../shared/components/admin-skeleto
             </table>
           </div>
 
-          <footer class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/20 flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
-            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Affichage de <span class="font-bold text-slate-700 dark:text-slate-300">{{ filteredUsers().length }}</span> sur {{ totalElements() }} résultats
-            </span>
+          <footer class="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/20 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+            <div class="flex items-center gap-3 text-xs font-medium text-slate-500 dark:text-slate-400 flex-wrap justify-center sm:justify-start">
+              <span>
+                Affichage de <span class="font-bold text-slate-700 dark:text-slate-300">{{ users().length }}</span> sur {{ totalElements() }} utilisateur(s)
+              </span>
+              <span class="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+              <div class="flex items-center gap-1.5">
+                <span>Par page:</span>
+                <select [value]="size()" (change)="onPageSizeChange(+$any($event.target).value)"
+                  class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg px-2 py-0.5 focus:outline-hidden">
+                  <option [value]="10">10</option>
+                  <option [value]="25">25</option>
+                  <option [value]="50">50</option>
+                  <option [value]="100">100</option>
+                </select>
+              </div>
+            </div>
 
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-2">
               <button (click)="changePage(-1)" [disabled]="page() === 0 || isBusy()"
-                class="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-40 transition-colors cursor-pointer">
-                Précédent
+                class="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                <lucide-angular [img]="iconChevronLeft" size="14"></lucide-angular>
+                <span>Précédent</span>
               </button>
-              <button class="w-7 h-7 rounded-lg text-xs font-bold bg-[#4F46E5] text-white shadow-3xs flex items-center justify-center">
-                {{ page() + 1 }}
-              </button>
-              <button (click)="changePage(1)" [disabled]="page() + 1 >= totalPages() || isBusy()"
-                class="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer">
-                Suivant
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                {{ page() + 1 }} / {{ totalPages() || 1 }}
+              </span>
+              <button (click)="changePage(1)" [disabled]="(page() + 1 >= totalPages() && totalElements() > 0) || isBusy()"
+                class="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
+                <span>Suivant</span>
+                <lucide-angular [img]="iconChevronRight" size="14"></lucide-angular>
               </button>
             </div>
           </footer>
@@ -378,19 +400,19 @@ export class AdminUsersComponent {
 
   readonly createRoleOptions: string[] = ['ADMIN', 'RH', 'MANAGER', 'EMPLOYEE'];
 
-  // Configuration Signals existants
-  users = signal<AdminUser[]>([]);
-  entreprises = signal<AdminEntreprise[]>([]);
-  departements = signal<AdminDepartement[]>([]);
-  equipes = signal<AdminEquipe[]>([]);
+  // Configuration Signals initialisés via cache SWR
+  users = signal<AdminUser[]>(this.api.getCachedUsers()?.content ?? []);
+  entreprises = signal<AdminEntreprise[]>(this.api.getCachedEntreprises()?.content ?? []);
+  departements = signal<AdminDepartement[]>(this.api.getCachedDepartements()?.content ?? []);
+  equipes = signal<AdminEquipe[]>(this.api.getCachedEquipes()?.content ?? []);
 
   isLoading = signal<boolean>(false);
   listError = signal<string | null>(null);
 
   page = signal<number>(0);
   size = signal<number>(10);
-  totalElements = signal<number>(0);
-  totalPages = signal<number>(0);
+  totalElements = signal<number>(this.api.getCachedUsers()?.totalElements ?? 0);
+  totalPages = signal<number>(this.api.getCachedUsers()?.totalPages || 0);
 
   searchDraft = signal<string>('');
   roleFilter = signal<string>('');
@@ -432,9 +454,15 @@ export class AdminUsersComponent {
   isTeamsLoading = signal<boolean>(false);
   isManagersLoading = signal<boolean>(false);
 
-  companyOptions = signal<{ id: number, name: string }[]>([]);
-  departmentOptions = signal<{ id: number, name: string }[]>([]);
-  teamOptions = signal<{ id: number, name: string }[]>([]);
+  companyOptions = signal<{ id: number, name: string }[]>(
+    this.api.getCachedEntreprises()?.content.map(e => ({ id: e.id, name: e.nom })) ?? []
+  );
+  departmentOptions = signal<{ id: number, name: string }[]>(
+    this.api.getCachedDepartements()?.content.map(d => ({ id: d.id, name: d.nom })) ?? []
+  );
+  teamOptions = signal<{ id: number, name: string }[]>(
+    this.api.getCachedEquipes()?.content.map(eq => ({ id: eq.id, name: eq.nom })) ?? []
+  );
   managerLookupOptions = signal<{ id: number, name: string }[]>([]);
 
   referenceWarning = signal<string | null>(null);
@@ -460,9 +488,43 @@ export class AdminUsersComponent {
     });
   }
 
+  private readonly assistantSync = inject(AssistantSyncService);
+
+  /** Tool names that indicate a user was created or modified via the copilot. */
+  private static readonly USER_MUTATION_TOOLS = new Set([
+    'admin.create_user',
+    'admin.users.create',
+    'admin.update_user_role',
+    'admin.update_role',
+    'admin.assign_manager',
+    'organisation.create_employee',
+    'organisation.create_manager',
+    'rh.structure.employee.create',
+    'rh.structure.manager.create',
+  ]);
+
   ngOnInit(): void {
     this.loadReferences();
     this.loadUsers();
+
+    // Auto-refresh table when the copilot creates or modifies a user
+    this.assistantSync.events$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(event => {
+        const isExecuted = event.actionResult?.executed || event.actionResult?.status === 'success';
+        const tool = (event.actionResult?.tool || event.actionResult?.action || event.intent || '').toLowerCase();
+        const isUserAction = AdminUsersComponent.USER_MUTATION_TOOLS.has(tool) ||
+          tool === 'admin.create_user' ||
+          tool === 'admin.users.create' ||
+          tool.includes('create_user') ||
+          tool.includes('create_employee');
+
+        if (isExecuted && isUserAction) {
+          this.loadUsers();
+          this.loadReferences();
+          this.toast.success('Données utilisateurs actualisées suite à l\'action du copilote.');
+        }
+      });
   }
 
   @HostListener('document:click')
@@ -485,12 +547,24 @@ export class AdminUsersComponent {
   onEntrepriseFilterChange(v: string): void { this.entrepriseFilter.set(v); this.page.set(0); this.loadUsers(); }
   onSortChange(v: string): void { this.sortBy.set(v); this.loadUsers(); }
 
-  changePage(delta: number): void {
-    this.page.update(p => p + delta);
+  onPageSizeChange(newSize: number): void {
+    this.size.set(newSize);
+    this.page.set(0);
     this.loadUsers();
   }
 
-  onRefresh(): void { this.loadUsers(); }
+  changePage(delta: number): void {
+    const next = this.page() + delta;
+    if (next < 0) return;
+    if (this.totalPages() > 0 && next >= this.totalPages()) return;
+    this.page.set(next);
+    this.loadUsers();
+  }
+
+  onRefresh(): void {
+    this.loadReferences();
+    this.loadUsers();
+  }
 
   isBusy = computed(() => this.isLoading() || this.isActionSaving());
 
@@ -535,7 +609,24 @@ export class AdminUsersComponent {
 
   // --- Actions Logique Métier ---
   openCreate(): void { this.editingUser.set(null); this.form.reset({ status: 'ACTIVE', role: 'EMPLOYEE' }); this.showForm.set(true); }
-  openEdit(u: AdminUser): void { this.editingUser.set(u); this.showForm.set(true); }
+  openEdit(u: AdminUser): void {
+    this.editingUser.set(u);
+    this.form.patchValue({
+      firstName: u.prenom || '',
+      lastName: u.nom || '',
+      email: u.email || '',
+      password: '',
+      phone: u.telephone || '',
+      position: u.poste || '',
+      status: u.statut === 'ACTIF' ? 'ACTIVE' : 'INACTIVE',
+      companyId: u.entrepriseId ?? null,
+      departmentId: u.departementId ?? null,
+      teamId: u.equipeId ?? null,
+      managerId: u.managerId ?? null,
+      role: (this.primaryRole(u) as UserRole) || 'EMPLOYEE'
+    });
+    this.showForm.set(true);
+  }
   closeForm(): void { this.showForm.set(false); }
   openDetails(u: AdminUser): void { this.viewUser.set(u); }
   closeDetails(): void { this.viewUser.set(null); }
@@ -561,9 +652,15 @@ export class AdminUsersComponent {
       finalize(() => this.isLoading.set(false))
     ).subscribe({
       next: (p: AdminPage<AdminUser>) => {
-        this.users.set(p.content || []);
-        this.totalElements.set(p.totalElements || 0);
-        this.totalPages.set(p.totalPages || 1);
+        const content = p.content || [];
+        this.users.set(content);
+        const total = Number(p.totalElements ?? content.length);
+        this.totalElements.set(total);
+        const resolvedPages = Number(p.totalPages ?? 0);
+        const computedPages = resolvedPages > 0
+          ? resolvedPages
+          : (total > 0 ? Math.ceil(total / Math.max(this.size(), 1)) : 1);
+        this.totalPages.set(Math.max(1, computedPages));
       },
       error: (err) => {
         console.error('Error loading users:', err);
@@ -572,11 +669,130 @@ export class AdminUsersComponent {
     });
   }
 
-  private loadReferences(): void { }
-  toggleStatus(u: AdminUser): void { }
-  save(): void { }
+  private loadReferences(): void {
+    this.isCompaniesLoading.set(true);
+    this.api.getEntreprises(0, 200).pipe(
+      finalize(() => this.isCompaniesLoading.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (res) => {
+        const entList = res.content || [];
+        this.entreprises.set(entList);
+        this.companyOptions.set(entList.map(e => ({ id: e.id, name: e.nom })));
+      },
+      error: (err) => {
+        console.error('Erreur chargement entreprises:', err);
+      }
+    });
+
+    this.isDepartmentsLoading.set(true);
+    this.api.getDepartements(0, 200).pipe(
+      finalize(() => this.isDepartmentsLoading.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (res) => {
+        const depList = res.content || [];
+        this.departements.set(depList);
+        this.departmentOptions.set(depList.map(d => ({ id: d.id, name: d.nom })));
+      },
+      error: () => {}
+    });
+
+    this.isTeamsLoading.set(true);
+    this.api.getEquipes(0, 200).pipe(
+      finalize(() => this.isTeamsLoading.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (res) => {
+        const eqList = res.content || [];
+        this.equipes.set(eqList);
+        this.teamOptions.set(eqList.map(eq => ({ id: eq.id, name: eq.nom })));
+      },
+      error: () => {}
+    });
+  }
+
+  toggleStatus(u: AdminUser): void {
+    this.isActionSaving.set(true);
+    this.api.toggleUserStatus(u.id).pipe(
+      finalize(() => this.isActionSaving.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (updated) => {
+        this.users.update(users => users.map(user => user.id === updated.id ? updated : user));
+        this.toast.success(`Statut mis à jour pour ${u.prenom} ${u.nom}`);
+      },
+      error: () => this.toast.error('Erreur lors du changement de statut')
+    });
+  }
+
+  save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+    const companyId = Number(value.companyId);
+    if (!companyId) {
+      this.toast.error('Veuillez sélectionner une entreprise valide.');
+      return;
+    }
+
+    const payload: AdminUserPayload = {
+      nom: value.lastName ?? '',
+      prenom: value.firstName ?? '',
+      email: value.email ?? '',
+      motDePasse: value.password || undefined,
+      telephone: value.phone || undefined,
+      poste: value.position || undefined,
+      statut: value.status === 'INACTIVE' ? 'INACTIF' : 'ACTIF',
+      entrepriseId: companyId,
+      departementId: value.departmentId ?? null,
+      equipeId: value.teamId ?? null,
+      managerId: value.managerId ?? null,
+      roleIds: []
+    };
+
+    this.isSaving.set(true);
+    const request$ = this.editingUser()
+      ? this.api.updateUser(this.editingUser()!.id, payload)
+      : this.api.createUser(payload);
+
+    request$.pipe(
+      finalize(() => this.isSaving.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: () => {
+        this.toast.success(this.editingUser() ? 'Utilisateur modifié avec succès' : 'Utilisateur créé avec succès');
+        this.closeForm();
+        this.loadUsers();
+      },
+      error: (err) => {
+        console.error('Erreur enregistrement utilisateur:', err);
+        this.toast.error("Erreur lors de l'enregistrement de l'utilisateur");
+      }
+    });
+  }
+
   saveManagerAssignment(): void { }
   saveRoleChange(): void { }
-  remove(u: AdminUser): void { }
+
+  remove(u: AdminUser): void {
+    if (!confirm(`Supprimer l'utilisateur ${u.prenom} ${u.nom} ?`)) return;
+    this.isActionSaving.set(true);
+    this.api.deleteUser(u.id).pipe(
+      finalize(() => this.isActionSaving.set(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: () => {
+        this.users.update(users => users.filter(user => user.id !== u.id));
+        this.totalElements.update(tot => Math.max(0, tot - 1));
+        this.toast.success(`Utilisateur ${u.prenom} ${u.nom} supprimé`);
+      },
+      error: () => this.toast.error("Erreur lors de la suppression de l'utilisateur")
+    });
+  }
+
   managerLookupOptionsFor(id: number) { return []; }
 }

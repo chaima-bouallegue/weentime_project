@@ -1029,7 +1029,8 @@ Tu dois retourner UNIQUEMENT un JSON valide avec les champs suivants :
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
             "temperature": 0.1,
-            "provider": "gemini"
+            "provider": "gemini",
+            "output_format": "text"
         })
 
         if not result.success:

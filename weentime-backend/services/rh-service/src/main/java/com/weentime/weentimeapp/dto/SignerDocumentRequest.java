@@ -5,4 +5,5 @@ import lombok.Data;
 @Data
 public class SignerDocumentRequest {
     private String signedBy;
+    private String signatureImage;
 }

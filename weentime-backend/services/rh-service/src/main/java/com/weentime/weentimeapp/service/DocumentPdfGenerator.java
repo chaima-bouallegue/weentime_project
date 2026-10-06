@@ -74,12 +74,16 @@ public class DocumentPdfGenerator {
     }
 
     public String generatePdfFromContent(com.weentime.weentimeapp.entity.Document entity, UserResponse user, String content) {
+        return generatePdfFromContent(entity, user, content, null);
+    }
+
+    public String generatePdfFromContent(com.weentime.weentimeapp.entity.Document entity, UserResponse user, String content, String signatureImage) {
         String fullPath = buildPath(entity, user.getId(), "generated");
         try (PdfWriter writer = new PdfWriter(fullPath);
              PdfDocument pdf = new PdfDocument(writer);
              Document doc = new Document(pdf, PageSize.A4)) {
             EntrepriseResponse entreprise = loadEntreprise(entity);
-            buildLayout(doc, pdf, entity, user, content, entreprise);
+            buildLayout(doc, pdf, entity, user, content, entreprise, signatureImage);
         } catch (IOException e) {
             throw new RuntimeException("Erreur lors de la generation du PDF IA : " + e.getMessage());
         }
@@ -108,6 +112,13 @@ public class DocumentPdfGenerator {
                               com.weentime.weentimeapp.entity.Document entity,
                               UserResponse user, String content,
                               EntrepriseResponse entreprise) {
+        buildLayout(doc, pdf, entity, user, content, entreprise, null);
+    }
+
+    private void buildLayout(Document doc, PdfDocument pdf,
+                              com.weentime.weentimeapp.entity.Document entity,
+                              UserResponse user, String content,
+                              EntrepriseResponse entreprise, String signatureImage) {
         DeviceRgb primary = entreprise != null && entreprise.getPrimaryColor() != null
                 ? hexToRgb(entreprise.getPrimaryColor()) : DEFAULT_PRIMARY;
 
@@ -128,7 +139,7 @@ public class DocumentPdfGenerator {
         addMetaPills(doc, entity);
         addEmployeeCard(doc, user, entity, primary);
         addContent(doc, content, primary);
-        addSignatureBlock(doc, entity);
+        addSignatureBlock(doc, entity, signatureImage);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -383,7 +394,8 @@ public class DocumentPdfGenerator {
     }
 
     private void addSignatureBlock(Document doc,
-                                   com.weentime.weentimeapp.entity.Document entity) {
+                                   com.weentime.weentimeapp.entity.Document entity,
+                                   String signatureImage) {
         if (entity.getSignedBy() == null || entity.getSignedBy().isBlank()) return;
 
         Table sigWrapper = new Table(UnitValue.createPercentArray(new float[]{60, 40}));
@@ -402,11 +414,28 @@ public class DocumentPdfGenerator {
                 .setBackgroundColor(DEFAULT_SECONDARY)
                 .setBorder(Border.NO_BORDER)
                 .setPadding(4).setPaddingLeft(10).setPaddingRight(10);
-        badge.add(new Paragraph("\u2713 Sign\u00E9 \u00E9lectroniquement")
+        badge.add(new Paragraph("\u2713 Sign\u00E9 \u00E9lectroniquement \u2022 eIDAS SES")
                 .setFontSize(7).setBold().setFontColor(WHITE)
                 .setMargin(0));
         badgeTable.addCell(badge);
         sigCell.add(badgeTable);
+
+        // ── Embed drawn signature image if provided ──
+        if (signatureImage != null && !signatureImage.isBlank()) {
+            try {
+                String b64 = signatureImage.contains(",")
+                        ? signatureImage.split(",")[1] : signatureImage;
+                byte[] imgBytes = Base64.getDecoder().decode(b64);
+                ImageData sigImgData = ImageDataFactory.create(imgBytes);
+                com.itextpdf.layout.element.Image sigImg =
+                        new com.itextpdf.layout.element.Image(sigImgData);
+                sigImg.setMaxWidth(140).setMaxHeight(50).setAutoScale(true);
+                sigImg.setMarginTop(6);
+                sigCell.add(sigImg);
+            } catch (Exception ex) {
+                log.debug("Impossible de decoder l'image de signature manuscrite", ex);
+            }
+        }
 
         sigCell.add(new Paragraph(entity.getSignedBy())
                 .setFontSize(9).setFontColor(TEXT_PRIMARY).setBold()
@@ -414,6 +443,9 @@ public class DocumentPdfGenerator {
         if (entity.getSignedAt() != null)
             sigCell.add(new Paragraph(formatDate(entity.getSignedAt()))
                     .setFontSize(7.5f).setFontColor(TEXT_MUTED).setItalic());
+
+        sigCell.add(new Paragraph("R\u00E9f. eIDAS-" + entity.getId() + " \u2022 Piste d'audit certifi\u00E9e (R\u00E8glement UE 910/2014)")
+                .setFontSize(6.5f).setFontColor(TEXT_MUTED).setMarginTop(3));
 
         sigWrapper.addCell(sigCell);
         doc.add(sigWrapper);

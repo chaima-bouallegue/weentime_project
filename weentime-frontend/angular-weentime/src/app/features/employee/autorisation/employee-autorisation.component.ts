@@ -1,6 +1,6 @@
 import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy, ViewEncapsulation, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Plus, ClipboardList, Clock, CheckCircle, Timer, Search, Info, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass, Loader2, Trash2, ChevronDown, X, Filter, Check } from 'lucide-angular';
+import { LucideAngularModule, Plus, ClipboardList, Clock, CheckCircle, Timer, Search, Info, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass, Loader2, Trash2, ChevronDown, X, Filter, Check, Pencil } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutorisationService } from '../../../core/services/autorisation.service';
 import { Autorisation, StatsAutorisation, StatutAutorisation, TypeAutorisation } from '../../../core/models/autorisation.model';
@@ -8,6 +8,7 @@ import { AssistantSyncService } from '../../../core/services/assistant-sync.serv
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
 import { AutorisationHistoryComponent } from './components/autorisation-history/autorisation-history.component';
 import { AutorisationFormComponent } from './components/autorisation-form/autorisation-form.component';
+import { ConfirmCancellationModalComponent, CancellationPreviewItem } from '../../../shared/components/confirm-cancellation-modal';
 import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
@@ -17,10 +18,11 @@ import { ToastService } from '../../../core/services/toast.service';
     CommonModule,
     LucideAngularModule,
     AutorisationHistoryComponent,
-    AutorisationFormComponent
+    AutorisationFormComponent,
+    ConfirmCancellationModalComponent
   ],
   template: `
-    <div class="bento-container fade-in">
+    <div class="autorisation-page">
       <!-- Header Section -->
       <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
@@ -31,7 +33,7 @@ import { ToastService } from '../../../core/services/toast.service';
         </div>
         
         <button 
-          (click)="showForm.set(true)"
+          (click)="openNewRequest()"
           class="action-button primary group"
         >
           <div class="button-content">
@@ -163,7 +165,14 @@ import { ToastService } from '../../../core/services/toast.service';
                     }
 
                     @if (canCancel(item.statut)) {
-                      <div class="mt-6 flex justify-end">
+                      <div class="mt-6 flex justify-end gap-2">
+                        <button 
+                          (click)="onEditRequest(item)"
+                          class="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 hover:text-indigo-700 text-xs font-bold rounded-xl flex items-center gap-2 transition-colors border border-transparent hover:border-indigo-200 dark:hover:border-indigo-500/20"
+                        >
+                          <lucide-angular [img]="iconPencil" size="14"></lucide-angular>
+                          <span>Modifier</span>
+                        </button>
                         <button 
                           (click)="onCancelRequest(item)" 
                           [disabled]="cancellingId() === item.id"
@@ -357,35 +366,43 @@ import { ToastService } from '../../../core/services/toast.service';
               [cancellingId]="cancellingId()"
               [class.opacity-50]="isLoading()"
               (cancelRequest)="onCancelRequest($event)"
+              (editRequest)="onEditRequest($event)"
             ></app-autorisation-history>
           }
         </section>
       </main>
-
-      <!-- Adaptive Form Component -->
-      @if (showForm()) {
-        <app-autorisation-form 
-          [defaultType]="selectedType()"
-          (close)="onCloseForm()"
-          (submitted)="onSubmitted()"
-        ></app-autorisation-form>
-      }
     </div>
+
+    <!-- Adaptive Form Component -->
+    @if (showForm()) {
+      <app-autorisation-form 
+        [defaultType]="selectedType()"
+        [demandeToEdit]="demandeModifier()"
+        (close)="onCloseForm()"
+        (submitted)="onSubmitted()"
+      ></app-autorisation-form>
+    }
+
+    @if (demandeAnnuler()) {
+      <app-confirm-cancellation-modal
+        title="Annuler la demande d'autorisation"
+        message="Êtes-vous sûr de vouloir annuler cette demande d'autorisation ?"
+        subMessage="Cette action est irréversible."
+        [previewItems]="autorisationCancellationPreviewItems()"
+        [isCancelling]="!!cancellingId()"
+        (close)="demandeAnnuler.set(null)"
+        (confirm)="confirmAnnulation()"
+      ></app-confirm-cancellation-modal>
+    }
   `,
   styles: [`
-    .bento-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .fade-in {
-      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    .autorisation-page {
+      width: 100%;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-sizing: border-box;
     }
 
     /* --- Common Bento Card --- */
@@ -501,18 +518,18 @@ import { ToastService } from '../../../core/services/toast.service';
       overflow: hidden;
 
       &.primary {
-        background: #4f46e5;
+        background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
         color: white;
-        box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.3);
+        box-shadow: 0 10px 20px -5px rgba(107, 93, 211, 0.35);
         
         .icon-box {
           background: rgba(255,255,255,0.2);
         }
 
         &:hover {
-          background: #4338ca;
+          background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
           transform: translateY(-2px);
-          box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.4);
+          box-shadow: 0 15px 25px -5px rgba(107, 93, 211, 0.45);
         }
       }
 
@@ -1100,7 +1117,7 @@ import { ToastService } from '../../../core/services/toast.service';
     }
 
     .history-clear-filters--cta:hover {
-      background: #4f46e5;
+      background: var(--primary, #6B5DD3);
     }
 
     .sr-only {
@@ -1176,6 +1193,19 @@ export class EmployeeAutorisationComponent implements OnInit {
   focusedFilterIndex = signal(0);
 
   selectedType = signal<string | null>(null);
+  demandeModifier = signal<Autorisation | null>(null);
+  demandeAnnuler = signal<Autorisation | null>(null);
+
+  autorisationCancellationPreviewItems = computed<CancellationPreviewItem[]>(() => {
+    const d = this.demandeAnnuler();
+    if (!d) return [];
+    return [
+      { label: 'Type', value: this.formatType(d.typeAutorisation), highlight: true },
+      { label: 'Date', value: new Date(d.dateAutorisation).toLocaleDateString('fr-FR') },
+      { label: 'Horaire', value: `${d.heureDebut ?? ''} - ${d.heureFin ?? ''}` },
+      { label: 'Durée', value: `${d.duree ?? 0} h` }
+    ];
+  });
 
   readonly statusFilterOptions: ReadonlyArray<{ value: HistoryStatusFilter; label: string }> = [
     { value: 'ALL', label: 'Tous les statuts' },
@@ -1251,6 +1281,7 @@ export class EmployeeAutorisationComponent implements OnInit {
   readonly iconInfo = Info;
   readonly iconLoader = Loader2;
   readonly iconTrash = Trash2;
+  readonly iconPencil = Pencil;
 
   readonly quickActions = [
     { id: 'RDV MEDICAL', label: 'RDV Médical', icon: Stethoscope, bg: 'bg-rose-50 dark:bg-rose-500/10', color: 'text-rose-600 dark:text-rose-400', rawColor: '#f43f5e', desc: 'Consultation ou soin' },
@@ -1309,13 +1340,27 @@ export class EmployeeAutorisationComponent implements OnInit {
   }
 
   onQuickRequest(type: string): void {
+    this.demandeModifier.set(null);
     this.selectedType.set(type);
+    this.showForm.set(true);
+  }
+
+  openNewRequest(): void {
+    this.demandeModifier.set(null);
+    this.selectedType.set(null);
+    this.showForm.set(true);
+  }
+
+  onEditRequest(demande: Autorisation): void {
+    this.demandeModifier.set(demande);
+    this.selectedType.set(null);
     this.showForm.set(true);
   }
 
   onCloseForm(): void {
     this.showForm.set(false);
     this.selectedType.set(null);
+    this.demandeModifier.set(null);
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -1469,9 +1514,13 @@ export class EmployeeAutorisationComponent implements OnInit {
   }
 
   onCancelRequest(demande: Autorisation): void {
-    if (this.cancellingId() || !window.confirm('Annuler cette demande d\'autorisation ?')) {
-      return;
-    }
+    if (this.cancellingId()) return;
+    this.demandeAnnuler.set(demande);
+  }
+
+  confirmAnnulation(): void {
+    const demande = this.demandeAnnuler();
+    if (!demande) return;
 
     this.cancellingId.set(demande.id);
     this.service.annulerDemande(demande.id)
@@ -1479,12 +1528,14 @@ export class EmployeeAutorisationComponent implements OnInit {
       .subscribe({
         next: (updated) => {
           this.cancellingId.set(null);
+          this.demandeAnnuler.set(null);
           this.toastService.success('Demande annulée avec succès');
           this.demandes.update(list => list.map(item => item.id === updated.id ? updated : item));
           this.loadKPIs();
         },
         error: () => {
           this.cancellingId.set(null);
+          this.demandeAnnuler.set(null);
         }
       });
   }

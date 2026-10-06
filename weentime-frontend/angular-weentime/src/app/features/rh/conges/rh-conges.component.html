@@ -1,12 +1,29 @@
 <div class="leave-page">
   @if (isRh()) {
+    <!-- Page Header (Cleaned, Icon left, Export right) -->
     <header class="page-header leave-page-animate">
-      <nav class="page-breadcrumb" aria-label="Fil d'Ariane">
-        <a [routerLink]="dashboardLink()">Tableau de bord</a>
-        <span class="page-breadcrumb__sep" aria-hidden="true">›</span>
-        <span>Gestion des congés</span>
-      </nav>
-      <h1 class="page-title">Gestion des congés</h1>
+      <div class="page-header__row">
+        <div class="header-title-group">
+          <div class="header-icon-box">
+            <lucide-icon [img]="CalendarIcon" size="24"></lucide-icon>
+          </div>
+          <div>
+            <h1 class="page-title">Gestion des congés</h1>
+            <p class="page-subtitle">Arbitrage RH, suivi des soldes et validation des demandes d'absence</p>
+          </div>
+        </div>
+        <div class="page-header__actions">
+          <button
+            type="button"
+            class="btn-secondary-sm"
+            (click)="exportCSV()"
+            [disabled]="filteredDemandes().length === 0"
+            title="Exporter les demandes au format CSV">
+            <lucide-icon [img]="DownloadIcon" size="15"></lucide-icon>
+            <span>Exporter CSV</span>
+          </button>
+        </div>
+      </div>
     </header>
 
     <nav class="tab-bar leave-page-animate" aria-label="Sections congés">
@@ -34,53 +51,40 @@
     <app-employee-conges></app-employee-conges>
   } @else {
     <div class="leave-page-animate">
-      <section class="stats-strip" aria-label="Synthèse des demandes">
-        <div class="stat-item">
-          <span class="stat-item__value" [class.stat-item__value--warn]="pendingCount() > 0" [class.stat-item__value--muted]="pendingCount() === 0">
-            {{ pendingCount() }}
-          </span>
-          <span>en attente RH</span>
-        </div>
-        <span class="stat-divider" aria-hidden="true"></span>
-        <div class="stat-item">
-          <span class="stat-item__value" [class.stat-item__value--ok]="approvedThisMonth() > 0" [class.stat-item__value--muted]="approvedThisMonth() === 0">
-            {{ approvedThisMonth() }}
-          </span>
-          <span>finalisés ce mois</span>
-        </div>
-        <span class="stat-divider" aria-hidden="true"></span>
-        <div class="stat-item">
-          <span class="stat-item__value">{{ managerPendingCount() }}</span>
-          <span>chez les managers</span>
-        </div>
-        <span class="stat-divider" aria-hidden="true"></span>
-        <div class="stat-item">
-          <span class="stat-item__value">{{ totalCount() }}</span>
-          <span>demandes au total</span>
-        </div>
-      </section>
-
+      <!-- Toolbar: Search + Type Filter + Reset + Refresh at Top -->
       <div class="toolbar-row">
         <div class="search-filter-bar" role="search">
+          <lucide-icon [img]="SearchIcon" size="16" class="search-bar-icon"></lucide-icon>
           <input
             type="search"
             class="search-filter-input"
-            placeholder="Rechercher un collaborateur..."
+            placeholder="Rechercher par collaborateur, motif..."
             [ngModel]="searchQuery()"
             (ngModelChange)="searchQuery.set($event)"
             aria-label="Rechercher un collaborateur" />
-          <div class="divider" aria-hidden="true"></div>
-          <select
-            class="search-filter-select"
-            [ngModel]="statusFilter()"
-            (ngModelChange)="statusFilter.set($event)"
-            aria-label="Filtrer par statut">
-            <option value="ALL">Tous les statuts</option>
-            <option value="EN_ATTENTE_RH">À valider RH</option>
-            <option value="EN_ATTENTE_MANAGER">Attente manager</option>
-            <option value="APPROUVE">Finalisés</option>
-            <option value="REFUSE">Refusés</option>
-          </select>
+          @if (availableTypes().length > 0) {
+            <div class="divider" aria-hidden="true"></div>
+            <select
+              class="search-filter-select"
+              [ngModel]="typeFilter()"
+              (ngModelChange)="setTypeFilter($event)"
+              aria-label="Filtrer par type de congé">
+              <option value="ALL">Tous les types</option>
+              @for (t of availableTypes(); track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+          }
+          @if (hasActiveFilters()) {
+            <button
+              type="button"
+              class="reset-filters-btn"
+              (click)="resetFilters()"
+              title="Réinitialiser tous les filtres">
+              <lucide-icon [img]="XIcon" size="14"></lucide-icon>
+              <span>Effacer</span>
+            </button>
+          }
         </div>
         <button
           type="button"
@@ -88,10 +92,77 @@
           (click)="refresh()"
           [disabled]="isLoading()"
           aria-label="Actualiser la liste">
-          <lucide-icon name="refresh-cw" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
+          <lucide-icon [img]="RefreshCwIcon" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
         </button>
       </div>
 
+      <!-- Status Filter Tabs Strip (Directly beneath search bar) -->
+      <nav class="status-tabs-nav" role="tablist" aria-label="Filtrer par statut">
+        <button
+          type="button"
+          class="status-tab-btn"
+          [class.is-active]="statusFilter() === 'ALL'"
+          (click)="setStatusFilter('ALL')">
+          <span class="status-tab-label">Demandes</span>
+          <span class="status-tab-badge badge--all">{{ totalCount() }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="status-tab-btn tab--amber"
+          [class.is-active]="statusFilter() === 'EN_ATTENTE_RH'"
+          (click)="setStatusFilter('EN_ATTENTE_RH')">
+          <span class="status-dot dot--amber"></span>
+          <span class="status-tab-label">En attente RH</span>
+          <span class="status-tab-badge badge--amber">{{ pendingCount() }}</span>
+        </button>
+
+        @if (managerPendingCount() > 0) {
+          <button
+            type="button"
+            class="status-tab-btn tab--blue"
+            [class.is-active]="statusFilter() === 'EN_ATTENTE_MANAGER'"
+            (click)="setStatusFilter('EN_ATTENTE_MANAGER')">
+            <span class="status-dot dot--blue"></span>
+            <span class="status-tab-label">Chez les managers</span>
+            <span class="status-tab-badge badge--blue">{{ managerPendingCount() }}</span>
+          </button>
+        }
+
+        <button
+          type="button"
+          class="status-tab-btn tab--green"
+          [class.is-active]="statusFilter() === 'APPROUVE'"
+          (click)="setStatusFilter('APPROUVE')">
+          <span class="status-dot dot--green"></span>
+          <span class="status-tab-label">Approuvées</span>
+          <span class="status-tab-badge badge--green">{{ approvedCount() }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="status-tab-btn tab--red"
+          [class.is-active]="statusFilter() === 'REFUSE'"
+          (click)="setStatusFilter('REFUSE')">
+          <span class="status-dot dot--red"></span>
+          <span class="status-tab-label">Refusées</span>
+          <span class="status-tab-badge badge--red">{{ refusedCount() }}</span>
+        </button>
+
+        @if (cancelledCount() > 0) {
+          <button
+            type="button"
+            class="status-tab-btn tab--gray"
+            [class.is-active]="statusFilter() === 'ANNULE'"
+            (click)="setStatusFilter('ANNULE')">
+            <span class="status-dot dot--gray"></span>
+            <span class="status-tab-label">Annulées</span>
+            <span class="status-tab-badge badge--gray">{{ cancelledCount() }}</span>
+          </button>
+        }
+      </nav>
+
+      <!-- Table Card (Full Width) -->
       <div class="table-card">
         @if (isLoading() && allDemandes().length === 0) {
           <div class="panel-state panel-state--loading" role="status">
@@ -101,7 +172,7 @@
         } @else if (allDemandes().length === 0) {
           <div class="panel-state">
             <div class="empty-icon" aria-hidden="true">
-              <lucide-icon name="calendar-check" size="22"></lucide-icon>
+              <lucide-icon [img]="CalendarIcon" size="22"></lucide-icon>
             </div>
             <h2 class="panel-state__title">Aucune demande pour le moment</h2>
             <p class="panel-state__text">
@@ -111,12 +182,17 @@
         } @else if (filteredDemandes().length === 0) {
           <div class="panel-state">
             <div class="empty-icon" aria-hidden="true">
-              <lucide-icon name="search" size="22"></lucide-icon>
+              <lucide-icon [img]="SearchIcon" size="22"></lucide-icon>
             </div>
             <h2 class="panel-state__title">Aucun résultat</h2>
             <p class="panel-state__text">
               Aucune demande ne correspond à votre recherche ou au filtre sélectionné.
             </p>
+            @if (hasActiveFilters()) {
+              <button type="button" class="btn-secondary-sm" style="margin-top: 12px;" (click)="resetFilters()">
+                Réinitialiser les filtres
+              </button>
+            }
           </div>
         } @else {
           <div class="table-scroll">
@@ -166,15 +242,26 @@
                       </span>
                     </td>
                     <td class="col-actions actions-cell">
-                      @if (canRhAct(demande.statut)) {
-                        <div class="action-group">
+                      <div class="action-group">
+                        @if (hasJustificatif(demande)) {
+                          <button
+                            type="button"
+                            class="action-btn action-btn--document"
+                            matTooltip="Consulter le justificatif"
+                            (click)="openJustificatifModal(demande)"
+                            aria-label="Consulter le justificatif">
+                            <lucide-icon [img]="FileTextIcon" [size]="14"></lucide-icon>
+                          </button>
+                        }
+
+                        @if (canRhAct(demande.statut)) {
                           <button
                             type="button"
                             class="action-btn action-btn--approve"
                             matTooltip="Approuver"
                             (click)="onApprouver(demande)"
                             aria-label="Approuver">
-                            <lucide-icon name="check" [size]="14"></lucide-icon>
+                            <lucide-icon [img]="CheckIcon" [size]="14"></lucide-icon>
                           </button>
                           <button
                             type="button"
@@ -182,13 +269,9 @@
                             matTooltip="Refuser"
                             (click)="onRefuser(demande)"
                             aria-label="Refuser">
-                            <lucide-icon name="x" [size]="14"></lucide-icon>
+                            <lucide-icon [img]="XIcon" [size]="14"></lucide-icon>
                           </button>
-                        </div>
-                      } @else if (isManagerPending(demande.statut)) {
-                        <span class="actions-empty" aria-hidden="true">—</span>
-                      } @else if (canViewDetail(demande.statut)) {
-                        <div class="action-group">
+                        } @else if (canViewDetail(demande.statut)) {
                           <button
                             type="button"
                             class="action-btn action-btn--view"
@@ -197,8 +280,10 @@
                             aria-label="Voir le détail">
                             <lucide-icon [img]="iconEye" [size]="14"></lucide-icon>
                           </button>
-                        </div>
-                      }
+                        } @else if (!hasJustificatif(demande) && isManagerPending(demande.statut)) {
+                          <span class="actions-empty" aria-hidden="true">—</span>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
@@ -214,7 +299,8 @@
 @if (showDetailPanel()) {
   <app-conge-detail-panel
     [demande]="demandeSelectionnee()"
-    (close)="closeDetailPanel()">
+    (close)="closeDetailPanel()"
+    (openJustificatif)="openJustificatifModal($event)">
   </app-conge-detail-panel>
 }
 
@@ -226,4 +312,11 @@
     (close)="closeDecisionModal()"
     (confirm)="onConfirmDecision($event)">
   </app-conge-decision-rh-modal>
+}
+
+@if (justificatifDemande()) {
+  <app-conge-justificatif-modal
+    [demande]="justificatifDemande()!"
+    (close)="closeJustificatifModal()">
+  </app-conge-justificatif-modal>
 }

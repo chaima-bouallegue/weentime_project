@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutorisationService } from '../../../core/services/autorisation.service';
 import { Autorisation, StatutAutorisation, TypeAutorisation } from '../../../core/models/autorisation.model';
 import { ToastService } from '../../../core/services/toast.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 @Component({
   selector: 'app-manager-autorisation',
@@ -133,9 +134,9 @@ import { ToastService } from '../../../core/services/toast.service';
 
       <!-- Confirmation Modal -->
       @if (pendingDecision()) {
-        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="modal-overlay fixed inset-0 z-[1050] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-sm" (click)="cancelDecision()"></div>
-          <div class="relative bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 border dark:border-gray-800">
+          <div class="modal-card relative bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 border dark:border-gray-800 z-[1051]">
             <div 
               class="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
               [class]="pendingDecision()?.approved ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'"
@@ -172,7 +173,8 @@ import { ToastService } from '../../../core/services/toast.service';
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ManagerAutorisationComponent implements OnInit {
+export class ManagerAutorisationComponent implements OnInit, OnDestroy {
+  private readonly modalService = inject(ModalService);
   private service = inject(AutorisationService);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
@@ -250,7 +252,12 @@ export class ManagerAutorisationComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
+
   onDecision(id: number, approved: boolean) {
+    this.modalService.open();
     this.pendingDecision.set({ id, approved });
   }
 
@@ -260,6 +267,7 @@ export class ManagerAutorisationComponent implements OnInit {
 
     this.service.deciderManager(decision.id, decision.approved, this.currentComment).subscribe({
       next: () => {
+        this.modalService.close();
         this.toastService.success(decision.approved ? 'Demande approuvée' : 'Demande refusée');
         this.expandedId.set(null);
         this.pendingDecision.set(null);
@@ -273,6 +281,7 @@ export class ManagerAutorisationComponent implements OnInit {
   }
 
   cancelDecision() {
+    this.modalService.close();
     this.pendingDecision.set(null);
   }
 }

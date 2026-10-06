@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, signal, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, inject, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { take } from 'rxjs';
+import { ModalService } from '../../../../../core/services/modal.service';
 import { ToastService } from '../../../../../core/services/toast.service';
 import { DemandeDocumentRH } from '../../models/rh-document.model';
 import { RhDocumentService } from '../../rh-document.service';
@@ -15,9 +16,10 @@ import { RhDocumentService } from '../../rh-document.service';
   styleUrl: './ai-generation-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AiGenerationModalComponent {
+export class AiGenerationModalComponent implements OnInit, OnDestroy {
   private documentService = inject(RhDocumentService);
   private toastService = inject(ToastService);
+  private modalService = inject(ModalService);
 
   @Input({ required: true }) demande: DemandeDocumentRH | null = null;
   @Output() close = new EventEmitter<void>();
@@ -32,9 +34,14 @@ export class AiGenerationModalComponent {
   progressText = signal<string>('Préparation du prompt...');
 
   ngOnInit() {
+    this.modalService.open();
     if (this.demande) {
       this.customPrompt.set(this.buildInitialPrompt());
     }
+  }
+
+  ngOnDestroy() {
+    this.modalService.close();
   }
 
   private buildInitialPrompt(): string {

@@ -1,10 +1,11 @@
-import { Component, Input, Output, EventEmitter, signal, computed, inject, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, inject, ChangeDetectionStrategy, OnInit, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
 import { DemandeConge, JourFerie, NouvelleDemandeRequest, SoldeConge, TypeConge } from '../../models/conge.model';
 import { CongeService } from '../../conge.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 interface CalendarDay {
   date: Date;
@@ -22,7 +23,7 @@ interface CalendarDay {
   styleUrl: './demande-drawer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DemandeDrawerComponent implements OnInit, OnChanges {
+export class DemandeDrawerComponent implements OnInit, OnChanges, OnDestroy {
   @Input() soldes: SoldeConge[] = [];
   @Input() joursFeries: JourFerie[] = [];
   @Input() historique: DemandeConge[] = [];
@@ -34,8 +35,13 @@ export class DemandeDrawerComponent implements OnInit, OnChanges {
   private readonly fb = inject(FormBuilder);
   private readonly assistantWorkflow = inject(AssistantWorkflowService);
   private readonly congeService = inject(CongeService);
+  private readonly modalService = inject(ModalService);
 
-  readonly leaveTypes = signal<any[]>([]);
+  @Input() set leaveTypes(value: any[]) {
+    this._leaveTypes.set(value ?? []);
+  }
+
+  readonly _leaveTypes = signal<any[]>([]);
   readonly step = signal(1);
   readonly selectedType = signal<any | null>(null);
   readonly startDate = signal<Date | null>(null);
@@ -52,26 +58,31 @@ export class DemandeDrawerComponent implements OnInit, OnChanges {
   });
 
   ngOnInit(): void {
-    this.congeService.getTypesConge().subscribe({
-      next: (types: any[]) => {
-        this.leaveTypes.set(types);
-        if (this.demandeToEdit) {
-          this.applyEditDraft();
-        } else {
-          this.applyAssistantDraft();
-        }
-      },
-      error: (error) => {
-        this.validationError.set(this.extractErrorMessage(error, 'Impossible de charger les types de conge.'));
-      }
-    });
+    this.modalService.open();
+    // Apply drafts if types are already loaded
+    if (this._leaveTypes().length > 0) {
+      this.applyDrafts();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['demandeToEdit'] && this.leaveTypes().length > 0) {
-      if (this.demandeToEdit) {
-        this.applyEditDraft();
-      }
+    if (changes['leaveTypes'] && this._leaveTypes().length > 0) {
+      this.applyDrafts();
+    }
+    if (changes['demandeToEdit'] && this._leaveTypes().length > 0 && this.demandeToEdit) {
+      this.applyEditDraft();
+    }
+  }
+
+  private applyDrafts(): void {
+    if (this.demandeToEdit) {
+      this.applyEditDraft();
+    } else {
+      this.applyAssistantDraft();
     }
   }
 
@@ -267,19 +278,19 @@ export class DemandeDrawerComponent implements OnInit, OnChanges {
   getSoldeForType(typeOrLibelle: any): number {
     const libelle = typeof typeOrLibelle === 'object' ? typeOrLibelle?.libelle : typeOrLibelle;
     if (!libelle) return 0;
-    
+
     const normalizedSearch = this.normalize(libelle);
     const solde = this.soldes.find(item => {
       const normType = this.normalize(item.type);
       const normLabel = this.normalize(item.label);
-      return normType === normalizedSearch || 
-             normLabel === normalizedSearch ||
-             normType.includes(normalizedSearch) ||
-             normalizedSearch.includes(normType) ||
-             normLabel.includes(normalizedSearch) ||
-             normalizedSearch.includes(normLabel);
+      return normType === normalizedSearch ||
+        normLabel === normalizedSearch ||
+        normType.includes(normalizedSearch) ||
+        normalizedSearch.includes(normType) ||
+        normLabel.includes(normalizedSearch) ||
+        normalizedSearch.includes(normLabel);
     });
-    
+
     let dispo = solde?.disponible || 0;
     if (this.demandeToEdit) {
       const editNorm = this.normalize(this.demandeToEdit.typeCongeNom || this.demandeToEdit.type);
@@ -444,7 +455,7 @@ export class DemandeDrawerComponent implements OnInit, OnChanges {
   }
 
   private resolveDraftType(typeLabel?: string, typeCongeId?: number): any | null {
-    const types = this.leaveTypes();
+    const types = this._leaveTypes();
     if (typeCongeId) {
       const found = types.find(t => t.id === typeCongeId);
       if (found) return found;
@@ -452,7 +463,7 @@ export class DemandeDrawerComponent implements OnInit, OnChanges {
 
     if (!typeLabel) return null;
     const normalized = this.normalize(typeLabel);
-    
+
     // Look for exact or partial match in libelle
     return types.find(t => {
       const tLib = this.normalize(t.libelle);

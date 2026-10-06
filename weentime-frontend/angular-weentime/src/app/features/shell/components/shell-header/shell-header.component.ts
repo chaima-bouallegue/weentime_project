@@ -57,25 +57,27 @@ export function getRouteTitle(router: Router): string {
 
       <div class="header-right">
         <!-- Live User Status Section -->
-        <div class="status-section">
-          <button [routerLink]="['/app', userRole(), 'pointage']"
-                  class="live-status-pill"
-                  [class.is-active]="isPointageActive()"
-                  [attr.data-tooltip]="isPointageActive() ? 'Session en cours' : 'Hors session'">
-            <div class="status-indicator">
-              <div class="status-dot"></div>
+        @if (userRole() !== 'admin') {
+          <div class="status-section">
+            <button [routerLink]="['/app', userRole(), 'pointage']"
+                    class="live-status-pill"
+                    [class.is-active]="isPointageActive()"
+                    [attr.data-tooltip]="isPointageActive() ? 'Session en cours' : 'Hors session'">
+              <div class="status-indicator">
+                <div class="status-dot"></div>
+                @if (isPointageActive()) {
+                  <div class="status-pulse"></div>
+                }
+              </div>
+              <span class="status-text">{{ isPointageActive() ? 'En activité' : 'Non pointé' }}</span>
               @if (isPointageActive()) {
-                <div class="status-pulse"></div>
+                <span class="status-timer">{{ pointageService.sessionDuration() }}</span>
               }
-            </div>
-            <span class="status-text">{{ isPointageActive() ? 'En activité' : 'Non pointé' }}</span>
-            @if (isPointageActive()) {
-              <span class="status-timer">{{ pointageService.sessionDuration() }}</span>
-            }
-          </button>
-        </div>
+            </button>
+          </div>
 
-        <div class="header-divider"></div>
+          <div class="header-divider"></div>
+        }
 
         <!-- System Actions & Profile Group -->
         <div class="actions-section">
@@ -147,6 +149,14 @@ export function getRouteTitle(router: Router): string {
   styles: [`
     :host { display: block; height: 56px; overflow: visible; }
 
+    :host-context(body.modal-open) {
+      position: relative !important;
+      z-index: 0 !important;
+      filter: blur(4px) !important;
+      pointer-events: none !important;
+      isolation: isolate !important;
+    }
+
     .shell-header {
       display: flex;
       align-items: center;
@@ -157,7 +167,15 @@ export function getRouteTitle(router: Router): string {
       box-shadow: 0 1px 0 #E5E7EB;
       height: 56px;
       position: relative;
-      z-index: 50;
+      z-index: var(--z-sticky);
+    }
+
+    :host-context(body.modal-open) .shell-header {
+      position: relative !important;
+      z-index: 0 !important;
+      filter: blur(4px) !important;
+      pointer-events: none !important;
+      isolation: isolate !important;
     }
 
     .notif-container {
@@ -484,7 +502,7 @@ export function getRouteTitle(router: Router): string {
       border-radius: 16px;
       box-shadow: var(--shadow-xl);
       padding: 8px;
-      z-index: 1000;
+      z-index: var(--z-dropdown);
       animation: slide-up-fade 0.2s ease;
     }
 
@@ -679,7 +697,7 @@ export function getRouteTitle(router: Router): string {
       border-radius: 16px;
       background: #ffffff;
       box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-      z-index: 1000;
+      z-index: var(--z-dropdown);
       animation: dropdown-in 0.15s ease;
     }
 
@@ -763,7 +781,7 @@ export function getRouteTitle(router: Router): string {
 
     /*** Global overlay styles ***/
     ::ng-deep .notification-overlay-pane {
-      z-index: 9999 !important;
+      z-index: var(--z-notification) !important;
     }
   `]
 })

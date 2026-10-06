@@ -1,6 +1,6 @@
 import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule, ShieldCheck } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AutorisationService } from '../../../core/services/autorisation.service';
@@ -12,32 +12,45 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [CommonModule, LucideAngularModule, FormsModule],
   template: `
-    <div class="min-h-screen bg-gray-50/50 dark:bg-gray-950 p-4 md:p-8 transition-colors duration-300">
-      <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Console RH — Autorisations</h1>
-          <p class="text-gray-500 dark:text-gray-400 mt-1">Supervision globale et validation finale des absences de courte durée.</p>
-        </div>
-        
-        <div class="flex items-center gap-2 p-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
-          <button 
-            (click)="filterStatut.set('TOUS')"
-            [class.bg-gray-100]="filterStatut() === 'TOUS'"
-            [class.dark:bg-gray-800]="filterStatut() === 'TOUS'"
-            [class.text-indigo-600]="filterStatut() === 'TOUS'"
-            [class.dark:text-indigo-400]="filterStatut() === 'TOUS'"
-            class="px-4 py-2 text-xs font-bold rounded-lg transition-all dark:text-gray-400"
-          >Tous</button>
-          <button 
-            (click)="filterStatut.set(StatutAutorisation.EN_ATTENTE_RH)"
-            [class.bg-indigo-600]="filterStatut() === StatutAutorisation.EN_ATTENTE_RH"
-            [class.text-white]="filterStatut() === StatutAutorisation.EN_ATTENTE_RH"
-            class="px-4 py-2 text-xs font-bold rounded-lg transition-all dark:text-gray-400"
-          >À Valider (RH)</button>
+    <div class="autorisation-page">
+      <!-- Standardized WeenTime Header (Identical to Congés) -->
+      <header class="page-header">
+        <div class="page-header__row">
+          <div class="header-title-group">
+            <div class="header-icon-box">
+              <lucide-icon [img]="ShieldCheckIcon" size="24"></lucide-icon>
+            </div>
+            <div>
+              <h1 class="page-title">Console RH — Autorisations</h1>
+              <p class="page-subtitle">Supervision globale et validation finale des absences de courte durée</p>
+            </div>
+          </div>
+          
+          <div class="page-header__actions">
+            <div class="filter-pills-bar">
+              <button 
+                type="button"
+                (click)="filterStatut.set('TOUS')"
+                class="filter-pill"
+                [class.is-active]="filterStatut() === 'TOUS'">
+                Tous
+              </button>
+              <button 
+                type="button"
+                (click)="filterStatut.set(StatutAutorisation.EN_ATTENTE_RH)"
+                class="filter-pill"
+                [class.is-active]="filterStatut() === StatutAutorisation.EN_ATTENTE_RH">
+                À Valider (RH)
+                @if (kpis()?.enAttente) {
+                  <span class="pill-badge">{{ kpis()?.enAttente }}</span>
+                }
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main class="max-w-7xl mx-auto">
+      <main class="w-full">
         <div class="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl overflow-hidden transition-all">
           <!-- Quick stats bar -->
           <div class="grid grid-cols-2 md:grid-cols-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/30">
@@ -47,7 +60,7 @@ import { ToastService } from '../../../core/services/toast.service';
             </div>
             <div class="p-4 border-r border-gray-100 dark:border-gray-800 text-center">
               <span class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">En attente RH</span>
-              <span class="text-xl font-black text-indigo-600 dark:text-indigo-400">{{ kpis()?.enAttente || 0 }}</span>
+              <span class="text-xl font-black text-purple-600 dark:text-purple-400">{{ kpis()?.enAttente || 0 }}</span>
             </div>
             <div class="p-4 border-r border-gray-100 dark:border-gray-800 text-center text-emerald-600 dark:text-emerald-400">
               <span class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1 font-normal">Approuvées</span>
@@ -102,12 +115,12 @@ import { ToastService } from '../../../core/services/toast.service';
                           <button (click)="onDecision(item.id, false)" class="p-2 text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all" title="Refuser">
                             <lucide-icon name="x" size="18"></lucide-icon>
                           </button>
-                          <button (click)="onDecision(item.id, true)" class="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-all font-bold" title="Approuver">
+                          <button (click)="onDecision(item.id, true)" class="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-all font-bold" title="Approuver">
                             <lucide-icon name="check" size="18"></lucide-icon>
                           </button>
                         </div>
                       } @else {
-                        <button class="p-2 text-gray-300 dark:text-gray-600 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100">
+                        <button class="p-2 text-gray-300 dark:text-gray-600 hover:text-purple-600 dark:hover:text-purple-400 transition-colors opacity-0 group-hover:opacity-100">
                           <lucide-icon name="eye" size="18"></lucide-icon>
                         </button>
                       }
@@ -128,11 +141,162 @@ import { ToastService } from '../../../core/services/toast.service';
     </div>
   `,
   styles: [`
-    :host { display: block; }
+    :host {
+      display: block;
+      font-family: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
+      color: #111827;
+      width: 100%;
+    }
+
+    .autorisation-page {
+      width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-icon-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+      border: 1px solid #c4b5fd;
+      color: var(--primary, #6B5DD3);
+      flex-shrink: 0;
+      box-shadow: 0 2px 5px rgba(107, 93, 211, 0.08);
+    }
+
+    :host-context(.dark) .header-icon-box,
+    .dark .header-icon-box {
+      background: linear-gradient(135deg, rgba(107, 93, 211, 0.2) 0%, rgba(107, 93, 211, 0.1) 100%);
+      border-color: rgba(107, 93, 211, 0.3);
+      color: #a78bfa;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    :host-context(.dark) .page-title,
+    .dark .page-title {
+      color: #f1f5f9;
+    }
+
+    .page-subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    :host-context(.dark) .page-subtitle,
+    .dark .page-subtitle {
+      color: #94a3b8;
+    }
+
+    .page-header__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-pills-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background: #f1f5f9;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    :host-context(.dark) .filter-pills-bar,
+    .dark .filter-pills-bar {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        color: #0f172a;
+      }
+
+      &.is-active {
+        background: #ffffff;
+        color: var(--primary, #6B5DD3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+    }
+
+    :host-context(.dark) .filter-pill,
+    .dark .filter-pill {
+      color: #94a3b8;
+
+      &:hover {
+        color: #f1f5f9;
+      }
+
+      &.is-active {
+        background: #0f172a;
+        color: #a78bfa;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--primary, #6B5DD3);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RhAutorisationComponent implements OnInit {
+  readonly ShieldCheckIcon = ShieldCheck;
+
   private service = inject(AutorisationService);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);

@@ -1,20 +1,27 @@
 <div class="page-container">
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Horaires de Travail</h1>
-      <p class="page-subtitle">Gérez les modèles d'horaires pour votre organisation.</p>
+  <header class="page-header leave-page-animate">
+    <div class="page-header__row">
+      <div class="header-title-group">
+        <div class="header-icon-box">
+          <lucide-icon name="clock" size="24"></lucide-icon>
+        </div>
+        <div>
+          <h1 class="page-title">Horaires de Travail</h1>
+          <p class="page-subtitle">Gérez les modèles d'horaires pour votre organisation.</p>
+        </div>
+      </div>
+      <div class="page-header__actions">
+        <button class="btn-secondary-sm" (click)="assignHoraire()">
+          <lucide-icon name="user-check" size="15"></lucide-icon>
+          <span>Affecter</span>
+        </button>
+        <button class="btn-primary-sm" (click)="createNewHoraire()">
+          <lucide-icon name="plus" size="15"></lucide-icon>
+          <span>Nouvel Horaire</span>
+        </button>
+      </div>
     </div>
-    <div class="header-actions">
-      <button class="btn-outline" (click)="assignHoraire()">
-        <lucide-icon name="user-check" size="18"></lucide-icon>
-        <span>Affecter</span>
-      </button>
-      <button class="btn-primary" (click)="createNewHoraire()">
-        <lucide-icon name="plus" size="18"></lucide-icon>
-        <span>Nouvel Horaire</span>
-      </button>
-    </div>
-  </div>
+  </header>
 
   <!-- Tabs Navigation -->
   <div class="tabs-nav">

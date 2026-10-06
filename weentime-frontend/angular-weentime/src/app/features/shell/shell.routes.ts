@@ -456,9 +456,14 @@ export const shellRoutes: Routes = [
   },
   { path: 'rh/structure/departements', redirectTo: 'rh/structure', pathMatch: 'full' },
   { path: 'rh/structure/equipes', redirectTo: 'rh/structure', pathMatch: 'full' },
-  { path: 'rh/structure/employes', redirectTo: 'rh/structure', pathMatch: 'full' },
-  { path: 'rh/structure/managers', redirectTo: 'rh/structure', pathMatch: 'full' },
-  { path: 'rh/employes', redirectTo: 'rh/structure/employes', pathMatch: 'full' },
+  {
+    path: 'rh/employes',
+    title: 'WeenTime — Annuaire des employés',
+    data: { title: 'Annuaire des employés' },
+    resolve: { structure: rhStructureResolver },
+    loadComponent: () => import('../rh/structure/components/employes/employes.component').then(m => m.EmployesComponent)
+  },
+  { path: 'rh/structure/employes', redirectTo: 'rh/employes', pathMatch: 'full' },
   {
     path: 'rh/conges',
     title: 'WeenTime — Gestion des congés',
@@ -608,7 +613,7 @@ export const shellRoutes: Routes = [
           Search, Settings, Calendar, AlertCircle,
           UserCheck: LucideUserCheck, History, LayoutGrid, Loader2,
           Star, Timer, ArrowRight: LucideArrowRight, XCircle, AlertTriangle,
-          User, Users, Building2
+          User, Users, Building2, Home
         })
       }
     ]

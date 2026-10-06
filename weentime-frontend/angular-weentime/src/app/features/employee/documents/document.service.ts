@@ -78,18 +78,36 @@ export class DocumentService {
     );
   }
 
-  soumettreDemande(req: NouvelleDemandeDocumentRequest): Observable<DemandeDocument> {
-    const payload = {
+  private buildPayload(req: NouvelleDemandeDocumentRequest) {
+    return {
       type: req.type,
       moisConcerne: req.moisConcerne || null,
       motif: req.motif || req.moisConcerne || req.type
     };
+  }
+
+  soumettreDemande(req: NouvelleDemandeDocumentRequest): Observable<DemandeDocument> {
+    const payload = this.buildPayload(req);
 
     return this.http.post<any>(this.apiConfig.RH.CREATE_DOCUMENT, payload).pipe(
       map(response => {
         const data = response?.data || response;
         if (!data) {
           throw new Error('DOCUMENT_REQUEST_EMPTY_RESPONSE');
+        }
+        return this.mapToDemandeDocument(data);
+      })
+    );
+  }
+
+  modifierDemande(id: number, req: NouvelleDemandeDocumentRequest): Observable<DemandeDocument> {
+    const payload = this.buildPayload(req);
+
+    return this.http.put<any>(this.apiConfig.RH.UPDATE_DOCUMENT(id), payload).pipe(
+      map(response => {
+        const data = response?.data || response;
+        if (!data) {
+          throw new Error('DOCUMENT_UPDATE_EMPTY_RESPONSE');
         }
         return this.mapToDemandeDocument(data);
       })

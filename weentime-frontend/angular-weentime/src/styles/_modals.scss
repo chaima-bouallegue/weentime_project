@@ -32,50 +32,11 @@ body.modal-open {
   overflow: hidden !important;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  z-index: var(--z-overlay);
-  pointer-events: all;
-  backdrop-filter: blur(4px);
-}
-
-.modal-container {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  pointer-events: none;
-  padding: 24px;
-}
-
-.modal-card {
-  pointer-events: all;
-  background: #ffffff;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 460px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.12);
-  animation: wt-modal-in 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes wt-modal-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIER 1: MODAL & DRAWER HOST ELEMENTS
+   Placed in the viewport at z-index: var(--z-modal) [1050].
+   pointer-events: none ensures clicks pass cleanly to backdrop and dialog card.
+   ═══════════════════════════════════════════════════════════════════════════ */
 app-conge-decision-rh-modal,
 app-decision-rh-modal,
 app-decision-modal,
@@ -87,11 +48,275 @@ app-annulation-document-modal,
 app-annulation-teletravail-modal,
 app-entreprise-delete-confirm,
 app-enterprise-access-control-modal,
-app-conge-detail-panel {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  pointer-events: none;
+app-conge-detail-panel,
+app-conge-justificatif-modal,
+app-demande-drawer,
+app-consultation-modal,
+app-demande-teletravail-drawer,
+app-consultation-teletravail-modal,
+app-demande-document-drawer,
+app-consultation-document-modal,
+app-confirm-cancellation-modal,
+app-confirm-dialog,
+app-new-direct-modal,
+app-create-channel-modal,
+app-autorisation-form,
+wt-modal,
+wt-drawer,
+app-wt-modal-shell {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: var(--z-modal, 1050) !important;
+  pointer-events: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIER 2: TRANSLUCENT OVERLAY / BACKDROP
+   Spans 100vw x 100vh between application and modal at z-index: 1040.
+   Dims and blurs the background while keeping Navbar, Sidebar, and Page
+   content visible behind it. Blocks interactions with background.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.modal-backdrop,
+.modal-overlay,
+.confirm-modal-overlay,
+.access-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: var(--wt-modal-backdrop, rgba(15, 23, 42, 0.45)) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: var(--z-modal-backdrop, 1040) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+  animation: wt-backdrop-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.drawer-overlay,
+.detail-panel-overlay,
+.panel-overlay,
+.overlay-drawer-backdrop,
+.wt-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: var(--wt-modal-backdrop, rgba(15, 23, 42, 0.45)) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: var(--z-modal-backdrop, 1040) !important;
+  pointer-events: auto !important;
+  animation: wt-backdrop-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* ── Neutralise .drawer-overlay when rendered INSIDE a CDK overlay panel ── */
+/* The CDK overlay-drawer-backdrop already provides the blur backdrop.       */
+/* Without this, the .drawer-overlay INSIDE the panel re-blurs its own form. */
+.overlay-drawer-panel .drawer-overlay,
+.drawer-overlay.embedded {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+  display: contents !important;
+  z-index: auto !important;
+  pointer-events: auto !important;
+}
+
+.overlay-drawer-panel .drawer-content,
+.drawer-overlay.embedded .drawer-content {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  position: static !important;
+  box-shadow: none !important;
+  animation: none !important;
+  border-radius: 0 !important;
+}
+
+/* ── CDK Overlay Stacking Context Fix ── */
+/* CDK backdrops have z-index: 1040, so the wrapper and pane must be >= 1050 */
+.cdk-global-overlay-wrapper {
+  z-index: var(--z-modal, 1050) !important;
+}
+
+.cdk-overlay-pane,
+.overlay-drawer-panel,
+.overlay-modal-panel {
+  z-index: calc(var(--z-modal, 1050) + 1) !important;
+  position: relative !important;
+  pointer-events: auto !important;
+}
+
+:host-context(.dark) .modal-backdrop,
+:host-context(.dark) .modal-overlay,
+:host-context(.dark) .drawer-overlay,
+.dark .modal-backdrop,
+.dark .modal-overlay,
+.dark .drawer-overlay {
+  background: rgba(3, 7, 18, 0.55) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIER 3: MODAL WINDOWS & DRAWERS (FOREGROUND)
+   Sharp, opaque cards elevated above the overlay with multi-layered depth.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Centered modal cards */
+.modal-card,
+.modal-content,
+.confirm-modal-card,
+.modal-overlay > .modal-container,
+.modal-backdrop > .modal-container,
+.modal-overlay > .modal-content,
+app-conge-justificatif-modal .modal-container,
+app-upload-document-modal .modal-container,
+app-reject-modal .modal-container,
+app-ai-generation-modal .modal-container,
+app-decision-rh-modal .modal-container,
+app-decision-modal .modal-container {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: calc(var(--z-modal, 1050) + 1) !important;
+  max-height: calc(100vh - 40px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: auto !important;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  animation: wt-modal-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Right-side slide-over drawers */
+.drawer-panel,
+.drawer-content,
+.wt-drawer-panel,
+app-conge-detail-panel .drawer-panel,
+app-demande-drawer .drawer-panel,
+app-demande-teletravail-drawer .drawer-panel,
+app-demande-document-drawer .drawer-panel,
+app-document-detail-panel .drawer-panel,
+app-autorisation-form .drawer-panel {
+  pointer-events: auto !important;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  z-index: calc(var(--z-modal, 1050) + 1) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin-left: auto !important;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  border-top-left-radius: 24px !important;
+  border-bottom-left-radius: 24px !important;
+  animation: wt-drawer-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Internal scroll containment */
+.modal-body,
+.drawer-body,
+.drawer-body-container,
+.confirm-modal-body,
+.panel-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.modal-header,
+.panel-header,
+.drawer-header {
+  flex-shrink: 0 !important;
+}
+
+.modal-footer,
+.panel-footer,
+.drawer-footer {
+  flex-shrink: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIER 4: NESTED & CONFIRMATION MODALS
+   Stacked at z-index: var(--z-modal-nested) [1150] so they cleanly appear
+   above any open parent modal or drawer.
+   ═══════════════════════════════════════════════════════════════════════════ */
+app-confirm-cancellation-modal,
+app-entreprise-delete-confirm,
+app-annulation-modal,
+app-confirm-dialog {
+  z-index: var(--z-modal-nested, 1150) !important;
+
+  .modal-backdrop,
+  .confirm-modal-overlay,
+  .modal-overlay {
+    z-index: var(--z-modal-nested, 1150) !important;
+  }
+
+  .modal-card,
+  .confirm-modal-card,
+  .modal-content,
+  .modal-container {
+    z-index: calc(var(--z-modal-nested, 1150) + 1) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HARDWARE-ACCELERATED ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes wt-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wt-modal-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes wt-drawer-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .action-group {
@@ -164,6 +389,13 @@ app-conge-detail-panel {
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes wt-toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
   }
 }
 

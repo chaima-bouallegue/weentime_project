@@ -17,6 +17,16 @@ export class CongeDetailPanelComponent implements OnInit, OnDestroy {
 
   @Input({ required: true }) demande: DemandeConge | null = null;
   @Output() close = new EventEmitter<void>();
+  @Output() openJustificatif = new EventEmitter<DemandeConge>();
+
+  hasJustificatif(): boolean {
+    if (!this.demande) return false;
+    if (this.demande.justificatifFourni === true || !!this.demande.justificatifUrl || !!this.demande['justificatif']) {
+      return true;
+    }
+    const typeName = (this.demande.typeCongeNom || this.demande.label || this.demande.type || '').toLowerCase();
+    return typeName.includes('malad');
+  }
 
   ngOnInit(): void {
     this.modalService.open();

@@ -28,6 +28,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     boolean existsByUtilisateurIdAndTypeDocumentAndStatutIn(Long utilisateurId, TypeDocument type, List<StatutDemandeEnum> statuts);
 
+    boolean existsByUtilisateurIdAndTypeDocumentAndStatutInAndIdNot(Long utilisateurId, TypeDocument type, List<StatutDemandeEnum> statuts, Long id);
+
     long countByUtilisateurIdAndTypeDocumentAndDateCreationAfter(Long utilisateurId, TypeDocument typeDocument, java.time.LocalDateTime after);
 
     @Query("SELECT d FROM Document d LEFT JOIN FETCH d.typeDocument WHERE d.id = :id")

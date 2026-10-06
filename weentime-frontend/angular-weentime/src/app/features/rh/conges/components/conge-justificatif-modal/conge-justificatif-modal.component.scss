@@ -1,0 +1,169 @@
+.modal-backdrop {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-container {
+  max-height: 90vh;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+}
+
+.icon-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+  }
+}
+
+.close-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+}
+
+/* Certificate styling */
+.certificate-paper {
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.05),
+    0 8px 10px -6px rgba(0, 0, 0, 0.05),
+    inset 0 0 0 1px rgba(226, 232, 240, 0.8);
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+}
+
+.doctor-stamp-box {
+  min-width: 140px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.stamp-signature {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive, serif;
+}
+
+/* Action Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(107, 93, 211, 0.2);
+
+  &:hover {
+    background: linear-gradient(135deg, #5A4FC0 0%, #6D28D9 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 93, 211, 0.25);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f8fafc;
+    color: #1e293b;
+    border-color: #cbd5e1;
+  }
+}
+
+/* Dark mode adjustments */
+:host-context(.dark) {
+  .icon-action-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+
+    &:hover {
+      background: #334155;
+      color: #f1f5f9;
+      border-color: #475569;
+    }
+  }
+
+  .close-modal-btn:hover {
+    background: rgba(220, 38, 38, 0.2);
+    color: #f87171;
+  }
+
+  .btn-secondary {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+
+    &:hover {
+      background: #334155;
+      color: #ffffff;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .certificate-paper, .certificate-paper * {
+    visibility: visible;
+  }
+  .certificate-paper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    box-shadow: none;
+    border: none;
+  }
+}

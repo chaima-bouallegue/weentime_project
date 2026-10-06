@@ -19,7 +19,6 @@ interface CalendarDay {
   imports: [CommonModule, LucideAngularModule],
   templateUrl: './teletravail-calendar.component.html',
   styleUrl: './teletravail-calendar.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class TeletravailCalendarComponent implements OnInit {

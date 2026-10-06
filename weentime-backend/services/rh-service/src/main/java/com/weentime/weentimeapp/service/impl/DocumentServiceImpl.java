@@ -28,6 +28,7 @@ import com.weentime.weentimeapp.service.NotificationSender;
 import static com.weentime.weentimeapp.service.DocumentAuditService.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,18 @@ public class DocumentServiceImpl implements DocumentService {
     private final NotificationSender notificationSender;
     private final DocumentAuditService documentAuditService;
 
+    private static final List<StatutDemandeEnum> ONGOING_STATUTS = List.of(
+            StatutDemandeEnum.DEMANDE_RECUE,
+            StatutDemandeEnum.EN_REVISION,
+            StatutDemandeEnum.VALIDE,
+            StatutDemandeEnum.SIGNE,
+            StatutDemandeEnum.EN_ATTENTE_RH
+    );
+
+    private boolean isPendingStatut(StatutDemandeEnum statut) {
+        return statut == StatutDemandeEnum.EN_ATTENTE_RH || statut == StatutDemandeEnum.DEMANDE_RECUE;
+    }
+
     @Override
     public DemandeDocumentResponse createDemande(CreateDocumentRequest request, String userEmail) {
         UtilisateurAuthResponse user = organisationClient.getUtilisateurForAuth(userEmail);
@@ -90,8 +103,7 @@ public class DocumentServiceImpl implements DocumentService {
             }
         }
 
-        List<StatutDemandeEnum> ongoingStatuts = List.of(StatutDemandeEnum.DEMANDE_RECUE, StatutDemandeEnum.EN_REVISION, StatutDemandeEnum.VALIDE, StatutDemandeEnum.SIGNE, StatutDemandeEnum.EN_ATTENTE_RH);
-        if (documentRepository.existsByUtilisateurIdAndTypeDocumentAndStatutIn(userId, typeDocument, ongoingStatuts)) {
+        if (documentRepository.existsByUtilisateurIdAndTypeDocumentAndStatutIn(userId, typeDocument, ONGOING_STATUTS)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande de ce type est deja en cours de traitement.");
         }
 
@@ -112,6 +124,62 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
+    public DemandeDocumentResponse updateDemande(Long id, CreateDocumentRequest request, String userEmail) {
+        UtilisateurAuthResponse user = organisationClient.getUtilisateurForAuth(userEmail);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur introuvable dans le service organisation.");
+        }
+
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Demande non trouvee."));
+
+        boolean isRh = SecurityContextHolder.getContext().getAuthentication() != null
+                && SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_RH") || a.getAuthority().equals("RH"));
+
+        if (!document.getUtilisateurId().equals(user.getId()) && !isRh) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces non autorise a cette demande.");
+        }
+
+        if (!isPendingStatut(document.getStatut())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seules les demandes en attente peuvent etre modifiees.");
+        }
+
+        Long entrepriseId = user.getEntrepriseId() != null ? user.getEntrepriseId() : document.getEntrepriseId();
+
+        TypeDocument typeDocument = document.getTypeDocument();
+        if (request.getTypeDocumentId() != null || request.getType() != null) {
+            typeDocument = resolveTypeDocument(request, entrepriseId);
+        }
+
+        if (documentRepository.existsByUtilisateurIdAndTypeDocumentAndStatutInAndIdNot(
+                document.getUtilisateurId(), typeDocument, ONGOING_STATUTS, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande de ce type est deja en cours de traitement.");
+        }
+
+        if (!typeDocument.equals(document.getTypeDocument()) && typeDocument.getMaxDemandesParMois() != null) {
+            LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0);
+            long countThisMonth = documentRepository.countByUtilisateurIdAndTypeDocumentAndDateCreationAfter(
+                    document.getUtilisateurId(), typeDocument, startOfMonth);
+            if (countThisMonth >= typeDocument.getMaxDemandesParMois()) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Quota mensuel atteint pour ce type de document (" + typeDocument.getMaxDemandesParMois() + "/mois).");
+            }
+        }
+
+        document.setTypeDocument(typeDocument);
+        document.setMoisConcerne(request.getMoisConcerne());
+        document.setMotif(request.getMotif());
+        document.setStatut(StatutDemandeEnum.DEMANDE_RECUE);
+        document.setCommentaireValidateur(null);
+        document.setDateDecision(null);
+
+        Document saved = persistAndNotify(document);
+        audit(saved, user.getId(), ACTION_REQUESTED, "Modification de la demande - Type : " + typeDocument.getLibelle());
+        return documentMapper.toResponse(saved);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<DemandeDocumentResponse> getMesDemandes(Long userId) {
         return documentMapper.toResponseList(documentRepository.findByUtilisateurIdOrderByDateCreationDesc(userId));
@@ -125,7 +193,7 @@ public class DocumentServiceImpl implements DocumentService {
         if (!document.getUtilisateurId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acces non autorise a cette demande.");
         }
-        if (document.getStatut() != StatutDemandeEnum.EN_ATTENTE_RH && document.getStatut() != StatutDemandeEnum.DEMANDE_RECUE) {
+        if (!isPendingStatut(document.getStatut())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seules les demandes en attente peuvent etre annulees.");
         }
 
@@ -199,20 +267,24 @@ public class DocumentServiceImpl implements DocumentService {
         return pdfGenerator.generatePdfPreviewBytes(document, user, contenu);
     }
 
-    private UserResponse resolveUserForPreview(Long utilisateurId) {
+    private UserResponse resolveUserSafely(Long utilisateurId) {
         try {
             UserResponse user = organisationClient.getUtilisateurById(utilisateurId);
             if (user != null) {
                 return user;
             }
         } catch (Exception e) {
-            log.warn("Employe {} introuvable pour apercu PDF : {}", utilisateurId, e.getMessage());
+            log.warn("Employe {} introuvable : {}", utilisateurId, e.getMessage());
         }
         return UserResponse.builder()
                 .id(utilisateurId)
                 .nom("Collaborateur")
                 .prenom("")
                 .build();
+    }
+
+    private UserResponse resolveUserForPreview(Long utilisateurId) {
+        return resolveUserSafely(utilisateurId);
     }
 
     @Override
@@ -321,7 +393,7 @@ public class DocumentServiceImpl implements DocumentService {
                 log.error("Utilisateur introuvable pour ID: {}", document.getUtilisateurId());
                 throw new RuntimeException("Utilisateur introuvable pour la generation du PDF");
             }
-            String pdfPath = pdfGenerator.generatePdfFromContent(document, user, document.getContenuIA());
+            String pdfPath = pdfGenerator.generatePdfFromContent(document, user, document.getContenuIA(), request.getSignatureImage());
             log.info("PDF genere apres signature avec succes : {}", pdfPath);
             document.setDocumentUrl(pdfPath);
         } catch (Exception e) {
@@ -513,7 +585,7 @@ public class DocumentServiceImpl implements DocumentService {
             log.warn("Erreur lors de l'enrichissement employe: {}", exception.getMessage());
         }
 
-        response.setUrgente((document.getStatut() == StatutDemandeEnum.EN_ATTENTE_RH || document.getStatut() == StatutDemandeEnum.DEMANDE_RECUE)
+        response.setUrgente(isPendingStatut(document.getStatut())
                 && document.getDateCreation() != null
                 && document.getDateCreation().isBefore(LocalDateTime.now().minusHours(48)));
 
@@ -522,7 +594,7 @@ public class DocumentServiceImpl implements DocumentService {
 
     private List<Document> documentsEnAttente(List<Long> userIds) {
         return documentRepository.findByUtilisateurIdInOrderByDateCreationDesc(userIds).stream()
-                .filter(document -> document.getStatut() == StatutDemandeEnum.EN_ATTENTE_RH || document.getStatut() == StatutDemandeEnum.DEMANDE_RECUE)
+                .filter(document -> isPendingStatut(document.getStatut()))
                 .toList();
     }
 
@@ -640,15 +712,11 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     private String resolveEmployeNom(Long utilisateurId) {
-        try {
-            UserResponse user = organisationClient.getUtilisateurById(utilisateurId);
-            if (user != null) {
-                return (user.getPrenom() != null ? user.getPrenom() : "") + " " + (user.getNom() != null ? user.getNom() : "");
-            }
-        } catch (Exception e) {
-            log.warn("Impossible de resoudre le nom employe {} : {}", utilisateurId, e.getMessage());
-        }
-        return "Collaborateur";
+        UserResponse user = resolveUserSafely(utilisateurId);
+        String prenom = user.getPrenom() != null ? user.getPrenom() : "";
+        String nom = user.getNom() != null ? user.getNom() : "";
+        String fullName = (prenom + " " + nom).trim();
+        return fullName.isEmpty() ? "Collaborateur" : fullName;
     }
 
     private String buildStatusMessage(StatutDemandeEnum statut, String typeLibelle) {

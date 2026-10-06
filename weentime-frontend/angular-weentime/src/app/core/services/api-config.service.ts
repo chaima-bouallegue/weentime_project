@@ -187,6 +187,7 @@ export class ApiConfigService {
     VALIDATE_CONGE_RH: (id: number) => `${this.API_BASE}/rh/conges/${id}/valider-rh`,
     REJECT_CONGE_RH: (id: number) => `${this.API_BASE}/rh/conges/${id}/refuser-rh`,
     CANCEL_CONGE: (id: number) => `${this.API_BASE}/rh/conges/${id}/cancel`,
+    GET_CONGE_JUSTIFICATIF: (id: number) => `${this.API_BASE}/rh/conges/${id}/justificatif`,
 
     // Absences (OBSOLETE - To be removed)
     GET_ABSENCES: `${this.API_BASE}/rh/absences`,
@@ -203,6 +204,8 @@ export class ApiConfigService {
     GET_MY_TELETRAVAILS: `${this.API_BASE}/rh/teletravails/mes-demandes`,
     GET_MANAGER_TELETRAVAILS: `${this.API_BASE}/rh/teletravails/demandes-equipe`,
     CREATE_TELETRAVAIL: `${this.API_BASE}/rh/teletravails`,
+    UPDATE_TELETRAVAIL: (id: number) => `${this.API_BASE}/rh/teletravails/${id}`,
+    CANCEL_TELETRAVAIL: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/annuler`,
     VALIDATE_TELETRAVAIL_MANAGER: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/valider-manager`,
     REJECT_TELETRAVAIL_MANAGER: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/rejeter-manager`,
     VALIDATE_TELETRAVAIL_RH: (id: number) => `${this.API_BASE}/rh/teletravails/${id}/valider-rh`,
@@ -216,6 +219,7 @@ export class ApiConfigService {
     GET_MY_AUTORISATIONS: `${this.API_BASE}/rh/autorisations/me`,
     GET_EMPLOYEE_AUTORISATION_KPIS: `${this.API_BASE}/rh/autorisations/kpis/employee`,
     CREATE_AUTORISATION: `${this.API_BASE}/rh/autorisations`,
+    UPDATE_AUTORISATION: (id: number) => `${this.API_BASE}/rh/autorisations/${id}`,
     CANCEL_AUTORISATION: (id: number) => `${this.API_BASE}/rh/autorisations/${id}/cancel`,
     VALIDATE_AUTORISATION_MANAGER: (id: number) => `${this.API_BASE}/rh/autorisations/${id}/manager/validate`,
     REJECT_AUTORISATION_MANAGER: (id: number) => `${this.API_BASE}/rh/autorisations/${id}/reject`,
@@ -224,6 +228,7 @@ export class ApiConfigService {
     GET_DOCUMENTS: `${this.API_BASE}/documents`,
     GET_MY_DOCUMENTS: `${this.API_BASE}/documents/mes-demandes`,
     CREATE_DOCUMENT: `${this.API_BASE}/documents`,
+    UPDATE_DOCUMENT: (id: number) => `${this.API_BASE}/documents/${id}`,
     CANCEL_DOCUMENT: (id: number) => `${this.API_BASE}/documents/${id}/annuler`,
     DOWNLOAD_DOCUMENT: (id: number) => `${this.API_BASE}/documents/${id}/telecharger`,
     VALIDATE_DOCUMENT_MANAGER: (id: number) => `${this.API_BASE}/documents/${id}/validate/manager`,

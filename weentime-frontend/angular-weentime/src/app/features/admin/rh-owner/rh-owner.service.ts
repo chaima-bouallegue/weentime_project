@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, map, catchError, of } from 'rxjs';
+import { Observable, map, catchError, of, tap } from 'rxjs';
 import {
   RhOwner,
   CreateRhOwnerRequest,
@@ -23,12 +23,48 @@ export class RhOwnerService {
   private readonly legacyRhApi = this.api.ORGANISATION.GET_RH_USERS;
   private readonly entreprisesApi = this.api.ORGANISATION.GET_ENTREPRISES;
 
+  private cachedRhOwners: RhOwner[] | null = null;
+  private cachedEntreprises: EntrepriseSelectItem[] | null = null;
+
+  constructor() {
+    this.restoreCache();
+  }
+
+  private restoreCache(): void {
+    try {
+      const rawRh = sessionStorage.getItem('wt_cache_admin_rh_owners');
+      if (rawRh) this.cachedRhOwners = JSON.parse(rawRh);
+      const rawEnt = sessionStorage.getItem('wt_cache_admin_rh_entreprises');
+      if (rawEnt) this.cachedEntreprises = JSON.parse(rawEnt);
+    } catch {}
+  }
+
+  getCachedRhOwners(): RhOwner[] | null {
+    return this.cachedRhOwners;
+  }
+
+  getCachedEntreprises(): EntrepriseSelectItem[] | null {
+    return this.cachedEntreprises;
+  }
+
   getRhOwners(): Observable<RhOwner[]> {
     return this.http.get<RhOwner[] | ApiResponse<RhOwner[]>>(this.rhOwnersApi).pipe(
       map(response => this.normalizeRhOwners(this.unwrapArray(response))),
+      tap(owners => {
+        this.cachedRhOwners = owners;
+        try {
+          sessionStorage.setItem('wt_cache_admin_rh_owners', JSON.stringify(owners));
+        } catch {}
+      }),
       catchError(() =>
         this.http.get<RhOwner[] | ApiResponse<RhOwner[]>>(this.legacyRhApi).pipe(
-          map(response => this.normalizeRhOwners(this.unwrapArray(response)))
+          map(response => this.normalizeRhOwners(this.unwrapArray(response))),
+          tap(owners => {
+            this.cachedRhOwners = owners;
+            try {
+              sessionStorage.setItem('wt_cache_admin_rh_owners', JSON.stringify(owners));
+            } catch {}
+          })
         )
       )
     );
@@ -41,6 +77,12 @@ export class RhOwnerService {
           return response;
         }
         return Array.isArray(response?.content) ? response.content : [];
+      }),
+      tap(items => {
+        this.cachedEntreprises = items;
+        try {
+          sessionStorage.setItem('wt_cache_admin_rh_entreprises', JSON.stringify(items));
+        } catch {}
       })
     );
   }

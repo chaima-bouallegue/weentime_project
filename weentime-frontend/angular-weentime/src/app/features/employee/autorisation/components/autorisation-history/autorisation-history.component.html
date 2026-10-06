@@ -56,23 +56,15 @@
                   Déposée le {{ item.dateCreation | date:'dd/MM/yyyy HH:mm' }}
                 </div>
                 
-                <div class="flex items-center gap-2">
-                  <button class="action-mini-btn" title="Détails" (click)="toggleDetails(item.id)">
-                    <lucide-angular [img]="iconInfo" size="16"></lucide-angular>
-                  </button>
-                  
-                  @if (canCancel(item.statut)) {
-                    <button class="action-mini-btn danger" title="Annuler" 
-                            [disabled]="cancellingId === item.id" 
-                            (click)="cancelRequest.emit(item)">
-                      @if (cancellingId === item.id) {
-                        <lucide-angular [img]="iconLoader" size="16" class="animate-spin"></lucide-angular>
-                      } @else {
-                        <lucide-angular [img]="iconTrash" size="16"></lucide-angular>
-                      }
-                    </button>
-                  }
-                </div>
+                <app-demande-actions-menu
+                  [canView]="true"
+                  viewLabel="Afficher les détails"
+                  [canEdit]="canCancel(item.statut)"
+                  [canCancel]="canCancel(item.statut)"
+                  (view)="toggleDetails(item.id)"
+                  (edit)="editRequest.emit(item)"
+                  (cancel)="cancelRequest.emit(item)"
+                ></app-demande-actions-menu>
               </div>
 
             </div>

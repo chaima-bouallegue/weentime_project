@@ -161,13 +161,13 @@ import { FormsModule } from '@angular/forms';
     }
 
     .btn-primary {
-      background: #534AB7;
+      background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
       color: white;
       border: none;
-      box-shadow: 0 4px 12px rgba(83, 74, 183, 0.2);
+      box-shadow: 0 4px 14px rgba(107, 93, 211, 0.28);
     }
 
-    .btn-primary:hover:not(:disabled) { background: #4338ca; transform: translateY(-1px); }
+    .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(107, 93, 211, 0.38); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-secondary {

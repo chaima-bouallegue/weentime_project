@@ -4,14 +4,15 @@
 
 // ─── Page ──────────────────────────────────────────
 .teletravail-page {
-  padding: 28px 32px;
-  max-width: 1280px;
-  margin: 0 auto;
+  padding: 24px 32px;
+  width: 100%;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   background: #f8fafc;
   min-height: 100%;
+  box-sizing: border-box;
 }
 
 // ─── Header ────────────────────────────────────────
@@ -24,8 +25,22 @@
 
 .header-left {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border: 1px solid #c4b5fd;
+  color: var(--primary, #6B5DD3);
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(107, 93, 211, 0.12);
 }
 
 .page-title {
@@ -54,12 +69,12 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
   border-radius: 99px;
   font-size: 11px;
   font-weight: 700;
-  color: #4338ca;
+  color: var(--primary, #6B5DD3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -78,27 +93,29 @@
   align-items: center;
   gap: 8px;
   padding: 11px 22px;
-  background: #4361EE;
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
   color: #fff;
   border: none;
   border-radius: 14px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 8px 20px -4px rgba(67, 97, 238, 0.4);
+  box-shadow: 0 4px 14px rgba(107, 93, 211, 0.35);
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   flex-shrink: 0;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 28px -4px rgba(67, 97, 238, 0.5);
-    background: #3451d1;
+    box-shadow: 0 6px 20px rgba(107, 93, 211, 0.45);
+    background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
   }
   &:active { transform: translateY(0); }
 }
 
-.dark .btn-new-request { background: #6366f1; }
+.dark .btn-new-request {
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
+}
 
 // ─── Main 2-col layout ─────────────────────────────
 .page-layout {
@@ -170,7 +187,7 @@
   gap: 4px;
   font-size: 13px;
   font-weight: 600;
-  color: #4361EE;
+  color: var(--primary, #6B5DD3);
   background: none;
   border: none;
   cursor: pointer;
@@ -228,7 +245,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #4361EE;
+  background: var(--primary, #6B5DD3);
   flex-shrink: 0;
 }
 

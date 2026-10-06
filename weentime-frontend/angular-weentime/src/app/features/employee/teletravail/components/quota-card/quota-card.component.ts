@@ -9,7 +9,6 @@ import { QuotaTeletravail } from '../../models/teletravail.model';
   imports: [CommonModule, LucideAngularModule],
   templateUrl: './quota-card.component.html',
   styleUrl: './quota-card.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class QuotaCardComponent {

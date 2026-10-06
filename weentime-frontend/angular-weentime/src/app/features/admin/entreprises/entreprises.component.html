@@ -20,26 +20,26 @@
             </div>
             <input #searchInput type="text" [ngModel]="searchQuery()" (input)="onSearchInput($event)"
               placeholder="Filtrer les entreprises... (Appuyez sur /)"
-              class="block w-full pl-10 pr-14 py-2 text-sm bg-white border border-[#E2E8F0] rounded-full placeholder-[#94A3B8] focus:outline-none focus:border-[#6366F1] font-medium text-slate-900 transition-all shadow-sm" />
+              class="block w-full pl-10 pr-14 h-10 text-sm bg-white border border-[#E2E8F0] rounded-xl placeholder-[#94A3B8] focus:outline-none focus:border-[#4F46E5] font-medium text-slate-900 transition-all shadow-xs" />
             <button *ngIf="searchQuery().length > 0" (click)="clearSearch()"
               class="absolute inset-y-0 right-8 flex items-center justify-center px-1 text-[#94A3B8] hover:text-[#475569] transition-colors">
               <lucide-angular [img]="iconX" size="14"></lucide-angular>
             </button>
             <kbd
-              class="absolute inset-y-2 right-3 px-1.5 bg-white border border-[#E2E8F0] rounded text-[10px] text-[#94A3B8] flex items-center justify-center font-mono shadow-2xs"
+              class="absolute inset-y-2.5 right-3 px-1.5 bg-white border border-[#E2E8F0] rounded text-[10px] text-[#94A3B8] flex items-center justify-center font-mono shadow-2xs"
               [class.opacity-0]="searchQuery().length > 0">/</kbd>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 self-end sm:self-auto">
-          <button type="button" (click)="refreshData()"
-            class="inline-flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm">
-            <lucide-angular [img]="iconRefresh" size="14" [class.animate-spin]="isLoading()"></lucide-angular>
-            <span class="hidden sm:inline">Actualiser</span>
+        <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <button type="button" (click)="refreshData()" [disabled]="isLoading()"
+            class="inline-flex items-center justify-center gap-2 h-10 px-4 border border-[#E2E8F0] text-slate-700 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-xs disabled:opacity-50 select-none cursor-pointer">
+            <lucide-angular [img]="iconRefresh" size="15" [class.animate-spin]="isLoading()"></lucide-angular>
+            <span>Actualiser</span>
           </button>
           <button type="button" (click)="openCreateModal()"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-[#6366F1] text-white rounded-xl hover:bg-[#4F46E5] active:bg-[#4338CA] transition-colors text-sm font-semibold shadow-sm">
-            <lucide-angular [img]="iconPlus" size="14"></lucide-angular>
+            class="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#4F46E5] hover:bg-[#4338CA] active:bg-[#3730A3] text-white rounded-xl transition-colors text-sm font-semibold shadow-xs select-none cursor-pointer">
+            <lucide-angular [img]="iconPlus" size="15"></lucide-angular>
             <span>Nouvelle Entreprise</span>
           </button>
         </div>
@@ -112,8 +112,8 @@
     <main class="min-h-0">
       <div class="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
 
-        <!-- Skeleton -->
-        @if (isLoading()) {
+        <!-- Skeleton affiché UNIQUEMENT si chargement initial froid sans aucune donnée -->
+        @if (isLoading() && enterprises().length === 0) {
         <div class="divide-y divide-[#E2E8F0]">
           @for (i of [1,2,3,4,5,6]; track i) {
           <div class="p-4 flex items-center justify-between animate-pulse">
@@ -130,7 +130,14 @@
         </div>
         }
 
-        @if (!isLoading()) {
+        <!-- Le tableau reste affiché de manière fluide dès qu'il y a des données ou hors chargement initial -->
+        @if (enterprises().length > 0 || !isLoading()) {
+        <div class="relative overflow-x-auto">
+          @if (isLoading()) {
+            <div class="absolute inset-x-0 top-0 h-0.5 bg-indigo-100 overflow-hidden z-20">
+              <div class="h-full bg-[#6366F1] animate-pulse w-full"></div>
+            </div>
+          }
         <table class="w-full text-left border-collapse select-none">
           <thead>
             <tr
@@ -219,16 +226,16 @@
                 <div
                   class="flex items-center justify-end gap-1.5">
                   <button (click)="selectEnterprise(ent); $event.stopPropagation()" title="Voir les détails"
-                    class="p-1.5 hover:bg-[#EFF6FF] text-[#64748B] hover:text-[#6366F1] rounded-md transition-colors">
+                    class="w-8 h-8 inline-flex items-center justify-center hover:bg-[#EFF6FF] text-[#64748B] hover:text-[#4F46E5] rounded-lg transition-colors cursor-pointer">
                     <lucide-angular [img]="iconEye" size="14"></lucide-angular>
                   </button>
                   <button (click)="openEditModal(ent, $event); $event.stopPropagation()" title="Modifier"
-                    class="p-1.5 hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] rounded-md transition-colors">
+                    class="w-8 h-8 inline-flex items-center justify-center hover:bg-slate-100 text-[#64748B] hover:text-slate-900 rounded-lg transition-colors cursor-pointer">
                     <lucide-angular [img]="iconEdit" size="14"></lucide-angular>
                   </button>
                   <button (click)="toggleStatus(ent, $event); $event.stopPropagation()"
                     [title]="ent.status === 'ACTIVE' ? 'Suspendre' : 'Réactiver'"
-                    class="p-1.5 hover:bg-amber-50 text-[#64748B] hover:text-amber-700 rounded-md transition-colors">
+                    class="w-8 h-8 inline-flex items-center justify-center hover:bg-amber-50 text-[#64748B] hover:text-amber-700 rounded-lg transition-colors cursor-pointer">
                     <lucide-angular [img]="ent.status === 'ACTIVE' ? iconPause : iconPlay" size="14"></lucide-angular>
                   </button>
                 </div>
@@ -255,6 +262,7 @@
             }
           </tbody>
         </table>
+        </div>
         }
       </div>
     </main>

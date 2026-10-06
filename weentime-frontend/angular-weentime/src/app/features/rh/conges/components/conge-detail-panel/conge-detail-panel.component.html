@@ -77,6 +77,18 @@
                 <p class="text-block">{{ demande.commentaireValidateur }}</p>
               </div>
             }
+            @if (hasJustificatif()) {
+              <div class="detail-item justificatif-action-item">
+                <span class="label">Justificatif joint</span>
+                <button
+                  type="button"
+                  class="btn-view-justificatif"
+                  (click)="openJustificatif.emit(demande)">
+                  <lucide-icon name="file-text" size="15"></lucide-icon>
+                  <span>Consulter le justificatif</span>
+                </button>
+              </div>
+            }
           </div>
         </section>
       </div>

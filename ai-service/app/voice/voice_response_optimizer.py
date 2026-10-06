@@ -8,7 +8,9 @@ from app.models.agent_models import AgentResponse
 
 from .voice_summary_builder import VoiceSummaryBuilder
 
-_MAX_SPOKEN_CHARS = 420
+import os
+
+_MAX_SPOKEN_CHARS = int(os.getenv("VOICE_MAX_SPOKEN_CHARS", "850"))
 
 
 def optimize_voice_response(
@@ -19,6 +21,10 @@ def optimize_voice_response(
 ) -> AgentResponse:
     """Keep voice output concise without changing action semantics."""
     if response.requiresConfirmation or response.type == "confirm_action":
+        return response
+
+    intent = str(getattr(response, "intent", "") or "")
+    if intent.startswith("admin.help_"):
         return response
 
     action = response.actionResult or {}

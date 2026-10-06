@@ -140,6 +140,8 @@
             [isLoading]="isLoading()"
             [currentFilter]="filtreStatut()"
             [typesConfig]="types()"
+            (viewRequest)="demandeConsulter.set($event)"
+            (editRequest)="onEditRequest($event)"
             (cancelRequest)="onCancelRequest($event)"
             (downloadRequest)="onDownloadRequest($event)"
           ></app-document-historique>
@@ -214,6 +216,7 @@
   <app-demande-document-drawer
     [types]="types()"
     [typePreselectionne]="typePreselectionne()"
+    [demandeToEdit]="demandeModifier()"
     [isSubmitting]="isSubmittingRequest()"
     (close)="onCloseDrawer()"
     (submitted)="soumettreDemande($event)"
@@ -222,10 +225,23 @@
 
 <!-- Annulation modal -->
 @if (demandeAnnuler()) {
-  <app-annulation-document-modal
-    [demande]="demandeAnnuler()"
-    [isAnnulating]="isAnnulating()"
+  <app-confirm-cancellation-modal
+    title="Annuler la demande de document"
+    message="Êtes-vous sûr de vouloir annuler cette demande de document ?"
+    subMessage="Cette action est irréversible."
+    [previewItems]="documentCancellationPreviewItems()"
+    [isCancelling]="isAnnulating()"
     (close)="demandeAnnuler.set(null)"
-    (confirm)="confirmAnnulation($event)"
-  ></app-annulation-document-modal>
+    (confirm)="confirmAnnulation(demandeAnnuler()!.id)"
+  ></app-confirm-cancellation-modal>
+}
+
+<!-- Consultation modal -->
+@if (demandeConsulter()) {
+  <app-consultation-document-modal
+    [demande]="demandeConsulter()"
+    (close)="demandeConsulter.set(null)"
+    (edit)="onEditRequest($event)"
+    (download)="onDownloadRequest($event)"
+  ></app-consultation-document-modal>
 }

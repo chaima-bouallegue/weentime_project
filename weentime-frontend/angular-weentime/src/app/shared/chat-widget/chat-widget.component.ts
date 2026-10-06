@@ -167,6 +167,8 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   readonly loadingHistory = signal(false);
   readonly messages = signal<ChatMessage[]>([]);
   readonly panelPosition = signal({ x: 0, y: 0 });
+  readonly togglePosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  private justDragged = false;
   readonly handsFreeMode = signal(true);
   readonly speaking = signal(false);
 
@@ -420,6 +422,19 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   private readonly changeDetector = inject(ChangeDetectorRef);
 
   constructor() {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedPos = localStorage.getItem('weentime_copilot_btn_pos');
+        if (savedPos) {
+          const parsed = JSON.parse(savedPos);
+          if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+            this.togglePosition.set(parsed);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
     this.voiceSubscription = this.voiceAssistant.events$.subscribe(event => this.handleVoiceEvent(event));
     effect(() => {
       const user = this.authService.currentUser();
@@ -663,7 +678,7 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       this.playAudio(message.audioUrl, false);
       return;
     }
-    this.chatService.textToSpeech(message.text).subscribe({
+    this.chatService.textToSpeech(message.text, message.detectedLanguage).subscribe({
       next: (response: TtsResponse) => {
         this.patchMessage(message.id, { audioUrl: response.audio_url, audioStatusLabel: 'Audio reply ready' });
         this.playAudio(response.audio_url, false);
@@ -677,6 +692,30 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
 
   onDragEnd(event: CdkDragEnd): void {
     this.panelPosition.set(event.source.getFreeDragPosition());
+  }
+
+  onToggleDragEnded(event: CdkDragEnd): void {
+    const dist = Math.hypot(event.distance.x, event.distance.y);
+    if (dist > 4) {
+      this.justDragged = true;
+      window.setTimeout(() => { this.justDragged = false; }, 120);
+    }
+    const pos = event.source.getFreeDragPosition();
+    this.togglePosition.set(pos);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('weentime_copilot_btn_pos', JSON.stringify(pos));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  handleToggleClick(): void {
+    if (this.justDragged) {
+      return;
+    }
+    this.toggleChat();
   }
 
   sendQuickAction(action: QuickAction): void {
@@ -1072,7 +1111,17 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     );
     const actionResultSource = normalized.actionResult ?? response.actionResult ?? response.action_result;
     const fallbackLabel = this.extractFallbackLabel(normalized.fallback, normalized.warnings);
-    const requiresConfirmation = normalized.requiresConfirmation || !!confirmationId || response.requiresConfirmation === true || response.requires_confirmation === true;
+    const isExecutionResponse = response.type === 'execute_action'
+      || response.requiresConfirmation === false
+      || response.requires_confirmation === false
+      || (response as any)?.requiresConfirmation === false
+      || (!!confirmationId && this.resolvedConfirmations.has(confirmationId));
+    const requiresConfirmation = !isExecutionResponse && (
+      normalized.requiresConfirmation === true
+      || response.requiresConfirmation === true
+      || response.requires_confirmation === true
+      || (!!confirmationId && response.type !== 'execute_action')
+    );
     const isWorkflowFailure = response.type === 'workflow' && response.status === 'failed';
     // capability_unavailable / capability_hint cards are informational, not
     // hard errors. Some agents return them with type='error' (e.g. manager
@@ -2099,9 +2148,28 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
     const downloadUrl = this.extractDownloadUrl(response, meta);
     if (downloadUrl) return { label: 'Ouvrir le document', target: downloadUrl, kind: 'link' };
     if (response.type === 'ask') return null;
-    const route = this.defaultRouteForIntent(meta.intent);
+
+    const route = this.defaultRouteForIntent(meta.intent || response.intent);
     if (!route) return null;
-    const label = meta.action_result?.executed ? 'Voir la page' : 'Ouvrir';
+
+    // Ne pas suggérer d'ouvrir la page si l'utilisateur est déjà dessus
+    const currentUrl = (this.router.url || '').split('?')[0].split('#')[0].replace(/\/+$/, '');
+    const cleanTarget = route.split('?')[0].split('#')[0].replace(/\/+$/, '');
+    if (currentUrl === cleanTarget) {
+      return null;
+    }
+
+    const isEn = response.detectedLanguage === 'en' || (response as any)?.detected_language === 'en';
+    let label = isEn ? 'Open' : 'Ouvrir';
+    if (cleanTarget.endsWith('/users')) label = isEn ? 'Open Users' : 'Ouvrir Utilisateurs';
+    else if (cleanTarget.endsWith('/entreprises')) label = isEn ? 'Open Companies' : 'Ouvrir Entreprises';
+    else if (cleanTarget.endsWith('/roles')) label = isEn ? 'Open Roles' : 'Ouvrir Rôles';
+    else if (cleanTarget.endsWith('/conges')) label = isEn ? 'Open Leaves' : 'Ouvrir Congés';
+    else if (cleanTarget.endsWith('/pointage')) label = isEn ? 'Open Attendance' : 'Ouvrir Pointage';
+    else if (cleanTarget.endsWith('/documents')) label = isEn ? 'Open Documents' : 'Ouvrir Documents';
+    else if (cleanTarget.endsWith('/dashboard')) label = isEn ? 'Open Dashboard' : 'Ouvrir Tableau de bord';
+    else label = isEn ? 'Open page' : 'Ouvrir la page';
+
     return { label, target: route, kind: 'route' };
   }
 
@@ -2152,26 +2220,91 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
   }
 
   private defaultRouteForIntent(intent?: string): string | null {
+    const raw = (intent || '').trim();
+    const clean = raw.replace(/^confirmation\./, '');
     const role = this.assistantRole();
-    switch (intent) {
-      case 'CREATE_LEAVE': case 'GET_LEAVE_BALANCE': case 'GET_MY_REQUESTS': case 'leave.balance': case 'leave.list':
+
+    switch (clean) {
+      // Congés
+      case 'CREATE_LEAVE': case 'GET_LEAVE_BALANCE': case 'GET_MY_REQUESTS':
+      case 'leave.balance': case 'leave.list': case 'leave.create': case 'leave.request':
         if (role === 'RH') return '/app/rh/conges';
         if (role === 'MANAGER') return '/app/manager/approbations';
         return '/app/employee/conges';
-      case 'CREATE_AUTORISATION': case 'authorization.list': return '/app/employee/autorisations';
-      case 'CREATE_TELEWORK': case 'telework.list':
+
+      // Autorisations
+      case 'CREATE_AUTORISATION': case 'authorization.list': case 'authorization.create': case 'authorization.request':
+        if (role === 'RH') return '/app/rh/conges';
+        if (role === 'MANAGER') return '/app/manager/autorisations';
+        return '/app/employee/autorisations';
+
+      // Télétravail
+      case 'CREATE_TELEWORK': case 'telework.list': case 'telework.create': case 'telework.request':
         if (role === 'RH') return '/app/rh/teletravail';
         if (role === 'MANAGER') return '/app/manager/teletravail';
         return '/app/employee/teletravail';
-      case 'REQUEST_DOCUMENT': case 'OPEN_DOCUMENT': case 'document.list':
+
+      // Pointage / Presence
+      case 'attendance.check_in': case 'attendance.check_out': case 'attendance.status':
+      case 'attendance.punch': case 'attendance.today': case 'CLOCK_IN': case 'CLOCK_OUT':
+        if (role === 'RH') return '/app/rh/planning';
+        if (role === 'MANAGER') return '/app/manager/pointage';
+        return '/app/employee/pointage';
+
+      // Documents
+      case 'REQUEST_DOCUMENT': case 'OPEN_DOCUMENT': case 'document.list': case 'document.request':
         if (role === 'RH') return '/app/rh/documents';
         if (role === 'MANAGER') return '/app/manager/documents';
         return '/app/employee/documents';
+
+      // Admin - Utilisateurs
+      case 'admin.create_user': case 'admin.list_users': case 'admin.update_user_role': case 'admin.update_role':
+      case 'admin.assign_manager': case 'admin.assign_rh': case 'CREATE_USER': case 'USER_MANAGEMENT':
+        return '/app/admin/users';
+
+      // Admin - Entreprises
+      case 'admin.create_enterprise': case 'admin.list_enterprises': case 'CREATE_ENTERPRISE':
+        return '/app/admin/entreprises';
+
+      // Admin - Rôles
+      case 'admin.roles': case 'admin.list_roles':
+        return '/app/admin/roles';
+
+      // Admin - Paramètres
+      case 'admin.parameters': case 'admin.settings':
+        return '/app/admin/parametres';
+
+      // Admin - Dashboard & Analytics
+      case 'admin.stats': case 'admin.dashboard': case 'admin.analytics':
+        return '/app/admin/dashboard';
+
+      // RH - Structure / Employés
+      case 'rh.list_employees': case 'rh.structure': case 'rh.employees':
+        return '/app/rh/employes';
+
+      // Notifications
       case 'GET_NOTIFICATIONS': return '/app/notifications';
-      case 'GET_TEAM_REQUESTS': case 'GET_PENDING_VALIDATIONS': case 'APPROVE_REQUEST': case 'REJECT_REQUEST': return '/app/manager/approbations';
+
+      // Approbations Manager
+      case 'GET_TEAM_REQUESTS': case 'GET_PENDING_VALIDATIONS': case 'APPROVE_REQUEST': case 'REJECT_REQUEST': case 'manager.approvals':
+        return '/app/manager/approbations';
+
+      // RH stats & requests
       case 'GET_RH_STATS': return '/app/rh/dashboard';
       case 'GET_ALL_REQUESTS': case 'PROCESS_REQUEST': return '/app/rh/requests';
-      default: return null;
+
+      // Réunions
+      case 'reunion.list': case 'reunion.create': case 'reunion.today': case 'REUNION':
+        return '/app/reunions';
+
+      default:
+        if (clean.startsWith('admin.user')) return '/app/admin/users';
+        if (clean.startsWith('admin.enterprise')) return '/app/admin/entreprises';
+        if (clean.startsWith('admin.')) return '/app/admin/dashboard';
+        if (clean.startsWith('leave.')) return role === 'RH' ? '/app/rh/conges' : role === 'MANAGER' ? '/app/manager/approbations' : '/app/employee/conges';
+        if (clean.startsWith('telework.')) return role === 'RH' ? '/app/rh/teletravail' : role === 'MANAGER' ? '/app/manager/teletravail' : '/app/employee/teletravail';
+        if (clean.startsWith('attendance.')) return role === 'MANAGER' ? '/app/manager/pointage' : '/app/employee/pointage';
+        return null;
     }
   }
 

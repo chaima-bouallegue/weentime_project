@@ -55,6 +55,7 @@
   @if (showDrawer()) {
     <app-departement-form
       [departement]="departementToEdit()"
+      [embedded]="false"
       (close)="showDrawer.set(false)"
       (saved)="onFormSaved()"
     />

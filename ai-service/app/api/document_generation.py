@@ -138,9 +138,13 @@ async def _generate_gemini(
     
     last_call_time = time.time()
 
-    # Modèle configuré : gemini-3.6-flash par défaut, modifiable via GEMINI_MODEL
-    model_name = settings.gemini_model or "gemini-3.6-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+    # Modèle configuré : gemini-3.8-flash par défaut, avec fallback automatique (gemini-3.6-flash, etc.)
+    primary_model = settings.gemini_model or "gemini-3.8-flash"
+    models_to_try = [primary_model]
+    for candidate in ["gemini-3.8-flash", "gemini-3.6-flash"]:
+        if candidate not in models_to_try:
+            models_to_try.append(candidate)
+
     headers = {
         "x-goog-api-key": settings.gemini_api_key,
     }
@@ -165,7 +169,10 @@ async def _generate_gemini(
         payload["generationConfig"]["responseMimeType"] = response_mime_type
 
     max_retries = 4
+    current_model_idx = 0
     for attempt in range(max_retries):
+        model_name = models_to_try[min(current_model_idx, len(models_to_try) - 1)]
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 logger.info(f"Appel Gemini ({model_name}) Essai {attempt + 1}")
@@ -185,12 +192,24 @@ async def _generate_gemini(
                         pass
                     
                     if attempt < max_retries - 1:
-                        logger.warning(f"Quota Gemini dépassé (429). Pause de {wait_time}s avant nouvel essai ({attempt + 1}/{max_retries})...")
+                        logger.warning(f"Quota Gemini dépassé (429) pour {model_name}. Pause de {wait_time}s avant nouvel essai ({attempt + 1}/{max_retries})...")
+                        if current_model_idx + 1 < len(models_to_try):
+                            current_model_idx += 1
+                            logger.info(f"Basculement vers le modèle de secours : {models_to_try[current_model_idx]}")
                         await asyncio.sleep(wait_time)
                         continue
                     else:
                         logger.error(f"Quota Gemini dépassé (429) après {max_retries} essais.")
                         raise HTTPException(429, f"Quota Gemini dépassé (429). Réessayez dans quelques secondes.")
+
+                if response.status_code == 503:
+                    logger.warning(f"Modèle Gemini {model_name} indisponible / surchargé (503).")
+                    if current_model_idx + 1 < len(models_to_try):
+                        current_model_idx += 1
+                        logger.info(f"Basculement automatique vers le modèle de secours : {models_to_try[current_model_idx]}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)
+                        continue
                 
                 if response.status_code != 200:
                     logger.error(f"Erreur API : {response.status_code}")
@@ -211,8 +230,11 @@ async def _generate_gemini(
         except HTTPException:
             raise
         except Exception as e:
+            if current_model_idx + 1 < len(models_to_try):
+                current_model_idx += 1
+                logger.info(f"Basculement vers le modèle de secours suite à l'erreur : {models_to_try[current_model_idx]}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 continue
             logger.error(f"Gemini generation failed: {str(e)}")
             raise HTTPException(500, f"Gemini API error: {str(e)}")
@@ -220,9 +242,9 @@ async def _generate_gemini(
     raise HTTPException(500, "Gemini API non disponible après plusieurs essais.")
 
 async def _generate_ollama(req: DocumentGenerationRequest) -> DocumentGenerationResponse:
-    """Fallback vers Gemma 3 local via Ollama."""
-    ollama_url = settings.ollama_url
-    model = "gemma3:4b"
+    """Fallback vers modèle local via Ollama."""
+    ollama_url = getattr(settings, "ollama_url", "http://localhost:11434")
+    model = getattr(settings, "ollama_model", "qwen2.5:3b") or "qwen2.5:3b"
     started = perf_counter()
     
     # Combiner system et user prompt pour Ollama

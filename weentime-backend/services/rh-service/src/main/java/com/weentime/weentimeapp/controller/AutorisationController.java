@@ -29,6 +29,12 @@ public class AutorisationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto, getCurrentUserEmail()));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'RH')")
+    public ResponseEntity<AutorisationDTO> update(@PathVariable Long id, @RequestBody AutorisationDTO dto) {
+        return ResponseEntity.ok(service.update(id, dto, getCurrentUserEmail()));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<PageResponse<AutorisationDTO>> getAll(

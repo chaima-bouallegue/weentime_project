@@ -3,7 +3,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map, retry } from 'rxjs/operators';
+import { catchError, map, retry, tap } from 'rxjs/operators';
 
 import {
   Enterprise,
@@ -73,6 +73,30 @@ export class EntrepriseService {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/v1/organisations/entreprises';
 
+  private cachedPage: PagedResponse<Enterprise> | null = null;
+  private cachedStats: EntrepriseStats | null = null;
+
+  constructor() {
+    this.restoreCache();
+  }
+
+  private restoreCache(): void {
+    try {
+      const rawPage = sessionStorage.getItem('wt_cache_admin_entreprises_page');
+      if (rawPage) this.cachedPage = JSON.parse(rawPage);
+      const rawStats = sessionStorage.getItem('wt_cache_admin_entreprises_stats');
+      if (rawStats) this.cachedStats = JSON.parse(rawStats);
+    } catch {}
+  }
+
+  getCachedPage(): PagedResponse<Enterprise> | null {
+    return this.cachedPage;
+  }
+
+  getCachedStats(): EntrepriseStats | null {
+    return this.cachedStats;
+  }
+
   // ── Liste filtrée + paginée ───────────────────────────────
 
   getAll(
@@ -97,6 +121,14 @@ export class EntrepriseService {
       .pipe(
         retry({ count: 2, delay: 500 }),
         map(p => ({ ...p, content: p.content.map(mapEntreprise) })),
+        tap(p => {
+          if (status === 'ALL' && !search && page === 0) {
+            this.cachedPage = p;
+            try {
+              sessionStorage.setItem('wt_cache_admin_entreprises_page', JSON.stringify(p));
+            } catch {}
+          }
+        }),
         catchError(this.handleError)
       );
   }
@@ -108,6 +140,12 @@ export class EntrepriseService {
       .get<EntrepriseStats>(`${this.base}/stats`)
       .pipe(
         retry({ count: 2, delay: 500 }),
+        tap(s => {
+          this.cachedStats = s;
+          try {
+            sessionStorage.setItem('wt_cache_admin_entreprises_stats', JSON.stringify(s));
+          } catch {}
+        }),
         catchError(this.handleError)
       );
   }

@@ -1,0 +1,49 @@
+<div class="actions-row">
+  @if (canView) {
+    <button
+      type="button"
+      class="action-btn action-view"
+      [title]="viewLabel"
+      (click)="view.emit()"
+    >
+      <lucide-icon name="eye" [size]="15"></lucide-icon>
+    </button>
+  }
+
+  @if (canDownload) {
+    <button
+      type="button"
+      class="action-btn action-download"
+      [title]="downloadLabel"
+      (click)="download.emit()"
+    >
+      <lucide-icon name="download" [size]="15"></lucide-icon>
+    </button>
+  }
+
+  @if (canEdit) {
+    <button
+      type="button"
+      class="action-btn action-edit"
+      [title]="editLabel"
+      (click)="edit.emit()"
+    >
+      <lucide-icon name="pencil" [size]="15"></lucide-icon>
+    </button>
+  }
+
+  @if (canCancel) {
+    <button
+      type="button"
+      class="action-btn action-cancel"
+      [title]="cancelLabel"
+      (click)="cancel.emit()"
+    >
+      <lucide-icon name="trash-2" [size]="15"></lucide-icon>
+    </button>
+  }
+
+  @if (!canView && !canEdit && !canCancel && !canDownload) {
+    <span class="no-actions">—</span>
+  }
+</div>

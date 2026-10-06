@@ -1,0 +1,106 @@
+.actions-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #64748b;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// ── View ──
+.action-view {
+  &:hover {
+    background: #eef2ff;
+    color: #6366f1;
+    border-color: #e0e7ff;
+  }
+}
+
+:host-context(.dark) .action-view:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+// ── Download ──
+.action-download {
+  &:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #e0e7ff;
+  }
+}
+
+:host-context(.dark) .action-download:hover {
+  background: rgba(79, 70, 229, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+// ── Edit ──
+.action-edit {
+  &:hover {
+    background: #fffbeb;
+    color: #d97706;
+    border-color: #fef3c7;
+  }
+}
+
+:host-context(.dark) .action-edit:hover {
+  background: rgba(217, 119, 6, 0.15);
+  color: #fcd34d;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+// ── Cancel (Danger) ──
+.action-cancel {
+  &:hover {
+    background: #fff1f2;
+    color: #e11d48;
+    border-color: #fecdd3;
+  }
+}
+
+:host-context(.dark) .action-cancel:hover {
+  background: rgba(225, 29, 72, 0.15);
+  color: #fda4af;
+  border-color: rgba(225, 29, 72, 0.3);
+}
+
+// ── Dark mode base ──
+:host-context(.dark) .action-btn {
+  color: #94a3b8;
+}
+
+// ── No actions placeholder ──
+.no-actions {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
+:host-context(.dark) .no-actions {
+  color: #475569;
+}

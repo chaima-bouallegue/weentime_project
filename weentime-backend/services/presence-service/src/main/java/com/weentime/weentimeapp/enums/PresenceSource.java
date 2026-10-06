@@ -6,5 +6,8 @@ public enum PresenceSource {
     GPS,
     MANUAL,
     AI,
-    AI_CHATBOT
+    AI_CHATBOT,
+    BADGE,
+    SYSTEM,
+    API
 }

@@ -1,7 +1,18 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { LucideAngularModule, Eye } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  Eye,
+  Calendar,
+  Download,
+  RefreshCw,
+  Search,
+  Check,
+  X,
+  Clock,
+  FileText
+} from 'lucide-angular';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CongeService } from '../../employee/conges/conge.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -13,6 +24,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { EmployeeCongesComponent } from '../../employee/conges/employee-conges.component';
 import { CongeDetailPanelComponent } from './components/conge-detail-panel/conge-detail-panel.component';
 import { CongeDecisionRhModalComponent } from './components/conge-decision-rh-modal/conge-decision-rh-modal.component';
+import { CongeJustificatifModalComponent } from './components/conge-justificatif-modal/conge-justificatif-modal.component';
 
 @Component({
   selector: 'app-rh-conges',
@@ -25,14 +37,24 @@ import { CongeDecisionRhModalComponent } from './components/conge-decision-rh-mo
     FormsModule,
     EmployeeCongesComponent,
     CongeDetailPanelComponent,
-    CongeDecisionRhModalComponent
+    CongeDecisionRhModalComponent,
+    CongeJustificatifModalComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './rh-conges.component.html',
   styleUrl: './rh-conges.component.scss'
 })
 export class RhCongesComponent {
+  readonly CalendarIcon = Calendar;
+  readonly DownloadIcon = Download;
+  readonly SearchIcon = Search;
+  readonly RefreshCwIcon = RefreshCw;
+  readonly CheckIcon = Check;
+  readonly XIcon = X;
+  readonly ClockIcon = Clock;
   readonly iconEye = Eye;
+  readonly FileTextIcon = FileText;
+
   private readonly leaveStore = inject(RhLeaveStore);
   private readonly congeService = inject(CongeService);
   private readonly toast = inject(ToastService);
@@ -46,38 +68,73 @@ export class RhCongesComponent {
 
   readonly searchQuery = signal('');
   readonly statusFilter = signal('ALL');
+  readonly typeFilter = signal('ALL');
 
   readonly demandeSelectionnee = signal<DemandeConge | null>(null);
+  readonly justificatifDemande = signal<DemandeConge | null>(null);
   readonly showDetailPanel = signal(false);
   readonly modeDecision = signal<'VALIDER' | 'REFUSER' | null>(null);
   readonly isSubmittingDecision = signal(false);
+
+  readonly availableTypes = computed(() => {
+    const types = new Set<string>();
+    for (const d of this.allDemandes()) {
+      const label = d.typeCongeNom || d.label || d.type;
+      if (label) types.add(label);
+    }
+    return Array.from(types);
+  });
 
   readonly filteredDemandes = computed(() => {
     let list = this.allDemandes();
     const query = this.searchQuery().toLowerCase().trim();
     const status = this.statusFilter();
+    const type = this.typeFilter();
 
     if (status !== 'ALL') {
       list = list.filter(d => this.matchesStatusFilter(d.statut, status));
     }
+    if (type !== 'ALL') {
+      list = list.filter(d => (d.typeCongeNom || d.label || d.type) === type);
+    }
     if (query) {
       list = list.filter(d =>
-        d.userName?.toLowerCase().includes(query) ||
-        d.userEmail?.toLowerCase().includes(query)
+        (d.userName || '').toLowerCase().includes(query) ||
+        (d.userEmail || '').toLowerCase().includes(query) ||
+        (d.label || '').toLowerCase().includes(query) ||
+        (d.motif || '').toLowerCase().includes(query)
       );
     }
     return list;
   });
 
   readonly pendingCount = computed(() =>
-    this.allDemandes().filter(d => d.statut === 'EN_ATTENTE_RH').length
+    this.allDemandes().filter(d => d.statut === 'EN_ATTENTE_RH' || d.statut === 'EN_ATTENTE').length
   );
 
   readonly managerPendingCount = computed(() =>
     this.allDemandes().filter(d => d.statut === 'EN_ATTENTE_MANAGER').length
   );
 
+  readonly approvedCount = computed(() =>
+    this.allDemandes().filter(d => this.isApprovedStatus(d.statut)).length
+  );
+
+  readonly refusedCount = computed(() =>
+    this.allDemandes().filter(d => d.statut === 'REFUSE' || d.statut === 'REFUSEE').length
+  );
+
+  readonly cancelledCount = computed(() =>
+    this.allDemandes().filter(d => d.statut === 'ANNULE' || d.statut === 'ANNULEE').length
+  );
+
   readonly totalCount = computed(() => this.allDemandes().length);
+
+  readonly hasActiveFilters = computed(() =>
+    this.searchQuery() !== '' ||
+    this.statusFilter() !== 'ALL' ||
+    this.typeFilter() !== 'ALL'
+  );
 
   readonly approvedThisMonth = computed(() => {
     const now = new Date();
@@ -97,6 +154,71 @@ export class RhCongesComponent {
       role === 'RH' ? 'rh' : 'employee';
     return `/app/${base}/dashboard`;
   });
+
+  setStatusFilter(status: string): void {
+    this.statusFilter.set(status);
+  }
+
+  setTypeFilter(type: string): void {
+    this.typeFilter.set(type);
+  }
+
+  resetFilters(): void {
+    this.searchQuery.set('');
+    this.statusFilter.set('ALL');
+    this.typeFilter.set('ALL');
+  }
+
+  exportCSV(): void {
+    const list = this.filteredDemandes();
+    if (list.length === 0) {
+      this.toast.error('Aucune demande de congé à exporter.');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'Collaborateur',
+      'Email',
+      'Type',
+      'Date début',
+      'Date fin',
+      'Nombre de jours',
+      'Statut',
+      'Date demande'
+    ];
+
+    const escapeCsv = (val: unknown): string => {
+      if (val === null || val === undefined) return '""';
+      const s = String(val).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows = list.map(d => [
+      escapeCsv(d.id),
+      escapeCsv(d.userName || '—'),
+      escapeCsv(d.userEmail || '—'),
+      escapeCsv(d.typeCongeNom || d.label || d.type || '—'),
+      escapeCsv(d.dateDebut || '—'),
+      escapeCsv(d.dateFin || '—'),
+      escapeCsv(d.nombreJours ?? '—'),
+      escapeCsv(this.formatStatut(d.statut)),
+      escapeCsv(d.dateCreation || '—')
+    ].join(';'));
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.setAttribute('download', `demandes_conges_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    this.toast.success('Export CSV généré avec succès.');
+  }
 
   refresh(): void {
     this.leaveStore.loadAllDemandes().subscribe({
@@ -128,9 +250,25 @@ export class RhCongesComponent {
 
   closeDetailPanel(): void {
     this.showDetailPanel.set(false);
-    if (!this.modeDecision()) {
+    if (!this.modeDecision() && !this.justificatifDemande()) {
       this.demandeSelectionnee.set(null);
     }
+  }
+
+  hasJustificatif(demande: DemandeConge): boolean {
+    if (demande.justificatifFourni === true || !!demande.justificatifUrl || !!demande['justificatif']) {
+      return true;
+    }
+    const typeName = (demande.typeCongeNom || demande.label || demande.type || '').toLowerCase();
+    return typeName.includes('malad');
+  }
+
+  openJustificatifModal(demande: DemandeConge): void {
+    this.justificatifDemande.set(demande);
+  }
+
+  closeJustificatifModal(): void {
+    this.justificatifDemande.set(null);
   }
 
   onConfirmDecision(event: { id: number; commentaire: string }): void {
@@ -251,6 +389,18 @@ export class RhCongesComponent {
   private matchesStatusFilter(statut: StatutDemande | string, filter: string): boolean {
     if (filter === 'APPROUVE') {
       return this.isApprovedStatus(statut);
+    }
+    if (filter === 'REFUSE') {
+      return statut === 'REFUSE' || statut === 'REFUSEE';
+    }
+    if (filter === 'EN_ATTENTE_RH') {
+      return statut === 'EN_ATTENTE_RH' || statut === 'EN_ATTENTE';
+    }
+    if (filter === 'EN_ATTENTE_MANAGER') {
+      return statut === 'EN_ATTENTE_MANAGER';
+    }
+    if (filter === 'ANNULE') {
+      return statut === 'ANNULE' || statut === 'ANNULEE';
     }
     return statut === filter;
   }

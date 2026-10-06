@@ -1,6 +1,7 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
+import { ModalService } from '../../../../../core/services/modal.service';
 import { DemandeDocumentRH } from '../../models/rh-document.model';
 import { DocumentTimelineComponent } from '../document-timeline/document-timeline.component';
 
@@ -12,7 +13,16 @@ import { DocumentTimelineComponent } from '../document-timeline/document-timelin
   styleUrl: './document-detail-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DocumentDetailPanelComponent {
+export class DocumentDetailPanelComponent implements OnInit, OnDestroy {
+  private readonly modalService = inject(ModalService);
+
+  ngOnInit(): void {
+    this.modalService.open();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
   @Input({ required: true }) demande: DemandeDocumentRH | null = null;
   @Input() auditRefreshTrigger = 0;
   @Output() close = new EventEmitter<void>();

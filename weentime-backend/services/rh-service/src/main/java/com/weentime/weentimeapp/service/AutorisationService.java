@@ -10,6 +10,7 @@ public interface AutorisationService {
     AutorisationDTO getById(Long id);
     
     // Actions
+    AutorisationDTO update(Long id, AutorisationDTO dto, String userEmail);
     AutorisationDTO validateManager(Long id, String managerEmail);
     AutorisationDTO validateRH(Long id, String rhEmail);
     AutorisationDTO reject(Long id, String validatorEmail, String commentaire);

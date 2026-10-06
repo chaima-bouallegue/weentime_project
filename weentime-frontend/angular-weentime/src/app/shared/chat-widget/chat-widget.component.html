@@ -371,10 +371,17 @@
     </section>
   </div>
 
-  <button type="button" class="chat-toggle" [class.chat-toggle--hidden]="isOpen()" (click)="toggleChat()"
-    [attr.aria-expanded]="isOpen()" [attr.aria-hidden]="isOpen() ? 'true' : null" [attr.tabindex]="isOpen() ? -1 : null"
-    aria-label="Ouvrir l'assistant AI">
-    <span class="chat-toggle__halo"></span>
-    <lucide-icon name="bot" [size]="24"></lucide-icon>
-  </button>
+  <div class="chat-toggle-shell"
+    [class.chat-toggle-shell--hidden]="isOpen()"
+    cdkDrag
+    cdkDragBoundary="body"
+    [cdkDragFreeDragPosition]="togglePosition()"
+    (cdkDragEnded)="onToggleDragEnded($event)">
+    <button type="button" class="chat-toggle" [class.chat-toggle--hidden]="isOpen()" (click)="handleToggleClick()"
+      [attr.aria-expanded]="isOpen()" [attr.aria-hidden]="isOpen() ? 'true' : null" [attr.tabindex]="isOpen() ? -1 : null"
+      aria-label="Ouvrir l'assistant IA" title="Assistant Copilote (Glisser pour déplacer)">
+      <span class="chat-toggle__halo"></span>
+      <lucide-icon name="bot" [size]="28"></lucide-icon>
+    </button>
+  </div>
 </div>

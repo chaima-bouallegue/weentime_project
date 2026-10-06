@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, OnInit, DestroyRef, effect } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, DestroyRef, effect, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Calendar, Info, LucideAngularModule, Plus } from 'lucide-angular';
@@ -8,7 +8,7 @@ import { SoldeCardsComponent } from './components/solde-cards/solde-cards.compon
 import { HistoriqueListComponent } from './components/historique-list/historique-list.component';
 import { CongeCalendarComponent } from './components/conge-calendar/conge-calendar.component';
 import { DemandeDrawerComponent } from './components/demande-drawer/demande-drawer.component';
-import { AnnulationModalComponent } from './components/annulation-modal/annulation-modal.component';
+import { ConfirmCancellationModalComponent, CancellationPreviewItem } from '../../../shared/components/confirm-cancellation-modal';
 import { ConsultationModalComponent } from './components/consultation-modal/consultation-modal.component';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
@@ -25,7 +25,7 @@ import { forkJoin } from 'rxjs';
     HistoriqueListComponent,
     CongeCalendarComponent,
     DemandeDrawerComponent,
-    AnnulationModalComponent,
+    ConfirmCancellationModalComponent,
     ConsultationModalComponent
   ],
   templateUrl: './employee-conges.component.html',
@@ -37,6 +37,7 @@ export class EmployeeCongesComponent implements OnInit {
   private assistantWorkflow = inject(AssistantWorkflowService);
   private assistantSync = inject(AssistantSyncService);
   private destroyRef = inject(DestroyRef);
+  private cdr = inject(ChangeDetectorRef);
 
   readonly iconPlus = Plus;
   readonly iconCalendar = Calendar;
@@ -46,6 +47,7 @@ export class EmployeeCongesComponent implements OnInit {
   soldes = signal<SoldeConge[]>([]);
   historique = signal<DemandeConge[]>([]);
   joursFeries = signal<JourFerie[]>([]);
+  typesConge = signal<any[]>([]);
 
   isLoading = signal(true);
   showDrawer = signal(false);
@@ -61,6 +63,16 @@ export class EmployeeCongesComponent implements OnInit {
   totalDisponible = computed(() =>
     this.soldes().reduce((sum, s) => sum + (s.disponible ?? 0), 0)
   );
+
+  congeCancellationPreviewItems = computed<CancellationPreviewItem[]>(() => {
+    const d = this.demandeAnnuler();
+    if (!d) return [];
+    return [
+      { label: 'Type de congé', value: d.type, highlight: true },
+      { label: 'Dates', value: `Du ${new Date(d.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(d.dateFin).toLocaleDateString('fr-FR')}` },
+      { label: 'Durée totale', value: `${d.nombreJours} ${d.nombreJours > 1 ? 'jours' : 'jour'}` }
+    ];
+  });
 
   historiqueFiltre = computed(() => {
     const list = this.historique();
@@ -98,20 +110,27 @@ export class EmployeeCongesComponent implements OnInit {
     this.isLoading.set(true);
     forkJoin({
       soldes: this.congeService.getSoldes(),
-      historique: this.congeService.getHistorique()
+      historique: this.congeService.getHistorique(),
+      types: this.congeService.getTypesConge()
     }).subscribe({
-      next: ({ soldes, historique }) => {
+      next: ({ soldes, historique, types }) => {
         this.soldes.set(soldes);
         this.historique.set(historique);
+        this.typesConge.set(types);
         this.isLoading.set(false);
+        this.cdr.markForCheck();
       },
       error: (error) => {
         this.toastService.error(this.extractErrorMessage(error, 'Impossible de charger vos conges.'));
         this.isLoading.set(false);
+        this.cdr.markForCheck();
       }
     });
     this.congeService.getJoursFeries().subscribe({
-      next: res => this.joursFeries.set(res),
+      next: res => {
+        this.joursFeries.set(res);
+        this.cdr.markForCheck();
+      },
       error: (error) => this.toastService.error(this.extractErrorMessage(error, 'Impossible de charger les jours feries.'))
     });
   }
@@ -187,6 +206,7 @@ export class EmployeeCongesComponent implements OnInit {
       next: ({ soldes, historique }) => {
         this.soldes.set(soldes);
         this.historique.set(historique);
+        this.cdr.markForCheck();
       },
       error: (error) => this.toastService.error(this.extractErrorMessage(error, 'Impossible de rafraichir les conges.'))
     });

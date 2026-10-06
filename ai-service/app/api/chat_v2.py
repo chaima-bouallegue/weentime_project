@@ -13,7 +13,12 @@ from app.core.copilot_engine import ensure_copilot_services, process_copilot_mes
 from app.i18n.response_localizer import translate
 from app.models.agent_models import AgentResponse, ChatV2Request, ConfirmActionRequest
 from app.models.envelopes import ApiEnvelope
-from app.nlp.language_detector import resolve_response_language, response_script
+from app.nlp.language_detector import (
+    detect_language,
+    resolve_response_language,
+    response_script,
+    _has_text_language_signal,
+)
 from app.observability.request_context import ensure_request_id, reset_request_id, set_request_id
 from app.observability.tracing import log_error, log_event, start_span
 from app.workflows.workflow_steps import apply_safe_request_metadata
@@ -62,6 +67,13 @@ def _locale_for_language(language: str | None) -> str:
     if language in {"ar", "tn"}:
         return "ar-TN"
     return "fr-FR"
+
+
+def _resolve_effective_response_language(agent_response: Any, fallback_language: str) -> str:
+    resp_text = getattr(agent_response, "text", "") or ""
+    if resp_text and _has_text_language_signal(resp_text):
+        return detect_language(resp_text)
+    return fallback_language
 
 
 def _public_chatbot_mode_enabled() -> bool:
@@ -184,15 +196,16 @@ async def chat_v2(
                     context=anonymous_context,
                 )
                 payload_data = _response_payload(agent_response)
+                effective_language = _resolve_effective_response_language(agent_response, payload_language)
                 if isinstance(payload_data, dict):
                     payload_data["request_id"] = request_id
                     payload_data["requestId"] = request_id
-                    payload_data["detectedLanguage"] = payload_language
-                    payload_data["detected_language"] = payload_language
-                    payload_data["responseLocale"] = payload_language
-                    payload_data["response_locale"] = payload_language
-                    payload_data["response_language"] = payload_language
-                    payload_data["requested_language"] = payload_language
+                    payload_data["detectedLanguage"] = effective_language
+                    payload_data["detected_language"] = effective_language
+                    payload_data["responseLocale"] = effective_language
+                    payload_data["response_locale"] = effective_language
+                    payload_data["response_language"] = effective_language
+                    payload_data["requested_language"] = effective_language
                 log_event(
                     "response.compose",
                     input={"message": payload.message, "channel": payload.channel},
@@ -224,15 +237,16 @@ async def chat_v2(
                             context=fallback_context,
                         )
                         payload_data = _response_payload(agent_response)
+                        effective_language = _resolve_effective_response_language(agent_response, payload_language)
                         if isinstance(payload_data, dict):
                             payload_data["request_id"] = request_id
                             payload_data["requestId"] = request_id
-                            payload_data["detectedLanguage"] = payload_language
-                            payload_data["detected_language"] = payload_language
-                            payload_data["responseLocale"] = payload_language
-                            payload_data["response_locale"] = payload_language
-                            payload_data["response_language"] = payload_language
-                            payload_data["requested_language"] = payload_language
+                            payload_data["detectedLanguage"] = effective_language
+                            payload_data["detected_language"] = effective_language
+                            payload_data["responseLocale"] = effective_language
+                            payload_data["response_locale"] = effective_language
+                            payload_data["response_language"] = effective_language
+                            payload_data["requested_language"] = effective_language
                         return JSONResponse(status_code=200, content=ApiEnvelope.ok(payload_data).model_dump(mode="json"))
                     except Exception as inner:
                         log_error("ai.chat_v2.public_fallback_failed", inner)
@@ -355,14 +369,15 @@ async def confirm_chat_action(
 
             response = result.response
             response_payload = response.model_dump(mode="json")
+            effective_language = _resolve_effective_response_language(response, payload_language)
             response_payload["request_id"] = request_id
             response_payload["requestId"] = request_id
-            response_payload["detectedLanguage"] = payload_language
-            response_payload["detected_language"] = payload_language
-            response_payload["responseLocale"] = payload_language
-            response_payload["response_locale"] = payload_language
-            response_payload["response_language"] = payload_language
-            response_payload["requested_language"] = payload_language
+            response_payload["detectedLanguage"] = effective_language
+            response_payload["detected_language"] = effective_language
+            response_payload["responseLocale"] = effective_language
+            response_payload["response_locale"] = effective_language
+            response_payload["response_language"] = effective_language
+            response_payload["requested_language"] = effective_language
             log_event(
                 "response.compose",
                 output=response_payload,

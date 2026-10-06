@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class BackendClient:
     """Gateway client for v2 tools. It owns URL normalization and JWT forwarding."""
 
-    def __init__(self, base_url: str | None = None, *, timeout: float = 12.0) -> None:
+    def __init__(self, base_url: str | None = None, *, timeout: float = 45.0) -> None:
         self.base_url = self._normalize_base(base_url or os.getenv("BACKEND_BASE_URL") or DEFAULT_BACKEND_BASE_URL)
         self.timeout = timeout
 
@@ -48,17 +48,21 @@ class BackendClient:
         headers = self._headers_for_context(context)
         health_url = f"{self.gateway_root_url}/actuator/health"
         fallback_url = self.build_url("/users/me")
-        timeout = min(max(float(self.timeout or 12.0), 1.0), 3.0)
+        timeout = min(max(float(self.timeout or 12.0), 2.0), 8.0)
 
-        try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            try:
                 health = await client.get(health_url, headers=headers)
                 if health.status_code < 500 and health.status_code not in {404, 405}:
                     return ToolResult.ok(
                         {"endpoint": health_url, "status_code": health.status_code},
                         status_code=health.status_code,
                     )
+            except httpx.RequestError:
+                # If actuator/health times out or errors, fall back to testing the API endpoint
+                pass
 
+            try:
                 fallback = await client.get(fallback_url, headers=headers)
                 if fallback.status_code < 500:
                     return ToolResult.ok(
@@ -70,23 +74,23 @@ class BackendClient:
                     path="/users/me",
                     tool_name=tool_name,
                     endpoint=fallback_url,
+                    status_code=fallback.status_code if fallback.status_code >= 500 else 503,
+                )
+            except httpx.RequestError as exc:
+                self._log_structured_backend_response(
+                    context=context,
+                    tool_name=tool_name,
+                    endpoint=fallback_url,
+                    status_code=503,
+                    body=str(exc),
+                )
+                return self._backend_unavailable_result(
+                    context=context,
+                    path="/users/me",
+                    tool_name=tool_name,
+                    endpoint=fallback_url,
                     status_code=503,
                 )
-        except httpx.RequestError as exc:
-            self._log_structured_backend_response(
-                context=context,
-                tool_name=tool_name,
-                endpoint=health_url,
-                status_code=503,
-                body=str(exc),
-            )
-            return self._backend_unavailable_result(
-                context=context,
-                path="/actuator/health",
-                tool_name=tool_name,
-                endpoint=health_url,
-                status_code=503,
-            )
 
     async def get(
         self,
@@ -434,6 +438,8 @@ class BackendClient:
             if isinstance(error, dict):
                 code = error.get("code") or error.get("error")
                 return str(code) if code else None
+            if isinstance(error, str) and error.strip():
+                return error.strip().lower()
             code = payload.get("code") or payload.get("status")
             return str(code) if code else None
         return None
@@ -443,9 +449,12 @@ class BackendClient:
         if isinstance(payload, str) and payload.strip():
             return payload.strip()
         if isinstance(payload, dict):
+            details = payload.get("details")
+            if isinstance(details, str) and details.strip():
+                return details.strip()
             error = payload.get("error")
             if isinstance(error, dict):
-                message = error.get("message") or error.get("error")
+                message = error.get("message") or error.get("error") or error.get("details")
                 return str(message) if message else None
             for key in ("message", "error", "text"):
                 value = payload.get(key)

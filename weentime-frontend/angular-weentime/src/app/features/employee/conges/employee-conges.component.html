@@ -3,8 +3,13 @@
   <!-- ══ PAGE HEADER ══ -->
   <header class="page-header">
     <div class="header-left">
-      <h1 class="page-title">Mes Congés</h1>
-      <p class="page-subtitle">Gérez vos absences et consultez vos soldes</p>
+      <div class="header-icon-box">
+        <lucide-angular [img]="iconCalendar" size="24"></lucide-angular>
+      </div>
+      <div>
+        <h1 class="page-title">Mes Congés</h1>
+        <p class="page-subtitle">Gérez vos absences et consultez vos soldes</p>
+      </div>
     </div>
     <button class="btn-new-request" (click)="openNewRequest()">
       <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
@@ -70,6 +75,7 @@
 
         <app-historique-list
           [demandes]="historiqueFiltre()"
+          [allDemandes]="historique()"
           [isLoading]="isLoading()"
           [currentFilter]="filtreStatut()"
           (filterChange)="onFilterChange($event)"
@@ -106,6 +112,7 @@
     [soldes]="soldes()"
     [joursFeries]="joursFeries()"
     [historique]="historique()"
+    [leaveTypes]="typesConge()"
     [demandeToEdit]="demandeModifier()"
     [isSubmitting]="isSubmittingRequest()"
     (close)="closeDrawer()"
@@ -114,12 +121,15 @@
 }
 
 @if (demandeAnnuler()) {
-  <app-annulation-modal
-    [demande]="demandeAnnuler()"
-    [isAnnulating]="isAnnulating()"
+  <app-confirm-cancellation-modal
+    title="Annuler la demande de congé"
+    message="Êtes-vous sûr de vouloir annuler cette demande de congé ?"
+    subMessage="Cette action est irréversible."
+    [previewItems]="congeCancellationPreviewItems()"
+    [isCancelling]="isAnnulating()"
     (close)="demandeAnnuler.set(null)"
-    (confirm)="confirmAnnulation($event)"
-  ></app-annulation-modal>
+    (confirm)="confirmAnnulation(demandeAnnuler()!.id)"
+  ></app-confirm-cancellation-modal>
 }
 
 @if (demandeConsulter()) {

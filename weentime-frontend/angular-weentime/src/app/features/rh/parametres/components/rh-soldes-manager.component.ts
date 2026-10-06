@@ -176,7 +176,7 @@ import { RhSoldeService, EmployeeSolde, SoldeDetail } from '../services/rh-solde
                                  [style.width.%]="(solde.joursRestants / solde.joursMax) * 100">
                             </div>
                           </div>
-                          <button (click)="openEditModal(emp, solde)" class="mt-1 opacity-0 group-hover/solde:opacity-100 text-[9px] font-black text-indigo-600 uppercase transition-opacity">Ajuster</button>
+                          <button (click)="openEditModal(emp, solde)" class="mt-1 text-[9px] font-black text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 uppercase transition-colors">Ajuster</button>
                         </div>
                       } @else {
                         <div class="text-center">

@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService, User } from './auth.service';
 
@@ -1014,7 +1014,9 @@ export class MlAnomalyService {
 
   private fetchDashboard(url: string, scope: string): Observable<AnomalyDashboardResponse> {
     return this.http.get<RawAnomalyDashboardResponse>(url, { headers: this.authHeaders(scope) }).pipe(
+      timeout(3000),
       map(response => mapDashboard(response)),
+      catchError(() => of(mapDashboard(null)))
     );
   }
 

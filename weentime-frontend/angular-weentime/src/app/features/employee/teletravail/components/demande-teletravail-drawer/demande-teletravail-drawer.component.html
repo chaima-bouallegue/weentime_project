@@ -7,7 +7,7 @@
           <lucide-angular [img]="iconLaptop" size="20"></lucide-angular>
         </div>
         <div>
-          <h2 class="text-xl font-black text-slate-900 dark:text-white leading-none">Nouvelle demande</h2>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white leading-none">{{ demandeToEdit ? 'Modifier la demande' : 'Nouvelle demande' }}</h2>
           <p class="text-xs text-slate-500 font-bold mt-1 uppercase tracking-wider">Télétravail</p>
         </div>
       </div>
@@ -56,7 +56,7 @@
                 (click)="selectType(type)"
                 class="selection-card group"
                 [class.active]="selectedType()?.id === type.id"
-                [class.disabled]="joursRestants === 0"
+                [class.disabled]="effectiveJoursRestants() === 0"
               >
                 <div class="icon-wrapper" [class]="type.color">
                   <lucide-angular [img]="type.icon" size="24"></lucide-angular>
@@ -72,7 +72,7 @@
             }
           </div>
 
-          @if (joursRestants === 0) {
+          @if (effectiveJoursRestants() === 0) {
             <div class="mt-8 p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/10 flex items-start gap-3">
               <lucide-angular [img]="iconAlert" size="18" class="text-rose-500 mt-0.5"></lucide-angular>
               <div>
@@ -131,18 +131,18 @@
               <div class="grid grid-cols-2 gap-4">
                 <button (click)="periodeDemiJournee.set('MATIN')"
                         class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
-                        [class.border-indigo-500]="periodeDemiJournee() === 'MATIN'"
-                        [class.bg-indigo-50]="periodeDemiJournee() === 'MATIN'"
-                        [class.text-indigo-600]="periodeDemiJournee() === 'MATIN'"
+                        [class.border-purple-600]="periodeDemiJournee() === 'MATIN'"
+                        [class.bg-purple-50]="periodeDemiJournee() === 'MATIN'"
+                        [class.text-purple-700]="periodeDemiJournee() === 'MATIN'"
                         [class.border-slate-100]="periodeDemiJournee() !== 'MATIN'">
                   <lucide-angular [img]="iconSunrise" size="20"></lucide-angular>
                   <span class="text-xs font-black">Matin</span>
                 </button>
                 <button (click)="periodeDemiJournee.set('APRES_MIDI')"
                         class="p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2"
-                        [class.border-indigo-500]="periodeDemiJournee() === 'APRES_MIDI'"
-                        [class.bg-indigo-50]="periodeDemiJournee() === 'APRES_MIDI'"
-                        [class.text-indigo-600]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.border-purple-600]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.bg-purple-50]="periodeDemiJournee() === 'APRES_MIDI'"
+                        [class.text-purple-700]="periodeDemiJournee() === 'APRES_MIDI'"
                         [class.border-slate-100]="periodeDemiJournee() !== 'APRES_MIDI'">
                   <lucide-angular [img]="iconSunset" size="20"></lucide-angular>
                   <span class="text-xs font-black">Après-midi</span>
@@ -213,7 +213,7 @@
         <button
           (click)="nextStep()"
           [disabled]="(step() === 1 && !isStep1Valid()) || (step() === 2 && !isStep2Valid())"
-          class="btn-primary group px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:shadow-none transition-all"
+          class="btn-primary group px-8 py-3 rounded-2xl font-bold flex items-center gap-3 disabled:opacity-50 disabled:shadow-none transition-all"
         >
           Continuer
           <lucide-angular [img]="iconChevronRight" size="18" class="group-hover:translate-x-1 transition-transform"></lucide-angular>
@@ -221,15 +221,15 @@
       } @else {
         <button
           (click)="onSubmit()"
-          [disabled]="!isStep3Valid() || isSubmitting()"
-          class="btn-primary px-8 py-3 rounded-2xl font-bold flex items-center gap-3 bg-indigo-500 text-white shadow-lg shadow-indigo-100 disabled:opacity-50 transition-all"
+          [disabled]="!isStep3Valid() || isSubmitting"
+          class="btn-primary px-8 py-3 rounded-2xl font-bold flex items-center gap-3 disabled:opacity-50 transition-all"
         >
-          @if (isSubmitting()) {
+          @if (isSubmitting) {
             <lucide-angular [img]="iconLoader" size="18" class="animate-spin"></lucide-angular>
-            Soumission...
+            {{ demandeToEdit ? 'Enregistrement...' : 'Soumission...' }}
           } @else {
             <lucide-angular [img]="iconSend" size="18"></lucide-angular>
-            Confirmer la demande
+            {{ demandeToEdit ? 'Enregistrer les modifications' : 'Confirmer la demande' }}
           }
         </button>
       }

@@ -14,7 +14,7 @@
           <div>
             <h1 class="text-xl font-black tracking-tight"
               style="background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text">
-              Workforce Planning</h1>
+              Calendrier global</h1>
             <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">Gérez vos plannings, présences et pointages en temps réel.</p>
           </div>
         </div>
@@ -61,7 +61,7 @@
         </div>
 
         <!-- Télétravail -->
-        <div class="kpi-badge cursor-pointer" style="--badge-color: #8b5cf6">
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #3b82f6">
           <lucide-icon name="home" size="13"></lucide-icon>
           <span class="badge-value">{{ monthlyStats()?.totalRemote || 0 }}</span>
           <span class="badge-label">Télétravail</span>
@@ -85,20 +85,6 @@
       <!-- LEFT: CALENDAR SURFACE (always visible) -->
       <div class="calendar-surface">
 
-        <!-- AI INSIGHT BANNER -->
-        @if (conflicts().length > 0) {
-        <div class="ai-insight-strip">
-          <div class="insight-icon"><lucide-icon name="sparkles" size="16"></lucide-icon></div>
-          <div class="insight-body">
-            <span class="insight-highlight">{{ conflicts().length }} conflits</span> détectés ·
-            <span class="insight-highlight">{{ pendingRequests().length }} demandes</span> en attente ·
-            Couverture prévisionnelle en baisse jeudi
-          </div>
-          <button class="insight-action-btn" (click)="applyAIRecommendations()">
-            <lucide-icon name="zap" size="12"></lucide-icon> Appliquer
-          </button>
-        </div>
-        }
 
         <!-- COMMAND BAR -->
         <div class="command-bar">
@@ -124,7 +110,7 @@
             <div class="filter-pill">
               <select [ngModel]="selectedDepartment()" (ngModelChange)="selectedDepartment.set($event)">
                 <option [ngValue]="null">Départements</option>
-                @for (dept of ['Direction', 'Operations', 'Design', 'R&D', 'Support']; track dept) {
+                @for (dept of ['Informatique', 'Direction', 'Operations', 'Design', 'R&D', 'Support']; track dept) {
                 <option [value]="dept">{{ dept }}</option>
                 }
               </select>
@@ -348,7 +334,7 @@
         <span class="legend-dot" style="background:#10b981"></span> Présent
       </span>
       <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Télétravail'" (click)="toggleLegendFilter('Télétravail')">
-        <span class="legend-dot" style="background:#8b5cf6"></span> Télétravail
+        <span class="legend-dot" style="background:#3b82f6"></span> Télétravail
       </span>
       <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Planifié'" (click)="toggleLegendFilter('Planifié')">
         <span class="legend-dot" style="background:#94a3b8"></span> Planifié
@@ -357,7 +343,7 @@
         <span class="legend-dot" style="background:#60a5fa"></span> En attente
       </span>
       <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Congé'" (click)="toggleLegendFilter('Congé')">
-        <span class="legend-dot" style="background:#3b82f6"></span> Congé
+        <span class="legend-dot" style="background:#f59e0b"></span> Congé
       </span>
       <span class="legend-item clickable" [class.active]="selectedStatusFilter() === 'Absence'" (click)="toggleLegendFilter('Absence')">
         <span class="legend-dot" style="background:#ef4444"></span> Absence
@@ -464,7 +450,7 @@
               <span class="card-role">{{ emp.poste }} · {{ emp.teamName }}</span>
             </div>
             <div class="card-status-badge" [style.background]="getStatusColor(emp.status) + '15'" [style.color]="getStatusColor(emp.status)">
-              {{ getStatusLabel(emp.status) }}
+              {{ emp.detail || getStatusLabel(emp.status) }}
             </div>
           </div>
           <div class="card-quick-actions">

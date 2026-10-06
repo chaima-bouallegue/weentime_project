@@ -184,6 +184,14 @@ public class CongeSeedData implements CommandLineRunner {
                 .dateCreation(LocalDateTime.now())
                 .build();
 
+        boolean requiresJustif = Boolean.TRUE.equals(type.getRequireJustificatif())
+                || (type.getLibelle() != null && type.getLibelle().toLowerCase().contains("maladie"));
+
+        if (requiresJustif) {
+            conge.setJustificatifFourni(true);
+            conge.setJustificatifUrl("/uploads/" + entrepriseId + "/justificatifs/certificat_medical_" + userId + ".pdf");
+        }
+
         if (statut == StatutDemandeEnum.APPROUVE || statut == StatutDemandeEnum.REFUSE || statut == StatutDemandeEnum.ANNULE) {
             conge.setDateDecision(LocalDateTime.now());
         }

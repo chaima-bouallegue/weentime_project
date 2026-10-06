@@ -165,6 +165,98 @@ class TeletravailServiceImplTest {
     }
 
     @Test
+    void annulerCancelsPendingRhRequest() {
+        UtilisateurAuthResponse authRes = new UtilisateurAuthResponse();
+        authRes.setId(USER_ID);
+        when(organisationClient.getUtilisateurForAuth(USER_EMAIL)).thenReturn(authRes);
+
+        Teletravail entity = new Teletravail();
+        entity.setId(51L);
+        entity.setUtilisateurId(USER_ID);
+        entity.setStatut(StatutDemandeEnum.EN_ATTENTE_RH);
+
+        when(repository.findById(51L)).thenReturn(Optional.of(entity));
+        when(repository.save(entity)).thenAnswer(inv -> inv.getArgument(0));
+
+        TeletravailResponseDTO dto = new TeletravailResponseDTO();
+        dto.setId(51L);
+        dto.setStatut(StatutDemandeEnum.ANNULE);
+        when(mapper.toDto(entity)).thenReturn(dto);
+
+        TeletravailResponseDTO result = service.annuler(51L, USER_EMAIL);
+
+        assertThat(result.getStatut()).isEqualTo(StatutDemandeEnum.ANNULE);
+        assertThat(entity.getStatut()).isEqualTo(StatutDemandeEnum.ANNULE);
+    }
+
+    @Test
+    void updateTeletravailSuccess() {
+        mockUser(USER_ID, USER_EMAIL, MANAGER_ID, ENTREPRISE_ID);
+
+        Teletravail entity = new Teletravail();
+        entity.setId(100L);
+        entity.setUtilisateurId(USER_ID);
+        entity.setManagerId(MANAGER_ID);
+        entity.setEntrepriseId(ENTREPRISE_ID);
+        entity.setDateDebut(LocalDate.of(2026, 9, 10));
+        entity.setDateFin(LocalDate.of(2026, 9, 10));
+        entity.setNombreJours(1.0);
+        entity.setStatut(StatutDemandeEnum.EN_ATTENTE_RH);
+
+        when(repository.findById(100L)).thenReturn(Optional.of(entity));
+        when(repository.existsConflictingTeletravailExcludingId(eq(USER_ID), eq(100L), any(), any(), any())).thenReturn(false);
+
+        ConfigTeletravail config = ConfigTeletravail.builder().entrepriseId(ENTREPRISE_ID).quotaMensuel(10).build();
+        when(configRepository.findByEntrepriseId(ENTREPRISE_ID)).thenReturn(Optional.of(config));
+
+        when(repository.sumNombreJoursByUtilisateurIdAndMonth(eq(USER_ID), any(Integer.class), any(Integer.class), eq(List.of(StatutDemandeEnum.APPROUVE))))
+                .thenReturn(2.0);
+        when(repository.sumNombreJoursByUtilisateurIdAndMonth(eq(USER_ID), any(Integer.class), any(Integer.class), eq(List.of(StatutDemandeEnum.EN_ATTENTE_MANAGER, StatutDemandeEnum.EN_ATTENTE_RH))))
+                .thenReturn(1.0);
+
+        when(repository.save(any(Teletravail.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TeletravailCreateDTO updateDto = new TeletravailCreateDTO();
+        updateDto.setDateDebut(LocalDate.of(2026, 9, 15));
+        updateDto.setDateFin(LocalDate.of(2026, 9, 16));
+        updateDto.setType(TypeTeletravailEnum.JOURNEE_COMPLETE);
+        updateDto.setMotif("Modification motif valide");
+
+        TeletravailResponseDTO dto = new TeletravailResponseDTO();
+        dto.setId(100L);
+        when(mapper.toDto(any(Teletravail.class))).thenReturn(dto);
+
+        TeletravailResponseDTO result = service.update(100L, updateDto, USER_EMAIL);
+
+        assertThat(result).isNotNull();
+        assertThat(entity.getNombreJours()).isEqualTo(2.0);
+        assertThat(entity.getStatut()).isEqualTo(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        verify(asyncNotificationService).sendToUser(eq(MANAGER_ID), any(), eq(ENTREPRISE_ID));
+    }
+
+    @Test
+    void updateTeletravailThrowsConflictWhenAlreadyApproved() {
+        UtilisateurAuthResponse authRes = new UtilisateurAuthResponse();
+        authRes.setId(USER_ID);
+        when(organisationClient.getUtilisateurForAuth(USER_EMAIL)).thenReturn(authRes);
+
+        Teletravail entity = new Teletravail();
+        entity.setId(101L);
+        entity.setUtilisateurId(USER_ID);
+        entity.setStatut(StatutDemandeEnum.APPROUVE);
+
+        when(repository.findById(101L)).thenReturn(Optional.of(entity));
+
+        TeletravailCreateDTO updateDto = new TeletravailCreateDTO();
+        updateDto.setDateDebut(LocalDate.of(2026, 9, 20));
+        updateDto.setDateFin(LocalDate.of(2026, 9, 20));
+        updateDto.setType(TypeTeletravailEnum.JOURNEE_COMPLETE);
+
+        assertThatThrownBy(() -> service.update(101L, updateDto, USER_EMAIL))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
     void validerManagerTransitionsStatusToEnAttenteRh() {
         Teletravail entity = new Teletravail();
         entity.setId(60L);

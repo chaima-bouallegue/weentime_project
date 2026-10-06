@@ -30,7 +30,7 @@
     width: fit-content;
 
     &.en-attente { background: #fffbeb; color: #d97706; }
-    &.en-cours { background: #eff6ff; color: #2563eb; }
+    &.en-cours { background: #ede9fe; color: var(--primary, #6B5DD3); }
     &.pret { background: #f0fdf4; color: #16a34a; }
     &.refuse { background: #fef2f2; color: #dc2626; }
   }
@@ -82,6 +82,33 @@
     .value { font-size: 14px; font-weight: 700; color: #334155; }
     .highlight { color: #6366f1; }
     .text-block { background: #FFFFFF; padding: 12px; border-radius: 12px; font-size: 13px; color: #475569; line-height: 1.5; margin: 0; }
+  }
+
+  .justificatif-action-item {
+    margin-top: 4px;
+
+    .btn-view-justificatif {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary, #6B5DD3);
+      background: #ede9fe;
+      border: 1px solid #c4b5fd;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #ddd6fe;
+        color: #5b21b6;
+        border-color: #a78bfa;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(107, 93, 211, 0.2);
+      }
+    }
   }
 }
 

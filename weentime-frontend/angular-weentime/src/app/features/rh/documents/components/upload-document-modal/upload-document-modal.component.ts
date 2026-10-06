@@ -1,6 +1,7 @@
-import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
+import { ModalService } from '../../../../../core/services/modal.service';
 import { DemandeDocumentRH } from '../../models/rh-document.model';
 
 @Component({
@@ -11,7 +12,16 @@ import { DemandeDocumentRH } from '../../models/rh-document.model';
   styleUrl: './upload-document-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UploadDocumentModalComponent {
+export class UploadDocumentModalComponent implements OnInit, OnDestroy {
+  private readonly modalService = inject(ModalService);
+
+  ngOnInit(): void {
+    this.modalService.open();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
   @Input({ required: true }) demande: DemandeDocumentRH | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() confirm = new EventEmitter<{ id: number, file: File }>();

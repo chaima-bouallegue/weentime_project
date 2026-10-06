@@ -3,8 +3,15 @@
   <header class="page-header">
     <div class="header-main">
       <div class="title-group">
-        <h1 class="page-title">Recrutement</h1>
-        <p class="page-subtitle">Gérez vos offres d'emploi et suivez les candidatures</p>
+        <div class="flex items-start gap-4">
+          <div class="header-icon-box">
+            <i-lucide [img]="Briefcase" class="w-5 h-5"></i-lucide>
+          </div>
+          <div>
+            <h1 class="page-title">Recrutement</h1>
+            <p class="page-subtitle">Gérez vos offres d'emploi et suivez les candidatures</p>
+          </div>
+        </div>
       </div>
 
       <div class="header-actions">
@@ -17,15 +24,21 @@
             [ngModel]="searchQuery()"
             (ngModelChange)="searchQuery.set($event)"
           >
+          @if (searchQuery()) {
+            <button type="button" class="search-clear" (click)="searchQuery.set('')">
+              <i-lucide [img]="X" class="w-3.5 h-3.5"></i-lucide>
+            </button>
+          }
         </div>
 
         <a routerLink="nouveau" class="btn-primary" id="btn-new-job">
-          <i-lucide [img]="Plus" class="w-4 h-4"></i-lucide>
+          <i-lucide [img]="Plus" class="w-3.5 h-3.5"></i-lucide>
           Nouvelle Offre
         </a>
       </div>
     </div>
   </header>
+
 
   <!-- Stats Cards -->
   <div class="stats-grid">

@@ -23,8 +23,10 @@ export enum AttendanceDayStatus {
 export enum PresenceSource {
   WEB = 'WEB',
   MOBILE = 'MOBILE',
+  GPS = 'GPS',
   BADGE = 'BADGE',
   MANUAL = 'MANUAL',
+  SYSTEM = 'SYSTEM',
   API = 'API',
   AI = 'AI',
   AI_CHATBOT = 'AI_CHATBOT',

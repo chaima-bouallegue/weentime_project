@@ -190,8 +190,8 @@ export class RhDocumentsComponent implements OnInit, OnDestroy {
     });
   }
 
-  handleSigner(event: { id: number, signedBy: string }) {
-    this.documentService.signerDocument(event.id, event.signedBy).subscribe({
+  handleSigner(event: { id: number, signedBy: string, signatureImage?: string }) {
+    this.documentService.signerDocument(event.id, event.signedBy, event.signatureImage).subscribe({
       next: updated => {
         this.demandeSelectionnee.set(updated);
         this.auditRefreshTrigger.update(v => v + 1);

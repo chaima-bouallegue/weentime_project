@@ -191,7 +191,12 @@
             <lucide-icon [img]="iconAgenda" size="18"></lucide-icon>
             <h3>Ordre du jour</h3>
           </div>
-          @if (isOrganisateur() && !isFinalized() && !isEditing()) {
+          @if (isOrganisateur() && !isFinalized() && isEditing()) {
+          <button type="button" class="btn-card-edit-action" (click)="generateAIAgenda()" [disabled]="isGeneratingAI()">
+            <lucide-icon [img]="iconSparkles" size="12"></lucide-icon>
+            {{ isGeneratingAI() ? 'Génération...' : 'Générer avec IA' }}
+          </button>
+          } @else if (isOrganisateur() && !isFinalized() && !isEditing()) {
           <button class="btn-card-edit-action" (click)="toggleGlobalEdit()">
             Éditer
           </button>

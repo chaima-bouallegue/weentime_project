@@ -25,8 +25,8 @@
 .quota-title-icon {
   width: 32px;
   height: 32px;
-  background: rgba(67, 97, 238, 0.1);
-  color: #4361EE;
+  background: rgba(107, 93, 211, 0.1);
+  color: var(--primary, #6B5DD3);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -254,7 +254,7 @@
   width: 32px;
   height: 32px;
   border: 3px solid #e2e8f0;
-  border-top-color: #4361EE;
+  border-top-color: var(--primary, #6B5DD3);
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }

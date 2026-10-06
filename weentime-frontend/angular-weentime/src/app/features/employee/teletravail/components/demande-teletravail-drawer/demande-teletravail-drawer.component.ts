@@ -1,10 +1,11 @@
-import { Component, Input, Output, EventEmitter, signal, computed, OnInit, ChangeDetectionStrategy, ViewEncapsulation, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewEncapsulation, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, X, ChevronLeft, ChevronRight, Sun, Sunrise, Sunset, Home, Calendar, Info, Send, Loader2, Monitor, AlertCircle, Sparkles, Laptop, Check } from 'lucide-angular';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
-import { PeriodeDemiJournee, NouvelleDemandeTeletravailRequest, TypeTeletravailConfig } from '../../models/teletravail.model';
+import { PeriodeDemiJournee, NouvelleDemandeTeletravailRequest, TypeTeletravailConfig, DemandeTeletravail } from '../../models/teletravail.model';
 import { TeletravailService } from '../../teletravail.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 interface CalendarDay {
   date: Date;
@@ -25,17 +26,25 @@ interface CalendarDay {
   imports: [CommonModule, LucideAngularModule, FormsModule],
   templateUrl: './demande-teletravail-drawer.component.html',
   styleUrl: './demande-teletravail-drawer.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class DemandeTeletravailDrawerComponent implements OnInit {
+export class DemandeTeletravailDrawerComponent implements OnInit, OnChanges, OnDestroy {
+  private readonly modalService = inject(ModalService);
+
+  @Input() set types(val: any[]) {
+    if (val && val.length > 0) {
+      this.populateTypes(val);
+    }
+  }
   @Input() joursRestants = 0;
   @Input() approvedDates: string[] = [];
   @Input() holidayDates: string[] = [];
+  @Input() demandeToEdit: DemandeTeletravail | null = null;
+  @Input() isSubmitting = false;
 
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<NouvelleDemandeTeletravailRequest>();
-  
+
   // Icons
   readonly iconX = X;
   readonly iconChevronLeft = ChevronLeft;
@@ -63,7 +72,6 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
   selectedEndDate = signal<string | null>(null);
   periodeDemiJournee = signal<PeriodeDemiJournee>('MATIN');
   motif = signal('');
-  isSubmitting = signal(false);
 
   availableTypes = signal<TypeTeletravailConfig[]>([]);
 
@@ -82,7 +90,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
     const start = new Date(date.getFullYear(), date.getMonth(), 1);
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
     const days: CalendarDay[] = [];
-    
+
     const prevPadding = (start.getDay() + 6) % 7;
     for (let i = prevPadding - 1; i >= 0; i--) {
       days.push(this.createDay(new Date(date.getFullYear(), date.getMonth(), -i), false));
@@ -105,27 +113,81 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
     return this.calculateBusinessDays(this.selectedStartDate()!, this.selectedEndDate()!);
   });
 
-  isStep1Valid = computed(() => !!this.selectedType() && this.joursRestants > 0);
-  isStep2Valid = computed(() => !!this.selectedStartDate() && this.nombreJoursSelectionnes() <= this.joursRestants);
+  effectiveJoursRestants = computed(() => {
+    return this.joursRestants + (this.demandeToEdit?.nombreJours ?? 0);
+  });
+
+  isStep1Valid = computed(() => !!this.selectedType() && this.effectiveJoursRestants() > 0);
+  isStep2Valid = computed(() => !!this.selectedStartDate() && this.nombreJoursSelectionnes() <= this.effectiveJoursRestants());
   isStep3Valid = computed(() => {
     const minLen = 10;
     return this.motif().length >= minLen;
   });
 
   ngOnInit(): void {
-    this.teletravailService.getTypes().subscribe(types => {
-      this.availableTypes.set(types.map(t => ({
-        ...t,
-        icon: this.TYPE_UI_CONFIG[t.periode]?.icon || this.TYPE_UI_CONFIG['DEFAULT'].icon,
-        color: this.TYPE_UI_CONFIG[t.periode]?.color || this.TYPE_UI_CONFIG['DEFAULT'].color,
-        desc: t.libelle || this.TYPE_UI_CONFIG[t.periode]?.desc || this.TYPE_UI_CONFIG['DEFAULT'].desc
-      })));
-      
+    this.modalService.open();
+    if (this.availableTypes().length === 0) {
+      this.teletravailService.getTypes().subscribe(types => {
+        this.populateTypes(types);
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['demandeToEdit'] && this.demandeToEdit && this.availableTypes().length > 0) {
+      this.applyEdit(this.demandeToEdit);
+    }
+  }
+
+  private populateTypes(types: any[]): void {
+    this.availableTypes.set(types.map(t => ({
+      ...t,
+      icon: this.TYPE_UI_CONFIG[t.periode]?.icon || this.TYPE_UI_CONFIG['DEFAULT'].icon,
+      color: this.TYPE_UI_CONFIG[t.periode]?.color || this.TYPE_UI_CONFIG['DEFAULT'].color,
+      desc: t.libelle || this.TYPE_UI_CONFIG[t.periode]?.desc || this.TYPE_UI_CONFIG['DEFAULT'].desc
+    })));
+
+    if (this.demandeToEdit) {
+      this.applyEdit(this.demandeToEdit);
+    } else {
       const draft = this.assistantWorkflow.teleworkDraft();
       if (draft) {
         this.applyDraft(draft);
       }
-    });
+    }
+  }
+
+  private applyEdit(demande: DemandeTeletravail): void {
+    const types = this.availableTypes();
+    let type = types.find(t => {
+      if (demande.periode === 'MATIN' || demande.type === 'DEMI_JOURNEE_MATIN') return t.periode === 'MATIN';
+      if (demande.periode === 'APRES_MIDI' || demande.type === 'DEMI_JOURNEE_APRES_MIDI') return t.periode === 'APRES_MIDI';
+      if (demande.type === 'JOURNEE_COMPLETE') return t.periode === 'JOURNEE_COMPLETE';
+      return false;
+    }) || types[0];
+
+    if (type) {
+      this.selectedType.set(type);
+      if (type.periode === 'MATIN' || demande.periode === 'MATIN') this.periodeDemiJournee.set('MATIN');
+      else if (type.periode === 'APRES_MIDI' || demande.periode === 'APRES_MIDI') this.periodeDemiJournee.set('APRES_MIDI');
+    }
+
+    if (demande.dateDebut) {
+      this.selectedStartDate.set(demande.dateDebut);
+      const vDate = new Date(`${demande.dateDebut}T00:00:00`);
+      if (!Number.isNaN(vDate.getTime())) this.viewDate.set(vDate);
+    }
+    if (demande.dateFin) {
+      this.selectedEndDate.set(demande.dateFin);
+    }
+    if (demande.motif) {
+      this.motif.set(demande.motif);
+    }
+    this.step.set(2);
   }
 
   private applyDraft(draft: any): void {
@@ -149,7 +211,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
   }
 
   selectType(type: TypeTeletravailConfig): void {
-    if (this.joursRestants === 0) return;
+    if (this.effectiveJoursRestants() === 0) return;
     this.selectedType.set(type);
     this.selectedStartDate.set(null);
     this.selectedEndDate.set(null);
@@ -180,8 +242,8 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
           const days = this.calculateBusinessDays(this.selectedStartDate()!, dStr);
           if (days <= 5) this.selectedEndDate.set(dStr);
           else {
-             this.selectedStartDate.set(dStr);
-             this.selectedEndDate.set(dStr);
+            this.selectedStartDate.set(dStr);
+            this.selectedEndDate.set(dStr);
           }
         }
       }
@@ -194,7 +256,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
     const isWeekend = day === 0 || day === 6;
     const isHoliday = this.holidayDates.includes(dStr);
     const isAlreadyRemote = this.approvedDates.includes(dStr);
-    
+
     let isSelected = dStr === this.selectedStartDate() || dStr === this.selectedEndDate();
     let isInRange = false;
     let isRangeStart = dStr === this.selectedStartDate();
@@ -233,8 +295,7 @@ export class DemandeTeletravailDrawerComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (!this.isStep3Valid()) return;
-    this.isSubmitting.set(true);
+    if (!this.isStep3Valid() || this.isSubmitting) return;
     const type = this.selectedType()!;
     this.submitted.emit({
       typeTeletravailId: type.id,

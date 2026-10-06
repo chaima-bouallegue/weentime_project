@@ -1,15 +1,17 @@
-import { Component, OnInit, signal, computed, inject, Input, Output, EventEmitter, HostListener, ChangeDetectionStrategy, ChangeDetectorRef, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnChanges, OnDestroy, SimpleChanges, signal, computed, inject, Input, Output, EventEmitter, HostListener, ChangeDetectionStrategy, ChangeDetectorRef, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { LucideAngularModule, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass, X, ChevronLeft, Calendar, FileText, Send, Loader2, Info, AlertTriangle, CheckCircle, Timer } from 'lucide-angular';
+import { LucideAngularModule, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass, X, ChevronLeft, Calendar, FileText, Send, Loader2, Info, AlertTriangle, CheckCircle, Check, Timer } from 'lucide-angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import {
+  Autorisation,
   TypeAutorisation,
   ATTACHMENT_CONFIG
 } from '../../../../../core/models/autorisation.model';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
 import { AutorisationService } from '../../../../../core/services/autorisation.service';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 @Component({
   selector: 'app-autorisation-form',
@@ -20,7 +22,8 @@ import { ToastService } from '../../../../../core/services/toast.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class AutorisationFormComponent implements OnInit {
+export class AutorisationFormComponent implements OnInit, OnChanges, OnDestroy {
+  private readonly modalService = inject(ModalService);
   private fb = inject(FormBuilder);
   private service = inject(AutorisationService);
   private toastService = inject(ToastService);
@@ -29,6 +32,7 @@ export class AutorisationFormComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
   private assistantWorkflow = inject(AssistantWorkflowService);
 
+  @Input() demandeToEdit: Autorisation | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<void>();
 
@@ -97,6 +101,7 @@ export class AutorisationFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.modalService.open();
     this.checkScreenSize();
     this.isStandalonePage = this.router.url.includes('nouvelle');
 
@@ -116,7 +121,11 @@ export class AutorisationFormComponent implements OnInit {
         desc: t.requireJustificatif ? 'Justificatif requis' : 'Sans justificatif'
       }));
       this.types.set(mapped);
-      this.applyDefaultType();
+      if (this.demandeToEdit) {
+        this.applyDemandeToEdit();
+      } else {
+        this.applyDefaultType();
+      }
       this.cdr.markForCheck();
     });
 
@@ -137,7 +146,19 @@ export class AutorisationFormComponent implements OnInit {
       control?.updateValueAndValidity();
     });
 
-    this.applyAssistantDraft();
+    if (!this.demandeToEdit) {
+      this.applyAssistantDraft();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['demandeToEdit'] && this.demandeToEdit && this.types().length > 0) {
+      this.applyDemandeToEdit();
+    }
   }
 
   @HostListener('window:resize')
@@ -153,10 +174,10 @@ export class AutorisationFormComponent implements OnInit {
   get containerClasses(): string {
     if (this.isStandalonePage) return 'flex flex-col w-full h-full bg-white';
 
-    const base = 'fixed top-0 right-0 z-[51] flex flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out';
+    const base = 'drawer-panel fixed top-0 right-0 z-[1051] flex flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out';
     return this.isDesktop
       ? `${base} w-[480px] h-full`
-      : `fixed inset-0 z-[51] flex flex-col bg-white h-full w-full`;
+      : `drawer-panel fixed inset-0 z-[1051] flex flex-col bg-white h-full w-full`;
   }
 
   get attachmentMode() {
@@ -196,6 +217,7 @@ export class AutorisationFormComponent implements OnInit {
   }
 
   confirmClose() {
+    this.modalService.close();
     this.showConfirmation = false;
     this.isOpen = false;
     this.cdr.markForCheck(); // Ensure the animation triggers
@@ -226,16 +248,29 @@ export class AutorisationFormComponent implements OnInit {
     }
 
     this.isSubmitting = true;
-    this.service.soumettreDemande(this.form.value).subscribe({
+    const operation$ = this.demandeToEdit
+      ? this.service.modifierDemande(this.demandeToEdit.id, this.form.value)
+      : this.service.soumettreDemande(this.form.value);
+
+    operation$.subscribe({
       next: () => {
-        this.toastService.success('Votre demande a été soumise avec succès.');
+        this.modalService.close();
+        this.toastService.success(
+          this.demandeToEdit
+            ? 'Votre demande a été modifiée avec succès.'
+            : 'Votre demande a été soumise avec succès.'
+        );
         this.isSubmitting = false;
         this.isOpen = false;
         this.cdr.markForCheck(); // Trigger closing animation
         setTimeout(() => this.submitted.emit(), 300);
       },
       error: () => {
-        this.toastService.error('Une erreur est survenue lors de la soumission.');
+        this.toastService.error(
+          this.demandeToEdit
+            ? 'Une erreur est survenue lors de la modification.'
+            : 'Une erreur est survenue lors de la soumission.'
+        );
         this.isSubmitting = false;
         this.cdr.markForCheck();
       }
@@ -334,5 +369,30 @@ export class AutorisationFormComponent implements OnInit {
       this.typeValue.set(found.id as TypeAutorisation);
       this.cdr.markForCheck();
     }
+  }
+
+  private applyDemandeToEdit(): void {
+    if (!this.demandeToEdit) return;
+    const typeValue = this.demandeToEdit.typeAutorisationLabel || this.demandeToEdit.typeAutorisation;
+    const resolvedType = this.resolveDraftType(typeValue);
+
+    this.form.patchValue({
+      type: resolvedType || this.demandeToEdit.typeAutorisation,
+      date: this.demandeToEdit.dateAutorisation ? this.demandeToEdit.dateAutorisation.split('T')[0] : '',
+      heureDebut: this.normalizeTime(this.demandeToEdit.heureDebut),
+      heureFin: this.normalizeTime(this.demandeToEdit.heureFin),
+      motif: this.demandeToEdit.motif || '',
+    });
+
+    if (resolvedType) {
+      this.typeValue.set(resolvedType as TypeAutorisation);
+    }
+    if (this.demandeToEdit.heureDebut) {
+      this.heureDebutValue.set(this.normalizeTime(this.demandeToEdit.heureDebut));
+    }
+    if (this.demandeToEdit.heureFin) {
+      this.heureFinValue.set(this.normalizeTime(this.demandeToEdit.heureFin));
+    }
+    this.cdr.markForCheck();
   }
 }

@@ -3,8 +3,13 @@
   <!-- ══ PAGE HEADER ══ -->
   <header class="page-header">
     <div class="header-left">
-      <h1 class="page-title">Télétravail</h1>
-      <p class="page-subtitle">Gérez vos jours de travail à distance et consultez votre planning</p>
+      <div class="header-icon-box">
+        <lucide-angular [img]="iconMonitor" size="24"></lucide-angular>
+      </div>
+      <div>
+        <h1 class="page-title">Mon Télétravail</h1>
+        <p class="page-subtitle">Gérez vos jours de travail à distance et consultez votre planning</p>
+      </div>
     </div>
     <div class="header-right">
       @if (store.isRefreshing()) {
@@ -13,7 +18,7 @@
           <span>Mise à jour...</span>
         </div>
       }
-      <button class="btn-new-request" (click)="showDrawer.set(true)">
+      <button class="btn-new-request" (click)="openNewRequest()">
         <lucide-angular [img]="iconPlus" size="16"></lucide-angular>
         <span>Nouvelle demande</span>
       </button>
@@ -103,23 +108,30 @@
     [joursRestants]="joursRestants()"
     [approvedDates]="approvedDates()"
     [holidayDates]="holidayDates()"
-    (close)="showDrawer.set(false)"
+    [demandeToEdit]="demandeModifier()"
+    [types]="store.types()"
+    [isSubmitting]="isSubmittingRequest()"
+    (close)="closeDrawer()"
     (submitted)="soumettreDemande($event)"
   ></app-demande-teletravail-drawer>
 }
 
 @if (demandeAnnuler()) {
-  <app-annulation-teletravail-modal
-    [demande]="demandeAnnuler()"
-    [isAnnulating]="isAnnulating()"
+  <app-confirm-cancellation-modal
+    title="Annuler la demande de télétravail"
+    message="Êtes-vous sûr de vouloir annuler votre demande de télétravail ?"
+    subMessage="Cette action est irréversible."
+    [previewItems]="teletravailCancellationPreviewItems()"
+    [isCancelling]="isAnnulating()"
     (close)="demandeAnnuler.set(null)"
-    (confirm)="confirmAnnulation($event)"
-  ></app-annulation-teletravail-modal>
+    (confirm)="confirmAnnulation(demandeAnnuler()!.id)"
+  ></app-confirm-cancellation-modal>
 }
 
 @if (demandeConsulter()) {
   <app-consultation-teletravail-modal
     [demande]="demandeConsulter()"
     (close)="demandeConsulter.set(null)"
+    (edit)="onEditRequest($event)"
   ></app-consultation-teletravail-modal>
 }

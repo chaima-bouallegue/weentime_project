@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 from typing import Any
@@ -165,3 +165,30 @@ def test_legacy_fallback_still_works_for_unrelated_prompt() -> None:
     response = asyncio.run(router.handle("message hors domaine", context()))
 
     assert response.intent == "legacy.intent"
+
+
+def test_admin_create_enterprise_voice_transcription_extracted() -> None:
+    agent = AdminAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+    message = "le nom de l'entreprise c'est cartage siré c'est 1 2 3 4 5 6 7 8 9 10 7 8 9"
+    payload = agent._extract_create_enterprise(message)
+    assert payload["nom"].lower() == "cartage"
+    assert len(payload["siret"]) == 14
+    assert payload["siret"] == "12345678910789"
+
+
+def test_admin_help_create_user_procedural() -> None:
+    agent = AdminAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+    response = asyncio.run(agent.handle("comment crier un utilisateur ?", context()))
+    assert response.type == "answer"
+    assert response.intent == "admin.help_create_user"
+    assert "Administration" in response.text
+    assert "Utilisateurs" in response.text
+
+
+def test_admin_help_create_enterprise_procedural() -> None:
+    agent = AdminAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+    response = asyncio.run(agent.handle("comment créer une entreprise", context()))
+    assert response.type == "answer"
+    assert response.intent == "admin.help_create_enterprise"
+    assert "Entreprises" in response.text
+

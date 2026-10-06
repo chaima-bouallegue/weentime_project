@@ -1,32 +1,23 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { ModalService } from './modal.service';
 
 /**
- * Toggles `body.modal-open` for global layout dimming (see styles/_modals.scss).
- * Reference-counted so nested modals work correctly.
+ * Toggles `body.modal-open` for global layout dimming.
+ * Delegates to ModalService as the unified single source of truth with reference counting.
  */
 @Injectable({ providedIn: 'root' })
 export class ModalOverlayService {
-  private openCount = 0;
+  private readonly modalService = inject(ModalService);
 
   open(): void {
-    this.openCount++;
-    if (this.openCount === 1) {
-      document.body.classList.add('modal-open');
-    }
+    this.modalService.open();
   }
 
   close(): void {
-    if (this.openCount <= 0) {
-      return;
-    }
-    this.openCount--;
-    if (this.openCount === 0) {
-      document.body.classList.remove('modal-open');
-    }
+    this.modalService.close();
   }
 
   forceClose(): void {
-    this.openCount = 0;
-    document.body.classList.remove('modal-open');
+    this.modalService.forceClose();
   }
 }

@@ -6,7 +6,7 @@ import { RecrutementService, JobPosting } from '../../services/recrutement.servi
 import { LucideAngularModule } from 'lucide-angular';
 import {
   Briefcase, Plus, Search, Filter, MoreVertical, ExternalLink,
-  MapPin, Calendar, Users, Clock, TrendingUp, Eye, Loader2, FileText, Archive, CheckCircle
+  MapPin, Calendar, Users, Clock, TrendingUp, Eye, Loader2, FileText, Archive, CheckCircle, X
 } from 'lucide-angular';
 
 @Component({
@@ -42,6 +42,7 @@ export class JobListComponent implements OnInit {
   protected readonly FileText = FileText;
   protected readonly Archive = Archive;
   protected readonly CheckCircle = CheckCircle;
+  protected readonly X = X;
 
   // Stats
   readonly stats = computed(() => {

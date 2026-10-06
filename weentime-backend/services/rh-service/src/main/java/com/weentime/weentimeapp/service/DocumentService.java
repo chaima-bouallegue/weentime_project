@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface DocumentService {
     DemandeDocumentResponse createDemande(CreateDocumentRequest request, String userEmail);
+    DemandeDocumentResponse updateDemande(Long id, CreateDocumentRequest request, String userEmail);
     List<DemandeDocumentResponse> getMesDemandes(Long userId);
     DemandeDocumentResponse annulerDemande(Long id, Long userId);
     Resource telechargerDocument(Long id, Long userId);

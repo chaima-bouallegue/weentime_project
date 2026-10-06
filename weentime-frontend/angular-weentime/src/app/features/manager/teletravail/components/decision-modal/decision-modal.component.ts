@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, ChangeDetectionStrategy, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { ModalService } from '../../../../../core/services/modal.service';
 import { DemandeTeletravailWorkflow } from '../../../../shared/models/workflow-teletravail.model';
 import { DateFrPipe } from '../../../../../shared/pipes/date-fr.pipe';
 
@@ -13,7 +14,16 @@ import { DateFrPipe } from '../../../../../shared/pipes/date-fr.pipe';
   styleUrl: './decision-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DecisionModalComponent {
+export class DecisionModalComponent implements OnInit, OnDestroy {
+  private readonly modalService = inject(ModalService);
+
+  ngOnInit(): void {
+    this.modalService.open();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
   @Input() demande: DemandeTeletravailWorkflow | null = null;
   @Input() mode: 'VALIDER' | 'REFUSER' | null = null;
   @Input() isSubmitting = false;

@@ -64,4 +64,64 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.data.number").value(0))
                 .andExpect(jsonPath("$.data.size").value(100));
     }
+
+    @Test
+    @WithMockUser(username = "emp@weentime.com", roles = "EMPLOYEE")
+    void testUpdateDocumentSuccess() throws Exception {
+        com.weentime.weentimeapp.dto.DemandeDocumentResponse response = com.weentime.weentimeapp.dto.DemandeDocumentResponse.builder()
+                .id(10L)
+                .type("ATTESTATION_TRAVAIL")
+                .label("Attestation de travail")
+                .statut(com.weentime.weentimeapp.enums.StatutDocument.DEMANDE_RECUE)
+                .motif("Nouveau motif")
+                .build();
+
+        when(documentService.updateDemande(org.mockito.ArgumentMatchers.eq(10L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("emp@weentime.com")))
+                .thenReturn(response);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/documents/10")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"ATTESTATION_TRAVAIL\",\"motif\":\"Nouveau motif\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.motif").value("Nouveau motif"));
+    }
+
+    @Test
+    @WithMockUser(username = "emp@weentime.com", roles = "EMPLOYEE")
+    void testAnnulerDocumentSuccess() throws Exception {
+        when(organisationServiceClient.getUtilisateurForAuth("emp@weentime.com"))
+                .thenReturn(UtilisateurAuthResponse.builder().id(5L).email("emp@weentime.com").build());
+
+        com.weentime.weentimeapp.dto.DemandeDocumentResponse response = com.weentime.weentimeapp.dto.DemandeDocumentResponse.builder()
+                .id(10L)
+                .statut(com.weentime.weentimeapp.enums.StatutDocument.ANNULE)
+                .build();
+
+        when(documentService.annulerDemande(10L, 5L)).thenReturn(response);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/documents/10/annuler"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.statut").value("ANNULE"));
+    }
+
+    @Test
+    @WithMockUser(username = "emp@weentime.com", roles = "EMPLOYEE")
+    void testCancelAliasSuccess() throws Exception {
+        when(organisationServiceClient.getUtilisateurForAuth("emp@weentime.com"))
+                .thenReturn(UtilisateurAuthResponse.builder().id(5L).email("emp@weentime.com").build());
+
+        com.weentime.weentimeapp.dto.DemandeDocumentResponse response = com.weentime.weentimeapp.dto.DemandeDocumentResponse.builder()
+                .id(10L)
+                .statut(com.weentime.weentimeapp.enums.StatutDocument.ANNULE)
+                .build();
+
+        when(documentService.annulerDemande(10L, 5L)).thenReturn(response);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/documents/10/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.statut").value("ANNULE"));
+    }
 }

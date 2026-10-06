@@ -107,6 +107,16 @@ import { ChatWidgetComponent } from '../../shared/chat-widget/chat-widget.compon
         padding: 16px;
       }
     }
+
+    :host-context(body.modal-open) .shell-main {
+      position: relative !important;
+      z-index: 10 !important;
+    }
+
+    :host-context(body.modal-open) .shell-content {
+      position: relative !important;
+      z-index: 20 !important;
+    }
   `]
 })
 export class ShellComponent {

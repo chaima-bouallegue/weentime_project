@@ -1,12 +1,13 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, ViewEncapsulation, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, Clock, Eye, Trash2, AlertCircle, CheckCircle, Calendar, Timer, Info, Search, Shield, Briefcase, Sparkles, User, UserCheck, ArrowRight, List, Loader2, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass } from 'lucide-angular';
+import { LucideAngularModule, Clock, Eye, Trash2, Pencil, AlertCircle, CheckCircle, Calendar, Timer, Info, Search, Shield, Briefcase, Sparkles, User, UserCheck, ArrowRight, List, Loader2, Stethoscope, LogOut, AlarmClock, Laptop, Coffee, Hourglass } from 'lucide-angular';
 import { Autorisation, StatutAutorisation, TypeAutorisation } from '../../../../../core/models/autorisation.model';
+import { DemandeActionsMenuComponent } from '../../../../../shared/components/demande-actions-menu';
 
 @Component({
   selector: 'app-autorisation-history',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, DemandeActionsMenuComponent],
   templateUrl: './autorisation-history.component.html',
   styleUrl: './autorisation-history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,11 +17,13 @@ export class AutorisationHistoryComponent {
   @Input() demandes: Autorisation[] = [];
   @Input() cancellingId: number | null = null;
   @Output() cancelRequest = new EventEmitter<Autorisation>();
+  @Output() editRequest = new EventEmitter<Autorisation>();
 
   // Icons
   readonly iconClock = Clock;
   readonly iconEye = Eye;
   readonly iconTrash = Trash2;
+  readonly iconPencil = Pencil;
   readonly iconAlert = AlertCircle;
   readonly iconCheck = CheckCircle;
   readonly iconCalendar = Calendar;

@@ -65,6 +65,18 @@ export class AutorisationService {
     );
   }
 
+  modifierDemande(id: number, request: any): Observable<Autorisation> {
+    const body = {
+      ...request,
+      typeAutorisation: request.type,
+      dateAutorisation: request.date
+    };
+
+    return this.http.put<Autorisation>(this.apiConfig.RH.UPDATE_AUTORISATION(id), body).pipe(
+      map(response => this.mapAutorisation(this.unwrap(response)))
+    );
+  }
+
   annulerDemande(id: number): Observable<Autorisation> {
     return this.http.patch<Autorisation>(this.apiConfig.RH.CANCEL_AUTORISATION(id), {}).pipe(
       map(response => this.mapAutorisation(this.unwrap(response)))

@@ -245,7 +245,7 @@ def build_confirmation_execution_response(record: ConfirmationRecord, result: To
         intent=f"confirmation.{record.tool_name}",
         confidence=1.0,
         requiresConfirmation=False,
-        confirmationId=record.confirmation_id,
+        confirmationId=None,
         toolCalls=[
             ToolCallRecord(
                 name=record.tool_name,
@@ -284,6 +284,23 @@ def action_success_text(tool_name: str, tool_input: dict[str, Any] | None = None
         ).strip()
         if employee:
             return f"C'est fait. Le document RH a ete genere pour {employee}."
+    if tool_name in {"admin.create_user", "admin.users.create"}:
+        first_name = str(tool_input.get("first_name") or "").strip()
+        last_name = str(tool_input.get("last_name") or "").strip()
+        role = str(tool_input.get("role") or "").strip()
+        name = f"{first_name} {last_name}".strip() or "L'utilisateur"
+        role_txt = f" avec le rôle {role}" if role else ""
+        return f"C'est fait ! {name} a été créé(e) avec succès{role_txt}."
+    if tool_name in {"admin.create_enterprise", "admin.enterprise.create"}:
+        nom = str(tool_input.get("nom") or "").strip() or "L'entreprise"
+        return f"C'est fait ! L'entreprise '{nom}' a été créée avec succès."
+    if tool_name in {"admin.update_user_role", "admin.update_role"}:
+        role = tool_input.get("role", "")
+        return f"C'est fait ! Le rôle a été mis à jour vers {role}."
+    if tool_name in {"admin.assign_manager"}:
+        return "C'est fait ! Le manager a été assigné avec succès."
+    if tool_name in {"admin.assign_rh_owner"}:
+        return "C'est fait ! Le responsable RH a été assigné à l'entreprise avec succès."
     return "Action confirmee."
 
 
@@ -292,22 +309,45 @@ def is_known_business_conflict(result: ToolResult) -> bool:
     message = str(getattr(result, "error_message", "") or "").lower()
     data = getattr(result, "data", None)
     data_text = str(data).lower() if data is not None else ""
-    if code in {"already_exists", "already_processed", "duplicate_request"}:
+    if code in {
+        "already_exists",
+        "already_processed",
+        "duplicate_request",
+        "siret_already_exists",
+        "email_already_exists",
+    }:
         return True
-    if getattr(result, "status_code", None) != 409:
-        return False
-    known_markers = ("deja", "déjà", "already", "existe", "exists", "traitee", "traitée", "processed")
-    return any(marker in message or marker in data_text for marker in known_markers)
+    known_markers = (
+        "deja",
+        "déjà",
+        "already",
+        "existe",
+        "exists",
+        "traitee",
+        "traitée",
+        "processed",
+        "doublon",
+        "duplicate",
+    )
+    if any(marker in message or marker in data_text for marker in known_markers):
+        return True
+    if getattr(result, "status_code", None) == 409:
+        return True
+    return False
 
 
 def business_conflict_message(result: ToolResult) -> str:
     code = str(getattr(result, "error_code", "") or "").lower()
     message = str(getattr(result, "error_message", "") or "").strip()
     lowered = message.lower()
+    if "email" in lowered and ("deja" in lowered or "déjà" in lowered or "already" in lowered or "existe" in lowered):
+        return message if (message and not message.isupper()) else "Cet email est déjà utilisé par un autre compte."
+    if "siret" in lowered and ("deja" in lowered or "déjà" in lowered or "already" in lowered or "existe" in lowered):
+        return message if (message and not message.isupper()) else "Ce numéro SIRET est déjà utilisé par une autre entreprise."
     if code == "already_processed" or "traitee" in lowered or "traitée" in lowered or "processed" in lowered:
         return "Cette demande a déjà été traitée."
-    if code == "already_exists" or "existe" in lowered or "exists" in lowered or "deja" in lowered or "déjà" in lowered:
-        return "Une demande existe déjà sur cette période."
+    if code == "already_exists" or any(m in lowered for m in ("existe", "exists", "deja", "déjà")):
+        return message if (message and not message.isupper()) else "Une ressource existe déjà avec ces informations."
     return message or "Une demande existe déjà sur cette période."
 
 

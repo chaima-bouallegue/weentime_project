@@ -1,71 +1,438 @@
-<div class="page-container">
-  <header class="page-header">
-    <div class="header-content">
-      <div class="title-group">
-        <h1 class="page-title">Télétravail</h1>
-        <p class="page-subtitle">Gestion globale des demandes de télétravail</p>
+<div class="teletravail-page">
+  <!-- Page Header -->
+  <header class="page-header page-animate">
+    <div class="page-header__row">
+      <div class="header-title-group">
+        <div class="header-icon-box">
+          <lucide-icon [img]="LaptopIcon" size="24"></lucide-icon>
+        </div>
+        <div>
+          <h1 class="page-title">Gestion du télétravail</h1>
+          <p class="page-subtitle">Arbitrage RH, suivi des accords et historique global du télétravail</p>
+        </div>
+      </div>
+      <div class="page-header__actions">
+        <button
+          type="button"
+          class="btn-secondary-sm"
+          (click)="exportCSV()"
+          [disabled]="filteredDemandes().length === 0"
+          title="Exporter les demandes au format CSV">
+          <lucide-icon [img]="DownloadIcon" size="15"></lucide-icon>
+          <span>Exporter CSV</span>
+        </button>
       </div>
     </div>
   </header>
 
+  <!-- Standard Tab Bar (Same style as Congés) -->
   @if (isRh()) {
-    <div class="flex border-b border-slate-100 dark:border-slate-800 mb-8 px-6">
-      <button (click)="activeTab.set('mes-demandes')" class="px-6 py-3 font-bold text-sm transition-all border-b-2" [class.border-indigo-600]="activeTab() === 'mes-demandes'" [class.text-indigo-600]="activeTab() === 'mes-demandes'" [class.border-transparent]="activeTab() !== 'mes-demandes'" [class.text-slate-400]="activeTab() !== 'mes-demandes'">
+    <nav class="tab-bar page-animate" aria-label="Sections télétravail">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.is-active]="activeTab() === 'mes-demandes'"
+        (click)="activeTab.set('mes-demandes')">
         Mes demandes
       </button>
-      <button (click)="activeTab.set('gestion')" class="px-6 py-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2" [class.border-indigo-600]="activeTab() === 'gestion'" [class.text-indigo-600]="activeTab() === 'gestion'" [class.border-transparent]="activeTab() !== 'gestion'" [class.text-slate-400]="activeTab() !== 'gestion'">
-        <span>Gestion</span>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.is-active]="activeTab() === 'gestion'"
+        (click)="activeTab.set('gestion')">
+        Gestion
         @if (demandesEnAttente().length > 0) {
-          <span class="px-2 py-0.5 text-[10px] font-black bg-rose-500 text-white rounded-full">{{ demandesEnAttente().length }}</span>
+          <span class="tab-badge" aria-label="{{ demandesEnAttente().length }} en attente">
+            {{ demandesEnAttente().length }}
+          </span>
         }
       </button>
-    </div>
+    </nav>
   }
 
   @if (activeTab() === 'mes-demandes') {
     <app-employee-teletravail></app-employee-teletravail>
   } @else {
-    <!-- Zone 1: Stats RH -->
-    <section class="section">
-      <app-stats-rh-cards [stats]="stats()" [isLoading]="isLoading()"></app-stats-rh-cards>
-    </section>
+    <div class="page-animate">
+      <!-- Urgent Pending Banner (If any requests waiting for RH) -->
+      @if (demandesEnAttente().length > 0) {
+        <section class="pending-banner page-animate" aria-label="Demandes en attente d'arbitrage RH">
+          <div class="pending-banner__header">
+            <div class="pending-banner__icon">
+              <lucide-icon [img]="ClockIcon" size="18"></lucide-icon>
+            </div>
+            <div>
+              <h3 class="pending-banner__title">Demandes en attente d'arbitrage RH</h3>
+              <p class="pending-banner__count">{{ demandesEnAttente().length }} demande{{ demandesEnAttente().length > 1 ? 's' : '' }} validée{{ demandesEnAttente().length > 1 ? 's' : '' }} par leur manager</p>
+            </div>
+          </div>
+          <div class="pending-banner__grid">
+            @for (demande of demandesEnAttente(); track demande.id) {
+              <div class="pending-card">
+                <!-- Top Row: Avatar + Employee Identity + Duration Badge -->
+                <div class="pending-card__header">
+                  <div class="pending-card__user">
+                    <div class="person-avatar" [style.background]="getAvatarColor(demande.employe.avatarInitiales)">
+                      {{ demande.employe.avatarInitiales }}
+                    </div>
+                    <div class="pending-card__user-info">
+                      <span class="person-name">{{ demande.employe.prenom }} {{ demande.employe.nom }}</span>
+                      <span class="person-sub">{{ demande.employe.departement || demande.employe.poste || 'Collaborateur' }}</span>
+                    </div>
+                  </div>
+                  <span class="pending-badge">
+                    {{ demande.nombreJours }} {{ demande.nombreJours > 1 ? 'jours' : 'jour' }}
+                  </span>
+                </div>
 
-    @if (loadWarning()) {
-      <section class="section">
-        <div class="empty-state-sm">
-          <p>{{ loadWarning() }}</p>
+                <!-- Mid Section: Period, Type & Manager Advice -->
+                <div class="pending-card__body">
+                  <div class="pending-meta-row">
+                    <lucide-icon [img]="CalendarIcon" size="13" class="pending-meta-icon"></lucide-icon>
+                    <span class="pending-type-tag">{{ getTypeLabel(demande) }}</span>
+                    <span class="pending-meta-dot">·</span>
+                    <span class="pending-date-text">{{ formatDateRange(demande) }}</span>
+                  </div>
+
+                  @if (demande.commentaireManager) {
+                    <div class="pending-manager-quote" [title]="'Avis manager: ' + demande.commentaireManager">
+                      <span class="quote-icon">«</span>
+                      <span class="quote-text">{{ demande.commentaireManager }}</span>
+                      <span class="quote-icon">»</span>
+                    </div>
+                  }
+                </div>
+
+                <!-- Bottom Row: Clean Separated Actions with full text & clear affordance -->
+                <div class="pending-card__footer">
+                  <button
+                    type="button"
+                    class="pending-btn pending-btn--view"
+                    (click)="onConsulter(demande)"
+                    title="Consulter les détails">
+                    <lucide-icon [img]="EyeIcon" size="14"></lucide-icon>
+                    <span>Détails</span>
+                  </button>
+                  <div class="pending-card__decision-actions">
+                    <button
+                      type="button"
+                      class="pending-btn pending-btn--refuse"
+                      (click)="onRefuser(demande)"
+                      title="Refuser la demande">
+                      <lucide-icon [img]="XIcon" size="14"></lucide-icon>
+                      <span>Refuser</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="pending-btn pending-btn--approve"
+                      (click)="onApprouver(demande)"
+                      title="Approuver la demande">
+                      <lucide-icon [img]="CheckIcon" size="14"></lucide-icon>
+                      <span>Approuver</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Unified Toolbar: Search + Type Filter + Dept Filter + Refresh at Top -->
+      <div class="toolbar-row page-animate">
+        <div class="search-filter-bar" role="search">
+          <lucide-icon [img]="SearchIcon" size="16" class="search-bar-icon"></lucide-icon>
+          <input
+            type="search"
+            class="search-filter-input"
+            placeholder="Rechercher par collaborateur, département, poste..."
+            [ngModel]="searchQuery()"
+            (input)="onSearchInput($any($event.target).value)"
+            aria-label="Rechercher une demande" />
+          <div class="divider" aria-hidden="true"></div>
+          <select
+            class="search-filter-select"
+            [ngModel]="typeFilter()"
+            (ngModelChange)="setTypeFilter($event)"
+            aria-label="Filtrer par type de télétravail">
+            <option value="ALL">Tous les types</option>
+            @for (t of availableTypes(); track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+          @if (availableDepartments().length > 0) {
+            <div class="divider" aria-hidden="true"></div>
+            <select
+              class="search-filter-select"
+              [ngModel]="departmentFilter()"
+              (ngModelChange)="setDepartmentFilter($event)"
+              aria-label="Filtrer par département">
+              <option value="ALL">Tous les départements</option>
+              @for (dept of availableDepartments(); track dept) {
+                <option [value]="dept">{{ dept }}</option>
+              }
+            </select>
+          }
+          @if (hasActiveFilters()) {
+            <button
+              type="button"
+              class="reset-filters-btn"
+              (click)="resetFilters()"
+              title="Réinitialiser tous les filtres">
+              <lucide-icon [img]="XIcon" size="14"></lucide-icon>
+              <span>Effacer</span>
+            </button>
+          }
         </div>
-      </section>
-    }
-
-    <!-- Zone 2: Demandes en attente RH -->
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">Demandes en attente de validation RH</h2>
-        <span class="count-badge" [class.pulse]="demandesEnAttente().length > 0">{{ demandesEnAttente().length }}</span>
+        <div class="toolbar-actions">
+          <button
+            type="button"
+            class="toolbar-refresh"
+            (click)="refresh()"
+            [disabled]="isLoading()"
+            aria-label="Actualiser la liste">
+            <lucide-icon [img]="RefreshCwIcon" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
+          </button>
+        </div>
       </div>
-      <app-demandes-rh-list
-        [demandes]="demandesEnAttente()"
-        [isLoading]="isLoading()"
-        (approuver)="onApprouver($event)"
-        (refuser)="onRefuser($event)"
-      ></app-demandes-rh-list>
-    </section>
 
-    <!-- Zone 3: Historique Global -->
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">Historique global</h2>
+      <!-- Status Filter Tabs Strip (Directly beneath search bar) -->
+      <nav class="status-tabs-nav page-animate" role="tablist" aria-label="Filtrer par statut">
+        <button
+          type="button"
+          class="status-tab-btn"
+          [class.is-active]="statusFilter() === 'ALL'"
+          (click)="setStatusFilter('ALL')">
+          <span class="status-tab-label">Demandes</span>
+          <span class="status-tab-badge badge--all">{{ allDemandesCount() }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="status-tab-btn tab--amber"
+          [class.is-active]="statusFilter() === 'EN_ATTENTE_RH'"
+          (click)="setStatusFilter('EN_ATTENTE_RH')">
+          <span class="status-dot dot--amber"></span>
+          <span class="status-tab-label">En attente RH</span>
+          <span class="status-tab-badge badge--amber">{{ enAttenteRhCount() }}</span>
+        </button>
+
+        @if (enAttenteManagerCount() > 0) {
+          <button
+            type="button"
+            class="status-tab-btn tab--blue"
+            [class.is-active]="statusFilter() === 'EN_ATTENTE_MANAGER'"
+            (click)="setStatusFilter('EN_ATTENTE_MANAGER')">
+            <span class="status-dot dot--blue"></span>
+            <span class="status-tab-label">Attente manager</span>
+            <span class="status-tab-badge badge--blue">{{ enAttenteManagerCount() }}</span>
+          </button>
+        }
+
+        <button
+          type="button"
+          class="status-tab-btn tab--green"
+          [class.is-active]="statusFilter() === 'APPROUVE'"
+          (click)="setStatusFilter('APPROUVE')">
+          <span class="status-dot dot--green"></span>
+          <span class="status-tab-label">Approuvées</span>
+          <span class="status-tab-badge badge--green">{{ approuveCount() }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="status-tab-btn tab--red"
+          [class.is-active]="statusFilter() === 'REFUSE'"
+          (click)="setStatusFilter('REFUSE')">
+          <span class="status-dot dot--red"></span>
+          <span class="status-tab-label">Refusées</span>
+          <span class="status-tab-badge badge--red">{{ refuseCount() }}</span>
+        </button>
+
+        @if (annuleCount() > 0) {
+          <button
+            type="button"
+            class="status-tab-btn tab--gray"
+            [class.is-active]="statusFilter() === 'ANNULE'"
+            (click)="setStatusFilter('ANNULE')">
+            <span class="status-dot dot--gray"></span>
+            <span class="status-tab-label">Annulées</span>
+            <span class="status-tab-badge badge--gray">{{ annuleCount() }}</span>
+          </button>
+        }
+      </nav>
+
+      <!-- Data Table Card -->
+      <div class="table-card page-animate">
+        @if (isLoading() && allDemandes().length === 0) {
+          <div class="panel-state panel-state--loading" role="status">
+            <div class="spinner" aria-hidden="true"></div>
+            <p class="panel-state__text">Chargement des demandes de télétravail…</p>
+          </div>
+        } @else if (allDemandes().length === 0 && !isLoading()) {
+          <div class="panel-state">
+            <div class="empty-icon" aria-hidden="true">
+              <lucide-icon [img]="LaptopIcon" size="22"></lucide-icon>
+            </div>
+            <h2 class="panel-state__title">Aucune demande enregistrée</h2>
+            <p class="panel-state__text">
+              Les demandes de télétravail de vos collaborateurs apparaîtront ici dès leur soumission.
+            </p>
+          </div>
+        } @else if (filteredDemandes().length === 0) {
+          <div class="panel-state">
+            <div class="empty-icon" aria-hidden="true">
+              <lucide-icon [img]="SearchIcon" size="22"></lucide-icon>
+            </div>
+            <h2 class="panel-state__title">Aucun résultat</h2>
+            <p class="panel-state__text">
+              Aucune demande ne correspond à vos critères de recherche ou aux filtres sélectionnés.
+            </p>
+            @if (hasActiveFilters()) {
+              <button type="button" class="btn-secondary-sm" style="margin-top: 12px;" (click)="resetFilters()">
+                Réinitialiser les filtres
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Collaborateur</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Période</th>
+                  <th scope="col">Durée</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col">Avis Manager</th>
+                  <th scope="col" class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of paginatedDemandes(); track d.id) {
+                  <tr>
+                    <!-- Collaborateur -->
+                    <td>
+                      <div class="person-cell">
+                        <div class="person-avatar" [style.background]="getAvatarColor(d.employe.avatarInitiales)">
+                          {{ d.employe.avatarInitiales }}
+                        </div>
+                        <div>
+                          <span class="person-name">{{ d.employe.prenom }} {{ d.employe.nom }}</span>
+                          <span class="person-email">{{ d.employe.departement }} · {{ d.employe.poste }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <!-- Type -->
+                    <td>
+                      <span class="type-badge" [ngClass]="getTypeBadgeClass(d.type)">
+                        {{ getTypeLabel(d) }}
+                      </span>
+                    </td>
+                    <!-- Période -->
+                    <td>
+                      <span class="date-range-text">
+                        <lucide-icon [img]="CalendarIcon" size="13" class="calendar-icon-sm"></lucide-icon>
+                        <span>{{ formatDateRange(d) }}</span>
+                      </span>
+                    </td>
+                    <!-- Durée -->
+                    <td>
+                      <span class="days-text">{{ d.nombreJours }} jour{{ d.nombreJours > 1 ? 's' : '' }}</span>
+                    </td>
+                    <!-- Statut -->
+                    <td>
+                      <span class="badge" [ngClass]="getStatusBadgeClass(d.statut)">
+                        {{ getStatusLabel(d.statut) }}
+                      </span>
+                    </td>
+                    <!-- Avis Manager -->
+                    <td>
+                      @if (d.statut === 'EN_ATTENTE_MANAGER') {
+                        <span class="manager-pending-tag">En attente</span>
+                      } @else if (d.commentaireManager) {
+                        <div class="manager-cell" [title]="d.commentaireManager">
+                          <span class="manager-check-icon">✓</span>
+                          <span class="manager-comment-truncate">« {{ d.commentaireManager }} »</span>
+                        </div>
+                      } @else {
+                        <span class="manager-ok-tag">✓ Approuvé</span>
+                      }
+                    </td>
+                    <!-- Actions -->
+                    <td class="col-actions actions-cell">
+                      <div class="action-group">
+                        @if (d.statut === 'EN_ATTENTE_RH') {
+                          <button
+                            type="button"
+                            class="action-btn action-btn--approve"
+                            title="Approuver la demande"
+                            (click)="onApprouver(d)"
+                            aria-label="Approuver">
+                            <lucide-icon [img]="CheckIcon" size="14"></lucide-icon>
+                          </button>
+                          <button
+                            type="button"
+                            class="action-btn action-btn--refuse"
+                            title="Refuser la demande"
+                            (click)="onRefuser(d)"
+                            aria-label="Refuser">
+                            <lucide-icon [img]="XIcon" size="14"></lucide-icon>
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          class="action-btn action-btn--view"
+                          title="Consulter les détails"
+                          (click)="onConsulter(d)"
+                          aria-label="Consulter">
+                          <lucide-icon [img]="EyeIcon" size="14"></lucide-icon>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          @if (totalPages() > 1) {
+            <div class="table-pagination">
+              <p class="page-info">
+                 Affichage de
+                <strong>{{ (currentPage() - 1) * pageSize + 1 }}–{{ Math.min(currentPage() * pageSize, filteredDemandes().length) }}</strong>
+                sur <strong>{{ filteredDemandes().length }}</strong> demandes
+              </p>
+              <div class="page-controls">
+                <button class="page-btn" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+                  <lucide-icon [img]="ChevronLeftIcon" size="16"></lucide-icon>
+                </button>
+                @for (page of getPageNumbers(); track page) {
+                  @if (page === -1) {
+                    <span class="page-ellipsis">…</span>
+                  } @else {
+                    <button
+                      class="page-num"
+                      [class.is-active]="currentPage() === page"
+                      (click)="goToPage(page)">
+                      {{ page }}
+                    </button>
+                  }
+                }
+                <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
+                  <lucide-icon [img]="ChevronRightIcon" size="16"></lucide-icon>
+                </button>
+              </div>
+            </div>
+          }
+        }
       </div>
-      <app-historique-global
-        [demandes]="historiqueGlobal()"
-        [isLoading]="isLoading()"
-      ></app-historique-global>
-    </section>
+    </div>
   }
 </div>
 
-<!-- Decision RH Modal -->
+<!-- Decision / Consultation RH Modal -->
 @if (demandeSelectionnee()) {
   <app-decision-rh-modal
     [demande]="demandeSelectionnee()"
@@ -73,5 +440,6 @@
     [isSubmitting]="isSubmitting()"
     (close)="closeModal()"
     (confirm)="onConfirmDecision($event)"
+    (switchMode)="onSwitchMode($event)"
   ></app-decision-rh-modal>
 }

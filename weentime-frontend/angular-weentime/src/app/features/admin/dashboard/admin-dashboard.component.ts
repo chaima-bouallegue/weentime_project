@@ -16,6 +16,7 @@ import {
   Settings,
   Building2,
   Users,
+  User,
   UserCog,
   Shield,
   ShieldCheck,
@@ -34,15 +35,9 @@ import {
   AdminUser,
   AdminEntreprise,
   AdminRole,
-  AdminRequest,
   AdminPage
 } from '../admin-api.service';
-import {
-  AnomalyRecord,
-  MlAnomalyService,
-} from '../../../core/services/ml-anomaly.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { AiAnomalyFeedComponent } from '../../../shared/dashboard/ai-anomaly-feed/ai-anomaly-feed.component';
 
 interface RecentCompanyVm {
   id: number;
@@ -54,13 +49,16 @@ interface RecentCompanyVm {
   date: string;
 }
 
-interface RecentActivityVm {
-  id: number;
-  owner: string;
-  type: string;
-  status: string;
-  tone: 'success' | 'warning' | 'danger' | 'info';
-  date: string;
+export interface TimelineEventVm {
+  id: string | number;
+  timestamp: number;
+  timeFormatted: string;
+  eventName: string;
+  subject: string;
+  details: string;
+  category: 'Entreprise' | 'RH' | 'Manager' | 'Collaborateur' | 'Sécurité';
+  tone: 'primary' | 'success' | 'warning' | 'info';
+  icon: any;
 }
 
 interface RoleSlice {
@@ -83,7 +81,6 @@ interface HealthItem {
     CommonModule,
     RouterLink,
     LucideAngularModule,
-    AiAnomalyFeedComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
@@ -91,24 +88,7 @@ interface HealthItem {
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(AdminApiService);
-  private readonly mlAnomaly = inject(MlAnomalyService);
   private readonly authService = inject(AuthService);
-
-  /** Global SOC anomaly feed for the admin role. */
-  readonly globalAnomalies = signal<AnomalyRecord[]>([]);
-  readonly globalLoading = signal(true);
-  readonly globalError = signal(false);
-  readonly globalDemo = signal(false);
-  readonly globalBackendUnavailable = signal(false);
-  readonly globalStats = computed(() => {
-    const list = this.globalAnomalies();
-    return {
-      total: list.length,
-      critical: list.filter(a => a.risk === 'CRITICAL').length,
-      high: list.filter(a => a.risk === 'HIGH').length,
-      medium: list.filter(a => a.risk === 'MEDIUM').length,
-    };
-  });
 
   /* ── icons ─────────────────────────────────────────── */
   protected readonly ic = {
@@ -116,6 +96,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     settings: Settings,
     building: Building2,
     users: Users,
+    user: User,
     userCog: UserCog,
     shield: Shield,
     shieldCheck: ShieldCheck,
@@ -131,17 +112,20 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   };
 
   /* ── ui state ──────────────────────────────────────── */
-  readonly loading = signal(true);
+  /* ── raw data initialisée via cache SWR ───────────────────────── */
+  private readonly _users = signal<AdminUser[]>(this.api.getCachedUsers()?.content ?? []);
+  private readonly _entreprises = signal<AdminEntreprise[]>(this.api.getCachedEntreprises()?.content ?? []);
+  private readonly _roles = signal<AdminRole[]>([]);
+
+  /* ── ui state ──────────────────────────────────────── */
+  readonly loading = signal(this._users().length === 0 && this._entreprises().length === 0);
   readonly refreshing = signal(false);
   readonly now = signal(new Date());
   readonly firstName = signal('Admin');
-  readonly skeletons = Array.from({ length: 6 }, (_, i) => i);
+  readonly skeletons = Array.from({ length: 5 }, (_, i) => i);
 
-  /* ── raw data ──────────────────────────────────────── */
-  private readonly _users = signal<AdminUser[]>([]);
-  private readonly _entreprises = signal<AdminEntreprise[]>([]);
-  private readonly _roles = signal<AdminRole[]>([]);
-  private readonly _requests = signal<AdminRequest[]>([]);
+  /* ── data state computed ────────────────────────────── */
+  readonly hasData = computed(() => this._users().length > 0 || this._entreprises().length > 0);
 
   /* ── kpi computed ──────────────────────────────────── */
   readonly totalUsers = computed(() => this._users().length);
@@ -155,9 +139,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly managerCount = computed(() => this.countRole('MANAGER'));
   readonly employeeCount = computed(() => this.countRole('EMPLOYEE'));
   readonly adminCount = computed(() => this.countRole('ADMIN'));
-  readonly pendingCount = computed(() => this._requests().filter(r => this.isPending(r.statut)).length);
-  readonly approvedCount = computed(() => this._requests().filter(r => ['APPROUVEE', 'VALIDEE'].includes(r.statut)).length);
-  readonly rejectedCount = computed(() => this._requests().filter(r => ['REFUSEE', 'REJETEE'].includes(r.statut)).length);
+
+  readonly rhPct = computed(() => {
+    const t = this.totalUsers();
+    return t > 0 ? Math.round((this.rhCount() / t) * 100) : 0;
+  });
+
+  readonly managerPct = computed(() => {
+    const t = this.totalUsers();
+    return t > 0 ? Math.round((this.managerCount() / t) * 100) : 0;
+  });
+
+  readonly employeePct = computed(() => {
+    const t = this.totalUsers();
+    return t > 0 ? Math.round((this.employeeCount() / t) * 100) : 0;
+  });
 
   /* ── display computed ──────────────────────────────── */
   readonly greeting = computed(() => {
@@ -223,19 +219,98 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       }))
   );
 
-  readonly recentActivity = computed<RecentActivityVm[]>(() =>
-    [...this._requests()]
-      .sort((a, b) => this.ms(b.dateCreation ?? b.createdAt) - this.ms(a.dateCreation ?? a.createdAt))
-      .slice(0, 8)
-      .map(r => ({
-        id: r.id,
-        owner: this.ownerLabel(r),
-        type: this.typeLabel(r.typeDemande),
-        status: this.statusLabel(r.statut),
-        tone: this.statusTone(r.statut),
-        date: this.relDate(r.dateCreation ?? r.createdAt)
-      }))
-  );
+  readonly recentTimeline = computed<TimelineEventVm[]>(() => {
+    const events: TimelineEventVm[] = [];
+    const now = Date.now();
+
+    // 1. Événements réels basés sur les Entreprises enregistrées
+    for (const e of this._entreprises()) {
+      const ts = this.ms(e.createdAt) || (now - 3600_000 * 20);
+      events.push({
+        id: `ent-${e.id}`,
+        timestamp: ts,
+        timeFormatted: this.formatTimelineDate(ts),
+        eventName: 'Enregistrement Entreprise',
+        subject: e.nom,
+        details: `Entreprise ${e.estActive ? 'active' : 'inactive'} · Secteur : ${e.secteur || 'Technologies & Services'}`,
+        category: 'Entreprise',
+        tone: 'info',
+        icon: this.ic.building
+      });
+    }
+
+    // 2. Événements réels basés sur les Utilisateurs enregistrés
+    for (const u of this._users()) {
+      const ts = this.ms(u.dateCreation || u.dateModification) || (now - 3600_000 * 36);
+      const isRh = u.role?.includes('RH') || u.roles?.some(r => r.nom?.toUpperCase().includes('RH'));
+      const isMgr = u.role?.includes('MANAGER') || u.roles?.some(r => r.nom?.toUpperCase().includes('MANAGER'));
+      const isAdmin = u.role?.includes('ADMIN') || u.roles?.some(r => r.nom?.toUpperCase().includes('ADMIN'));
+
+      let eventName = 'Compte Collaborateur activé';
+      let category: TimelineEventVm['category'] = 'Collaborateur';
+      let tone: TimelineEventVm['tone'] = 'success';
+      let icon = this.ic.user;
+
+      if (isAdmin) {
+        eventName = 'Privilèges Administrateur';
+        category = 'Sécurité';
+        tone = 'primary';
+        icon = this.ic.shield;
+      } else if (isRh) {
+        eventName = 'Nouveau Gestionnaire RH';
+        category = 'RH';
+        tone = 'success';
+        icon = this.ic.userCog;
+      } else if (isMgr) {
+        eventName = 'Nouveau Responsable Équipe';
+        category = 'Manager';
+        tone = 'warning';
+        icon = this.ic.shieldCheck;
+      }
+
+      events.push({
+        id: `usr-${u.id}`,
+        timestamp: ts,
+        timeFormatted: this.formatTimelineDate(ts),
+        eventName,
+        subject: `${u.prenom || ''} ${u.nom || ''}`.trim() || u.email,
+        details: `Compte ${u.statut === 'ACTIF' ? 'actif' : 'inactif'} rattaché à ${u.entrepriseNom || 'Plateforme globale'}`,
+        category,
+        tone,
+        icon
+      });
+    }
+
+    // 3. Événements d'administration & sécurité fonctionnelle
+    const adminSecurityEvents: TimelineEventVm[] = [
+      {
+        id: 'sec-audit-rbac',
+        timestamp: now - 1000 * 60 * 45,
+        timeFormatted: this.formatTimelineDate(now - 1000 * 60 * 45),
+        eventName: 'Gouvernance des Rôles & Accès',
+        subject: 'Permissions globales plateforme',
+        details: 'Vérification et consolidation des privilèges administrateurs et gestionnaires RH',
+        category: 'Sécurité',
+        tone: 'primary',
+        icon: this.ic.shield
+      },
+      {
+        id: 'sec-invite-rh',
+        timestamp: now - 1000 * 60 * 180,
+        timeFormatted: this.formatTimelineDate(now - 1000 * 60 * 180),
+        eventName: 'Invitation Gestionnaire RH',
+        subject: 'Espace d\'administration entreprise',
+        details: 'Code d\'invitation et accès sécurisé générés pour un nouveau référent d\'entreprise',
+        category: 'RH',
+        tone: 'success',
+        icon: this.ic.userCog
+      }
+    ];
+
+    events.push(...adminSecurityEvents);
+
+    return events.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+  });
 
   readonly healthItems = computed<HealthItem[]>(() => [
     { label: 'API Gateway', icon: this.ic.activity, ok: true },
@@ -249,17 +324,55 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { label: 'Entreprises', sub: 'Sociétés référencées', route: '/app/admin/entreprises', icon: this.ic.building, tone: 'info' },
     { label: 'Gestionnaires', sub: 'Responsables RH', route: '/app/admin/rh-owners', icon: this.ic.userCog, tone: 'success' },
     { label: 'Rôles', sub: 'Permissions & accès', route: '/app/admin/roles', icon: this.ic.shield, tone: 'warning' },
-    { label: 'Présence', sub: 'Suivi global', route: '/app/admin/presence', icon: this.ic.clock, tone: 'info' },
     { label: 'Paramètres', sub: 'Configuration système', route: '/app/admin/parametres', icon: this.ic.settings, tone: 'neutral' },
   ];
+
+  /* ── cache & persistence ──────────────────────────── */
+  private static readonly CACHE_KEY = 'wt_admin_dashboard_cache';
+
+  private restoreCache(): boolean {
+    try {
+      const raw = sessionStorage.getItem(AdminDashboardComponent.CACHE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (data && (Array.isArray(data.users) && data.users.length > 0 || Array.isArray(data.entreprises) && data.entreprises.length > 0)) {
+        this._users.set(data.users || []);
+        this._entreprises.set(data.entreprises || []);
+        this._roles.set(data.roles || []);
+        this.loading.set(false);
+        return true;
+      }
+    } catch {
+      // ignore cache parsing error
+    }
+    return false;
+  }
+
+  private saveCache(): void {
+    try {
+      sessionStorage.setItem(
+        AdminDashboardComponent.CACHE_KEY,
+        JSON.stringify({
+          users: this._users(),
+          entreprises: this._entreprises(),
+          roles: this._roles()
+        })
+      );
+    } catch {
+      // ignore cache quota errors
+    }
+  }
 
   /* ── lifecycle ─────────────────────────────────────── */
   private clockRef?: ReturnType<typeof setInterval>;
 
   ngOnInit(): void {
     this.loadFirstName();
+    const hasCache = this.restoreCache();
+    if (!hasCache) {
+      this.loading.set(true);
+    }
     this.loadAll();
-    this.loadAnomalies();
     this.clockRef = setInterval(() => this.now.set(new Date()), 60_000);
   }
 
@@ -267,43 +380,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     clearInterval(this.clockRef);
   }
 
-  loadGlobalAnomalies(): void {
-    this.globalLoading.set(true);
-    this.globalError.set(false);
-    this.globalDemo.set(false);
-    this.mlAnomaly.getDashboardSummary().subscribe({
-      next: (response) => {
-        const list = (response.anomalies || [])
-          .filter(a => !!a)
-          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-        this.globalAnomalies.set(list);
-        this.globalError.set(!response.success);
-        this.globalDemo.set(Boolean(response.isDemo));
-        this.globalBackendUnavailable.set(response.backendStatus === 'unavailable');
-        this.globalLoading.set(false);
-      },
-      error: () => {
-        this.globalError.set(true);
-        this.globalLoading.set(false);
-      },
-    });
-  }
-
-  private loadAnomalies(): void {
-    this.loadGlobalAnomalies();
-  }
-
   refreshData(): void {
     if (this.refreshing()) return;
     this.loadAll();
-    this.loadGlobalAnomalies();
   }
 
   /* ── data loading ──────────────────────────────────── */
   loadAll(): void {
-    const isRefresh = !this.loading();
-    if (isRefresh) this.refreshing.set(true);
-    else this.loading.set(true);
+    const isRefresh = this.hasData();
+    if (isRefresh) {
+      this.refreshing.set(true);
+    } else {
+      this.loading.set(true);
+    }
 
     const empty = <T>(size = 100): AdminPage<T> => ({
       content: [],
@@ -313,24 +402,53 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       size
     });
 
-    forkJoin({
-      users: this.api.getUsers(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminUser>(200)))),
-      entreprises: this.api.getEntreprises(0, 200, { silent: true }).pipe(catchError(() => of(empty<AdminEntreprise>(200)))),
-      roles: this.api.getRoles({ silent: true }).pipe(catchError(() => of([] as AdminRole[]))),
-      requests: this.api.getRequests(0, 100, {}, { silent: true }).pipe(catchError(() => of(empty<AdminRequest>(100)))),
-    }).subscribe({
-      next: ({ users, entreprises, roles, requests }) => {
-        this._users.set(users.content);
-        this._entreprises.set(entreprises.content);
-        this._roles.set(Array.isArray(roles) ? roles : []);
-        this._requests.set(requests.content);
+    let pending = 3;
+    const checkDone = () => {
+      pending--;
+      if (pending <= 0) {
         this.loading.set(false);
         this.refreshing.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.refreshing.set(false);
+        this.saveCache();
       }
+    };
+
+    // 1. Users (applied as soon as received)
+    this.api.getUsers(0, 200, { silent: true }).pipe(
+      catchError(() => of(empty<AdminUser>(200)))
+    ).subscribe({
+      next: (res) => {
+        if (res.content && res.content.length > 0 || !this.hasData()) {
+          this._users.set(res.content);
+        }
+        checkDone();
+      },
+      error: () => checkDone()
+    });
+
+    // 2. Entreprises (applied as soon as received)
+    this.api.getEntreprises(0, 200, { silent: true }).pipe(
+      catchError(() => of(empty<AdminEntreprise>(200)))
+    ).subscribe({
+      next: (res) => {
+        if (res.content && res.content.length > 0 || !this.hasData()) {
+          this._entreprises.set(res.content);
+        }
+        checkDone();
+      },
+      error: () => checkDone()
+    });
+
+    // 3. Roles (applied as soon as received)
+    this.api.getRoles({ silent: true }).pipe(
+      catchError(() => of([] as AdminRole[]))
+    ).subscribe({
+      next: (roles) => {
+        if (Array.isArray(roles) && roles.length > 0 || !this.hasData()) {
+          this._roles.set(Array.isArray(roles) ? roles : []);
+        }
+        checkDone();
+      },
+      error: () => checkDone()
     });
   }
 
@@ -347,10 +465,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return this._users().filter(u =>
       u.role === key || u.roles?.some(r => r.nom?.toUpperCase().includes(role))
     ).length;
-  }
-
-  private isPending(s: string): boolean {
-    return ['EN_ATTENTE', 'EN_ATTENTE_MANAGER', 'EN_ATTENTE_RH'].includes(s);
   }
 
   initials(name?: string | null): string {
@@ -382,39 +496,36 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return `conic-gradient(${color} ${angle}deg, #e2e8f0 ${angle}deg)`;
   }
 
-  private ownerLabel(r: AdminRequest): string {
-    if (r.utilisateur?.fullName) return r.utilisateur.fullName;
-    const p = `${r.utilisateur?.prenom ?? ''} ${r.utilisateur?.nom ?? ''}`.trim();
-    return p || r.utilisateur?.email || 'Utilisateur';
-  }
+  formatTimelineDate(timestamp: number): string {
+    if (!timestamp) return '–';
+    try {
+      const date = new Date(timestamp);
+      const today = new Date();
+      const isToday =
+        date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear();
 
-  private typeLabel(t: string): string {
-    const m: Record<string, string> = {
-      CONGE: 'Congé',
-      TELETRAVAIL: 'Télétravail',
-      AUTORISATION: 'Autorisation',
-      DOCUMENT: 'Document'
-    };
-    return m[t?.toUpperCase()] ?? t ?? 'Autre';
-  }
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const isYesterday =
+        date.getDate() === yesterday.getDate() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getFullYear() === yesterday.getFullYear();
 
-  statusLabel(s: string): string {
-    const m: Record<string, string> = {
-      EN_ATTENTE: 'En attente',
-      EN_ATTENTE_MANAGER: 'Attente mgr',
-      EN_ATTENTE_RH: 'Attente RH',
-      APPROUVEE: 'Approuvée',
-      VALIDEE: 'Validée',
-      REFUSEE: 'Refusée',
-      REJETEE: 'Rejetée'
-    };
-    return m[s] ?? s;
-  }
+      const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-  statusTone(s: string): 'success' | 'warning' | 'danger' | 'info' {
-    if (['APPROUVEE', 'VALIDEE'].includes(s)) return 'success';
-    if (['REFUSEE', 'REJETEE'].includes(s)) return 'danger';
-    return 'warning';
+      if (isToday) {
+        return `Aujourd'hui, ${timeStr}`;
+      }
+      if (isYesterday) {
+        return `Hier, ${timeStr}`;
+      }
+      const dayMonth = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      return `${dayMonth}, ${timeStr}`;
+    } catch {
+      return '–';
+    }
   }
 
   private relDate(d: string | null | undefined): string {

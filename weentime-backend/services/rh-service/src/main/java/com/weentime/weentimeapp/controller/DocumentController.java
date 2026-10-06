@@ -31,6 +31,7 @@ import com.weentime.weentimeapp.repository.DocumentRepository;
 import com.weentime.weentimeapp.entity.Document;
 import com.weentime.weentimeapp.service.DocumentGeneratorService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -74,10 +75,25 @@ public class DocumentController {
         return ResponseEntity.ok(service.getMesDemandes(getUserId()));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
+    public ResponseEntity<DemandeDocumentResponse> update(
+            @PathVariable Long id,
+            @RequestBody CreateDocumentRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(service.updateDemande(id, request, email));
+    }
+
     @PutMapping("/{id}/annuler")
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
     public ResponseEntity<DemandeDocumentResponse> annuler(@PathVariable Long id) {
         return ResponseEntity.ok(service.annulerDemande(id, getUserId()));
+    }
+
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'RH')")
+    public ResponseEntity<DemandeDocumentResponse> cancelAlias(@PathVariable Long id) {
+        return annuler(id);
     }
 
     @GetMapping("/{id}/telecharger")

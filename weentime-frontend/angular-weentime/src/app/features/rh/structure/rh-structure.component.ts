@@ -162,6 +162,30 @@ export class RhStructureComponent implements OnDestroy {
     );
   });
 
+  selectedTeamAllEmployees = computed(() => {
+    const team = this.selectedTeam();
+    if (!team) return [];
+    return this.structureStore.employes().filter(e => e.equipeId === team.id);
+  });
+
+  teamTotalEmployees = computed(() => this.selectedTeamAllEmployees().length);
+
+  teamActiveEmployees = computed(() =>
+    this.selectedTeamAllEmployees().filter(e => e.statut === 'ACTIF').length
+  );
+
+  teamInactiveEmployees = computed(() =>
+    this.selectedTeamAllEmployees().filter(e => e.statut !== 'ACTIF').length
+  );
+
+  selectedTeamManager = computed(() => {
+    const team = this.selectedTeam();
+    if (!team?.managerId) return null;
+    return this.structureStore.managers().find(m => m.id === team.managerId)
+      || this.structureStore.employes().find(e => e.id === team.managerId)
+      || null;
+  });
+
   selectDepartment(deptId: number): void {
     this.selectedDepartmentId.set(deptId);
     const firstTeam = this.structureStore.equipes().find(t => t.departementId === deptId);
@@ -448,11 +472,19 @@ export class RhStructureComponent implements OnDestroy {
       this.structureService.deleteDepartement(dept.id).subscribe({
         next: () => {
           this.isDeleting.set(false);
-          this.toastService.success('Département supprimé');
+          this.toastService.success('Département supprimé avec succès');
           this.structureStore.deleteDepartement(dept.id);
+          if (this.selectedDepartmentId() === dept.id) {
+            this.selectedDepartmentId.set(null);
+            this.selectedTeamId.set(null);
+          }
           this.refresh();
         },
-        error: () => this.isDeleting.set(false)
+        error: (err) => {
+          this.isDeleting.set(false);
+          const msg = err?.error?.message || 'Erreur lors de la suppression du département. Vérifiez qu\'il ne contient plus d\'éléments liés.';
+          this.toastService.error(msg);
+        }
       });
     });
   }
@@ -521,6 +553,8 @@ export class RhStructureComponent implements OnDestroy {
       departements: this.structureStore.departements(),
       equipes: this.structureStore.equipes(),
       managers: this.structureStore.managers(),
+      defaultDeptId: this.selectedDepartment()?.id ?? null,
+      defaultEquipeId: this.selectedTeam()?.id ?? null,
     }, () => this.refresh());
   }
 

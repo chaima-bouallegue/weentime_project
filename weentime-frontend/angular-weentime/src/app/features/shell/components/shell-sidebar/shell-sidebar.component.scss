@@ -1,3 +1,19 @@
+:host-context(body.modal-open) {
+  position: relative !important;
+  z-index: 0 !important;
+  filter: blur(4px) !important;
+  pointer-events: none !important;
+  isolation: isolate !important;
+}
+
+:host-context(body.modal-open) .sidebar-bento-container {
+  position: relative !important;
+  z-index: 0 !important;
+  filter: blur(4px) !important;
+  pointer-events: none !important;
+  isolation: isolate !important;
+}
+
 .sidebar-bento-container {
   height: 100vh;
   display: flex;
@@ -6,7 +22,7 @@
   border-right: 1px solid rgba(255, 255, 255, 0.07);
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
-  z-index: 50;
+  z-index: var(--z-sticky);
   overflow: hidden;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
 
@@ -50,7 +66,10 @@
     transform: translateX(-100%);
     width: 280px !important;
   }
-  .sidebar-bento-container.mobile-open { transform: translateX(0); }
+
+  .sidebar-bento-container.mobile-open {
+    transform: translateX(0);
+  }
 }
 
 /* --- Header Area --- */
@@ -68,7 +87,7 @@
     display: flex;
     align-items: center;
   }
-  
+
   .mini-logo {
     width: 36px;
     height: 36px;
@@ -96,7 +115,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   &:hover {
     background: rgba(99, 102, 241, 0.2);
     border-color: rgba(129, 140, 248, 0.4);
@@ -113,10 +132,22 @@
   position: relative;
   z-index: 10;
 
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 99px; }
-  &::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
 }
 
 .nav-section-label {
@@ -168,7 +199,7 @@
     flex-direction: column;
     min-width: 0;
     flex: 1;
-    
+
     .item-label {
       font-size: 13.5px;
       font-weight: 500;
@@ -226,8 +257,16 @@
       border-color: rgba(129, 140, 248, 0.25);
       box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
     }
-    .item-label { color: #f8fafc; }
-    .chevron-indicator { opacity: 1; transform: translateX(0); color: #818cf8; }
+
+    .item-label {
+      color: #f8fafc;
+    }
+
+    .chevron-indicator {
+      opacity: 1;
+      transform: translateX(0);
+      color: #818cf8;
+    }
   }
 
   /* Active State with Futuristic Gradient and Glow */
@@ -285,7 +324,7 @@
 .support-card-wrapper {
   margin-top: 1.5rem;
   padding: 0 0.5rem;
-  
+
   .support-card {
     padding: 0.85rem;
     border-radius: 14px;
@@ -293,8 +332,11 @@
     border: 1px solid rgba(129, 140, 248, 0.2);
     backdrop-filter: blur(8px);
   }
-  
-  &.collapsed { display: flex; justify-content: center; }
+
+  &.collapsed {
+    display: flex;
+    justify-content: center;
+  }
 }
 
 /* --- Footer Area --- */
@@ -322,7 +364,7 @@
     border-color: rgba(129, 140, 248, 0.25);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 12px rgba(99, 102, 241, 0.15);
   }
-  
+
   &.collapsed {
     justify-content: center;
     padding: 0.4rem;
@@ -410,7 +452,7 @@
   border: 1px solid rgba(255, 255, 255, 0.07);
   transition: all 0.25s ease;
   flex-shrink: 0;
-  
+
   &:hover {
     background: rgba(239, 68, 68, 0.2);
     border-color: rgba(239, 68, 68, 0.4);
@@ -421,11 +463,18 @@
 
 /* --- Collapsed States --- */
 .sidebar-bento-container.collapsed {
-  .nav-section-label { opacity: 0; }
+  .nav-section-label {
+    opacity: 0;
+  }
+
   .bento-nav-item {
     justify-content: center;
     padding: 0.4rem 0.5rem;
-    &:hover { transform: none; }
+
+    &:hover {
+      transform: none;
+    }
+
     .item-icon-box {
       .collapsed-tooltip {
         position: absolute;
@@ -445,8 +494,11 @@
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
         z-index: 100;
       }
-      &:hover .collapsed-tooltip { opacity: 1; transform: translateX(0); }
+
+      &:hover .collapsed-tooltip {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
   }
 }
-

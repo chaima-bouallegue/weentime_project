@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -105,6 +106,101 @@ public class AutorisationServiceImpl implements AutorisationService {
                 "clock", "blue",
                 saved.getId(), "AUTORISATION", "/app/rh/autorisations"
             ), user.getEntrepriseId());
+        }
+
+        return result;
+    }
+
+    @Override
+    public AutorisationDTO update(Long id, AutorisationDTO dto, String userEmail) {
+        UtilisateurAuthResponse user = organisationClient.getUtilisateurForAuth(userEmail);
+        if (user == null) {
+            throw new RuntimeException("Utilisateur non trouvé: " + userEmail);
+        }
+
+        Autorisation entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Autorisation non trouvée"));
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isRh = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_RH".equals(a.getAuthority()));
+
+        if (!isRh && !entity.getUtilisateurId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas autorisé à modifier cette autorisation.");
+        }
+
+        if (entity.getStatut() != StatutDemandeEnum.EN_ATTENTE_MANAGER
+                && entity.getStatut() != StatutDemandeEnum.EN_ATTENTE_RH) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande déjà traitée, validée ou annulée ne peut plus être modifiée.");
+        }
+
+        // --- Resolve TypeAutorisation ---
+        if (dto.getTypeAutorisation() != null) {
+            TypeAutorisation type = null;
+            if (dto.getTypeAutorisation().getId() != null) {
+                type = typeRepository.findById(dto.getTypeAutorisation().getId()).orElse(null);
+            } else if (dto.getTypeAutorisation().getLibelle() != null) {
+                type = typeRepository.findByLibelle(dto.getTypeAutorisation().getLibelle()).orElse(null);
+            }
+
+            if (type == null) {
+                throw new EntityNotFoundException("Type d'autorisation non trouvé: " +
+                        (dto.getTypeAutorisation().getId() != null ? dto.getTypeAutorisation().getId() : dto.getTypeAutorisation().getLibelle()));
+            }
+            entity.setTypeAutorisation(type);
+        }
+
+        if (dto.getDateAutorisation() != null) {
+            entity.setDateAutorisation(dto.getDateAutorisation());
+        }
+        if (dto.getHeureDebut() != null) {
+            entity.setHeureDebut(dto.getHeureDebut());
+        }
+        if (dto.getHeureFin() != null) {
+            entity.setHeureFin(dto.getHeureFin());
+        }
+        if (dto.getMotif() != null) {
+            entity.setMotif(dto.getMotif());
+        }
+        if (dto.getCommentaire() != null) {
+            entity.setCommentaire(dto.getCommentaire());
+        }
+
+        // --- Calculate Duration ---
+        if (dto.getDuree() != null && dto.getDuree() > 0) {
+            entity.setDuree(dto.getDuree());
+        } else if (entity.getHeureDebut() != null && entity.getHeureFin() != null) {
+            long minutes = Duration.between(entity.getHeureDebut(), entity.getHeureFin()).toMinutes();
+            entity.setDuree((int) minutes);
+        }
+
+        if (!isRh) {
+            entity.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+            entity.setDateDecision(null);
+            entity.setCommentaireValidateur(null);
+        }
+
+        Autorisation saved = repository.save(entity);
+        AutorisationDTO result = enrichWithUserName(mapper.toDto(saved));
+
+        if (!isRh) {
+            if (user.getManagerId() != null) {
+                asyncNotificationService.sendToUser(user.getManagerId(), NotificationPayload.of(
+                    "AUTORISATION_MODIFIEE",
+                    "Demande d'autorisation modifiée",
+                    user.getPrenom() + " " + user.getNom() + " a modifié sa demande d'autorisation.",
+                    "clock", "blue",
+                    saved.getId(), "AUTORISATION", "/app/manager/approbations"
+                ), user.getEntrepriseId());
+            } else {
+                asyncNotificationService.sendToRole("ROLE_RH", NotificationPayload.of(
+                    "AUTORISATION_MODIFIEE",
+                    "Demande d'autorisation modifiée",
+                    user.getPrenom() + " " + user.getNom() + " a modifié sa demande d'autorisation.",
+                    "clock", "blue",
+                    saved.getId(), "AUTORISATION", "/app/rh/autorisations"
+                ), user.getEntrepriseId());
+            }
         }
 
         return result;

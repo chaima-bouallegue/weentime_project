@@ -19,8 +19,7 @@ import { SoldeConge, TypeConge } from '../../models/conge.model';
   standalone: true,
   imports: [CommonModule, LucideAngularModule],
   templateUrl: './solde-cards.component.html',
-  styleUrl: './solde-cards.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrl: './solde-cards.component.scss'
 })
 export class SoldeCardsComponent {
   @Input() soldes: SoldeConge[] = [];

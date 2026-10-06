@@ -16,7 +16,7 @@ import { ToastService } from '../../../../../../core/services/toast.service';
 })
 export class DepartementFormComponent implements OnInit {
   @Input() departement: Departement | null = null;
-  @Input() embedded = false;
+  @Input() embedded = true;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 

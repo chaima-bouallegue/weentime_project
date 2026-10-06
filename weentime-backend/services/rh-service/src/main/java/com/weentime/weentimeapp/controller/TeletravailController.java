@@ -38,6 +38,15 @@ public class TeletravailController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(dto, getUserEmail()));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
+    public ResponseEntity<TeletravailResponseDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody TeletravailCreateDTO dto
+    ) {
+        return ResponseEntity.ok(service.update(id, dto, getUserEmail()));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<List<TeletravailResponseDTO>> getAll() {
@@ -76,6 +85,7 @@ public class TeletravailController {
     }
 
     @PutMapping("/{id}/annuler")
+    @PatchMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
     public ResponseEntity<TeletravailResponseDTO> annuler(@PathVariable Long id) {
         return ResponseEntity.ok(service.annuler(id, getUserEmail()));

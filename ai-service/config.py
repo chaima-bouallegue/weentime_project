@@ -70,7 +70,7 @@ class Settings:
         self.ml_service_timeout_seconds = float(os.getenv("ML_SERVICE_TIMEOUT_SECONDS", "15"))
 
         self.backend_auth_token = os.getenv("BACKEND_AUTH_TOKEN")
-        self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "12"))
+        self.backend_timeout_seconds = float(os.getenv("BACKEND_TIMEOUT_SECONDS", "45"))
         self.backend_retry_attempts = max(1, int(os.getenv("BACKEND_RETRY_ATTEMPTS", "2")))
         self.backend_retry_backoff_seconds = float(
             os.getenv("BACKEND_RETRY_BACKOFF_SECONDS", "0.8")
@@ -109,7 +109,7 @@ class Settings:
         self.stt_vad_filter = _to_bool(os.getenv("WHISPER_VAD_FILTER"), False)
         self.stt_timeout_seconds = max(
             1.0,
-            float(os.getenv("VOICE_STT_TIMEOUT_SECONDS", os.getenv("STT_TIMEOUT_SECONDS", "20"))),
+            float(os.getenv("VOICE_STT_TIMEOUT_SECONDS", os.getenv("STT_TIMEOUT_SECONDS", "45"))),
         )
         self.stt_local_files_only = _to_bool(os.getenv("STT_LOCAL_FILES_ONLY"), True)
         self.stt_preload = _to_bool(os.getenv("STT_PRELOAD"), True)
@@ -197,7 +197,7 @@ class Settings:
 
         # ── AI Providers Configuration ──
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")

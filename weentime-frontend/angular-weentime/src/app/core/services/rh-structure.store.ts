@@ -59,7 +59,7 @@ export class RhStructureStore {
    * Refresh the entire structure data in parallel.
    */
   loadAll(force = false): Observable<any> {
-    if (!force && this._departements().length > 0) {
+    if (!force && this._departements().length > 0 && this._employes().length > 0) {
       return of(null);
     }
 

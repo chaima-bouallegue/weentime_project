@@ -156,6 +156,105 @@ public class TeletravailServiceImpl implements TeletravailService {
     }
 
     @Override
+    public TeletravailResponseDTO update(Long id, TeletravailCreateDTO dto, String userEmail) {
+        Teletravail teletravail = findById(id);
+        Long userId = getUserIdByEmail(userEmail);
+
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isRh = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_RH".equals(a.getAuthority()));
+
+        if (!isRh && !teletravail.getUtilisateurId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Non autorisé à modifier cette demande");
+        }
+
+        if (teletravail.getStatut() != StatutDemandeEnum.EN_ATTENTE_MANAGER 
+                && teletravail.getStatut() != StatutDemandeEnum.EN_ATTENTE_RH) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande déjà traitée, validée ou annulée ne peut plus être modifiée.");
+        }
+
+        boolean isConflict = repository.existsConflictingTeletravailExcludingId(
+                teletravail.getUtilisateurId(),
+                id,
+                dto.getDateDebut(),
+                dto.getDateFin(),
+                List.of(StatutDemandeEnum.EN_ATTENTE_MANAGER, StatutDemandeEnum.EN_ATTENTE_RH, StatutDemandeEnum.APPROUVE)
+        );
+
+        if (isConflict) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande de télétravail conflictuelle existe déjà pour ces dates.");
+        }
+
+        Double nombreJours = 0.0;
+        if (dto.getType() != null) {
+            switch (dto.getType()) {
+                case JOURNEE_COMPLETE -> nombreJours = (double) ChronoUnit.DAYS.between(dto.getDateDebut(), dto.getDateFin()) + 1;
+                case DEMI_JOURNEE_MATIN, DEMI_JOURNEE_APRES_MIDI -> nombreJours = 0.5;
+                case SEMAINE_COMPLETE -> nombreJours = 5.0;
+            }
+        }
+
+        UserResponse user = organisationClient.getUtilisateurById(teletravail.getUtilisateurId());
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable");
+        }
+
+        int month = dto.getDateDebut().getMonthValue();
+        int year = dto.getDateDebut().getYear();
+        Double utilised = repository.sumNombreJoursByUtilisateurIdAndMonth(
+                teletravail.getUtilisateurId(), month, year, List.of(StatutDemandeEnum.APPROUVE));
+        if (utilised == null) utilised = 0.0;
+
+        Double enAttente = repository.sumNombreJoursByUtilisateurIdAndMonth(
+                teletravail.getUtilisateurId(), month, year, List.of(StatutDemandeEnum.EN_ATTENTE_MANAGER, StatutDemandeEnum.EN_ATTENTE_RH));
+        if (enAttente == null) enAttente = 0.0;
+
+        if (teletravail.getDateDebut() != null 
+                && teletravail.getDateDebut().getMonthValue() == month 
+                && teletravail.getDateDebut().getYear() == year) {
+            enAttente = Math.max(0.0, enAttente - (teletravail.getNombreJours() != null ? teletravail.getNombreJours() : 0.0));
+        }
+
+        Integer autorises = configRepository.findByEntrepriseId(user.getEntrepriseId())
+                .map(com.weentime.weentimeapp.entity.ConfigTeletravail::getQuotaMensuel)
+                .orElse(4);
+
+        if (utilised + enAttente + nombreJours > autorises) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quota mensuel dépassé pour le mois sélectionné.");
+        }
+
+        teletravail.setTypeTeletravail(dto.getType());
+        teletravail.setDateDebut(dto.getDateDebut());
+        teletravail.setDateFin(dto.getDateFin());
+        teletravail.setPeriode(dto.getPeriode());
+        teletravail.setMotif(dto.getMotif());
+        teletravail.setNombreJours(nombreJours);
+
+        if (!isRh) {
+            teletravail.setStatut(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+            teletravail.setEtapeActuelle("MANAGER");
+            teletravail.setCommentaireManager(null);
+            teletravail.setCommentaireRH(null);
+            teletravail.setDateDecision(null);
+        }
+
+        Teletravail saved = repository.save(teletravail);
+        TeletravailResponseDTO resultDto = enrichDtoWithUser(saved, user);
+
+        if (!isRh && saved.getManagerId() != null) {
+            asyncNotificationService.sendToUser(saved.getManagerId(), NotificationPayload.of(
+                    "TELETRAVAIL_MODIFIE",
+                    "Demande de télétravail modifiée",
+                    user.getPrenom() + " " + user.getNom() + " a modifié sa demande de télétravail.",
+                    "clock", "blue",
+                    saved.getId(), "TELETRAVAIL", "/app/manager/teletravail-equipe"
+            ), user.getEntrepriseId());
+        }
+
+        return resultDto;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public TeletravailResponseDTO getById(Long id) {
         return enrichDto(findById(id));
@@ -283,12 +382,14 @@ public class TeletravailServiceImpl implements TeletravailService {
         
         long total = repository.count();
         long approuvees = repository.countByStatut(StatutDemandeEnum.APPROUVE);
+        long refusees = repository.countByStatut(StatutDemandeEnum.REFUSE);
+        long decidees = approuvees + refusees;
         
         List<Teletravail> allApprouvees = repository.findByStatutOrderByDateCreationDesc(StatutDemandeEnum.APPROUVE);
         double totalJours = allApprouvees.stream().mapToDouble(t -> t.getNombreJours() != null ? t.getNombreJours() : 0.0).sum();
 
-        double taux = total == 0 ? 0.0 : (approuvees * 100.0) / total;
-        double moyenne = approuvees == 0 ? 0.0 : totalJours / approuvees;
+        double taux = decidees == 0 ? (total == 0 ? 0.0 : 100.0) : (double) Math.round((approuvees * 100.0) / decidees);
+        double moyenne = approuvees == 0 ? 0.0 : (double) Math.round((totalJours / approuvees) * 10.0) / 10.0;
 
         return StatsRhDTO.builder()
                 .enAttente(repository.countByStatut(StatutDemandeEnum.EN_ATTENTE_RH))
@@ -314,8 +415,11 @@ public class TeletravailServiceImpl implements TeletravailService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Non autorisé à annuler cette demande");
         }
 
-        if (teletravail.getStatut() != StatutDemandeEnum.EN_ATTENTE_MANAGER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impossible d'annuler une demande qui n'est plus chez le manager.");
+        if (teletravail.getStatut() == StatutDemandeEnum.APPROUVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande déjà approuvée ne peut pas être annulée.");
+        }
+        if (teletravail.getStatut() == StatutDemandeEnum.REFUSE || teletravail.getStatut() == StatutDemandeEnum.ANNULE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cette demande est déjà finalisée.");
         }
 
         teletravail.setStatut(StatutDemandeEnum.ANNULE);

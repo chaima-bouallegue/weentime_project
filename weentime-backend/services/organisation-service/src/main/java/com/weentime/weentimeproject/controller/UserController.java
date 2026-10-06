@@ -80,9 +80,6 @@ public class UserController {
                 .map(user -> toManagementResponse(user, managersById))
                 .toList();
 
-        if (hasFilter(role, status, search)) {
-            return ResponseEntity.ok(new PageImpl<>(content, page.getPageable(), content.size()));
-        }
         return ResponseEntity.ok(new PageImpl<>(content, page.getPageable(), page.getTotalElements()));
     }
 

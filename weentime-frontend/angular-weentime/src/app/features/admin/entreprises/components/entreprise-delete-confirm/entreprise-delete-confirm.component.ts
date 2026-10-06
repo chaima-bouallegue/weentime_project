@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, ChangeDetectionStrategy, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Entreprise, EntrepriseService } from '../../entreprise.service';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 @Component({
   selector: 'app-entreprise-delete-confirm',
@@ -12,15 +13,24 @@ import { ToastService } from '../../../../../core/services/toast.service';
   styleUrl: './entreprise-delete-confirm.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class EntrepriseDeleteConfirmComponent {
+export class EntrepriseDeleteConfirmComponent implements OnInit, OnDestroy {
   @Input() entreprise: Entreprise | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() deleted = new EventEmitter<void>();
 
   private entrepriseService = inject(EntrepriseService);
   private toastService = inject(ToastService);
+  private modalService = inject(ModalService);
   
   isDeleting = signal(false);
+
+  ngOnInit(): void {
+    this.modalService.open();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
 
   confirmDelete() {
     if (!this.entreprise) return;

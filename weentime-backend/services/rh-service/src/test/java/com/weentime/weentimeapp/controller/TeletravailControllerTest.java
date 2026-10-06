@@ -61,6 +61,17 @@ class TeletravailControllerTest {
     }
 
     @Test
+    void updateReturnsOkStatus() {
+        var dto = new TeletravailCreateDTO();
+        var responseDto = new TeletravailResponseDTO();
+        when(service.update(10L, dto, USER_EMAIL)).thenReturn(responseDto);
+
+        ResponseEntity<TeletravailResponseDTO> res = controller.update(10L, dto);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(res.getBody()).isSameAs(responseDto);
+    }
+
+    @Test
     void getAllDispatchesAccordingToRole() {
         // Employee
         when(service.getMesDemandes(USER_EMAIL)).thenReturn(List.of());

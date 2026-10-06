@@ -33,6 +33,17 @@ public interface TeletravailRepository extends JpaRepository<Teletravail, Long> 
             @Param("dateFin") LocalDate dateFin,
             @Param("statuts") List<StatutDemandeEnum> statuts);
 
+    @Query("SELECT COUNT(t) > 0 FROM Teletravail t WHERE t.utilisateurId = :utilisateurId " +
+           "AND t.id <> :id " +
+           "AND ((t.dateDebut <= :dateFin AND t.dateFin >= :dateDebut)) " +
+           "AND t.statut IN :statuts")
+    boolean existsConflictingTeletravailExcludingId(
+            @Param("utilisateurId") Long utilisateurId,
+            @Param("id") Long id,
+            @Param("dateDebut") LocalDate dateDebut,
+            @Param("dateFin") LocalDate dateFin,
+            @Param("statuts") List<StatutDemandeEnum> statuts);
+
     long countByStatut(StatutDemandeEnum statut);
 
     @Query("SELECT COUNT(t) FROM Teletravail t WHERE t.statut = :statut AND t.dateDecision >= :since")

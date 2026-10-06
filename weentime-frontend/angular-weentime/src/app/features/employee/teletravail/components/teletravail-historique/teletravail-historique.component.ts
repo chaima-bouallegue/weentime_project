@@ -3,18 +3,22 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Filter, Search, Calendar, Clock, CheckCircle, XCircle, CircleMinus, Laptop, Sun, Sunrise, Sunset, Home, Trash2, Info, ArrowRight, Eye, Pencil } from 'lucide-angular';
 import { DemandeTeletravail, StatutTeletravail, TypeTeletravail } from '../../models/teletravail.model';
 
+import { DemandeActionsMenuComponent } from '../../../../../shared/components/demande-actions-menu';
+
 interface FilterChip {
   value: StatutTeletravail | 'TOUS' | 'EN_ATTENTE';
   label: string;
+  colorClass: string;
+  dotClass: string;
+  badgeClass: string;
 }
 
 @Component({
   selector: 'app-teletravail-historique',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, DemandeActionsMenuComponent],
   templateUrl: './teletravail-historique.component.html',
   styleUrl: './teletravail-historique.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class TeletravailHistoriqueComponent {
@@ -48,11 +52,11 @@ export class TeletravailHistoriqueComponent {
   readonly iconPen = Pencil;
 
   filters: FilterChip[] = [
-    { value: 'TOUS',       label: 'Tous'       },
-    { value: 'EN_ATTENTE', label: 'En attente' },
-    { value: 'APPROUVE',   label: 'Approuvés'  },
-    { value: 'REFUSE',     label: 'Refusés'    },
-    { value: 'ANNULE',     label: 'Annulés'    }
+    { label: 'Demandes',   value: 'TOUS',       colorClass: 'tab--all',   dotClass: '',           badgeClass: 'badge--all' },
+    { label: 'En attente', value: 'EN_ATTENTE',  colorClass: 'tab--amber', dotClass: 'dot--amber', badgeClass: 'badge--amber' },
+    { label: 'Approuvés',  value: 'APPROUVE',    colorClass: 'tab--green', dotClass: 'dot--green', badgeClass: 'badge--green' },
+    { label: 'Refusés',    value: 'REFUSE',      colorClass: 'tab--red',   dotClass: 'dot--red',   badgeClass: 'badge--red' },
+    { label: 'Annulés',    value: 'ANNULE',      colorClass: 'tab--gray',  dotClass: 'dot--gray',  badgeClass: 'badge--gray' }
   ];
 
   getCountForFilter(value: StatutTeletravail | 'TOUS' | 'EN_ATTENTE'): number {

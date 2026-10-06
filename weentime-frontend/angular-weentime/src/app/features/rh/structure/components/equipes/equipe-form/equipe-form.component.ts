@@ -18,7 +18,7 @@ export class EquipeFormComponent implements OnInit {
   @Input() equipe: Equipe | null = null;
   @Input() departements: Departement[] = [];
   @Input() managers: EmployeRH[] = [];
-  @Input() embedded = false;
+  @Input() embedded = true;
   @Output() close = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 

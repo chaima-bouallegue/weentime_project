@@ -176,22 +176,185 @@
     </div>
   </footer>
 
-  <div *ngIf="showSignatureModal" class="fixed inset-0 z-[200] bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <lucide-icon name="pen-tool" class="text-purple-600" [size]="20"></lucide-icon> Signature
-        </h3>
-        <button (click)="closeSignatureModal()"><lucide-icon name="x" [size]="20"></lucide-icon></button>
+  <!-- Modal Signature eIDAS SES / Audit Trail -->
+  <div *ngIf="showSignatureModal" class="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh]">
+      
+      <!-- En-tête eIDAS -->
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-white dark:from-purple-950/20 dark:via-slate-900 dark:to-slate-900">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-600/10 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+            <lucide-icon name="pen-tool" [size]="20"></lucide-icon>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Signature Électronique</h3>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                eIDAS SES
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Scellement numérique et piste d'audit conforme UE 910/2014</p>
+          </div>
+        </div>
+        <button type="button" (click)="closeSignatureModal()" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
       </div>
-      <div class="px-6 py-6">
-        <input type="text" [(ngModel)]="signatureName" class="w-full border rounded-lg p-3 text-center"
-               placeholder="Nom complet" (keyup.enter)="onConfirmSignature()">
+
+      <!-- Corps du formulaire scrollable -->
+      <div class="px-6 py-5 overflow-y-auto space-y-4">
+        
+        <!-- Identité certifiée du Signataire RH -->
+        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+              {{ signatureName.charAt(0) || 'RH' }}
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{{ signatureName }}</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ signerRole }} · {{ signerEmail }}</div>
+            </div>
+          </div>
+          <span class="shrink-0 px-2 py-1 rounded-md text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+            <lucide-icon name="lock" [size]="10"></lucide-icon>
+            Identité vérifiée
+          </span>
+        </div>
+
+        <!-- Choix du mode de signature -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">Apposition de votre signature</label>
+            <div class="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+              <button
+                type="button"
+                (click)="setSignatureType('draw')"
+                [class.bg-white]="signatureType === 'draw'"
+                [class.dark:bg-slate-700]="signatureType === 'draw'"
+                [class.text-purple-700]="signatureType === 'draw'"
+                [class.dark:text-purple-300]="signatureType === 'draw'"
+                [class.shadow-sm]="signatureType === 'draw'"
+                class="px-2.5 py-1 rounded-md font-medium text-slate-600 dark:text-slate-300 transition flex items-center gap-1.5">
+                <lucide-icon name="pen-tool" [size]="12"></lucide-icon>
+                Tracer à la main
+              </button>
+              <button
+                type="button"
+                (click)="setSignatureType('type')"
+                [class.bg-white]="signatureType === 'type'"
+                [class.dark:bg-slate-700]="signatureType === 'type'"
+                [class.text-purple-700]="signatureType === 'type'"
+                [class.dark:text-purple-300]="signatureType === 'type'"
+                [class.shadow-sm]="signatureType === 'type'"
+                class="px-2.5 py-1 rounded-md font-medium text-slate-600 dark:text-slate-300 transition flex items-center gap-1.5">
+                <lucide-icon name="type" [size]="12"></lucide-icon>
+                Calligraphie
+              </button>
+            </div>
+          </div>
+
+          <!-- Zone Canvas de dessin -->
+          <div *ngIf="signatureType === 'draw'" class="relative">
+            <div class="border-2 border-dashed border-indigo-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
+              <canvas
+                #signatureCanvas
+                (mousedown)="startDrawing($event)"
+                (mousemove)="draw($event)"
+                (mouseup)="stopDrawing()"
+                (mouseleave)="stopDrawing()"
+                (touchstart)="startDrawing($event)"
+                (touchmove)="draw($event)"
+                (touchend)="stopDrawing()"
+                class="w-full h-32 block cursor-crosshair touch-none">
+              </canvas>
+              <div class="absolute bottom-2 left-3 pointer-events-none text-[10px] text-slate-400 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                <span>Tracez votre signature au doigt ou à la souris</span>
+              </div>
+              <button
+                type="button"
+                (click)="clearCanvas()"
+                class="absolute bottom-2 right-2 px-2 py-1 rounded text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition flex items-center gap-1 shadow-sm">
+                <lucide-icon name="rotate-ccw" [size]="11"></lucide-icon>
+                Effacer
+              </button>
+            </div>
+          </div>
+
+          <!-- Zone Calligraphie typographique -->
+          <div *ngIf="signatureType === 'type'" class="space-y-2">
+            <input
+              type="text"
+              [(ngModel)]="signatureName"
+              placeholder="Votre nom complet"
+              class="w-full px-3.5 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            <div class="h-24 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-center p-3">
+              <span class="font-serif italic text-2xl text-indigo-900 dark:text-indigo-300 tracking-wider select-none font-semibold">
+                {{ signatureName || 'Votre Signature' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dossier de preuve eIDAS (Audit Trail) -->
+        <div class="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 p-3 text-xs space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300 pb-1 border-b border-slate-200/60 dark:border-slate-700/60">
+            <span class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+              <lucide-icon name="shield-check" [size]="13"></lucide-icon>
+              Dossier de preuve eIDAS
+            </span>
+            <span class="text-slate-400 font-mono text-[10px]">{{ transactionId }}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+            <div>
+              <span class="text-slate-400 block text-[10px]">Horodatage officiel :</span>
+              <span class="font-medium text-slate-700 dark:text-slate-300">{{ signatureTimestamp }}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">Document cible :</span>
+              <span class="font-medium text-slate-700 dark:text-slate-300 truncate block">Demande #{{ demande.id }} ({{ demande.type }})</span>
+            </div>
+          </div>
+          <div class="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+            <span class="text-slate-400 block text-[10px]">Empreinte cryptographique SHA-256 :</span>
+            <span class="font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all select-all block mt-0.5">
+              {{ documentHash || 'Calcul en cours…' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Consentement & Engagement légal -->
+        <label class="flex items-start gap-2.5 p-3 rounded-xl border border-purple-200/80 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            [(ngModel)]="legalConsent"
+            class="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500">
+          <span class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            Je certifie être dûment habilité(e) à signer ce document RH et j'appose ma signature électronique avec scellement de conformité <strong>eIDAS SES (Règlement UE n° 910/2014)</strong>.
+          </span>
+        </label>
+
       </div>
-      <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
-        <button (click)="closeSignatureModal()" class="px-4 py-2 border rounded-lg">Annuler</button>
-        <button (click)="onConfirmSignature()" [disabled]="!signatureName.trim()" class="px-4 py-2 bg-purple-600 text-white rounded-lg">Confirmer</button>
+
+      <!-- Footer Actions -->
+      <div class="px-6 py-3.5 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          (click)="closeSignatureModal()"
+          class="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-lg transition">
+          Annuler
+        </button>
+        <button
+          type="button"
+          (click)="onConfirmSignature()"
+          [disabled]="!canConfirmSignature() || isProcessing"
+          class="px-5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-sm hover:shadow transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <lucide-icon name="shield-check" [size]="14"></lucide-icon>
+          <span>Apposer la signature eIDAS</span>
+        </button>
       </div>
+
     </div>
   </div>
 </div>

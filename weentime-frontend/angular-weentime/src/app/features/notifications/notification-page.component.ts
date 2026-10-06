@@ -260,8 +260,8 @@ import { NotificationService, Notification, NotificationType } from '../../core/
     .empty-state p { font-size: 16px; color: #64748b; margin-bottom: 32px; }
     :host-context(.dark) .empty-state h2 { color: white; }
 
-    .btn-primary-simple { background: #534AB7; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
-    .btn-primary-simple:hover { opacity: 0.9; }
+    .btn-primary-simple { background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 14px rgba(107, 93, 211, 0.28); }
+    .btn-primary-simple:hover { background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(107, 93, 211, 0.38); }
   `]
 })
 export class NotificationPageComponent {

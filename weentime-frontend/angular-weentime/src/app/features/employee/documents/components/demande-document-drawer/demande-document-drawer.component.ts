@@ -1,9 +1,10 @@
-import { Component, Input, Output, EventEmitter, signal, computed, inject, OnInit, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, inject, OnInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, X, ChevronLeft, ChevronRight, FileText, CheckCircle, Info, Calendar, Loader2, Send } from 'lucide-angular';
 import { AssistantWorkflowService } from '../../../../../core/services/assistant-workflow.service';
-import { TypeDocumentConfig, TypeDocument, NouvelleDemandeDocumentRequest } from '../../models/document.model';
+import { TypeDocumentConfig, TypeDocument, NouvelleDemandeDocumentRequest, DemandeDocument } from '../../models/document.model';
+import { ModalService } from '@app/core/services/modal.service';
 
 @Component({
   selector: 'app-demande-document-drawer',
@@ -14,15 +15,17 @@ import { TypeDocumentConfig, TypeDocument, NouvelleDemandeDocumentRequest } from
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class DemandeDocumentDrawerComponent implements OnInit {
+export class DemandeDocumentDrawerComponent implements OnInit, OnChanges, OnDestroy {
   @Input() types: TypeDocumentConfig[] = [];
   @Input() typePreselectionne: TypeDocument | null = null;
+  @Input() demandeToEdit: DemandeDocument | null = null;
   @Input() isSubmitting = false;
 
   @Output() close = new EventEmitter<void>();
   @Output() submitted = new EventEmitter<NouvelleDemandeDocumentRequest>();
 
   private readonly assistantWorkflow = inject(AssistantWorkflowService);
+  private readonly modalService = inject(ModalService);
 
   // Icons
   readonly iconX = X;
@@ -56,11 +59,34 @@ export class DemandeDocumentDrawerComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.modalService.open();
     this.generateMoisDisponibles();
+    if (this.demandeToEdit) {
+      this.applyDemandeToEdit();
+      return;
+    }
     if (this.typePreselectionne) {
       this.selectedType.set(this.typePreselectionne);
     }
     this.applyAssistantDraft();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['demandeToEdit'] && this.demandeToEdit) {
+      this.applyDemandeToEdit();
+    }
+  }
+
+  private applyDemandeToEdit(): void {
+    if (!this.demandeToEdit) return;
+    const type = (this.demandeToEdit.type as TypeDocument) || null;
+    this.selectedType.set(type);
+    this.moisConcerne.set(this.demandeToEdit.moisConcerne || '');
+    this.motif.set(this.demandeToEdit.motif || '');
   }
 
   selectType(type: TypeDocument): void {
@@ -145,8 +171,8 @@ export class DemandeDocumentDrawerComponent implements OnInit {
 
   private resolveDraftType(value: string): TypeDocument | null {
     const normalized = value.trim().toUpperCase();
-    const found = this.types.find(type => 
-      type.type === normalized || 
+    const found = this.types.find(type =>
+      type.type === normalized ||
       type.label.toUpperCase().includes(normalized) ||
       normalized.includes(type.label.toUpperCase())
     );

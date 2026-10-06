@@ -1,9 +1,9 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(4px);
-  z-index: 205;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -115,8 +115,8 @@
   }
   .btn-secondary { background: #fff; border: 1px solid var(--border); color: #475569; &:hover { background: #FFFFFF; color: #0f172a; } }
   .btn-primary { 
-    background: #6366f1; color: #fff; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2); 
-    &:hover:not(:disabled) { transform: translateY(-1px); background: #4f46e5; }
+    background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%); color: #fff; box-shadow: 0 4px 12px rgba(107, 93, 211, 0.28); 
+    &:hover:not(:disabled) { transform: translateY(-1px); background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%); box-shadow: 0 6px 18px rgba(107, 93, 211, 0.38); }
     &:disabled { opacity: 0.6; cursor: not-allowed; }
   }
 }

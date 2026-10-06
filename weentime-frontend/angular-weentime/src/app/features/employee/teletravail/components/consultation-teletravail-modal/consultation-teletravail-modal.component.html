@@ -84,7 +84,10 @@
         </div>
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+        @if (canModify(demande)) {
+          <button class="btn-secondary" (click)="edit.emit(demande)">Modifier</button>
+        }
         <button class="btn-primary" (click)="close.emit()">Fermer</button>
       </div>
     }

@@ -101,7 +101,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly isSavingOvertimeReason = signal(false);
   readonly statusMessage = signal<string | null>(null);
   readonly isLoading = signal(false);
-  readonly pageReady = signal(false);
+  readonly pageReady = signal(true);
   readonly isDayOff = signal(false);
   readonly showCheckInConfirmModal = signal(false);
   readonly showCheckOutConfirmModal = signal(false);
@@ -131,8 +131,8 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   });
 
   readonly isAdminOrRh = computed(() => this.role() === 'ADMIN' || this.role() === 'RH');
-  readonly isEmployeeOrManager = computed(() => this.role() === 'EMPLOYEE' || this.role() === 'MANAGER' || this.role() === 'RH');
-  readonly showManagerTeamShortcut = computed(() => this.role() === 'MANAGER' || this.role() === 'RH');
+  readonly isEmployeeOrManager = computed(() => true);
+  readonly showManagerTeamShortcut = computed(() => this.role() === 'MANAGER' || this.role() === 'RH' || this.role() === 'ADMIN');
 
   readonly dailyDuration = computed(() => {
     if (this.attendanceState() === 'ACTIVE') {

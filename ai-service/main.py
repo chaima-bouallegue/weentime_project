@@ -35,7 +35,7 @@ from voice.stt import AudioConversionError, SpeechToTextService, VoiceProcessing
 from voice.tts import TextToSpeechService
 from app.api.router_loader import RouterSpec, register_routers
 from app.core.copilot_engine import configure_copilot_engine, process_copilot_message
-from app.nlp.language_detector import detect_language as detect_response_language
+from app.nlp.language_detector import detect_language as detect_response_language, _has_text_language_signal
 from app.observability.decorators import trace_ai_step
 from app.observability.braintrust_client import (
     flush_braintrust,
@@ -1315,7 +1315,11 @@ async def _append_stream_chunk(
 
 async def _maybe_generate_tts(text: str, language: str | None = None) -> str | None:
     tts_service: TextToSpeechService = app.state.tts_service
-    resolved_language = language or detect_response_language(text)
+    detected_from_text = detect_response_language(text)
+    if text and _has_text_language_signal(text):
+        resolved_language = detected_from_text
+    else:
+        resolved_language = language or detected_from_text
     with start_span(
         "voice.tts",
         {"text_length": len(text or ""), "language": resolved_language, "tts_model": settings.tts_model},

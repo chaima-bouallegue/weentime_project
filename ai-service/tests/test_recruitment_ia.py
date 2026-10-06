@@ -110,6 +110,54 @@ async def test_generate_gemini_uses_json_mode_and_keeps_key_out_of_url(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_generate_gemini_falls_back_on_503(monkeypatch):
+    calls = []
+
+    class FakeFallbackAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, url, json=None, headers=None):
+            calls.append(url)
+            if "gemini-3.8-flash" in url:
+                return httpx.Response(
+                    503,
+                    json={"error": {"code": 503, "message": "High demand"}},
+                    request=httpx.Request("POST", url),
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {"content": {"parts": [{"text": "Document genere"}]}}
+                    ],
+                    "usageMetadata": {"totalTokenCount": 42},
+                },
+                request=httpx.Request("POST", url),
+            )
+
+    monkeypatch.setattr(document_generation.httpx, "AsyncClient", FakeFallbackAsyncClient)
+    monkeypatch.setattr(document_generation.settings, "gemini_api_key", "dummy-test-key")
+    monkeypatch.setattr(document_generation.settings, "gemini_model", "gemini-3.8-flash")
+    monkeypatch.setattr(document_generation, "last_call_time", 0)
+
+    req = DocumentGenerationRequest(system_prompt="Sys", user_prompt="Doc", provider="gemini")
+    result = await document_generation._generate_gemini(req)
+
+    assert result.content == "Document genere"
+    assert result.model_used == "gemini-3.6-flash"
+    assert len(calls) == 2
+    assert "gemini-3.8-flash" in calls[0]
+    assert "gemini-3.6-flash" in calls[1]
+
+
+@pytest.mark.asyncio
 async def test_evaluate_cv_reports_callback_failure_without_losing_result(monkeypatch):
     evaluation = {
         "score_global": 82,

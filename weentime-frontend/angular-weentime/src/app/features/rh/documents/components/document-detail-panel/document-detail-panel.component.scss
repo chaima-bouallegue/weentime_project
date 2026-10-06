@@ -167,9 +167,9 @@
     height: 44px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: all 0.2s;
 
     &.btn-primary { 
-      background: #6366f1; color: #fff; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);
-      &:hover { background: #4f46e5; transform: translateY(-1px); }
-      &.ia { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+      background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%); color: #fff; box-shadow: 0 4px 12px rgba(107, 93, 211, 0.28);
+      &:hover { background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(107, 93, 211, 0.38); }
+      &.ia { background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%); }
       &.view { background: #16a34a; &:hover { background: #15803d; } }
     }
 

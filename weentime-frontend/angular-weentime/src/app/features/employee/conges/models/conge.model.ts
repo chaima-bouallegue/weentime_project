@@ -40,6 +40,7 @@ export interface DemandeConge {
   typeCongeId?: number;
   typeCongeNom?: string;
   justificatifFourni?: boolean;
+  justificatifUrl?: string;
   [key: string]: unknown;
 }
 

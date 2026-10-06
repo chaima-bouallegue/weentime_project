@@ -78,23 +78,10 @@ export class RhPlanningComponent implements OnInit {
   });
 
   // ── Mock AI & Conflicts ──
-  conflicts = signal<any[]>([
-    { id: 1, employee: { prenom: 'Amal', nom: 'Ben', initials: 'AB' }, date: '2026-07-02', type: 'Conflit de Congé', desc: 'Congé validé mais plannifié en présentiel' },
-    { id: 2, employee: { prenom: 'Lucas', nom: 'Martin', initials: 'LM' }, date: '2026-07-03', type: 'Sous-effectif critique', desc: 'Équipe Support < 50% de couverture' },
-    { id: 3, employee: { prenom: 'Sarah', nom: 'Elise', initials: 'SE' }, date: '2026-07-05', type: 'Dépassement légal', desc: 'Durée maximale hebdomadaire dépassée (+4h)' }
-  ]);
+  conflicts = signal<any[]>([]);
+  aiRecommendations = signal<any[]>([]);
+  pendingRequests = signal<any[]>([]);
 
-  aiRecommendations = signal<any[]>([
-    { id: 1, text: 'Passer Amal en télétravail ce vendredi — évite le conflit de congé et optimise la couverture de +12%', applied: false, impact: '+12% de couverture' },
-    { id: 2, text: 'Fusionner le shift de Lucas avec le shift du matin le mercredi', applied: false, impact: 'Résout 1 conflit' },
-    { id: 3, text: 'Valider automatiquement le congé de Sarah — couverture disponible >80%', applied: false, impact: 'Réduit 2 jours de traitement' }
-  ]);
-
-  pendingRequests = signal<any[]>([
-    { id: 1, employee: 'Amal Ben', type: 'Congé Payé', date: '2026-07-10', duration: '3 jours', status: 'En attente' },
-    { id: 2, employee: 'Lucas Martin', type: 'Télétravail', date: '2026-07-08', duration: '1 jour', status: 'En attente' },
-    { id: 3, employee: 'Sarah Elise', type: 'Formation', date: '2026-07-15', duration: '2 jours', status: 'En attente' }
-  ]);
 
   auditLogs = signal<any[]>([
     { time: '14:23', action: 'Shift modifié', user: 'Admin RH', details: 'Lucas Martin → Télétravail' },
@@ -132,10 +119,9 @@ export class RhPlanningComponent implements OnInit {
     
     return days.map(day => {
       const dateParts = day.date.split('-');
-      const dayNum = parseInt(dateParts[2] || '1', 10);
       const dateObj = new Date(day.date);
       const isRestDay = day.isRestDay || (dateObj.getDay() === 0 || dateObj.getDay() === 6);
-      const hasConflict = !isRestDay && (dayNum === 4 || dayNum === 12 || dayNum === 22);
+      const hasConflict = false;
       // Compute dateType locally if backend doesn't provide it (robust against old API)
       const todayStr = this.formatToLocalISO(new Date());
       const dateType = day.dateType || (day.date < todayStr ? 'PAST' : day.date === todayStr ? 'TODAY' : 'FUTURE');
@@ -308,7 +294,12 @@ export class RhPlanningComponent implements OnInit {
   isPanelOpen = computed(() => this.panelDepth() !== 'closed');
 
   // ── Lifecycle ──
-  ngOnInit() { this.loadPlanning(); }
+  ngOnInit() {
+    const date = this.currentDate();
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    this.planningStore.loadInitial(this.formatToLocalISO(firstDay), this.formatToLocalISO(lastDay), this.selectedTeam() || undefined).subscribe();
+  }
 
   loadPlanning() {
     const date = this.currentDate();
@@ -516,17 +507,15 @@ export class RhPlanningComponent implements OnInit {
   // ════════════════════════════════════════════════════════════
 
   fetchEmployeeDetails(userId: number, date: string) {
-    this.detailLoading.set(true);
-    this.detailedStatus.set(null);
-    this.planningService.isExcused(userId, date).pipe(
-      finalize(() => this.detailLoading.set(false))
-    ).subscribe({
-      next: () => {
-        this.detailedStatus.set({
-          arrivalTime: '08:45', departureTime: '17:30', totalMinutes: 480,
-          overtimeMinutes: 15, lastActivity: 'Pointage Mobile'
-        });
-      }
+    this.detailLoading.set(false);
+    const emp = this.panelSelectedEmployee();
+    const arr = emp?.detail?.match(/\d{2}:\d{2}/)?.[0] || '08:32';
+    this.detailedStatus.set({
+      arrivalTime: emp?.status === 'PRESENT' ? arr : (emp?.status === 'REMOTE' ? '08:45 (Télétravail)' : '—'),
+      departureTime: emp?.status === 'PRESENT' || emp?.status === 'REMOTE' ? '17:30' : '—',
+      totalMinutes: emp?.status === 'PRESENT' || emp?.status === 'REMOTE' ? 480 : 0,
+      overtimeMinutes: emp?.status === 'PRESENT' ? 15 : 0,
+      lastActivity: emp?.status === 'PRESENT' ? 'Badgeuse IT SERV' : emp?.status === 'REMOTE' ? 'Connexion VPN' : 'Absence enregistrée'
     });
   }
 
@@ -569,9 +558,9 @@ export class RhPlanningComponent implements OnInit {
 
   getStatusColor(status: string | undefined): string {
     switch (status) {
-      case 'PRESENT': return '#10b981'; case 'REMOTE': return '#8b5cf6';
+      case 'PRESENT': return '#10b981'; case 'REMOTE': return '#3b82f6';
       case 'SCHEDULED': return '#94a3b8'; case 'PENDING': return '#60a5fa';
-      case 'ABSENCE': return '#ef4444'; case 'LEAVE': return '#3b82f6';
+      case 'ABSENCE': return '#ef4444'; case 'LEAVE': return '#f59e0b';
       default: return '#94a3b8';
     }
   }

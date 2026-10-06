@@ -4,14 +4,15 @@
 
 // ─── Page ──────────────────────────────────────────
 .conges-page {
-  padding: 28px 32px;
-  max-width: 1280px;
-  margin: 0 auto;
+  padding: 24px 32px;
+  width: 100%;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   background: #f8fafc;
   min-height: 100%;
+  box-sizing: border-box;
 }
 
 // ─── Header ────────────────────────────────────────
@@ -24,23 +25,37 @@
 
 .header-left {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border: 1px solid #c4b5fd;
+  color: var(--primary, #6B5DD3);
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(107, 93, 211, 0.12);
 }
 
 .page-title {
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 700;
   color: #0f172a;
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
   font-size: 13px;
   font-weight: 500;
-  color: #94a3b8;
-  margin: 0;
+  color: #64748b;
+  margin: 2px 0 0;
 }
 
 .btn-new-request {
@@ -48,22 +63,22 @@
   align-items: center;
   gap: 8px;
   padding: 11px 22px;
-  background: #4361EE;
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
   color: #fff;
   border: none;
   border-radius: 14px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 8px 20px -4px rgba(67, 97, 238, 0.4);
+  box-shadow: 0 4px 14px rgba(107, 93, 211, 0.35);
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   flex-shrink: 0;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 28px -4px rgba(67, 97, 238, 0.5);
-    background: #3451d1;
+    box-shadow: 0 6px 20px rgba(107, 93, 211, 0.45);
+    background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
   }
   &:active { transform: translateY(0); }
 }
@@ -93,8 +108,8 @@
 .soldes-title-icon {
   width: 32px;
   height: 32px;
-  background: rgba(67, 97, 238, 0.1);
-  color: #4361EE;
+  background: rgba(107, 93, 211, 0.1);
+  color: var(--primary, #6B5DD3);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -257,7 +272,7 @@
   gap: 4px;
   font-size: 13px;
   font-weight: 600;
-  color: #4361EE;
+  color: var(--primary, #6B5DD3);
   background: none;
   border: none;
   cursor: pointer;
@@ -279,9 +294,9 @@
   transition: all 0.15s;
 
   &:hover {
-    background: #4361EE;
+    background: var(--primary, #6B5DD3);
     color: #fff;
-    border-color: #4361EE;
+    border-color: var(--primary, #6B5DD3);
   }
 }
 

@@ -72,7 +72,7 @@ export interface CrudColumn {
               <p class="text-xs font-bold text-slate-400 mt-0.5 tracking-tight uppercase">Interface de gestion administrative</p>
             </div>
           </div>
-          <button (click)="openModal()" class="group flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-slate-900 dark:hover:bg-white dark:hover:text-slate-900 text-white rounded-2xl text-sm font-black transition-all shadow-xl shadow-indigo-200/50 dark:shadow-none active:scale-95 hover:-translate-y-0.5">
+          <button (click)="openModal()" class="group flex items-center gap-3 px-8 py-4 bg-[#6B5DD3] hover:bg-[#5A4FC0] text-white rounded-2xl text-sm font-black transition-all shadow-xl shadow-[#6B5DD3]/30 dark:shadow-none active:scale-95 hover:-translate-y-0.5">
             <lucide-icon [img]="PlusIcon" size="20" class="group-hover:rotate-90 transition-transform duration-500"></lucide-icon>
             NOUVEL ÉLÉMENT
           </button>
@@ -162,12 +162,12 @@ export interface CrudColumn {
                       </td>
                     }
                     <td class="px-8 py-6 text-right">
-                      <div class="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-                        <button (click)="openModal(item)" class="p-3 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 dark:hover:border-slate-600 active:scale-90" title="Modifier">
-                          <lucide-icon [img]="EditIcon" size="18"></lucide-icon>
+                      <div class="flex items-center justify-end gap-2">
+                        <button (click)="openModal(item)" class="p-2.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 bg-slate-100/70 hover:bg-indigo-50 dark:bg-slate-700/60 dark:hover:bg-indigo-950/40 rounded-xl transition-all border border-slate-200/60 dark:border-slate-600/60 hover:border-indigo-200 dark:hover:border-indigo-700 active:scale-95 shadow-sm" title="Modifier">
+                          <lucide-icon [img]="EditIcon" size="16"></lucide-icon>
                         </button>
-                        <button (click)="confirmDelete(item.id)" class="p-3 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-slate-700 rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 dark:hover:border-slate-600 active:scale-90" title="Supprimer">
-                          <lucide-icon [img]="TrashIcon" size="18"></lucide-icon>
+                        <button (click)="confirmDelete(item.id)" class="p-2.5 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 bg-slate-100/70 hover:bg-rose-50 dark:bg-slate-700/60 dark:hover:bg-rose-950/40 rounded-xl transition-all border border-slate-200/60 dark:border-slate-600/60 hover:border-rose-200 dark:hover:border-rose-700 active:scale-95 shadow-sm" title="Supprimer">
+                          <lucide-icon [img]="TrashIcon" size="16"></lucide-icon>
                         </button>
                       </div>
                     </td>
@@ -319,7 +319,7 @@ export interface CrudColumn {
             <button type="button" (click)="closeModal()" class="px-6 py-3 text-sm font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-widest transition-colors">
               Annuler
             </button>
-            <button type="submit" [disabled]="form.invalid || saving()" (click)="save()" class="flex items-center gap-3 px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-2xl shadow-xl shadow-indigo-200/50 dark:shadow-none transition-all disabled:opacity-50 disabled:grayscale">
+            <button type="submit" [disabled]="form.invalid || saving()" (click)="save()" class="flex items-center gap-3 px-8 py-3.5 bg-[#6B5DD3] hover:bg-[#5A4FC0] text-white text-sm font-black rounded-2xl shadow-xl shadow-[#6B5DD3]/30 dark:shadow-none transition-all disabled:opacity-50 disabled:grayscale">
               @if (saving()) {
                 <lucide-icon [img]="LoaderIcon" size="18" class="animate-spin"></lucide-icon>
               }

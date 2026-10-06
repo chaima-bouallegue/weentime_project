@@ -8,18 +8,19 @@ import {
   Eye, Pencil
 } from 'lucide-angular';
 import { DemandeConge, StatutDemande, TypeConge } from '../../models/conge.model';
+import { DemandeActionsMenuComponent } from '../../../../../shared/components/demande-actions-menu';
 
 @Component({
   selector: 'app-historique-list',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, DemandeActionsMenuComponent],
   templateUrl: './historique-list.component.html',
   styleUrl: './historique-list.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class HistoriqueListComponent {
   @Input() demandes: DemandeConge[] = [];
+  @Input() allDemandes: DemandeConge[] = [];
   @Input() isLoading = false;
   @Input() currentFilter: StatutDemande | 'TOUS' = 'TOUS';
 
@@ -45,13 +46,31 @@ export class HistoriqueListComponent {
   readonly iconEye     = Eye;
   readonly iconPen     = Pencil;
 
-  filters: { label: string; value: StatutDemande | 'TOUS'; color: string }[] = [
-    { label: 'Toutes',         value: 'TOUS',             color: '#4361EE' },
-    { label: 'En attente',     value: 'EN_ATTENTE_MANAGER', color: '#f59e0b' },
-    { label: 'Approuvées',     value: 'APPROUVE',         color: '#10b981' },
-    { label: 'Refusées',       value: 'REFUSE',           color: '#ef4444' },
-    { label: 'Annulées',       value: 'ANNULE',           color: '#94a3b8' }
+  filters: { label: string; value: StatutDemande | 'TOUS'; colorClass: string; dotClass: string; badgeClass: string }[] = [
+    { label: 'Demandes',   value: 'TOUS',               colorClass: 'tab--all',   dotClass: '',           badgeClass: 'badge--all' },
+    { label: 'En attente', value: 'EN_ATTENTE_MANAGER', colorClass: 'tab--amber', dotClass: 'dot--amber', badgeClass: 'badge--amber' },
+    { label: 'Approuvées', value: 'APPROUVE',           colorClass: 'tab--green', dotClass: 'dot--green', badgeClass: 'badge--green' },
+    { label: 'Refusées',   value: 'REFUSE',             colorClass: 'tab--red',   dotClass: 'dot--red',   badgeClass: 'badge--red' },
+    { label: 'Annulées',   value: 'ANNULE',             colorClass: 'tab--gray',  dotClass: 'dot--gray',  badgeClass: 'badge--gray' }
   ];
+
+  getCountForFilter(value: StatutDemande | 'TOUS'): number {
+    const list = this.allDemandes?.length ? this.allDemandes : this.demandes;
+    if (value === 'TOUS') return list.length;
+    if (value === 'EN_ATTENTE_MANAGER') {
+      return list.filter(d => d.statut === 'EN_ATTENTE_MANAGER' || d.statut === 'EN_ATTENTE' || d.statut === 'EN_ATTENTE_RH').length;
+    }
+    if (value === 'APPROUVE') {
+      return list.filter(d => d.statut === 'APPROUVE' || d.statut === 'APPROUVEE').length;
+    }
+    if (value === 'REFUSE') {
+      return list.filter(d => d.statut === 'REFUSE' || d.statut === 'REFUSEE').length;
+    }
+    if (value === 'ANNULE') {
+      return list.filter(d => d.statut === 'ANNULE' || d.statut === 'ANNULEE').length;
+    }
+    return list.filter(d => d.statut === value).length;
+  }
 
   getStatusLabel(statut: StatutDemande): string {
     const labels: Partial<Record<StatutDemande, string>> = {

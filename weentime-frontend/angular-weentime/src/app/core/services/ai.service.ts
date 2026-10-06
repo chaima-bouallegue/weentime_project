@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface AIGenerationRequest {
   system_prompt: string;
@@ -9,6 +10,7 @@ export interface AIGenerationRequest {
   max_tokens?: number;
   language?: string;
   provider?: string;
+  output_format?: 'html' | 'text';
 }
 
 export interface AIGenerationResponse {
@@ -23,7 +25,7 @@ export interface AIGenerationResponse {
 })
 export class AIService {
   private http = inject(HttpClient);
-  private aiBaseUrl = 'http://localhost:8000/v1/ai';
+  private aiBaseUrl = `${environment.aiServiceUrl || environment.aiUrl || 'http://localhost:8000'}/v1/ai`;
 
   generateDocument(request: AIGenerationRequest): Observable<AIGenerationResponse> {
     return this.http.post<AIGenerationResponse>(`${this.aiBaseUrl}/generate-document`, {
@@ -33,7 +35,64 @@ export class AIService {
       max_tokens: request.max_tokens ?? 2000,
       language: request.language ?? 'fr',
       provider: request.provider ?? 'gemini',
+      output_format: request.output_format ?? 'text',
     });
+  }
+
+  /**
+   * Helper to clean up any HTML tags, entities, and markdown fences into clean plain text.
+   */
+  private formatAsPlainText(content: string): string {
+    if (!content) return '';
+    let text = content.trim();
+
+    // Remove markdown code fences if any
+    text = text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+    // If it contains HTML tags, convert and strip them
+    if (/<[a-z][\s\S]*>/i.test(text)) {
+      text = text.replace(/<br\s*[\/]?>/gi, '\n');
+      text = text.replace(/<\/(p|div|h[1-6]|tr)>/gi, '\n\n');
+      text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_match, p1) => {
+        const inner = p1.replace(/<[^>]+>/g, '').trim();
+        return /^\d+[\.\)]/.test(inner) ? `${inner}\n` : `• ${inner}\n`;
+      });
+      text = text.replace(/<[^>]+>/g, '');
+
+      if (typeof DOMParser !== 'undefined') {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+          text = doc.body.textContent || text;
+        } catch {
+          // Fallback manual entity decoding
+          text = this.decodeHtmlEntities(text);
+        }
+      } else {
+        text = this.decodeHtmlEntities(text);
+      }
+    }
+
+    // Strip bold/italic markdown symbols
+    text = text.replace(/\*\*(.*?)\*\*/g, '$1');
+    text = text.replace(/\*(.*?)\*/g, '$1');
+
+    // Normalize spacing and newlines
+    const lines = text.split('\n').map(line => line.trim());
+    return lines
+      .filter((line, idx) => line.length > 0 || (idx > 0 && lines[idx - 1].length > 0))
+      .join('\n')
+      .trim();
+  }
+
+  private decodeHtmlEntities(str: string): string {
+    return str
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ');
   }
 
   /**
@@ -49,7 +108,7 @@ export class AIService {
   }): Observable<{ points: string; decisions: string; actions: string }> {
     const systemPrompt = `Tu es un assistant RH professionnel spécialisé dans la rédaction de comptes-rendus de réunion.
 Tu rédiges en français dans un style professionnel, clair et concis.
-Tu dois retourner EXACTEMENT ce format JSON (sans markdown, sans backticks) :
+Tu dois retourner EXACTEMENT ce format JSON (sans markdown, sans backticks, sans balises HTML) :
 {
   "points": "Les points discutés, un par ligne",
   "decisions": "Les décisions prises, une par ligne",
@@ -71,6 +130,7 @@ Génère un compte-rendu réaliste et professionnel basé sur le contexte de la 
       user_prompt: userPrompt,
       temperature: 0.4,
       max_tokens: 1500,
+      output_format: 'text',
     }).pipe(
       map(response => {
         try {
@@ -81,9 +141,9 @@ Génère un compte-rendu réaliste et professionnel basé sur le contexte de la 
             .trim();
           return JSON.parse(cleaned);
         } catch {
-          // Fallback: split content into sections
+          // Fallback: format content into sections
           return {
-            points: response.content,
+            points: this.formatAsPlainText(response.content),
             decisions: '',
             actions: ''
           };
@@ -97,11 +157,11 @@ Génère un compte-rendu réaliste et professionnel basé sur le contexte de la 
    */
   generateAgenda(titre: string, description?: string): Observable<string> {
     const systemPrompt = `Tu es un assistant d'organisation RH et de productivité.
-Tu rédiges des ordres du jour de réunion clairs, structurés et professionnels sous forme de liste numérotée en français.
+Tu rédiges des ordres du jour de réunion clairs, structurés et professionnels sous forme de liste numérotée en texte brut en français.
 Chaque point de l'ordre du jour doit être concis et inclure une durée suggérée (ex : "1. Tour de table - Avancement (10 min)").
-Retourne uniquement la liste, sans introduction ni conclusion ni mise en forme markdown superflue.`;
+Retourne UNIQUEMENT la liste numérotée en texte brut, sans introduction, sans conclusion, sans balises HTML (pas de <h1>, <p>, <ul>, <li>) et sans markdown superflu.`;
 
-    const userPrompt = `Génère un ordre du jour pour la réunion suivante :
+    const userPrompt = `Génère un ordre du jour en texte brut pour la réunion suivante :
 Titre : ${titre}
 ${description ? `Description / Objectif : ${description}` : ''}
 Propose entre 3 et 5 points pertinents adaptés à ce sujet.`;
@@ -111,8 +171,9 @@ Propose entre 3 et 5 points pertinents adaptés à ce sujet.`;
       user_prompt: userPrompt,
       temperature: 0.5,
       max_tokens: 800,
+      output_format: 'text',
     }).pipe(
-      map(response => response.content.trim())
+      map(response => this.formatAsPlainText(response.content))
     );
   }
 }

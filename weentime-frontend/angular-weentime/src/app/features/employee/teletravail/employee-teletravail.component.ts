@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy, ViewEncapsulation, effect } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectorRef, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Clock, Info, Calendar, Monitor, Plus, Sparkles } from 'lucide-angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -14,7 +14,7 @@ import { QuotaCardComponent } from './components/quota-card/quota-card.component
 import { TeletravailHistoriqueComponent } from './components/teletravail-historique/teletravail-historique.component';
 import { TeletravailCalendarComponent } from './components/teletravail-calendar/teletravail-calendar.component';
 import { DemandeTeletravailDrawerComponent } from './components/demande-teletravail-drawer/demande-teletravail-drawer.component';
-import { AnnulationTeletravailModalComponent } from './components/annulation-teletravail-modal/annulation-teletravail-modal.component';
+import { ConfirmCancellationModalComponent, CancellationPreviewItem } from '../../../shared/components/confirm-cancellation-modal';
 import { ConsultationTeletravailModalComponent } from './components/consultation-teletravail-modal/consultation-teletravail-modal.component';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { AssistantWorkflowService } from '../../../core/services/assistant-workflow.service';
@@ -30,12 +30,11 @@ import { ToastService } from '../../../core/services/toast.service';
     TeletravailHistoriqueComponent,
     TeletravailCalendarComponent,
     DemandeTeletravailDrawerComponent,
-    AnnulationTeletravailModalComponent,
+    ConfirmCancellationModalComponent,
     ConsultationTeletravailModalComponent
   ],
   templateUrl: './employee-teletravail.component.html',
   styleUrl: './employee-teletravail.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class EmployeeTeletravailComponent implements OnInit {
@@ -43,6 +42,7 @@ export class EmployeeTeletravailComponent implements OnInit {
   public store = inject(TeletravailStore);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
+  private cdr = inject(ChangeDetectorRef);
   private assistantWorkflow = inject(AssistantWorkflowService);
   private assistantSync = inject(AssistantSyncService);
 
@@ -62,10 +62,12 @@ export class EmployeeTeletravailComponent implements OnInit {
 
   // UI state
   showDrawer        = signal(false);
+  demandeModifier   = signal<DemandeTeletravail | null>(null);
   demandeAnnuler    = signal<DemandeTeletravail | null>(null);
   demandeConsulter  = signal<DemandeTeletravail | null>(null);
   filtreStatut      = signal<StatutTeletravail | 'TOUS' | 'EN_ATTENTE'>('TOUS');
   isAnnulating      = signal(false);
+  isSubmittingRequest = signal(false);
   afficherTout      = signal(false);
   currentDate       = signal<string>('');
 
@@ -104,6 +106,16 @@ export class EmployeeTeletravailComponent implements OnInit {
       .map(d => ({ date: d.dateDebut, periode: d.periode! }))
   );
 
+  teletravailCancellationPreviewItems = computed<CancellationPreviewItem[]>(() => {
+    const d = this.demandeAnnuler();
+    if (!d) return [];
+    return [
+      { label: 'Type', value: d.label || d.type, highlight: true },
+      { label: 'Date', value: d.dateDebut === d.dateFin ? d.dateDebut : `Du ${d.dateDebut} au ${d.dateFin}` },
+      { label: 'Durée', value: `${d.nombreJours} ${d.nombreJours > 1 ? 'jours' : 'jour'}` }
+    ];
+  });
+
   constructor() {
     effect(() => {
       const draft = this.assistantWorkflow.teleworkDraft();
@@ -115,6 +127,9 @@ export class EmployeeTeletravailComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDate();
+    this.store.loadAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.cdr.markForCheck();
+    });
     this.assistantSync.events$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
@@ -134,44 +149,79 @@ export class EmployeeTeletravailComponent implements OnInit {
   onFilterChange(filter: StatutTeletravail | 'TOUS' | 'EN_ATTENTE'): void {
     this.filtreStatut.set(filter);
     this.afficherTout.set(false);
+    this.cdr.markForCheck();
+  }
+
+  openNewRequest(): void {
+    this.demandeModifier.set(null);
+    this.showDrawer.set(true);
+    this.cdr.markForCheck();
+  }
+
+  closeDrawer(): void {
+    this.showDrawer.set(false);
+    this.demandeModifier.set(null);
+    this.cdr.markForCheck();
   }
 
   onCancelRequest(demande: DemandeTeletravail): void {
     this.demandeAnnuler.set(demande);
+    this.cdr.markForCheck();
   }
 
   onEditRequest(demande: DemandeTeletravail): void {
-    this.toastService.info('La modification de demande sera disponible prochainement');
+    this.demandeConsulter.set(null);
+    this.demandeModifier.set(demande);
+    this.showDrawer.set(true);
+    this.cdr.markForCheck();
   }
 
   confirmAnnulation(id: number): void {
     this.isAnnulating.set(true);
+    this.cdr.markForCheck();
     this.teletravailService.annulerDemande(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.isAnnulating.set(false);
           this.demandeAnnuler.set(null);
-          this.toastService.success('Demande annulée avec succès');
           this.refreshData();
         },
-        error: () => this.isAnnulating.set(false)
+        error: () => {
+          this.isAnnulating.set(false);
+          this.cdr.markForCheck();
+        }
       });
   }
 
   soumettreDemande(request: NouvelleDemandeTeletravailRequest): void {
-    this.teletravailService.soumettreDemande(request)
+    const editTarget = this.demandeModifier();
+    this.isSubmittingRequest.set(true);
+    this.cdr.markForCheck();
+
+    const operation$ = editTarget
+      ? this.teletravailService.modifierDemande(editTarget.id, request)
+      : this.teletravailService.soumettreDemande(request);
+
+    operation$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.isSubmittingRequest.set(false);
           this.showDrawer.set(false);
-          this.toastService.success('Votre demande de télétravail a été soumise');
+          this.demandeModifier.set(null);
           this.refreshData();
+        },
+        error: () => {
+          this.isSubmittingRequest.set(false);
+          this.cdr.markForCheck();
         }
       });
   }
 
   private refreshData(): void {
-    this.store.refresh().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.store.refresh().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.cdr.markForCheck();
+    });
   }
 }

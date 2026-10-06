@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation, HostListener, ElementRef, inject, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, CircleMinus, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, MoreVertical } from 'lucide-angular';
+import { LucideAngularModule, FileText, Download, Clock, Loader2, Check, X, AlertCircle, CircleMinus, Filter, Trash2, Shield, Calendar, Sparkles, Briefcase, FileSignature, Wallet, GraduationCap, HeartPulse, Pencil } from 'lucide-angular';
 import { DemandeDocument, StatutDocument, TypeDocumentConfig } from '../../models/document.model';
 import { DocumentStatusBadgeComponent } from '../document-status-badge/document-status-badge.component';
+import { DemandeActionsMenuComponent } from '../../../../../shared/components/demande-actions-menu';
 
 interface FilterChip {
   value: StatutDocument | 'TOUS';
@@ -12,36 +13,14 @@ interface FilterChip {
 @Component({
   selector: 'app-document-historique',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, DocumentStatusBadgeComponent],
+  imports: [CommonModule, LucideAngularModule, DocumentStatusBadgeComponent, DemandeActionsMenuComponent],
   templateUrl: './document-historique.component.html',
   styleUrl: './document-historique.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
 export class DocumentHistoriqueComponent {
-  private elementRef = inject(ElementRef);
-  activeMenuId = signal<number | null>(null);
 
-  readonly iconMoreVertical = MoreVertical;
-
-  toggleMenu(id: number, event: Event): void {
-    event.stopPropagation();
-    if (this.activeMenuId() === id) {
-      this.activeMenuId.set(null);
-    } else {
-      this.activeMenuId.set(id);
-    }
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
-    if (this.activeMenuId() !== null) {
-      const clickedInside = this.elementRef.nativeElement.contains(event.target);
-      if (!clickedInside) {
-        this.activeMenuId.set(null);
-      }
-    }
-  }
   @Input() demandes: DemandeDocument[] = [];
   @Input() allDemandes: DemandeDocument[] = [];
   @Input() isLoading = false;
@@ -49,7 +28,9 @@ export class DocumentHistoriqueComponent {
   @Input() typesConfig: TypeDocumentConfig[] = [];
 
   @Output() filterChange = new EventEmitter<StatutDocument | 'TOUS'>();
+  @Output() viewRequest = new EventEmitter<DemandeDocument>();
   @Output() cancelRequest = new EventEmitter<DemandeDocument>();
+  @Output() editRequest = new EventEmitter<DemandeDocument>();
   @Output() downloadRequest = new EventEmitter<DemandeDocument>();
 
   // Icons
@@ -63,6 +44,7 @@ export class DocumentHistoriqueComponent {
   readonly iconMinus = CircleMinus;
   readonly iconTrash = Trash2;
   readonly iconFilter = Filter;
+  readonly iconPencil = Pencil;
 
   readonly typeIcons: Record<string, any> = {
     'attestation_salaire': Wallet,
@@ -120,5 +102,9 @@ export class DocumentHistoriqueComponent {
   getTypeIcon(icone?: string): any {
     if (!icone) return this.iconFile;
     return this.typeIcons[icone.toLowerCase()] || this.typeIcons['default'];
+  }
+
+  canEdit(statut: string): boolean {
+    return statut === 'EN_ATTENTE' || statut === 'PENDING';
   }
 }

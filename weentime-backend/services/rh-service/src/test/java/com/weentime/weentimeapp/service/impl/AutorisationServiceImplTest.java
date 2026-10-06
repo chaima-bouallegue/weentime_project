@@ -246,4 +246,85 @@ class AutorisationServiceImplTest {
         assertThatThrownBy(() -> service.cancel(80L, userEmail))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
+
+    @Test
+    void updateSuccessResetsToEnAttenteManagerAndCalculatesDuration() {
+        String userEmail = "emp@test.com";
+        UtilisateurAuthResponse user = new UtilisateurAuthResponse();
+        user.setId(10L);
+        user.setEntrepriseId(1L);
+        user.setManagerId(2L);
+        user.setPrenom("Jean");
+        user.setNom("Dupont");
+        when(organisationClient.getUtilisateurForAuth(userEmail)).thenReturn(user);
+
+        Autorisation entity = new Autorisation();
+        entity.setId(90L);
+        entity.setUtilisateurId(10L);
+        entity.setEntrepriseId(1L);
+        entity.setManagerId(2L);
+        entity.setStatut(StatutDemandeEnum.EN_ATTENTE_RH);
+
+        when(repository.findById(90L)).thenReturn(Optional.of(entity));
+        when(repository.save(entity)).thenAnswer(inv -> inv.getArgument(0));
+
+        AutorisationDTO updateDto = new AutorisationDTO();
+        updateDto.setDateAutorisation(LocalDate.of(2026, 9, 20));
+        updateDto.setHeureDebut(LocalTime.of(9, 0));
+        updateDto.setHeureFin(LocalTime.of(11, 30));
+        updateDto.setMotif("Rendez-vous médical modifié");
+
+        AutorisationDTO resultDto = new AutorisationDTO();
+        resultDto.setId(90L);
+        when(mapper.toDto(entity)).thenReturn(resultDto);
+
+        AutorisationDTO result = service.update(90L, updateDto, userEmail);
+
+        assertThat(result).isNotNull();
+        assertThat(entity.getStatut()).isEqualTo(StatutDemandeEnum.EN_ATTENTE_MANAGER);
+        assertThat(entity.getDateAutorisation()).isEqualTo(LocalDate.of(2026, 9, 20));
+        assertThat(entity.getHeureDebut()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(entity.getHeureFin()).isEqualTo(LocalTime.of(11, 30));
+        assertThat(entity.getDuree()).isEqualTo(150);
+        assertThat(entity.getMotif()).isEqualTo("Rendez-vous médical modifié");
+        verify(asyncNotificationService).sendToUser(eq(2L), any(), eq(1L));
+    }
+
+    @Test
+    void updateThrowsWhenStatutAlreadyApproved() {
+        String userEmail = "emp@test.com";
+        UtilisateurAuthResponse user = new UtilisateurAuthResponse();
+        user.setId(10L);
+        when(organisationClient.getUtilisateurForAuth(userEmail)).thenReturn(user);
+
+        Autorisation entity = new Autorisation();
+        entity.setId(91L);
+        entity.setUtilisateurId(10L);
+        entity.setStatut(StatutDemandeEnum.APPROUVE);
+
+        when(repository.findById(91L)).thenReturn(Optional.of(entity));
+
+        AutorisationDTO updateDto = new AutorisationDTO();
+
+        assertThatThrownBy(() -> service.update(91L, updateDto, userEmail))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
+    @Test
+    void updateThrowsWhenUserDoesNotOwnAutorisation() {
+        String userEmail = "wrong@test.com";
+        UtilisateurAuthResponse user = new UtilisateurAuthResponse();
+        user.setId(99L);
+        when(organisationClient.getUtilisateurForAuth(userEmail)).thenReturn(user);
+
+        Autorisation entity = new Autorisation();
+        entity.setId(92L);
+        entity.setUtilisateurId(10L);
+        when(repository.findById(92L)).thenReturn(Optional.of(entity));
+
+        AutorisationDTO updateDto = new AutorisationDTO();
+
+        assertThatThrownBy(() -> service.update(92L, updateDto, userEmail))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
 }

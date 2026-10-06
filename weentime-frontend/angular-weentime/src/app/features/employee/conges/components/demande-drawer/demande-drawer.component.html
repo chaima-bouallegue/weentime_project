@@ -28,7 +28,7 @@
         <div class="step-content animate-fade-in">
           <h3 class="step-title">Quel type de congé ?</h3>
           <div class="type-grid">
-            @for (type of leaveTypes(); track type.id) {
+            @for (type of _leaveTypes(); track type.id) {
               <button
                 class="type-card"
                 [class.selected]="selectedType() === type"

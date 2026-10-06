@@ -1,0 +1,93 @@
+<div class="modal-overlay" (click)="close.emit()">
+  <div class="modal-content animate-pop-in" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="icon-info">
+        <lucide-angular [img]="iconFile" size="24"></lucide-angular>
+      </div>
+      <h3>Détails de la demande</h3>
+      <button class="close-modal-btn" (click)="close.emit()">
+        <lucide-angular [img]="iconX" size="20"></lucide-angular>
+      </button>
+    </div>
+
+    @if (demande) {
+      <div class="modal-body">
+        <div class="request-preview">
+
+          <!-- Type / Document -->
+          <div class="preview-item">
+            <span class="label">Document</span>
+            <span class="value accent">{{ demande.label }}</span>
+          </div>
+
+          <!-- Statut -->
+          <div class="preview-item">
+            <span class="label">Statut</span>
+            <span class="status-badge" [class]="demande.statut.toLowerCase()">
+              {{ getStatusLabel(demande.statut) }}
+            </span>
+          </div>
+
+          <!-- Date de demande -->
+          <div class="preview-item">
+            <span class="label">Demandé le</span>
+            <span class="value">{{ demande.dateCreation | date:'dd/MM/yyyy à HH:mm':'':'fr' }}</span>
+          </div>
+
+          <!-- Mois concerné -->
+          @if (demande.moisConcerne) {
+            <div class="preview-item">
+              <span class="label">Mois concerné</span>
+              <span class="value">{{ demande.moisConcerne }}</span>
+            </div>
+          }
+
+          <!-- Délai estimé -->
+          @if (demande.delaiEstime) {
+            <div class="preview-item">
+              <span class="label">Délai estimé</span>
+              <span class="value">{{ demande.delaiEstime }}</span>
+            </div>
+          }
+
+          @if (demande.motif || demande.commentaireRH || demande.motifRejet) {
+            <div class="preview-divider"></div>
+          }
+
+          <!-- Motif -->
+          @if (demande.motif) {
+            <div class="preview-item-vertical">
+              <span class="label">Motif de la demande</span>
+              <p class="text-value">{{ demande.motif }}</p>
+            </div>
+          }
+
+          <!-- Commentaire RH / Rejet -->
+          @if (demande.commentaireRH || demande.motifRejet) {
+            <div class="preview-item-vertical">
+              <span class="label">Commentaire RH</span>
+              <p class="text-value highlight-comment">{{ demande.commentaireRH || demande.motifRejet }}</p>
+            </div>
+          }
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        @if (canDownload(demande)) {
+          <button class="btn-download" (click)="download.emit(demande)">
+            <lucide-angular [img]="iconDownload" size="16"></lucide-angular>
+            <span>Télécharger</span>
+          </button>
+        }
+        @if (canModify(demande)) {
+          <button class="btn-secondary" (click)="edit.emit(demande)">
+            <lucide-angular [img]="iconPencil" size="16"></lucide-angular>
+            <span>Modifier</span>
+          </button>
+        }
+        <button class="btn-primary" (click)="close.emit()">Fermer</button>
+      </div>
+    }
+  </div>
+</div>

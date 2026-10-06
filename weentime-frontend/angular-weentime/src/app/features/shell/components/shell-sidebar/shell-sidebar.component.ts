@@ -166,7 +166,7 @@ export class ShellSidebarComponent {
         { id: 'rh-planning', label: 'Calendrier Global', icon: 'calendar', route: `${base}/planning` },
         { id: 'rh-recrutement', label: 'Recrutement', icon: 'search', route: `${base}/recrutement` },
         { id: 'rh-structure', label: 'Structure', icon: 'network', route: `${base}/structure` },
-        { id: 'rh-employes', label: 'Employes', icon: 'briefcase', route: `${base}/employes` },
+        { id: 'rh-employes', label: 'Employes', icon: 'users', route: `${base}/employes` },
         { id: 'rh-conges', label: 'Conges', icon: 'calendar-check', route: `${base}/conges` },
         { id: 'rh-horaires', label: 'Horaires', icon: 'clock', route: `${base}/horaires` },
         { id: 'rh-pointage', label: 'Pointage', icon: 'clock', route: `${base}/pointage` },
@@ -183,7 +183,6 @@ export class ShellSidebarComponent {
         { id: 'admin-roles', label: 'Roles', icon: 'shield', route: `${base}/roles` },
         { id: 'admin-entreprises', label: 'Entreprises', icon: 'building', route: `${base}/entreprises` },
         { id: 'admin-anomalies', label: 'Anomalies IA', icon: 'shield-alert', route: `${base}/anomalies` },
-        { id: 'admin-forecast', label: 'Prevision RH', icon: 'trending-up', route: `${base}/forecast` },
         { id: 'admin-rh-owners', label: 'Gestionnaires RH', icon: 'user-cog', route: `${base}/rh-owners` },
         { id: 'admin-parametres', label: 'Parametres', icon: 'settings', route: `${base}/parametres` }
       );

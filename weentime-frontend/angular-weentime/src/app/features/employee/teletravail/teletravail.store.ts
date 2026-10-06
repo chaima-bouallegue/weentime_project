@@ -17,6 +17,7 @@ export class TeletravailStore {
   readonly quota = signal<QuotaTeletravail | null>(null);
   readonly historique = signal<DemandeTeletravail[]>([]);
   readonly holidayDates = signal<string[]>([]);
+  readonly types = signal<any[]>([]);
   readonly isLoading = signal(false);
   readonly isRefreshing = signal(false);
 
@@ -49,12 +50,14 @@ export class TeletravailStore {
     return forkJoin({
       quota: this.service.getQuota().pipe(catchError(() => of(null))),
       historique: this.service.getHistorique().pipe(catchError(() => of([]))),
-      holidays: this.service.getJoursFeries().pipe(catchError(() => of([])))
+      holidays: this.service.getJoursFeries().pipe(catchError(() => of([]))),
+      types: this.service.getTypes().pipe(catchError(() => of([])))
     }).pipe(
-      tap(({ quota, historique, holidays }) => {
+      tap(({ quota, historique, holidays, types }) => {
         this.quota.set(quota);
         this.historique.set(historique);
         this.holidayDates.set(holidays);
+        this.types.set(types);
         this._lastFetch = Date.now();
       }),
       finalize(() => {

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from time import perf_counter
 from typing import Any, Awaitable, Callable
@@ -112,7 +112,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             "workflow_orchestrator": state.copilot_workflow_orchestrator,
         }
 
-    timeout = float(getattr(settings, "backend_timeout_seconds", 20.0)) if settings else 20.0
+    timeout = float(getattr(settings, "backend_timeout_seconds", 45.0)) if settings else 45.0
     base_url = getattr(settings, "backend_base_url", None) if settings else None
     backend_client = getattr(state, "copilot_backend_client", None) or BackendClient(base_url=base_url, timeout=timeout)
     policy_store = getattr(state, "copilot_policy_store", None) or LocalPolicyStore()

@@ -1,16 +1,55 @@
 <div class="pointage-page">
-  <!-- Top Breadcrumb & Title Section -->
-  <header class="pointage-header">
-    <div class="header-breadcrumb-and-title">
-      <div class="title-with-badge">
-        <h1>{{ isAdminOrRh() ? 'Pointage' : 'Mon pointage' }}</h1>
-        <div *ngIf="isCheckedIn()" class="header-status-badge">
-          <span class="header-pulse-dot"></span> En activité
+  <!-- Unified WeenTime Page Header -->
+  <header class="page-header pointage-page-animate">
+    <div class="page-header__row">
+      <div class="header-title-group">
+        <div class="header-icon-box">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="24"></lucide-angular>
+        </div>
+        <div>
+          <h1 class="page-title">{{ isAdminOrRh() ? 'Pointage & Présence' : 'Mon Pointage' }}</h1>
+          <p class="page-subtitle">
+            {{ isAdminOrRh() ? 'Suivez vos horaires, enregistrez vos arrivées et départs et pilotez vos présences' : 'Enregistrez vos arrivées, vos départs et suivez votre journée de travail en temps réel' }}
+          </p>
         </div>
       </div>
-      <p class="date-subtitle">{{ currentDateTimeFormatted() }}</p>
+      <div class="page-header__actions">
+        <!-- Live pointage status chip -->
+        <div class="pointage-live-chip"
+             [class.is-active]="isCheckedIn()"
+             [class.is-closed]="attendanceState() === 'CLOSED'"
+             [class.is-idle]="!isCheckedIn() && attendanceState() !== 'CLOSED'">
+          <span class="live-dot" [class.live-pulse]="isCheckedIn()"></span>
+          <span class="live-text">{{ isCheckedIn() ? 'En activité' : (attendanceState() === 'CLOSED' ? 'Journée clôturée' : 'Hors session') }}</span>
+          <span *ngIf="isCheckedIn()" class="live-timer">{{ dailyDuration() }}</span>
+        </div>
+
+        <!-- Date & Time chip -->
+        <div class="pointage-datetime-chip">
+          <lucide-angular *ngIf="iconCalendar" [img]="iconCalendar" size="14"></lucide-angular>
+          <span>{{ currentDateTimeFormatted() }}</span>
+        </div>
+
+        <!-- GPS Pill -->
+        <div class="pointage-gps-chip" [class.gps-locked]="latestLocationLabel()">
+          <lucide-angular *ngIf="iconLocate" [img]="iconLocate" size="13"></lucide-angular>
+          <span>{{ latestLocationLabel() ? 'GPS Actif' : 'GPS Prêt' }}</span>
+        </div>
+      </div>
     </div>
   </header>
+
+  <!-- Navigation Tab Bar for Manager, RH, Admin -->
+  <nav *ngIf="showManagerTeamShortcut()" class="tab-bar pointage-page-animate" aria-label="Sections pointage">
+    <button type="button" class="tab-btn is-active">
+      <lucide-angular *ngIf="iconClock" [img]="iconClock" size="15"></lucide-angular>
+      <span>Mon pointage personnel</span>
+    </button>
+    <a [routerLink]="['/app', role().toLowerCase() === 'admin' ? 'manager' : role().toLowerCase(), 'presence']" class="tab-btn">
+      <lucide-angular *ngIf="iconUsers" [img]="iconUsers" size="15"></lucide-angular>
+      <span>Vue équipe & présences</span>
+    </a>
+  </nav>
 
   <!-- Alerts and inline feedbacks -->
   <div *ngIf="statusMessage()" class="inline-feedback info-feedback">
@@ -23,36 +62,10 @@
     <span>{{ serviceError() }}</span>
   </div>
 
-  <ng-container *ngIf="isEmployeeOrManager(); else adminRhSections">
-
-    <!-- ═══════════ SKELETON DURING INITIAL LOAD ═══════════ -->
-    <section *ngIf="!pageReady()" class="hero-pointage-grid hero-pointage-grid--skeleton">
-      <div class="hero-skel-card hero-skel-card--session">
-        <div class="skel-bar skel-bar--tag"></div>
-        <div class="skel-bar skel-bar--timer"></div>
-        <div class="skel-circle"></div>
-        <div class="skel-bar skel-bar--meta"></div>
-      </div>
-      <div class="hero-skel-card">
-        <div class="skel-bar skel-bar--tag"></div>
-        <div class="skel-bar skel-bar--value"></div>
-        <div class="skel-bar skel-bar--sub"></div>
-      </div>
-      <div class="hero-skel-card">
-        <div class="skel-bar skel-bar--tag"></div>
-        <div class="skel-bar skel-bar--value"></div>
-        <div class="skel-bar skel-bar--progress"></div>
-      </div>
-      <div class="hero-skel-card">
-        <div class="skel-bar skel-bar--tag"></div>
-        <div class="skel-bar skel-bar--value"></div>
-        <div class="skel-bar skel-bar--sub"></div>
-        <div class="skel-bar skel-bar--sub"></div>
-      </div>
-    </section>
-
-    <!-- Hero Row: 4-blocks configuration -->
-    <section *ngIf="pageReady()" class="hero-pointage-grid">
+  <ng-container *ngIf="isEmployeeOrManager()">
+    <div class="pointage-content-flow pointage-page-animate">
+      <!-- Hero Row: 4-blocks pointage configuration -->
+      <section class="hero-pointage-grid">
       <!-- Left Block: Session Card -->
       <div class="hero-card session-card" [class.state-active]="isCheckedIn()"
         [class.state-closed]="attendanceState() === 'CLOSED'">
@@ -716,82 +729,6 @@
         </div>
       </section>
     </div>
+    </div>
   </ng-container>
-
-  <!-- Admin and RH View section fallback -->
-  <ng-template #adminRhSections>
-    <section class="content-grid admin-grid">
-      <article class="surface-card">
-        <div class="card-head">
-          <h2>État du jour</h2>
-          <lucide-angular *ngIf="iconCheck" [img]="iconCheck" size="18"></lucide-angular>
-        </div>
-
-        <div class="summary-grid">
-          <div>
-            <span>Statut</span>
-            <strong>{{ statusLabel() }}</strong>
-          </div>
-          <div>
-            <span>Compteur</span>
-            <strong>{{ dailyDuration() }}</strong>
-          </div>
-          <div>
-            <span>Entrée</span>
-            <strong>{{ formatTime(checkInTime()) }}</strong>
-          </div>
-          <div>
-            <span>Sortie</span>
-            <strong>{{ formatTime(checkOutTime()) }}</strong>
-          </div>
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="card-head">
-          <h2>Vue hebdomadaire</h2>
-          <lucide-angular *ngIf="iconCalendar" [img]="iconCalendar" size="18"></lucide-angular>
-        </div>
-
-        <div *ngIf="(stats()?.joursParStatus?.length || 0) === 0" class="empty-state compact">
-          <p>Aucune donnée hebdomadaire disponible.</p>
-        </div>
-
-        <div *ngIf="(stats()?.joursParStatus?.length || 0) > 0" class="week-status-list">
-          <div *ngFor="let day of stats()?.joursParStatus" class="week-row">
-            <span>{{ day.jour }}</span>
-            <span [class]="dayStatusClass(day.statut)">{{ dayStatusLabel(day.statut) }}</span>
-          </div>
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="card-head">
-          <h2>Statistiques</h2>
-          <lucide-angular *ngIf="iconTrend" [img]="iconTrend" size="18"></lucide-angular>
-        </div>
-
-        <div class="summary-grid">
-          <div>
-            <span>Heures semaine</span>
-            <strong>{{ stats()?.heuresSemaine || '0h00' }}</strong>
-          </div>
-          <div>
-            <span>Ponctualité</span>
-            <strong>{{ (stats()?.ponctualitePct ?? 100) | number:'1.0-0' }}%</strong>
-          </div>
-          <div>
-            <span>Solde congés</span>
-            <strong>{{ stats()?.soldeConges ?? 0 }}j</strong>
-          </div>
-          <div>
-            <span>Activités</span>
-            <strong>{{ history().length }}</strong>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <app-attendance-map-card class="rh-pointage-map" [points]="mapPoints()"></app-attendance-map-card>
-  </ng-template>
 </div>

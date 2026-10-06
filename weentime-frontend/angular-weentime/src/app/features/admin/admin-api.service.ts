@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { ApiConfigService } from '../../core/services/api-config.service';
 import { SKIP_ERROR_TOAST } from '../../core/http/request-context.tokens';
 
@@ -87,7 +87,7 @@ export interface AdminUserPayload {
   nom: string;
   prenom: string;
   email: string;
-  motDePasse: string;
+  motDePasse?: string;
   telephone?: string;
   poste?: string;
   statut: 'ACTIF' | 'INACTIF';
@@ -215,6 +215,44 @@ export class AdminApiService {
   private readonly api = inject(ApiConfigService);
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
+  private cachedUsersPage: AdminPage<AdminUser> | null = null;
+  private cachedEntreprises: AdminPage<AdminEntreprise> | null = null;
+  private cachedDepartements: AdminPage<AdminDepartement> | null = null;
+  private cachedEquipes: AdminPage<AdminEquipe> | null = null;
+
+  constructor() {
+    this.restoreCache();
+  }
+
+  private restoreCache(): void {
+    try {
+      const rawUsers = sessionStorage.getItem('wt_cache_admin_users_page');
+      if (rawUsers) this.cachedUsersPage = JSON.parse(rawUsers);
+      const rawEnt = sessionStorage.getItem('wt_cache_admin_users_entreprises');
+      if (rawEnt) this.cachedEntreprises = JSON.parse(rawEnt);
+      const rawDep = sessionStorage.getItem('wt_cache_admin_users_departements');
+      if (rawDep) this.cachedDepartements = JSON.parse(rawDep);
+      const rawEq = sessionStorage.getItem('wt_cache_admin_users_equipes');
+      if (rawEq) this.cachedEquipes = JSON.parse(rawEq);
+    } catch {}
+  }
+
+  getCachedUsers(): AdminPage<AdminUser> | null {
+    return this.cachedUsersPage;
+  }
+
+  getCachedEntreprises(): AdminPage<AdminEntreprise> | null {
+    return this.cachedEntreprises;
+  }
+
+  getCachedDepartements(): AdminPage<AdminDepartement> | null {
+    return this.cachedDepartements;
+  }
+
+  getCachedEquipes(): AdminPage<AdminEquipe> | null {
+    return this.cachedEquipes;
+  }
+
   getUsers(
     page: number,
     size: number,
@@ -242,10 +280,10 @@ export class AdminApiService {
       params = params.set('role', role);
     }
     if (statut) {
-      params = params.set('statut', statut);
+      params = params.set('status', statut);
     }
     if (entrepriseId) {
-      params = params.set('entrepriseId', entrepriseId);
+      params = params.set('companyId', entrepriseId);
     }
     if (sort) {
       params = params.set('sort', sort);
@@ -256,13 +294,23 @@ export class AdminApiService {
         params,
         context: this.requestContext(requestOptions)
       })
-      .pipe(map(response => {
-        const pageData = this.normalizePageResponse<AdminUser>(response, normalizedPage, normalizedSize);
-        return {
-          ...pageData,
-          content: pageData.content.map(user => this.normalizeAdminUser(user))
-        };
-      }));
+      .pipe(
+        map(response => {
+          const pageData = this.normalizePageResponse<AdminUser>(response, normalizedPage, normalizedSize);
+          return {
+            ...pageData,
+            content: pageData.content.map(user => this.normalizeAdminUser(user))
+          };
+        }),
+        tap(pageData => {
+          if (!search && !role && !statut && !entrepriseId && normalizedPage === 0) {
+            this.cachedUsersPage = pageData;
+            try {
+              sessionStorage.setItem('wt_cache_admin_users_page', JSON.stringify(pageData));
+            } catch {}
+          }
+        })
+      );
   }
 
 
@@ -307,7 +355,17 @@ export class AdminApiService {
           .set('size', String(normalizedSize)),
         context: this.requestContext(options)
       })
-      .pipe(map(response => this.normalizePageResponse<AdminEntreprise>(response, normalizedPage, normalizedSize)));
+      .pipe(
+        map(response => this.normalizePageResponse<AdminEntreprise>(response, normalizedPage, normalizedSize)),
+        tap(pageData => {
+          if (normalizedPage === 0) {
+            this.cachedEntreprises = pageData;
+            try {
+              sessionStorage.setItem('wt_cache_admin_users_entreprises', JSON.stringify(pageData));
+            } catch {}
+          }
+        })
+      );
   }
 
   createEntreprise(payload: AdminEntreprisePayload): Observable<AdminEntreprise> {
@@ -356,7 +414,17 @@ export class AdminApiService {
           .set('size', String(normalizedSize)),
         context: this.requestContext(options)
       })
-      .pipe(map(response => this.normalizePageResponse<AdminDepartement>(response, normalizedPage, normalizedSize)));
+      .pipe(
+        map(response => this.normalizePageResponse<AdminDepartement>(response, normalizedPage, normalizedSize)),
+        tap(pageData => {
+          if (normalizedPage === 0) {
+            this.cachedDepartements = pageData;
+            try {
+              sessionStorage.setItem('wt_cache_admin_users_departements', JSON.stringify(pageData));
+            } catch {}
+          }
+        })
+      );
   }
 
   createDepartement(payload: AdminDepartementPayload): Observable<AdminDepartement> {
@@ -381,7 +449,17 @@ export class AdminApiService {
           .set('size', String(normalizedSize)),
         context: this.requestContext(options)
       })
-      .pipe(map(response => this.normalizePageResponse<AdminEquipe>(response, normalizedPage, normalizedSize)));
+      .pipe(
+        map(response => this.normalizePageResponse<AdminEquipe>(response, normalizedPage, normalizedSize)),
+        tap(pageData => {
+          if (normalizedPage === 0) {
+            this.cachedEquipes = pageData;
+            try {
+              sessionStorage.setItem('wt_cache_admin_users_equipes', JSON.stringify(pageData));
+            } catch {}
+          }
+        })
+      );
   }
 
   createEquipe(payload: AdminEquipePayload): Observable<AdminEquipe> {

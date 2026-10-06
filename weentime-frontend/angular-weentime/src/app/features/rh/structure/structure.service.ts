@@ -357,10 +357,15 @@ export class StructureService {
     const roleNames = (source.roles ?? []).map(role =>
       typeof role === 'string' ? role : String(role?.nom ?? 'ROLE_EMPLOYEE')
     );
-    const isManager = roleNames.includes('ROLE_MANAGER');
+    const rawRole = String((source as any).role ?? '').toUpperCase();
+    const isManager = roleNames.includes('ROLE_MANAGER') || roleNames.includes('MANAGER') || rawRole === 'ROLE_MANAGER' || rawRole === 'MANAGER';
     const raw = source as unknown as Record<string, unknown>;
     const departementNom = (raw['departementNom'] as string | undefined) ?? (raw['departement'] as string | undefined);
     const equipeNom = (raw['equipeNom'] as string | undefined) ?? (raw['equipe'] as string | undefined);
+
+    const rawStatut = String(source.statut ?? '').toUpperCase();
+    const isPending = rawStatut === 'PENDING' || rawStatut === 'EN_ATTENTE' || rawStatut.includes('PENDING') || rawStatut.includes('ATTENTE');
+    const statut = rawStatut === 'INACTIF' ? 'INACTIF' : (isPending ? 'PENDING' : 'ACTIF');
 
     return {
       id: source.id,
@@ -374,7 +379,7 @@ export class StructureService {
       equipeId: source.equipeId ?? undefined,
       equipeNom: equipeNom || undefined,
       role: isManager ? 'ROLE_MANAGER' : 'ROLE_EMPLOYEE',
-      statut: source.statut === 'INACTIF' ? 'INACTIF' : 'ACTIF',
+      statut,
       dateCreation: source.dateCreation || new Date().toISOString()
     };
   }

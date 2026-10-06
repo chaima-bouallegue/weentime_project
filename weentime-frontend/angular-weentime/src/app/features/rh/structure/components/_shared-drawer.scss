@@ -11,7 +11,13 @@
   animation: fadeIn 0.3s ease-out;
 
   &.embedded {
-    display: contents;
+    display: contents !important;
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    animation: none !important;
+    z-index: auto !important;
   }
 }
 
@@ -125,10 +131,11 @@
 
 .btn-primary {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 12px; background: #6366f1; color: white; border: none; border-radius: 12px;
-  font-weight: 700; cursor: pointer; transition: all 0.2s;
+  padding: 12px; background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%); color: white; border: none; border-radius: 12px;
+  font-weight: 700; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(107, 93, 211, 0.28);
   &:disabled { opacity: 0.5; cursor: not-allowed; }
-  &:not(:disabled):hover { background: #4f46e5; transform: translateY(-1px); }
+  &:not(:disabled):hover { background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(107, 93, 211, 0.38); }
 }
 
 .animate-spin { animation: spin 1s linear infinite; }

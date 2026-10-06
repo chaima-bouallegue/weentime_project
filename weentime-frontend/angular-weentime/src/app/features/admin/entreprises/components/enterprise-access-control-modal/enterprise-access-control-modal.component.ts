@@ -4,6 +4,8 @@ import {
   EventEmitter,
   Input,
   OnChanges,
+  OnDestroy,
+  OnInit,
   Output,
   SimpleChanges,
   inject,
@@ -19,6 +21,7 @@ import {
   EnterpriseAccessUserResponse,
 } from '../../entreprise.service';
 import { ToastService } from '../../../../../core/services/toast.service';
+import { ModalService } from '@app/core/services/modal.service';
 
 type AccessSection = 'rh' | 'manager';
 
@@ -30,7 +33,7 @@ type AccessSection = 'rh' | 'manager';
   styleUrl: './enterprise-access-control-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class EnterpriseAccessControlModalComponent implements OnChanges {
+export class EnterpriseAccessControlModalComponent implements OnInit, OnChanges, OnDestroy {
 
   @Input() entreprise: Entreprise | null = null;
   @Output() close = new EventEmitter<void>();
@@ -38,11 +41,20 @@ export class EnterpriseAccessControlModalComponent implements OnChanges {
 
   private readonly svc = inject(EntrepriseService);
   private readonly toast = inject(ToastService);
+  private readonly modalService = inject(ModalService);
 
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly accessControl = signal<EnterpriseAccessControl | null>(null);
+
+  ngOnInit(): void {
+    this.modalService.open();
+  }
+
+  ngOnDestroy(): void {
+    this.modalService.close();
+  }
   readonly selectedRhIds = signal<Set<number>>(new Set());
   readonly selectedManagerIds = signal<Set<number>>(new Set());
 

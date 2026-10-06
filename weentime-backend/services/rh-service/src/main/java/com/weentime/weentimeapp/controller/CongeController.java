@@ -159,6 +159,39 @@ public class CongeController {
         }
     }
 
+    @GetMapping("/{id}/justificatif")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','RH')")
+    public ResponseEntity<org.springframework.core.io.Resource> getJustificatif(@PathVariable Long id) {
+        CongeDTO dto = service.getById(id);
+        if (dto == null || dto.getJustificatifUrl() == null || dto.getJustificatifUrl().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Aucun justificatif associe a cette demande.");
+        }
+        try {
+            String pathStr = dto.getJustificatifUrl().startsWith("/") ? dto.getJustificatifUrl().substring(1) : dto.getJustificatifUrl();
+            Path path = Paths.get(pathStr);
+            if (!Files.exists(path)) {
+                Path alt = Paths.get("services", "rh-service").resolve(pathStr);
+                if (Files.exists(alt)) {
+                    path = alt;
+                }
+            }
+            if (!Files.exists(path)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fichier justificatif introuvable.");
+            }
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
+            String contentType = Files.probeContentType(path);
+            if (contentType == null) {
+                contentType = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            }
+            return ResponseEntity.ok()
+                    .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + path.getFileName().toString() + "\"")
+                    .body(resource);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur lors de la lecture du justificatif.");
+        }
+    }
+
     private List<CongeDTO> resolveListForCurrentRole() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {

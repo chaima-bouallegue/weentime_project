@@ -104,7 +104,7 @@ import { NotificationService, Notification } from '../../../../core/services/not
       border-radius: 20px;
       box-shadow: 0 20px 50px -12px rgba(0,0,0,0.15);
       border: 1px solid var(--border);
-      z-index: 10000;
+      z-index: var(--z-notification);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -436,11 +436,11 @@ import { NotificationService, Notification } from '../../../../core/services/not
 })
 export class NotificationDropdownComponent implements OnInit {
   private notificationService = inject(NotificationService);
-  
+
   @Output() close = new EventEmitter<void>();
 
   activeFilter = signal<'ALL' | 'UNREAD' | 'ACTIONS'>('ALL');
-  
+
   notifications = this.notificationService.notifications;
   unreadCount = this.notificationService.unreadCount;
   loading = this.notificationService.loading;
@@ -453,11 +453,11 @@ export class NotificationDropdownComponent implements OnInit {
   filteredNotifications = computed(() => {
     const list = this.notifications();
     const filter = this.activeFilter();
-    
+
     if (filter === 'UNREAD') return list.filter(n => !n.lu);
-    if (filter === 'ACTIONS') return list.filter(n => 
-      n.type === 'CONGE_SOUMIS' || 
-      n.type === 'CONGE_VALIDATION_RH' || 
+    if (filter === 'ACTIONS') return list.filter(n =>
+      n.type === 'CONGE_SOUMIS' ||
+      n.type === 'CONGE_VALIDATION_RH' ||
       n.type === 'USER_PENDING'
     );
     return list;
@@ -466,10 +466,10 @@ export class NotificationDropdownComponent implements OnInit {
   groupedNotifications = computed(() => {
     const list = this.filteredNotifications();
     const groups: { label: string, items: Notification[] }[] = [];
-    
+
     const today = new Date();
     const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
-    
+
     const todayItems = list.filter(n => new Date(n.date).toDateString() === today.toDateString());
     const yesterdayItems = list.filter(n => new Date(n.date).toDateString() === yesterday.toDateString());
     const olderItems = list.filter(n => {
@@ -485,7 +485,7 @@ export class NotificationDropdownComponent implements OnInit {
   });
 
   getIcon(type: string): string {
-    switch(type) {
+    switch (type) {
       case 'CONGE_APPROUVE': return 'check-circle';
       case 'CONGE_REFUSE': return 'x-circle';
       case 'CONGE_SOUMIS':

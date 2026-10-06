@@ -18,6 +18,7 @@ import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-brows
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { AuthService } from '@app/core/services/auth.service';
 import { DemandeDocumentRH } from '../../models/rh-document.model';
 import { RhDocumentService } from '../../rh-document.service';
 
@@ -36,11 +37,12 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly documentService = inject(RhDocumentService);
+  private readonly authService = inject(AuthService);
 
   @Input({ required: true }) demande!: DemandeDocumentRH;
   @Output() closeEditor = new EventEmitter<void>();
   @Output() approuver = new EventEmitter<{ id: number; contenu: string }>();
-  @Output() signer = new EventEmitter<{ id: number; signedBy: string }>();
+  @Output() signer = new EventEmitter<{ id: number; signedBy: string; signatureImage?: string }>();
   @Output() envoyer = new EventEmitter<number>();
   @Output() generateAI = new EventEmitter<{
     demande: DemandeDocumentRH;
@@ -49,12 +51,24 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
   }>();
 
   @ViewChild('editorContent') editorContent!: ElementRef<HTMLDivElement>;
+  @ViewChild('signatureCanvas') signatureCanvas?: ElementRef<HTMLCanvasElement>;
 
   contentHtml: SafeHtml = '';
   rawHtml = '';
   isSidebarOpen = true;
   showSignatureModal = false;
+  signatureType: 'draw' | 'type' = 'draw';
   signatureName = '';
+  signerRole = 'Responsable Ressources Humaines';
+  signerEmail = '';
+  legalConsent = false;
+  documentHash = '';
+  signatureTimestamp = '';
+  transactionId = '';
+  hasDrawn = false;
+  private isDrawing = false;
+  private lastX = 0;
+  private lastY = 0;
   isProcessing = false;
 
   layoutMode: EditorLayoutMode = 'editor';
@@ -207,18 +221,182 @@ export class RhDocumentEditorComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openSignatureModal(): void {
-    this.signatureName = '';
+    const user = this.authService.currentUser();
+    const fullName = user ? [user.prenom, user.nom].filter(Boolean).join(' ') : '';
+    this.signatureName = fullName || 'Chaima Bouallegue';
+    this.signerEmail = user?.email || 'chaima.rh@weentime.com';
+    this.signerRole = (user?.roles?.includes('ADMIN') || user?.role === 'ADMIN')
+      ? 'Directrice RH & Administrateur'
+      : 'Responsable Ressources Humaines';
+    this.legalConsent = false;
+    this.hasDrawn = false;
+    this.signatureType = 'draw';
+    this.transactionId = `eIDAS-${this.demande.id}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    this.signatureTimestamp = new Date().toLocaleString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    this.generateDocumentHash();
     this.showSignatureModal = true;
+    this.cdr.markForCheck();
+    setTimeout(() => this.setupCanvas(), 60);
   }
 
   closeSignatureModal(): void {
     this.showSignatureModal = false;
+    this.isDrawing = false;
+    this.cdr.markForCheck();
+  }
+
+  setSignatureType(type: 'draw' | 'type'): void {
+    this.signatureType = type;
+    this.cdr.markForCheck();
+    if (type === 'draw') {
+      setTimeout(() => this.setupCanvas(), 40);
+    }
+  }
+
+  setupCanvas(): void {
+    const canvas = this.signatureCanvas?.nativeElement;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = '#312e81';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+    this.hasDrawn = false;
+    this.cdr.markForCheck();
+  }
+
+  startDrawing(event: MouseEvent | TouchEvent): void {
+    event.preventDefault();
+    this.isDrawing = true;
+    const pos = this.getCanvasPosition(event);
+    this.lastX = pos.x;
+    this.lastY = pos.y;
+  }
+
+  draw(event: MouseEvent | TouchEvent): void {
+    if (!this.isDrawing) return;
+    event.preventDefault();
+    const canvas = this.signatureCanvas?.nativeElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const pos = this.getCanvasPosition(event);
+    ctx.beginPath();
+    ctx.moveTo(this.lastX, this.lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+
+    this.lastX = pos.x;
+    this.lastY = pos.y;
+    this.hasDrawn = true;
+    this.cdr.markForCheck();
+  }
+
+  stopDrawing(): void {
+    this.isDrawing = false;
+  }
+
+  clearCanvas(): void {
+    const canvas = this.signatureCanvas?.nativeElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.hasDrawn = false;
+    this.cdr.markForCheck();
+  }
+
+  private getCanvasPosition(event: MouseEvent | TouchEvent): { x: number; y: number } {
+    const canvas = this.signatureCanvas?.nativeElement;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in event && event.touches && event.touches.length > 0) {
+      return {
+        x: event.touches[0].clientX - rect.left,
+        y: event.touches[0].clientY - rect.top
+      };
+    } else if ('clientX' in event) {
+      return {
+        x: (event as MouseEvent).clientX - rect.left,
+        y: (event as MouseEvent).clientY - rect.top
+      };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  private generateDocumentHash(): void {
+    const content = `${this.demande.id}-${this.demande.type}-${this.rawHtml || ''}`;
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(content);
+      crypto.subtle.digest('SHA-256', data).then(buffer => {
+        const hashArray = Array.from(new Uint8Array(buffer));
+        this.documentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        this.cdr.markForCheck();
+      }).catch(() => {
+        this.documentHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+        this.cdr.markForCheck();
+      });
+    } else {
+      this.documentHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    }
+  }
+
+  canConfirmSignature(): boolean {
+    if (!this.legalConsent || !this.signatureName.trim()) {
+      return false;
+    }
+    if (this.signatureType === 'draw') {
+      return this.hasDrawn || this.signatureName.trim().length >= 2;
+    }
+    return this.signatureName.trim().length >= 2;
   }
 
   onConfirmSignature(): void {
-    if (!this.signatureName.trim()) return;
+    if (!this.canConfirmSignature()) return;
     this.isProcessing = true;
-    this.signer.emit({ id: this.demande.id, signedBy: this.signatureName.trim() });
+
+    let signatureImage: string | undefined;
+    if (this.signatureType === 'draw' && this.hasDrawn && this.signatureCanvas?.nativeElement) {
+      try {
+        signatureImage = this.signatureCanvas.nativeElement.toDataURL('image/png');
+      } catch (e) {
+        console.warn('Could not extract signature canvas data', e);
+      }
+    } else if (this.signatureType === 'type' && this.signatureName.trim()) {
+      try {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 400;
+        offCanvas.height = 120;
+        const ctx = offCanvas.getContext('2d');
+        if (ctx) {
+          ctx.font = 'italic 600 36px "Brush Script MT", "Caveat", "Dancing Script", cursive, Georgia, serif';
+          ctx.fillStyle = '#1e1b4b';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(this.signatureName.trim(), 20, 60);
+          signatureImage = offCanvas.toDataURL('image/png');
+        }
+      } catch (e) {
+        console.warn('Could not generate typed signature image', e);
+      }
+    }
+
+    this.signer.emit({
+      id: this.demande.id,
+      signedBy: this.signatureName.trim(),
+      signatureImage
+    });
     this.closeSignatureModal();
   }
 

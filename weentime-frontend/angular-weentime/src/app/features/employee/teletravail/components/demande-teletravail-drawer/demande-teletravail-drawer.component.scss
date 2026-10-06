@@ -3,10 +3,11 @@
   inset: 0;
   background: rgba(15, 23, 42, 0.4);
   backdrop-filter: blur(8px);
-  z-index: 100;
+  z-index: var(--z-modal, 1050);
   display: flex;
   justify-content: flex-end;
   animation: fadeIn 0.3s ease-out;
+  pointer-events: auto;
 }
 
 .bento-drawer {
@@ -18,6 +19,9 @@
   flex-direction: column;
   animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: -20px 0 50px -10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: calc(var(--z-modal, 1050) + 1);
+  pointer-events: auto;
 }
 
 .dark .bento-drawer {
@@ -60,9 +64,9 @@
   }
 
   &.active {
-    border-color: #4f46e5;
-    background: #f5f7ff;
-    box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.1);
+    border-color: var(--primary, #6B5DD3);
+    background: #f5f3ff;
+    box-shadow: 0 10px 20px -5px rgba(107, 93, 211, 0.15);
   }
 
   &.disabled {
@@ -75,7 +79,7 @@
 .dark .selection-card {
   border-color: #1e293b;
   &:hover:not(.disabled) { background: rgba(255, 255, 255, 0.02); border-color: #334155; }
-  &.active { background: rgba(79, 70, 229, 0.1); border-color: #4f46e5; }
+  &.active { background: rgba(107, 93, 211, 0.1); border-color: var(--primary, #6B5DD3); }
 }
 
 /* --- Calendar (Small) --- */
@@ -100,13 +104,13 @@
   &.disabled { opacity: 0.3; cursor: not-allowed; text-decoration: line-through; }
 
   &.selected {
-    background: #4f46e5 !important;
+    background: var(--primary, #6B5DD3) !important;
     color: white !important;
   }
 
   &.in-range {
-    background: #eef2ff;
-    color: #4338ca;
+    background: #ede9fe;
+    color: var(--primary, #6B5DD3);
     border-radius: 0;
   }
   

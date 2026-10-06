@@ -102,6 +102,10 @@ export class CongeService {
     );
   }
 
+  getJustificatifUrl(id: number): string {
+    return this.apiConfig.RH.GET_CONGE_JUSTIFICATIF(id);
+  }
+
   private extractArray(response: unknown): unknown[] {
     if (Array.isArray(response)) {
       return response;
@@ -175,7 +179,8 @@ export class CongeService {
       dateCreation: String(item['dateCreation'] ?? item['createdAt'] ?? ''),
       typeCongeId: this.optionalNumber(item['typeCongeId']),
       typeCongeNom,
-      justificatifFourni: item['justificatifFourni'] as boolean | undefined
+      justificatifFourni: Boolean(item['justificatifFourni'] || item['justificatifUrl'] || item['justificatif'] || String(item['typeCongeNom'] || '').toLowerCase().includes('malad')),
+      justificatifUrl: (item['justificatifUrl'] ?? item['justificatif_url'] ?? item['justificatif']) as string | undefined
     };
   }
 

@@ -57,8 +57,8 @@ export class RhDocumentService {
     );
   }
 
-  signerDocument(id: number, signedBy: string): Observable<DemandeDocumentRH> {
-    return this.http.put<unknown>(this.apiConfig.RH.SIGNER_DOCUMENT_RH(id), { signedBy }).pipe(
+  signerDocument(id: number, signedBy: string, signatureImage?: string): Observable<DemandeDocumentRH> {
+    return this.http.put<unknown>(this.apiConfig.RH.SIGNER_DOCUMENT_RH(id), { signedBy, signatureImage }).pipe(
       map(response => this.mapToFrontend(this.unwrapItem(response))),
       catchError(err => throwError(() => err))
     );

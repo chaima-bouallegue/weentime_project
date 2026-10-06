@@ -110,6 +110,7 @@ def preload_model(
 
 DEFAULT_HR_INITIAL_PROMPT = (
     "WeenTime, congé, maladie, télétravail, pointage, solde de congés, "
+    "créer un utilisateur, créer une entreprise, ajouter un employé, "
     "politique de congé, chnowa, nheb, demande congé, autorisation, 💡"
 )
 

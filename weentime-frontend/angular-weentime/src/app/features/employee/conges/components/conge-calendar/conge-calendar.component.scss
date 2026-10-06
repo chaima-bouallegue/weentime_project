@@ -67,9 +67,9 @@
   transition: all 0.15s;
 
   &:hover {
-    background: #4361EE;
+    background: var(--primary, #6B5DD3);
     color: #fff;
-    border-color: #4361EE;
+    border-color: var(--primary, #6B5DD3);
   }
 }
 
@@ -77,7 +77,7 @@
   background: #1e293b;
   border-color: #334155;
   color: #94a3b8;
-  &:hover { background: #4361EE; color: #fff; }
+  &:hover { background: var(--primary, #6B5DD3); color: #fff; }
 }
 
 // ── Calendar grid ─────────────────────────────────
@@ -120,7 +120,7 @@
   }
 
   &.today {
-    background: #4361EE;
+    background: var(--primary, #6B5DD3);
     color: #fff;
     font-weight: 800;
     border-radius: 50%;
@@ -136,7 +136,7 @@
 .dark .calendar-day {
   color: #64748b;
   &:hover { background: #1a202c; }
-  &.today { background: #4361EE; color: #fff; }
+  &.today { background: var(--primary, #6B5DD3); color: #fff; }
   &.outside { color: #334155; }
   &.weekend:not(.today) { color: #f87171; opacity: 0.7; }
 }

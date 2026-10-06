@@ -1,18 +1,23 @@
 <div class="page-container" [class.kanban-page]="activeTab() === 'gestion' && vueActive() === 'kanban'">
-  <header class="page-header">
-    <div class="header-main">
-      <div class="title-group">
-        <h1 class="page-title">Gestion des documents</h1>
-        <p class="page-subtitle">
-          @if (activeTab() === 'gestion') {
-            {{ demandesFiltrees().length }} demande{{ demandesFiltrees().length > 1 ? 's' : '' }} active{{ demandesFiltrees().length > 1 ? 's' : '' }}
-          } @else {
-            Suivez et générez les documents officiels pour vos collaborateurs
-          }
-        </p>
+  <header class="page-header leave-page-animate">
+    <div class="page-header__row">
+      <div class="header-title-group">
+        <div class="header-icon-box">
+          <lucide-icon name="file-text" size="24"></lucide-icon>
+        </div>
+        <div>
+          <h1 class="page-title">Gestion des documents</h1>
+          <p class="page-subtitle">
+            @if (activeTab() === 'gestion') {
+              {{ demandesFiltrees().length }} demande{{ demandesFiltrees().length > 1 ? 's' : '' }} active{{ demandesFiltrees().length > 1 ? 's' : '' }}
+            } @else {
+              Suivez et générez les documents officiels pour vos collaborateurs
+            }
+          </p>
+        </div>
       </div>
 
-      <div class="header-actions">
+      <div class="page-header__actions">
         <div class="view-toggle">
           <button
             [class.active]="vueActive() === 'kanban'"
@@ -40,7 +45,6 @@
         </div>
       </div>
     </div>
-
   </header>
 
   @if (isRh()) {

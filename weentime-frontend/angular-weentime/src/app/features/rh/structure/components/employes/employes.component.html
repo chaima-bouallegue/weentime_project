@@ -1,188 +1,306 @@
-<div class="employes-wrapper">
-  <!-- Section Header -->
-  <div class="section-header">
-    <div class="space-y-1">
-      <h2 class="section-title-text">Annuaire <span class="text-indigo-600 italic">Collaborateurs</span></h2>
-      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gérer et visualiser la structure de
-        l'entreprise</p>
-    </div>
-    <button class="btn-primary" (click)="openCreateEmployee()">
-      <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-        <lucide-icon name="user-plus" size="16"></lucide-icon>
+<div class="employes-page">
+  <!-- Page Header -->
+  <header class="page-header page-animate">
+    <div class="page-header__row">
+      <div class="header-title-group">
+        <div class="header-icon-box">
+          <lucide-icon [img]="UsersIcon" size="24"></lucide-icon>
+        </div>
+        <div>
+          <h1 class="page-title">Annuaire des employés</h1>
+          <p class="page-subtitle">Gérer et visualiser l'ensemble du personnel de l'entreprise</p>
+        </div>
       </div>
-      <span>Inviter un collaborateur</span>
-    </button>
-  </div>
+      <div class="page-header__actions">
+        <button
+          type="button"
+          class="btn-secondary-sm"
+          (click)="exportCSV()"
+          [disabled]="filteredEmployes().length === 0"
+          title="Exporter la liste des employés en CSV">
+          <lucide-icon [img]="DownloadIcon" size="14"></lucide-icon>
+          <span>Exporter CSV</span>
+        </button>
+        <button type="button" class="btn-primary-sm" (click)="openCreateEmployee()">
+          <lucide-icon [img]="UserPlusIcon" size="15"></lucide-icon>
+          <span>Inviter un collaborateur</span>
+        </button>
+      </div>
+    </div>
+  </header>
 
   <!-- Pending Users Section -->
   @if (pendingEmployes().length > 0) {
-  <div class="mb-8 p-6 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-3xl animate-in fade-in zoom-in-95 duration-300">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600">
-        <lucide-icon [img]="ClockIcon" size="20"></lucide-icon>
+  <section class="pending-banner page-animate" aria-label="Inscriptions en attente">
+    <div class="pending-banner__header">
+      <div class="pending-banner__icon">
+        <lucide-icon [img]="ClockIcon" size="18"></lucide-icon>
       </div>
       <div>
-        <h3 class="text-sm font-black text-amber-900 dark:text-amber-100">Inscriptions en attente</h3>
-        <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{{ pendingEmployes().length }} collaborateur(s) à valider</p>
+        <h3 class="pending-banner__title">Inscriptions en attente</h3>
+        <p class="pending-banner__count">{{ pendingEmployes().length }} collaborateur(s) à valider</p>
       </div>
     </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div class="pending-banner__grid">
       @for (emp of pendingEmployes(); track emp.id) {
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-4 relative overflow-hidden group">
-        <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div class="flex items-center gap-3 relative z-10">
-          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
+      <div class="pending-card">
+        <div class="pending-card__info">
+          <div class="person-avatar" [style.background]="getAvatarColor(emp.prenom + emp.nom)">
             {{ getInitials(emp.prenom, emp.nom) }}
           </div>
           <div>
-            <div class="text-sm font-bold text-slate-800 dark:text-white">{{ emp.prenom }} {{ emp.nom }}</div>
-            <div class="text-xs text-slate-500">{{ emp.email }}</div>
+            <span class="person-name">{{ emp.prenom }} {{ emp.nom }}</span>
+            <span class="person-email">{{ emp.email }}</span>
           </div>
         </div>
-        <div class="flex gap-2 mt-auto relative z-10">
-          <button type="button" (click)="onOpenValidation(emp)" class="flex-1 py-2 px-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
-            <lucide-icon [img]="CheckIcon" size="14"></lucide-icon> Confirmer
+        <div class="pending-card__actions">
+          <button type="button" class="action-btn action-btn--approve" (click)="onOpenValidation(emp)" aria-label="Confirmer">
+            <lucide-icon [img]="CheckIcon" size="14"></lucide-icon>
           </button>
-          <button (click)="onOpenReject(emp)" class="flex-1 py-2 px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
-            <lucide-icon [img]="XIcon" size="14"></lucide-icon> Rejeter
+          <button type="button" class="action-btn action-btn--refuse" (click)="onOpenReject(emp)" aria-label="Rejeter">
+            <lucide-icon [img]="XIcon" size="14"></lucide-icon>
           </button>
         </div>
       </div>
       }
     </div>
-  </div>
+  </section>
   }
 
-  <!-- Filters & Search Toolbar -->
-  <div class="filters-bar">
-    <div class="search-wrapper">
-      <lucide-icon name="search" size="18" class="search-icon"></lucide-icon>
-      <input type="text" [ngModel]="searchQuery()" (input)="onSearchInput($any($event.target).value)"
-        placeholder="Rechercher par nom, email, poste..." class="search-input">
-    </div>
-
-    <div class="filter-group">
-      <div class="relative">
-        <select class="filter-select pr-10"
-          (change)="setDeptFilter($any($event.target).value ? +$any($event.target).value : null)">
-          <option value="">Tous les départements</option>
-          @for (d of departements(); track d.id) {
-          <option [value]="d.id">{{ d.nom }}</option>
-          }
-        </select>
-        <lucide-icon name="chevron-down" size="14"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
-      </div>
-
-      <div class="relative">
-        <select class="filter-select pr-10" (change)="setStatutFilter($any($event.target).value)">
-          <option value="ALL">Tous les statuts</option>
-          <option value="ACTIF">Collaborateurs Actifs</option>
-          <option value="INACTIF">Désactivés</option>
-        </select>
-        <lucide-icon name="chevron-down" size="14"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></lucide-icon>
-      </div>
-    </div>
-  </div>
-
-  <!-- Employee Grid (Main View) -->
-  @if (isLoading()) {
-  <div class="skeleton-grid">
-    @for (i of [1,2,3,4,5,6,7,8]; track i) { <div class="skeleton-card"></div> }
-  </div>
-  } @else if (filteredEmployes().length === 0) {
-  <div class="empty-state">
-    <div class="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-      <lucide-icon name="users" size="40" class="empty-icon"></lucide-icon>
-    </div>
-    <p class="empty-text">Aucun collaborateur trouvé</p>
-    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Essayez de modifier vos filtres de
-      recherche</p>
-  </div>
-  } @else {
-  <div class="employee-grid">
-    @for (emp of paginatedEmployes(); track emp.id) {
-    <div class="employee-card group animate-in fade-in zoom-in-95 duration-300">
-      <!-- Status Indicator -->
-      <div class="status-dot shadow-sm" [class.actif]="emp.statut === 'ACTIF'" [class.inactif]="emp.statut !== 'ACTIF'">
-      </div>
-
-      <!-- Avatar -->
-      <div class="avatar-container">
-        <div class="avatar-bg" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)"></div>
-        <div class="avatar-main">
-          @if (emp['photo']) {
-          <img [src]="emp['photo']" class="avatar-img shadow-lg">
-          } @else {
-          <div class="avatar-initials" [style.background-color]="getAvatarColor(emp.prenom + emp.nom)">
-            {{ getInitials(emp.prenom, emp.nom) }}
-          </div>
-          }
-        </div>
-      </div>
-
-      <!-- Info -->
-      <div class="info-main">
-        <h3 class="name">{{ emp.prenom }} {{ emp.nom }}</h3>
-        <p class="poste">{{ emp.poste }}</p>
-      </div>
-
-      <!-- Meta Pills -->
-      <div class="meta-pills">
-        <span class="pill">{{ emp.departementNom }}</span>
-        @if (emp.equipeNom) {
-        <span class="pill">{{ emp.equipeNom }}</span>
+  <!-- Toolbar: Search + Filters -->
+  <div class="toolbar-row page-animate">
+    <div class="search-filter-bar" role="search">
+      <lucide-icon [img]="SearchIcon" size="16" class="search-bar-icon"></lucide-icon>
+      <input
+        type="search"
+        class="search-filter-input"
+        placeholder="Rechercher par nom, email, poste..."
+        [ngModel]="searchQuery()"
+        (input)="onSearchInput($any($event.target).value)"
+        aria-label="Rechercher un employé" />
+      <div class="divider" aria-hidden="true"></div>
+      <select
+        class="search-filter-select"
+        [ngModel]="filterDept()"
+        (ngModelChange)="setDeptFilter($event ? +$event : null)"
+        aria-label="Filtrer par département">
+        <option [ngValue]="null">Tous les départements</option>
+        @for (d of departements(); track d.id) {
+          <option [ngValue]="d.id">{{ d.nom }}</option>
         }
-      </div>
+      </select>
+      @if (hasActiveFilters()) {
+        <button
+          type="button"
+          class="reset-filters-btn"
+          (click)="resetFilters()"
+          title="Réinitialiser tous les filtres">
+          <lucide-icon [img]="CloseIcon" size="14"></lucide-icon>
+          <span>Effacer</span>
+        </button>
+      }
+    </div>
+    <div class="toolbar-actions">
+      <button
+        type="button"
+        class="toolbar-refresh"
+        (click)="refresh()"
+        [disabled]="isLoading()"
+        aria-label="Actualiser la liste">
+        <lucide-icon [img]="RefreshCwIcon" size="16" [class.animate-spin]="isLoading()"></lucide-icon>
+      </button>
+    </div>
+  </div>
 
-      <!-- Footer Actions -->
-      <div class="card-footer">
-        <span class="date-joined">Depuis {{ formatDate(emp.dateCreation) }}</span>
-        <div class="card-actions">
-          <button class="action-btn" (click)="onToggleStatus(emp.id)"
-            [title]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'">
-            <lucide-icon [name]="emp.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="16"></lucide-icon>
-          </button>
-          <button class="action-btn" title="Voir le profil">
-            <lucide-icon name="external-link" size="16"></lucide-icon>
-          </button>
-        </div>
+  <!-- Status Filter Tabs Strip (Directly beneath search bar) -->
+  <nav class="status-tabs-nav page-animate" role="tablist" aria-label="Filtrer par statut">
+    <button
+      type="button"
+      class="status-tab-btn"
+      [class.is-active]="statusTab() === 'ALL'"
+      (click)="setStatusTab('ALL')">
+      <span class="status-tab-label">Tous les collaborateurs</span>
+      <span class="status-tab-badge badge--all">{{ totalEmployees() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="status-tab-btn tab--green"
+      [class.is-active]="statusTab() === 'ACTIF'"
+      (click)="setStatusTab('ACTIF')">
+      <span class="status-dot dot--green"></span>
+      <span class="status-tab-label">Actifs</span>
+      <span class="status-tab-badge badge--green">{{ activeCount() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="status-tab-btn tab--amber"
+      [class.is-active]="statusTab() === 'INACTIF'"
+      (click)="setStatusTab('INACTIF')">
+      <span class="status-dot dot--gray"></span>
+      <span class="status-tab-label">Inactifs</span>
+      <span class="status-tab-badge badge--gray">{{ inactiveCount() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="status-tab-btn tab--blue"
+      [class.is-active]="statusTab() === 'MANAGERS'"
+      (click)="setStatusTab('MANAGERS')">
+      <span class="status-dot dot--blue"></span>
+      <span class="status-tab-label">Managers</span>
+      <span class="status-tab-badge badge--blue">{{ managerCount() }}</span>
+    </button>
+  </nav>
+
+  <!-- Data Table Card -->
+  <div class="table-card page-animate">
+    @if (isLoading() && filteredEmployes().length === 0) {
+    <div class="panel-state panel-state--loading" role="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="panel-state__text">Chargement de l'annuaire…</p>
+    </div>
+    } @else if (allEmployees().length === 0 && !isLoading()) {
+    <div class="panel-state">
+      <div class="empty-icon" aria-hidden="true">
+        <lucide-icon name="users" size="22"></lucide-icon>
+      </div>
+      <h2 class="panel-state__title">Aucun employé enregistré</h2>
+      <p class="panel-state__text">
+        Commencez par inviter des collaborateurs pour construire votre annuaire.
+      </p>
+    </div>
+    } @else if (filteredEmployes().length === 0) {
+    <div class="panel-state">
+      <div class="empty-icon" aria-hidden="true">
+        <lucide-icon name="search" size="22"></lucide-icon>
+      </div>
+      <h2 class="panel-state__title">Aucun résultat</h2>
+      <p class="panel-state__text">
+        Aucun employé ne correspond à votre recherche ou aux filtres sélectionnés.
+      </p>
+    </div>
+    } @else {
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Employé</th>
+            <th scope="col">Rôle</th>
+            <th scope="col">Département</th>
+            <th scope="col">Équipe</th>
+            <th scope="col">Statut</th>
+            <th scope="col">Depuis</th>
+            <th scope="col" class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (emp of paginatedEmployes(); track emp.id) {
+          <tr>
+            <!-- Employé -->
+            <td>
+              <div class="person-cell">
+                <div class="person-avatar" [style.background]="getAvatarColor(emp.prenom + emp.nom)">
+                  {{ getInitials(emp.prenom, emp.nom) }}
+                </div>
+                <div>
+                  <span class="person-name">{{ emp.prenom }} {{ emp.nom }}</span>
+                  <span class="person-email">{{ emp.email }}</span>
+                </div>
+              </div>
+            </td>
+            <!-- Rôle -->
+            <td>
+              <span class="role-badge" [class.role-badge--manager]="isManagerRole(emp)" [class.role-badge--employee]="!isManagerRole(emp)">
+                {{ isManagerRole(emp) ? 'Manager' : 'Collaborateur' }}
+              </span>
+            </td>
+            <!-- Département -->
+            <td>
+              <span class="dept-text">{{ emp.departementNom }}</span>
+            </td>
+            <!-- Équipe -->
+            <td>
+              <span class="team-text" [class.team-text--none]="!emp.equipeNom">{{ emp.equipeNom || '—' }}</span>
+            </td>
+            <!-- Statut -->
+            <td>
+              <span class="badge" [ngClass]="emp.statut === 'ACTIF' ? 'badge--active' : 'badge--inactive'">
+                {{ emp.statut === 'ACTIF' ? 'Actif' : 'Inactif' }}
+              </span>
+            </td>
+            <!-- Depuis -->
+            <td>
+              <span class="date-text">{{ formatDate(emp.dateCreation) }}</span>
+            </td>
+            <!-- Actions -->
+            <td class="col-actions actions-cell">
+              <div class="action-group">
+                <button
+                  type="button"
+                  class="action-btn action-btn--edit"
+                  title="Modifier"
+                  (click)="onEditEmployee(emp)"
+                  aria-label="Modifier">
+                  <lucide-icon name="pencil" size="14"></lucide-icon>
+                </button>
+                <button
+                  type="button"
+                  class="action-btn"
+                  [class.action-btn--deactivate]="emp.statut === 'ACTIF'"
+                  [class.action-btn--activate]="emp.statut !== 'ACTIF'"
+                  [title]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'"
+                  (click)="onToggleStatus(emp.id)"
+                  [attr.aria-label]="emp.statut === 'ACTIF' ? 'Désactiver' : 'Activer'">
+                  <lucide-icon [name]="emp.statut === 'ACTIF' ? 'shield-off' : 'shield-check'" size="14"></lucide-icon>
+                </button>
+                <button
+                  type="button"
+                  class="action-btn action-btn--delete"
+                  title="Supprimer"
+                  (click)="onDeleteEmployee(emp)"
+                  aria-label="Supprimer">
+                  <lucide-icon name="trash-2" size="14"></lucide-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+    <div class="table-pagination">
+      <p class="page-info">
+        Affichage de
+        <strong>{{ (currentPage() - 1) * pageSize + 1 }}–{{ Math.min(currentPage() * pageSize, filteredEmployes().length) }}</strong>
+        sur <strong>{{ filteredEmployes().length }}</strong> employés
+      </p>
+      <div class="page-controls">
+        <button class="page-btn" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
+          <lucide-icon name="chevron-left" size="16"></lucide-icon>
+        </button>
+        @for (page of getPageNumbers(); track page) {
+          @if (page === -1) {
+            <span class="page-ellipsis">…</span>
+          } @else {
+            <button
+              class="page-num"
+              [class.is-active]="currentPage() === page"
+              (click)="goToPage(page)">
+              {{ page }}
+            </button>
+          }
+        }
+        <button class="page-btn" [disabled]="currentPage() === totalPages()" (click)="goToPage(currentPage() + 1)">
+          <lucide-icon name="chevron-right" size="16"></lucide-icon>
+        </button>
       </div>
     </div>
     }
+    }
   </div>
-
-  <!-- Enhanced Pagination -->
-  <div class="pagination">
-    <p class="page-info">
-      Affichage de <span class="text-indigo-600 font-black">{{ (currentPage() - 1) * pageSize + 1 }}-{{
-        Math.min(currentPage() * pageSize, filteredEmployes().length) }}</span> sur <span
-        class="text-slate-800 dark:text-white font-black">{{ filteredEmployes().length }}</span> collaborateurs
-    </p>
-
-    <div class="page-controls">
-      <button class="page-btn shadow-sm" [disabled]="currentPage() === 1" (click)="goToPage(currentPage() - 1)">
-        <lucide-icon name="chevron-left" size="18"></lucide-icon>
-      </button>
-
-      <div class="flex items-center gap-1 px-4">
-        @for (page of [].constructor(Math.min(totalPages(), 5)); track $index) {
-        <button class="w-8 h-8 rounded-lg text-[10px] font-black transition-all"
-          [class.bg-indigo-600]="currentPage() === ($index + 1)" [class.text-white]="currentPage() === ($index + 1)"
-          [class.text-slate-400]="$index + 1 !== currentPage()" (click)="goToPage($index + 1)">
-          {{ $index + 1 }}
-        </button>
-        }
-      </div>
-
-      <button class="page-btn shadow-sm" [disabled]="currentPage() === totalPages()"
-        (click)="goToPage(currentPage() + 1)">
-        <lucide-icon name="chevron-right" size="18"></lucide-icon>
-      </button>
-    </div>
-  </div>
-  }
-
 </div>

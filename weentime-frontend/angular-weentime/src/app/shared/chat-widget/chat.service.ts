@@ -170,7 +170,7 @@ export class ChatService {
       .pipe(catchError(error => this.rethrowApiError(error, "L'historique AI n'a pas pu etre charge.")));
   }
 
-  textToSpeech(text: string): Observable<TtsResponse> {
+  textToSpeech(text: string, language?: string | null): Observable<TtsResponse> {
     const context = this.getUserContext();
     const requestId = this.createRequestId('chat-tts');
     const options = context?.user
@@ -180,8 +180,12 @@ export class ChatService {
           context: withAiChatWidgetContext(),
         }
       : { context: withAiChatWidgetContext() };
+    const payload: { text: string; language?: string } = { text };
+    if (language) {
+      payload.language = language;
+    }
     return this.http
-      .post<TtsResponse>(`${this.endpoint}/tts`, { text }, options)
+      .post<TtsResponse>(`${this.endpoint}/tts`, payload, options)
       .pipe(catchError(error => this.rethrowApiError(error, "La lecture audio n'a pas pu etre generee.")));
   }
 

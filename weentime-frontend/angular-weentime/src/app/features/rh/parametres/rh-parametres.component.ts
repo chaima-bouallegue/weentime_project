@@ -28,29 +28,29 @@ import { RhConfigStore } from '../../../core/services/rh-config.store';
   template: `
     <div class="animate-fade-in">
       
-      <!-- Top Header (Simplified) -->
-      <header class="mb-8">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 class="text-3xl font-black tracking-tight text-slate-800 dark:text-white">
-              Paramètres <span class="text-indigo-600 dark:text-indigo-400 font-light lowercase">RH</span>
-            </h1>
-            <p class="text-slate-400 dark:text-slate-500 font-medium text-sm">Configurez l'écosystème de votre capital humain</p>
+      <!-- Standardized WeenTime Header (Identical to Congés) -->
+      <header class="page-header">
+        <div class="page-header__row">
+          <div class="header-title-group">
+            <div class="header-icon-box">
+              <lucide-icon [img]="SettingsIcon" size="24"></lucide-icon>
+            </div>
+            <div>
+              <h1 class="page-title">Paramètres RH</h1>
+              <p class="page-subtitle">Configurez l'écosystème de votre capital humain</p>
+            </div>
           </div>
           
           <!-- Quick stats -->
-          <div class="parametres-page-header hidden lg:flex items-center gap-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-2 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
-             <div class="px-4 py-2 text-center border-r border-slate-200 dark:border-slate-700">
-                <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Modules</span>
-                <span class="text-lg font-bold text-slate-700 dark:text-slate-200">5</span>
-             </div>
-             <div class="px-4 py-2 text-center">
-                <span class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Statut</span>
-                <span class="flex items-center gap-2 text-sm font-bold text-emerald-500">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Opérationnel
-                </span>
-             </div>
+          <div class="page-header__actions">
+            <div class="header-stat-chip">
+              <span class="stat-chip-dot"></span>
+              <span class="stat-chip-label">Opérationnel</span>
+            </div>
+            <div class="header-count-chip">
+              <span class="count-badge">5</span>
+              <span>Modules</span>
+            </div>
           </div>
         </div>
       </header>
@@ -187,6 +187,128 @@ import { RhConfigStore } from '../../../core/services/rh-config.store';
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      font-family: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
+      color: #111827;
+      width: 100%;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-icon-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+      border: 1px solid #c4b5fd;
+      color: var(--primary, #6B5DD3);
+      flex-shrink: 0;
+      box-shadow: 0 2px 5px rgba(107, 93, 211, 0.08);
+    }
+
+    :host-context(.dark) .header-icon-box,
+    .dark .header-icon-box {
+      background: linear-gradient(135deg, rgba(107, 93, 211, 0.25) 0%, rgba(107, 93, 211, 0.15) 100%);
+      border-color: rgba(107, 93, 211, 0.35);
+      color: #c4b5fd;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    :host-context(.dark) .page-title,
+    .dark .page-title {
+      color: #f1f5f9;
+    }
+
+    .page-subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    :host-context(.dark) .page-subtitle,
+    .dark .page-subtitle {
+      color: #94a3b8;
+    }
+
+    .page-header__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-stat-chip,
+    .header-count-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #475569;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    :host-context(.dark) .header-stat-chip,
+    :host-context(.dark) .header-count-chip,
+    .dark .header-stat-chip,
+    .dark .header-count-chip {
+      background: #1e293b;
+      border-color: #334155;
+      color: #cbd5e1;
+    }
+
+    .stat-chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #3b6feb;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }

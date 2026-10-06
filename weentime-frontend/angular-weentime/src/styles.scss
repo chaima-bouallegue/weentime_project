@@ -1,5 +1,6 @@
 @use 'fonts';
 @use 'sass:color';
+@use 'styles/modals';
 
 *,
 *::before,
@@ -108,11 +109,14 @@ app-root {
   --z-dropdown: 1000;
   --z-sticky: 1020;
   --z-fixed: 1030;
+  --z-overlay: 1035;
   --z-modal-backdrop: 1040;
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
   --z-notification: 1080;
+  --z-modal-nested: 1150;
+  --z-toast: 1200;
   --z-chat: 1300;
 
   /* ═══════════════════════════════════════════════════
@@ -571,11 +575,152 @@ app-root {
   }
 
   .btn-primary {
-    @apply bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)] shadow-sm hover:shadow-md focus-visible:ring-[var(--primary)];
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 14px rgba(107, 93, 211, 0.28);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(107, 93, 211, 0.38);
+      color: #ffffff;
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(107, 93, 211, 0.25);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+  }
+
+  .btn-primary-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 3px 10px rgba(107, 93, 211, 0.25);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(107, 93, 211, 0.35);
+      color: #ffffff;
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
   }
 
   .btn-secondary {
-    @apply bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--surface-alt)] shadow-sm hover:shadow-md;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-secondary-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-decoration: none;
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  :root.dark .btn-secondary,
+  :root.dark .btn-secondary-sm,
+  [data-theme='dark'] .btn-secondary,
+  [data-theme='dark'] .btn-secondary-sm {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+
+    &:hover:not(:disabled) {
+      background: #334155;
+      border-color: #475569;
+      color: #f1f5f9;
+    }
   }
 
   .btn-ghost {
@@ -653,6 +798,7 @@ app-chat-widget {
   height: fit-content;
   pointer-events: none;
 
+  .chat-toggle-shell,
   .chat-toggle,
   .chat-panel-shell--open,
   .chat-panel-shell--open * {
@@ -673,12 +819,22 @@ app-chat-widget {
 .cdk-overlay-backdrop {
   background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
+  z-index: 1040 !important;
 }
 
 /* Overlay drawer backdrop + panel */
 .overlay-drawer-backdrop {
   background: rgba(15, 23, 42, 0.35);
   backdrop-filter: blur(8px) saturate(120%);
+  z-index: 1040 !important;
+}
+
+.cdk-global-overlay-wrapper {
+  z-index: 1050 !important;
+}
+
+.cdk-overlay-pane {
+  z-index: 1051 !important;
 }
 
 .overlay-drawer-panel {
@@ -690,6 +846,9 @@ app-chat-widget {
   animation: drawerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 100vw;
   overflow: hidden;
+  position: relative !important;
+  z-index: 1051 !important;
+  pointer-events: auto !important;
 
   .dark & {
     background: #0f172a;
@@ -698,13 +857,26 @@ app-chat-widget {
   }
 }
 
-.overlay-drawer-panel.width-sm { width: min(400px, 100vw); }
-.overlay-drawer-panel.width-md { width: min(520px, 100vw); }
-.overlay-drawer-panel.width-lg { width: min(720px, 100vw); }
+.overlay-drawer-panel.width-sm {
+  width: min(400px, 100vw);
+}
+
+.overlay-drawer-panel.width-md {
+  width: min(520px, 100vw);
+}
+
+.overlay-drawer-panel.width-lg {
+  width: min(720px, 100vw);
+}
 
 @keyframes drawerSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 .cdk-drag-preview {
@@ -792,14 +964,19 @@ html:not(.dark) {
 }
 
 /* ─── Route transition ─────────────────────────────── */
-.shell-content > * {
+.shell-content>* {
   animation: routeEnter 150ms ease-out both;
   will-change: opacity;
 }
 
 @keyframes routeEnter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ─── Main content top padding ────────────────────── */
@@ -824,11 +1001,6 @@ body.orgchart-open {
 // RH Structure — pending registrations drawer overlays shell (sidebar + header + content)
 body.structure-drawer-open {
   overflow: hidden !important;
-
-  .shell-layout .shell-main {
-    position: relative;
-    z-index: 10000;
-  }
 
   app-chat-widget {
     z-index: 9990 !important;
@@ -871,4 +1043,84 @@ body.parametres-modal-open app-shell-sidebar {
 body.parametres-modal-open app-shell-header {
   filter: blur(4px);
   transition: filter 0.25s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL MODAL SYSTEM — BODY.MODAL-OPEN
+   When any modal or drawer is open:
+   1. The main application (Navbar, Sidebar, Page Content) remains VISIBLE
+      in its normal layout, acting as the coherent background layer.
+   2. Window and shell-content scroll are locked (overflow: hidden) to prevent
+      background scrolling and double scrollbars.
+   3. The floating chat widget is placed behind the modal layer and made
+      non-interactive so it does not interfere.
+   4. Ancestor transforms, filters, and containing blocks are neutralized so
+      fixed overlays cleanly span the full 100vw × 100vh viewport.
+   5. When closed, normal behavior is fully restored.
+   ═══════════════════════════════════════════════════════════════════════════ */
+body.modal-open {
+  overflow: hidden !important;
+
+  .shell-layout {
+    transform: none !important;
+    perspective: none !important;
+    contain: none !important;
+    will-change: auto !important;
+  }
+
+  .shell-main {
+    position: relative !important;
+    z-index: 10 !important;
+    transform: none !important;
+    perspective: none !important;
+    contain: none !important;
+    will-change: auto !important;
+  }
+
+  .shell-content {
+    overflow: hidden !important;
+    position: relative !important;
+    z-index: 20 !important;
+    transform: none !important;
+    perspective: none !important;
+    contain: none !important;
+    will-change: auto !important;
+  }
+
+  /* Chat widget is kept in background behind the modal overlay */
+  app-chat-widget,
+  .chat-widget-fab {
+    pointer-events: none !important;
+    z-index: 1000 !important;
+  }
+
+  /* Sidebar & Header: push strictly behind modal overlay, blur, and isolate */
+  app-shell-sidebar,
+  .sidebar-bento-container {
+    position: relative !important;
+    z-index: 0 !important;
+    filter: blur(4px) !important;
+    pointer-events: none !important;
+    isolation: isolate !important;
+    transition: filter 0.3s ease;
+  }
+
+  app-shell-header,
+  .shell-header {
+    position: relative !important;
+    z-index: 0 !important;
+    filter: blur(4px) !important;
+    pointer-events: none !important;
+    isolation: isolate !important;
+    transition: filter 0.3s ease;
+  }
+
+  /* Neutralize ancestor transforms so fixed overlays always span 100vw x 100vh */
+  [class*="-animate"],
+  [class*="page-"] {
+    transform: none !important;
+    perspective: none !important;
+    contain: none !important;
+    will-change: auto !important;
+  }
 }

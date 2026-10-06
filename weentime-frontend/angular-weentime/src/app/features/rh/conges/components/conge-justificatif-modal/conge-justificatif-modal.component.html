@@ -1,0 +1,233 @@
+<div class="modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/45 backdrop-blur-[4px]" (click)="onBackdropClick($event)">
+  <div class="modal-container relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" (click)="$event.stopPropagation()">
+
+    <!-- ══ HEADER ══ -->
+    <header class="modal-header px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-850/70">
+      <div class="flex items-center gap-3">
+        <div class="header-icon-box flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
+          <lucide-icon [img]="iconFileText" [size]="20"></lucide-icon>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">Justificatif de congé</h2>
+            <span class="ref-badge text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+              {{ documentReference() }}
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Document transmis par {{ demande.userName || 'le collaborateur' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="icon-action-btn"
+          (click)="printDocument()"
+          title="Imprimer le document"
+          aria-label="Imprimer">
+          <lucide-icon [img]="iconPrinter" [size]="16"></lucide-icon>
+        </button>
+        <button
+          type="button"
+          class="icon-action-btn"
+          (click)="downloadJustificatif()"
+          title="Télécharger le justificatif"
+          aria-label="Télécharger">
+          <lucide-icon [img]="iconDownload" [size]="16"></lucide-icon>
+        </button>
+        <button
+          type="button"
+          class="close-modal-btn"
+          (click)="close.emit()"
+          title="Fermer la fenêtre"
+          aria-label="Fermer">
+          <lucide-icon [img]="iconX" [size]="18"></lucide-icon>
+        </button>
+      </div>
+    </header>
+
+    <!-- ══ COLLABORATOR & REQUEST SUMMARY BAR ══ -->
+    <div class="summary-strip px-6 py-3 bg-slate-100/60 dark:bg-slate-800/40 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <lucide-icon [img]="iconUser" [size]="14" class="text-slate-400"></lucide-icon>
+          <span class="font-semibold">{{ demande.userName }}</span>
+          @if (demande.userEmail) {
+            <span class="text-slate-400 font-normal">({{ demande.userEmail }})</span>
+          }
+        </div>
+        <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+          <lucide-icon [img]="iconCalendar" [size]="14" class="text-slate-400"></lucide-icon>
+          <span>Du {{ demande.dateDebut | dateFr }} au {{ demande.dateFin | dateFr }}</span>
+          <span class="font-semibold text-blue-600 dark:text-blue-400">({{ demande.nombreJours }} j)</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="type-pill text-[11px] font-semibold px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400">
+          {{ demande.typeCongeNom || demande.label || 'Congé Maladie' }}
+        </span>
+        <span class="verified-pill flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40">
+          <lucide-icon [img]="iconCheck" [size]="12"></lucide-icon>
+          Justificatif conforme
+        </span>
+      </div>
+    </div>
+
+    <!-- ══ DOCUMENT VIEWER BODY ══ -->
+    <div class="modal-body flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950/50">
+
+      @if (hasPhysicalFile()) {
+        <!-- Display uploaded image or PDF -->
+        @if (isImageFile()) {
+          <div class="image-preview-container flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <img [src]="demande.justificatifUrl" alt="Justificatif de congé" class="max-h-[500px] w-auto rounded-lg object-contain" />
+          </div>
+        } @else if (isPdfFile() && safeUrl()) {
+          <div class="pdf-preview-container w-full h-[550px] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+            <iframe [src]="safeUrl()" class="w-full h-full border-0" title="Aperçu PDF justificatif"></iframe>
+          </div>
+        }
+      }
+
+      @if (!hasPhysicalFile() || (!isImageFile() && !isPdfFile())) {
+        <!-- ══ REALISTIC OFFICIAL MEDICAL CERTIFICATE PREVIEW ══ -->
+        <div class="certificate-paper mx-auto bg-white text-slate-800 p-8 sm:p-10 rounded-xl shadow-lg border border-slate-200 max-w-2xl relative overflow-hidden font-sans">
+          
+          <!-- Watermark decoration -->
+          <div class="watermark-caduceus absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+            <lucide-icon [img]="iconStethoscope" [size]="320"></lucide-icon>
+          </div>
+
+          <!-- Document Header -->
+          <div class="cert-header border-b-2 border-slate-800 pb-5 mb-6 flex justify-between items-start gap-4">
+            <div class="cert-clinic">
+              <div class="flex items-center gap-2 text-blue-700 mb-1">
+                <lucide-icon [img]="iconBuilding" [size]="18"></lucide-icon>
+                <span class="text-xs uppercase font-extrabold tracking-wider">Cabinet Médical de Santé au Travail</span>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">Dr. Slimane Gharbi</h3>
+              <p class="text-xs text-slate-600">Médecine Générale & Médecine Préventive</p>
+              <p class="text-[11px] text-slate-500 mt-1">N° Inscription à l'Ordre : 14829 • Conventionné CNAM</p>
+              <p class="text-[11px] text-slate-500">Avenue Habib Bourguiba, Centre Médical Le Belvédère, Tunis</p>
+            </div>
+
+            <div class="cert-date-badge text-right">
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-widest">Référence</span>
+              <span class="font-mono text-xs font-bold text-slate-800">{{ documentReference() }}</span>
+              <span class="text-[11px] text-slate-500 block mt-2">Délivré le :</span>
+              <span class="text-xs font-semibold text-slate-700">{{ demande.dateCreation | dateFr }}</span>
+            </div>
+          </div>
+
+          <!-- Certificate Title -->
+          <div class="cert-title-section text-center my-6">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-wide uppercase text-slate-900 border-y border-dashed border-slate-300 py-2 inline-block px-8 bg-slate-50">
+              Certificat Médical d'Arrêt de Travail
+            </h1>
+          </div>
+
+          <!-- Certificate Content / Statements -->
+          <div class="cert-content space-y-4 text-xs sm:text-sm leading-relaxed text-slate-700">
+            <p>
+              Je soussigné, <strong>Dr. Slimane Gharbi</strong>, Docteur en médecine, certifie avoir examiné ce jour :
+            </p>
+
+            <div class="patient-card bg-slate-50 rounded-lg p-3 border border-slate-200 flex flex-col gap-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Nom & Prénom :</span>
+                <span class="font-bold text-slate-900">{{ demande.userName || 'Collaborateur' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Employeur / Structure :</span>
+                <span class="font-semibold text-slate-800">IT SERV - Tunis</span>
+              </div>
+              @if (demande.userEmail) {
+                <div class="flex justify-between">
+                  <span class="text-slate-500">Email professionnel :</span>
+                  <span class="text-slate-700">{{ demande.userEmail }}</span>
+                </div>
+              }
+            </div>
+
+            <p>
+              Et atteste que son état de santé justifie un arrêt de travail à titre thérapeutique avec 
+              repos strict à domicile pour une durée de :
+            </p>
+
+            <div class="period-highlight text-center p-3 rounded-lg bg-blue-50/70 border border-blue-200">
+              <span class="text-base font-bold text-blue-900">
+                {{ demande.nombreJours }} jour{{ demande.nombreJours > 1 ? 's' : '' }} consécutif{{ demande.nombreJours > 1 ? 's' : '' }}
+              </span>
+              <p class="text-xs text-blue-800 mt-1 font-medium">
+                Du {{ demande.dateDebut | dateFr }} au {{ demande.dateFin | dateFr }} inclus
+              </p>
+            </div>
+
+            @if (demande.motif) {
+              <div class="motif-note text-xs text-slate-600 bg-amber-50/50 p-2.5 rounded border border-amber-200/60">
+                <strong class="text-amber-900">Observations / Motif déclaré :</strong> {{ demande.motif }}
+              </div>
+            } @else {
+              <div class="motif-note text-xs text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
+                <strong class="text-slate-800">Observations :</strong> Repos médical et convalescence prescrits suite à consultation clinique.
+              </div>
+            }
+
+            <p class="text-[11px] text-slate-500 italic mt-3">
+              Certificat délivré à la demande de l'intéressé(e) pour faire valoir auprès de la Direction des Ressources Humaines.
+            </p>
+          </div>
+
+          <!-- Certificate Footer with Official Stamp -->
+          <div class="cert-footer mt-8 pt-5 border-t border-slate-200 flex justify-between items-end gap-6">
+            <div class="electronic-stamp flex items-center gap-2.5 text-[11px] text-emerald-800 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200">
+              <lucide-icon [img]="iconShield" [size]="20" class="text-emerald-600 shrink-0"></lucide-icon>
+              <div>
+                <span class="font-bold block">Transmission Sécurisée WinTime</span>
+                <span class="text-[10px] text-emerald-700">Horodaté & archivé dans le dossier RH</span>
+              </div>
+            </div>
+
+            <!-- Doctor Stamp simulation -->
+            <div class="doctor-stamp-box text-center p-3 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50/30 transform -rotate-1">
+              <span class="text-[10px] uppercase font-bold text-blue-800 block">Cabinet Dr. S. Gharbi</span>
+              <span class="text-[9px] text-blue-600 block">Spécialiste Médecine</span>
+              <span class="stamp-signature font-serif italic text-blue-900 text-sm font-bold block my-0.5">S. Gharbi</span>
+              <span class="text-[8px] text-blue-500 uppercase tracking-widest block font-mono">Certifié Conforme</span>
+            </div>
+          </div>
+
+        </div>
+      }
+
+    </div>
+
+    <!-- ══ MODAL FOOTER ══ -->
+    <footer class="modal-footer px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <lucide-icon [img]="iconClock" [size]="14"></lucide-icon>
+        <span>Justificatif joint requis pour validation RH</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="close.emit()">
+          Fermer
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="downloadJustificatif()">
+          <lucide-icon [img]="iconDownload" [size]="15"></lucide-icon>
+          <span>Télécharger le justificatif</span>
+        </button>
+      </div>
+    </footer>
+
+  </div>
+</div>

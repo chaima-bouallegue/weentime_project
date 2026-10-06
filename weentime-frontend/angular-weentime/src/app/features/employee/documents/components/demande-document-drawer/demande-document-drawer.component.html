@@ -4,7 +4,7 @@
     <!-- Header -->
     <header class="drawer-header">
       <div class="header-info">
-        <h2 class="drawer-title">Nouvelle demande</h2>
+        <h2 class="drawer-title">{{ demandeToEdit ? 'Modifier la demande' : 'Nouvelle demande' }}</h2>
         <div class="stepper-indicators">
           <div class="step-dot" [class.active]="step() >= 1" [class.completed]="step() > 1">1</div>
           <div class="step-line" [class.active]="step() > 1"></div>
@@ -155,7 +155,7 @@
             <lucide-icon name="loader-2" size="18" class="animate-spin"></lucide-icon>
             Traitement...
           } @else {
-            Soumettre la demande
+            {{ demandeToEdit ? 'Enregistrer les modifications' : 'Soumettre la demande' }}
           }
         </button>
       }

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from typing import Any
@@ -65,34 +65,119 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             )
         if intent == "admin.summary":
             return await self._summary(context, intent=intent, confidence=confidence)
-        if intent == "admin.create_enterprise_unavailable":
-            return AgentResponse(
-                type="answer",
-                text="La creation d'entreprise n'est pas encore connectee a un outil admin verifie.",
-                intent="admin.enterprise_creation.unavailable",
-                confidence=confidence,
-                actionResult={
-                    "kind": "capability_unavailable",
-                    "capability": "admin.enterprise_creation",
-                    "agent": "AdminAgent",
-                },
+        if intent == "admin.help_create_user":
+            is_en = _is_english(source_text)
+            text = (
+                "To create a user in WeenTime:\n\n"
+                "1. 💻 Via the Web Interface:\n"
+                "   • Go to Administration > Users.\n"
+                "   • Click '+ New User'.\n"
+                "   • Fill in first name, last name, email, password (min 8 chars), and role (ADMIN, RH, MANAGER, EMPLOYEE).\n"
+                "   • Click Save.\n\n"
+                "2. 🎙️ Directly with the Copilot:\n"
+                "   • Tell me or write: 'Create user first name Karim last name Ben Salem email karim@test.com password Secret123 role EMPLOYEE company 1'.\n\n"
+                "💡 Would you like me to create a user for you right now?"
+                if is_en else
+                "Pour créer un utilisateur dans WeenTime :\n\n"
+                "1. 💻 Dans l'interface web :\n"
+                "   • Rendez-vous dans le menu « Administration » > « Utilisateurs ».\n"
+                "   • Cliquez sur le bouton « + Nouvel utilisateur » en haut à droite.\n"
+                "   • Renseignez prénom, nom, email, mot de passe (min. 8 caractères) et attribuez le rôle (Admin, RH, Manager ou Employé).\n"
+                "   • Cliquez sur « Enregistrer ».\n\n"
+                "2. 🎙️ Directement avec moi (Copilote) :\n"
+                "   • Vous pouvez simplement me dire ou m'écrire :\n"
+                "     « Crée un utilisateur prénom Karim nom Ben Salem email karim@test.com mot de passe Test12345 rôle EMPLOYEE entreprise 1 ».\n\n"
+                "💡 Souhaitez-vous que je crée un utilisateur pour vous dès maintenant ?"
             )
-        if intent == "admin.create_user":
-            payload = self._extract_create_user(source_text)
-            missing = [label for label, value in payload.items() if label in {"first_name", "last_name", "email", "password", "role", "company_id"} and value in (None, "")]
+            return AgentResponse(type="answer", text=text, intent=intent, confidence=confidence)
+        if intent == "admin.help_create_enterprise":
+            is_en = _is_english(source_text)
+            text = (
+                "To create a company in WeenTime, you have two options:\n\n"
+                "From the interface\n\n"
+                "Go to Administration > Companies.\n"
+                "Click '+ New Company'.\n"
+                "Fill in the required information.\n"
+                "Click 'Save'.\n\n"
+                "With the Copilot\n\n"
+                "You can also ask me directly to create a company, for example:\n"
+                "'Create a company Carthage, sector IT, with SIRET 12345678901234.'\n\n"
+                "I will verify the necessary information before proceeding.\n\n"
+                "Would you like me to help you create a company now?"
+                if is_en else
+                "Pour créer une entreprise dans WeenTime, vous pouvez procéder de deux façons :\n\n"
+                "Depuis l'interface\n\n"
+                "Accédez à Administration → Entreprises.\n"
+                "Cliquez sur « + Nouvelle entreprise ».\n"
+                "Renseignez les informations demandées.\n"
+                "Cliquez sur « Enregistrer ».\n\n"
+                "Avec le Copilote\n\n"
+                "Vous pouvez aussi me demander directement de créer l'entreprise, par exemple :\n"
+                "« Crée une entreprise Carthage, secteur Informatique, avec le SIRET 12345678901234. »\n\n"
+                "Je vérifierai les informations nécessaires avant de procéder à la création.\n\n"
+                "Souhaitez-vous que je vous accompagne pour créer une entreprise maintenant ?"
+            )
+            return AgentResponse(type="answer", text=text, intent=intent, confidence=confidence)
+        if intent == "admin.create_enterprise":
+            payload = self._extract_create_enterprise(source_text)
+            missing = [label for label, value in {
+                "nom": payload.get("nom"),
+                "siret": payload.get("siret"),
+            }.items() if not value]
             if missing:
+                is_en = _is_english(source_text)
+                labels_fr = {"nom": "nom de l'entreprise", "siret": "SIRET (14 chiffres)"}
+                labels_en = {"nom": "company name", "siret": "SIRET (14 digits)"}
+                labels = labels_en if is_en else labels_fr
+                missing_labels = ", ".join(labels.get(k, k) for k in missing)
+                prompt = f"To create a company, I need: {missing_labels}." if is_en else f"Pour creer une entreprise, il me faut : {missing_labels}."
                 return AgentResponse(
                     type="ask",
-                    text="Pour creer un utilisateur, il me faut prenom, nom, email, mot de passe, role et entreprise.",
+                    text=prompt,
                     intent=intent,
                     confidence=confidence,
                 )
+            is_en = _is_english(source_text)
+            confirm_text = (
+                f"Do you confirm the creation of company '{payload['nom']}' (SIRET {payload['siret']})?"
+                if is_en else
+                f"Confirmez-vous la creation de l'entreprise '{payload['nom']}' (SIRET {payload['siret']}) ?"
+            )
+            return self.confirmation_response(
+                context=context,
+                tool_name="admin.create_enterprise",
+                tool_input=payload,
+                intent=intent,
+                text=confirm_text,
+                confidence=confidence,
+            )
+        if intent == "admin.create_user":
+            is_en = _is_english(source_text)
+            payload = self._extract_create_user(source_text)
+            missing = [label for label, value in payload.items() if label in {"first_name", "last_name", "email", "password", "role", "company_id"} and value in (None, "")]
+            if missing:
+                ask_text = (
+                    "To create a user, I need first name, last name, email, password (min 8 chars), role (ADMIN, RH, MANAGER, EMPLOYEE) and company."
+                    if is_en else
+                    "Pour créer un utilisateur, il me faut prénom, nom, email, mot de passe (min 8 caractères), rôle (ADMIN, RH, MANAGER, EMPLOYEE) et entreprise."
+                )
+                return AgentResponse(
+                    type="ask",
+                    text=ask_text,
+                    intent=intent,
+                    confidence=confidence,
+                )
+            confirm_text = (
+                f"Do you confirm the creation of user '{payload['first_name']} {payload['last_name']}' (role: {payload['role']}, company: {payload['company_id']}, email: {payload['email']})?"
+                if is_en else
+                f"Confirmez-vous la création de l'utilisateur '{payload['first_name']} {payload['last_name']}' (rôle: {payload['role']}, entreprise: {payload['company_id']}, email: {payload['email']}) ?"
+            )
             return self.confirmation_response(
                 context=context,
                 tool_name="admin.create_user",
                 tool_input=payload,
                 intent=intent,
-                text="Confirmez-vous la creation de cet utilisateur ?",
+                text=confirm_text,
                 confidence=confidence,
             )
         if intent == "admin.update_role":
@@ -152,14 +237,46 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
             if any(term in text for term in ("الشركات", "شركة", "مؤسسة")):
                 return "admin.list_enterprises", 0.86
             return "admin.summary", 0.84
-        if (
-            any(term in text for term in ("cree", "creer", "créer", "create"))
-            and any(term in text for term in ("entreprise", "company"))
-            and not any(term in text for term in ("utilisateur", "user"))
-        ):
-            return "admin.create_enterprise_unavailable", 0.9
-        if any(term in text for term in ("cree", "creer", "créer", "create")) and any(term in text for term in ("utilisateur", "user")):
+        is_how_to = any(p in text for p in (
+            "comment", "how to", "how do i", "how can i", "comment faire",
+            "procedure", "procédure", "guide", "tuto", "explication", "explique",
+            "aide moi a creer", "aide moi à créer", "aide moi a crier", "aide moi à crier",
+            "ou creer", "où créer", "ou crier", "où crier", "ou puis-je", "où puis-je"
+        ))
+        if is_how_to:
+            if any(term in text for term in ("utilisateur", "user", "employe", "employé", "collaborateur", "compte", "profil")):
+                return "admin.help_create_user", 0.98
+            if any(term in text for term in ("entreprise", "company", "société", "societe", "tenant")):
+                return "admin.help_create_enterprise", 0.98
+
+        user_action = any(p in text for p in (
+            "cree un utilisateur", "crée un utilisateur", "creer un utilisateur", "créer un utilisateur", "crier un utilisateur",
+            "cree utilisateur", "crée utilisateur", "crier utilisateur", "create user", "create a user",
+            "nouvel utilisateur", "new user", "ajoute un utilisateur", "ajouter un utilisateur", "add user", "add a user"
+        ))
+        comp_action = any(p in text for p in (
+            "cree une entreprise", "crée une entreprise", "creer une entreprise", "créer une entreprise", "crier une entreprise",
+            "cree entreprise", "crée entreprise", "crier entreprise", "create company", "create a company",
+            "nouvelle entreprise", "new company", "ajoute une entreprise", "ajouter une entreprise",
+            "add company", "add a company", "cree une societe", "crée une société", "creer une societe", "créer une société"
+        ))
+        if user_action:
+            return "admin.create_user", 0.95
+        if comp_action:
+            return "admin.create_enterprise", 0.95
+
+        has_create = any(term in text for term in ("cree", "creer", "créer", "crier", "create", "add", "ajoute", "ajouter"))
+        has_user = any(term in text for term in ("utilisateur", "user", "employe", "employé", "collaborateur"))
+        has_comp = any(term in text for term in ("entreprise", "company", "société", "societe"))
+        has_siret = any(term in text for term in ("siret", "siré", "ciré", "siren"))
+        has_user_fields = any(term in text for term in ("role", "rôle", "mdp", "password", "mot de passe"))
+
+        if has_siret and has_comp:
+            return "admin.create_enterprise", 0.93
+        if has_create and has_user and (has_user_fields or not has_siret):
             return "admin.create_user", 0.93
+        if has_create and has_comp:
+            return "admin.create_enterprise", 0.93
         if any(term in text for term in ("role", "rôle")) and any(term in text for term in ("change", "changer", "update", "modifier", "remplace", "replace")):
             return "admin.update_role", 0.92
         if any(term in text for term in ("assign", "assigner", "assigne", "affecte")) and any(term in text for term in ("manager", "responsable")):
@@ -227,19 +344,109 @@ class AdminAgent(ConfirmationMixin, DomainAgent):
         )
 
     @staticmethod
+    def _extract_create_enterprise(message: str) -> dict[str, Any]:
+        text = message or ""
+        # Nom: after "entreprise", "company", "named", "called", "nom"
+        nom_match = re.search(
+            r"(?:nom(?:\s+de\s+l['’]entreprise)?|entreprise|company|société|societe|named|called)\s+(?:c['’]est|est|soit|:)?\s*([A-Za-z0-9À-ÿ][A-Za-z0-9À-ÿ &'-]*?)(?:\s*[,;.]|\s+(?:siret|siré|ciré|siren|email|telephone|tel|phone|secteur|sector|industry|adresse|address|location|max|site|website|with)|$)",
+            text, flags=re.IGNORECASE,
+        )
+        nom = nom_match.group(1).strip() if nom_match else None
+        if nom:
+            nom = re.sub(r"^(?:c['’]est|c est|est|soit|nommée|nommee|nomme|named|called)\s+", "", nom, flags=re.IGNORECASE).strip()
+            if nom.lower() in {"de l'entreprise", "de l entreprise", "l'entreprise", "l entreprise"}:
+                nom = None
+
+        # SIRET: 14 digits (consécutifs ou séparés par des espaces/virgules énoncés à l'oral)
+        siret = None
+        siret_match = re.search(r"(?:siret|siré|ciré|siren)?\s*[:=]?\s*\b(\d{14})\b", text, flags=re.IGNORECASE)
+        if siret_match and siret_match.group(1):
+            siret = siret_match.group(1)
+        else:
+            # Recherche après mot-clé de chiffres espacés
+            siret_seq = re.search(r"(?:siret|siré|ciré|siren)\s*(?:c['’]est|est|:)?\s*([\d\s,.-]{14,50})", text, flags=re.IGNORECASE)
+            if siret_seq:
+                digits = re.sub(r"\D", "", siret_seq.group(1))
+                if len(digits) == 14:
+                    siret = digits
+                elif len(digits) > 14:
+                    siret = digits[:14]
+            if not siret:
+                all_digits = re.sub(r"\D", "", text)
+                if len(all_digits) == 14:
+                    siret = all_digits
+
+        # Email
+        email_match = re.search(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}", text)
+        email = email_match.group(0) if email_match else None
+        # Telephone
+        tel_match = re.search(r"(?:telephone|tel|phone)\s+(\+?[\d\s.-]{8,15})", text, flags=re.IGNORECASE)
+        telephone = tel_match.group(1).strip() if tel_match else None
+        # Adresse
+        addr_match = re.search(r"(?:adresse|address|location)\s+(.+?)(?:\s*[,;]|\s+(?:siret|email|telephone|tel|phone|secteur|sector|industry|max|site|website)|$)", text, flags=re.IGNORECASE)
+        adresse = addr_match.group(1).strip() if addr_match else None
+        # Secteur
+        sect_match = re.search(r"(?:secteur|sector|industry)\s+([A-Za-z0-9À-ÿ &'-]+?)(?:\s*[,;.]|\s+(?:siret|email|telephone|tel|phone|adresse|address|location|max|site|website)|$)", text, flags=re.IGNORECASE)
+        secteur = sect_match.group(1).strip() if sect_match else None
+        # Max users
+        max_match = re.search(r"(?:max|maximum|limite|up\s+to|limit)\s+(\d+)\s*(?:utilisateur|user|employe|employee|member|person|people)?s?", text, flags=re.IGNORECASE)
+        max_users = int(max_match.group(1)) if max_match else None
+        # Site web
+        site_match = re.search(r"(?:site(?:\s+web)?|website)\s+(https?://[^\s,;]+|www\.[^\s,;]+)", text, flags=re.IGNORECASE)
+        site_web = site_match.group(1).strip() if site_match else None
+        result = {
+            "nom": nom,
+            "siret": siret,
+        }
+        if email:
+            result["email"] = email
+        if telephone:
+            result["telephone"] = telephone
+        if adresse:
+            result["adresse"] = adresse
+        if secteur:
+            result["secteur"] = secteur
+        if max_users:
+            result["max_users"] = max_users
+        if site_web:
+            result["site_web"] = site_web
+        return result
+
+    @staticmethod
     def _extract_create_user(message: str) -> dict[str, Any]:
         text = message or ""
         email_match = re.search(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}", text)
         email = email_match.group(0) if email_match else None
         role = _extract_role(text)
-        company_id = _extract_int_after(text, ("company", "entreprise"))
+        lower = text.lower()
+        if any(term in lower for term in ("it serv", "itserv", "it-serv")):
+            company_id = 2
+        else:
+            comp_match = re.search(r"(?:company|entreprise|societe|société)\s*(?:id)?\s*[:=]?\s*(\d+)", text, flags=re.IGNORECASE)
+            company_id = int(comp_match.group(1)) if comp_match else _extract_int_after(text, ("company", "entreprise", "societe", "société"))
+
         password_match = re.search(r"(?:password|mot de passe|mdp)\s+([^\s,;]+)", text, flags=re.IGNORECASE)
         password = password_match.group(1) if password_match else None
-        name_match = re.search(r"(?:pour|for|user|utilisateur)\s+([A-Za-z'-]+)(?:\s+([A-Za-z'-]+))?", text, flags=re.IGNORECASE)
-        first_name = name_match.group(1) if name_match else None
-        last_name = name_match.group(2) if name_match and name_match.group(2) else None
-        if first_name and not last_name:
-            last_name = "Utilisateur"
+
+        fn_match = re.search(r"\b(?:prenom|prénom|first[\s_]?name)\s*[:=]?\s*([A-Za-zÀ-ÿ'-]+)", text, flags=re.IGNORECASE)
+        ln_match = re.search(r"\b(?:nom|last[\s_]?name)\b\s*[:=]?\s*([A-Za-zÀ-ÿ'-]+)", text, flags=re.IGNORECASE)
+        if fn_match:
+            first_name = fn_match.group(1)
+            last_name = ln_match.group(1) if ln_match else "Utilisateur"
+        else:
+            name_match = re.search(
+                r"(?:pour|for|user|utilisateur)\s+([A-Za-zÀ-ÿ'-]+(?:\s+[A-Za-zÀ-ÿ'-]+)*?)(?:\s*[,;]|\s+(?:email|mot\s+de\s+passe|mdp|password|role|rôle|entreprise|company)|$)",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if name_match:
+                parts = name_match.group(1).strip().split()
+                first_name = parts[0]
+                last_name = " ".join(parts[1:]) if len(parts) > 1 else "Utilisateur"
+            else:
+                first_name = None
+                last_name = None
+
         return {
             "first_name": first_name,
             "last_name": last_name,
@@ -273,3 +480,12 @@ def _extract_int_after(message: str, markers: tuple[str, ...]) -> int | None:
 
 def _has_arabic(value: str) -> bool:
     return any("\u0600" <= char <= "\u06ff" for char in value)
+
+
+def _is_english(value: str) -> bool:
+    text = (value or "").lower()
+    en_markers = ("create", "company", "named", "called", "with", "employees", "users", "sector", "address", "website", "confirm", "please")
+    fr_markers = ("crée", "créer", "cree", "creer", "entreprise", "société", "societe", "utilisateur", "secteur", "adresse", "confirmez")
+    en_count = sum(1 for m in en_markers if m in text)
+    fr_count = sum(1 for m in fr_markers if m in text)
+    return en_count > fr_count

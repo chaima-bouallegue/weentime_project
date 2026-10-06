@@ -75,19 +75,66 @@ export class ReunionDetailComponent {
     }));
   }
 
+  private stripHtml(content: string): string {
+    if (!content) return '';
+    let text = content.trim();
+    if (/<[a-z][\s\S]*>/i.test(text)) {
+      text = text.replace(/<br\s*[\/]?>/gi, '\n');
+      text = text.replace(/<\/(p|div|h[1-6]|tr)>/gi, '\n\n');
+      text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_match, p1) => {
+        const inner = p1.replace(/<[^>]+>/g, '').trim();
+        return /^\d+[\.\)]/.test(inner) ? `${inner}\n` : `• ${inner}\n`;
+      });
+      text = text.replace(/<[^>]+>/g, '');
+      text = text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+    }
+    return text
+      .split('\n')
+      .map(l => l.trim())
+      .filter((l, idx, arr) => l.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
+      .join('\n')
+      .trim();
+  }
+
   get agendaLines(): string[] {
     const r = this.reunion();
     if (!r || !r.agenda) return [];
-    return r.agenda.split('\n')
+    const clean = this.stripHtml(r.agenda);
+    return clean.split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0);
+  }
+
+  generateAIAgenda() {
+    const r = this.reunion();
+    if (!r) return;
+    this.isGeneratingAI.set(true);
+    this.toast.info('Génération de l\'ordre du jour par Gemini AI...');
+    this.aiService.generateAgenda(r.titre, this.editDescriptionValue() || r.description || '').subscribe({
+      next: (agenda) => {
+        this.editAgendaValue.set(agenda);
+        this.isGeneratingAI.set(false);
+        this.toast.success('Ordre du jour généré par Gemini ✨');
+      },
+      error: (err) => {
+        this.isGeneratingAI.set(false);
+        console.error(err);
+        this.toast.error('Erreur lors de la génération IA.');
+      }
+    });
   }
 
   toggleGlobalEdit() {
     const r = this.reunion();
     if (!r) return;
     this.editDescriptionValue.set(r.description || '');
-    this.editAgendaValue.set(r.agenda || '');
+    this.editAgendaValue.set(this.stripHtml(r.agenda || ''));
     this.editDateValue.set(r.dateReunion);
     this.editHeureDebutValue.set(r.heureDebut);
     this.editHeureFinValue.set(r.heureFin);
@@ -315,7 +362,7 @@ export class ReunionDetailComponent {
   // --- Inline Editing: Agenda ---
   startEditAgenda() {
     const r = this.reunion();
-    this.editAgendaValue.set(r?.agenda || '');
+    this.editAgendaValue.set(this.stripHtml(r?.agenda || ''));
     this.editingAgenda.set(true);
   }
 

@@ -31,14 +31,14 @@
   gap: 6px;
   background: none;
   border: none;
-  color: #6366f1;
+  color: #6B5DD3;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
   padding: 0;
   margin-bottom: 12px;
   transition: color 0.2s;
-  &:hover { color: #4f46e5; }
+  &:hover { color: #5A4FC0; }
 }
 
 .title-row {
@@ -65,9 +65,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #6B5DD3, #8b5cf6);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 14px rgba(107, 93, 211, 0.3);
   flex-shrink: 0;
 }
 
@@ -96,7 +96,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 24px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, var(--primary, #6B5DD3) 0%, #7C3AED 100%);
   color: #fff;
   border: none;
   border-radius: 14px;
@@ -104,8 +104,12 @@
   font-size: 14px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
-  &:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4); }
+  box-shadow: 0 4px 14px rgba(107, 93, 211, 0.28);
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(107, 93, 211, 0.38);
+    background: linear-gradient(135deg, var(--primary-dark, #5A4FC0) 0%, #6D28D9 100%);
+  }
 }
 
 .btn-secondary {
@@ -170,7 +174,7 @@
     height: 40px;
     padding: 8px;
     background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-    color: #6366f1;
+    color: #6B5DD3;
     border-radius: 12px;
     flex-shrink: 0;
   }
@@ -198,7 +202,7 @@
   height: 24px;
   padding: 0 8px;
   background: #eef2ff;
-  color: #6366f1;
+  color: #6B5DD3;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 800;
@@ -225,7 +229,7 @@
   &:hover {
     background: #fff;
     border-color: #c7d2fe;
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.08);
+    box-shadow: 0 8px 24px rgba(107, 93, 211, 0.08);
     transform: translateY(-1px);
   }
 }
@@ -329,7 +333,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: #6B5DD3;
 }
 
 .score-failed {
@@ -424,7 +428,7 @@
   margin: 0;
   padding: 10px 16px;
   background: linear-gradient(135deg, #f8fafc, #eef2ff);
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid #6B5DD3;
   border-radius: 0 12px 12px 0;
   font-size: 13px;
   font-style: italic;
@@ -457,7 +461,7 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
 
-  &[data-status='APPLIED'] { background: #eef2ff; color: #4f46e5; }
+  &[data-status='APPLIED'] { background: #eef2ff; color: #5A4FC0; }
   &[data-status='AI_ANALYZING'] { background: #fffbeb; color: #d97706; }
   &[data-status='AI_ANALYZED'] { background: #ecfdf5; color: #059669; }
   &[data-status='UNDER_REVIEW'] { background: #fffbeb; color: #d97706; }
@@ -603,8 +607,8 @@
     color: #1e293b;
   }
 
-  &.salary .detail-icon { background: #eef2ff; color: #6366f1; }
-  .salary-value { color: #6366f1; font-weight: 800; }
+  &.salary .detail-icon { background: #eef2ff; color: #6B5DD3; }
+  .salary-value { color: #6B5DD3; font-weight: 800; }
 }
 
 .description-text {
@@ -625,7 +629,7 @@
 .skill-tag {
   padding: 5px 12px;
   background: #eef2ff;
-  color: #4f46e5;
+  color: #5A4FC0;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
@@ -640,7 +644,7 @@
   justify-content: center;
   padding: 100px 0;
   gap: 20px;
-  color: #6366f1;
+  color: #6B5DD3;
   p { color: #64748b; font-weight: 600; }
 }
 
@@ -896,9 +900,9 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 
     &:focus {
-      border-color: #6366f1;
+      border-color: #6B5DD3;
       background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      box-shadow: 0 0 0 3px rgba(107, 93, 211, 0.15);
     }
   }
 
@@ -976,7 +980,7 @@
   .candidate-card-ai {
     background: #0f172a;
     border-color: #334155;
-    &:hover { background: #1e293b; border-color: #6366f1; }
+    &:hover { background: #1e293b; border-color: #6B5DD3; }
   }
   .candidate-name { color: #f1f5f9; }
   .score-inner { background: #1e293b; }

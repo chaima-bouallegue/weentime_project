@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from typing import Any
@@ -65,6 +65,35 @@ class UpdateUserRoleInput(BaseModel):
 class AssignManagerInput(BaseModel):
     user_id: int = Field(gt=0)
     manager_id: int | None = Field(default=None, gt=0)
+
+
+class CreateEnterpriseInput(BaseModel):
+    nom: str = Field(description="Nom de l'entreprise")
+    siret: str = Field(description="Numero SIRET (14 chiffres)")
+    email: str | None = Field(default=None, description="Email de contact de l'entreprise")
+    telephone: str | None = Field(default=None, description="Telephone de l'entreprise")
+    adresse: str | None = Field(default=None, description="Adresse postale")
+    secteur: str | None = Field(default=None, description="Secteur d'activite")
+    max_users: int | None = Field(default=None, gt=0, description="Nombre max d'utilisateurs autorises")
+    site_web: str | None = Field(default=None, description="Site web de l'entreprise")
+
+    @field_validator("siret")
+    @classmethod
+    def validate_siret(cls, value: str) -> str:
+        text = str(value or "").strip().replace(" ", "")
+        if not re.match(r"^\d{14}$", text):
+            raise ValueError("Le SIRET doit contenir exactement 14 chiffres")
+        return text
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if "@" not in text or "." not in text.rsplit("@", 1)[-1]:
+            raise ValueError("email invalide")
+        return text
 
 
 class AssignRhOwnerInput(BaseModel):
@@ -139,6 +168,19 @@ class AdminTools:
                 idempotency_required=True,
             ),
             self.assign_rh_owner,
+        )
+        registry.register(
+            ToolDefinition(
+                name="admin.create_enterprise",
+                description="Cree une nouvelle entreprise dans la plateforme.",
+                input_model=CreateEnterpriseInput,
+                output_model=None,
+                type="write",
+                allowed_roles=ADMIN_ROLE,
+                requires_confirmation=True,
+                idempotency_required=True,
+            ),
+            self.create_enterprise,
         )
         registry.register(
             ToolDefinition(
@@ -263,8 +305,11 @@ class AdminTools:
             "teamId": getattr(payload, "team_id", None),
             "managerId": getattr(payload, "manager_id", None),
         }
-        result = await self.backend_client.post("/users", context=context, json=_drop_none(body))
-        return _write_response("admin.create_user", result, "Utilisateur cree avec un role business unique.")
+        first_name = str(getattr(payload, "first_name", "") or "").strip()
+        last_name = str(getattr(payload, "last_name", "") or "").strip()
+        name = f"{first_name} {last_name}".strip() or "L'utilisateur"
+        result = await self.backend_client.post("/users", context=context, json=_drop_none(body), tool_name="admin.create_user")
+        return _write_response("admin.create_user", result, f"C'est fait ! {name} a été créé(e) avec succès.")
 
     async def update_user_role(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         user_id = int(getattr(payload, "user_id"))
@@ -305,6 +350,21 @@ class AdminTools:
             json={"entrepriseId": entreprise_id},
         )
         return _write_response("admin.assign_rh_owner", result, "Entreprise assignee au proprietaire RH.")
+
+    async def create_enterprise(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
+        body = _drop_none({
+            "nom": getattr(payload, "nom"),
+            "siret": getattr(payload, "siret"),
+            "email": getattr(payload, "email", None),
+            "telephone": getattr(payload, "telephone", None),
+            "adresse": getattr(payload, "adresse", None),
+            "secteur": getattr(payload, "secteur", None),
+            "maxUsers": getattr(payload, "max_users", None),
+            "siteWeb": getattr(payload, "site_web", None),
+            "estActive": True,
+        })
+        result = await self.backend_client.post("/organisations/entreprises", context=context, json=body)
+        return _write_response("admin.create_enterprise", result, f"Entreprise '{body['nom']}' creee avec succes.")
 
     async def list_enterprises(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
         params = _page_params(payload)

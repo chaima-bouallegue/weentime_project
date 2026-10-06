@@ -49,6 +49,14 @@ export class TeletravailService {
     );
   }
 
+  modifierDemande(id: number, req: NouvelleDemandeTeletravailRequest): Observable<DemandeTeletravail> {
+    return this.http.put<unknown>(`${this.API}/${id}`, req).pipe(
+      map(response => this.mapToTeletravail(this.unwrapItem(response))),
+      tap(() => this.toastService.success('Demande de teletravail modifiee avec succes')),
+      catchError(err => this.handleError('Erreur lors de la modification de la demande', err))
+    );
+  }
+
   annulerDemande(id: number): Observable<any> {
     return this.http.put(`${this.apiConfig.RH.GET_TELETRAVAILS}/${id}/annuler`, {}).pipe(
       tap(() => this.toastService.success('Demande annulee')),
