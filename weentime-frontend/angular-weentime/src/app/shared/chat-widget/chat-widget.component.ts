@@ -603,6 +603,26 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
             origin: 'text',
             attachment: { url: res.justificatifUrl, fileName: res.fileName },
           });
+
+          // Auto-retry: if the last assistant message was a "justificatif obligatoire"
+          // failure, re-send the original leave request with the justificatif attached.
+          if (this.lastSubmittedText && this.wasLastFailureJustificatif()) {
+            const retryText = this.lastSubmittedText;
+            const metadata: Record<string, unknown> = {
+              justificatif_url: res.justificatifUrl,
+              justificatifUrl: res.justificatifUrl,
+              file_name: res.fileName,
+              fileName: res.fileName,
+            };
+            this.pendingAttachment.set(null);
+            this.loading.set(true);
+            this.chatService.sendMessage(retryText, metadata).pipe(
+              finalize(() => this.loading.set(false)),
+            ).subscribe({
+              next: response => { this.pushAssistantReply(response, 'text'); },
+              error: error => this.handleRequestFailure(this.resolveErrorMessage(error), 'text'),
+            });
+          }
         },
         error: () => {
           this.pushMessage({
@@ -783,6 +803,19 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
           location_source: 'browser_gps',
         };
       }
+    }
+
+    // Include pending justificatif attachment in confirmation metadata
+    const attachment = this.pendingAttachment();
+    if (approved && attachment) {
+      extraMetadata = {
+        ...(extraMetadata || {}),
+        justificatif_url: attachment.url,
+        justificatifUrl: attachment.url,
+        file_name: attachment.fileName,
+        fileName: attachment.fileName,
+      };
+      this.pendingAttachment.set(null);
     }
 
     this.chatService.confirmAction(confirmationId, approved, extraMetadata).pipe(finalize(() => {
@@ -1191,6 +1224,24 @@ export class ChatWidgetComponent implements AfterViewChecked, AfterViewInit, OnD
       this.openExternalLink(messageAction.target);
     }
     return { isError, audioUrl };
+  }
+
+  /**
+   * Returns true if the most recent assistant message indicates that the leave
+   * request failed because a justificatif was required.
+   */
+  private wasLastFailureJustificatif(): boolean {
+    const msgs = this.messages();
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const msg = msgs[i];
+      if (msg.sender === 'user') continue;
+      if (msg.sender === 'assistant') {
+        const text = (msg.text || '').toLowerCase();
+        return text.includes('justificatif') && (text.includes('obligatoire') || text.includes('requis') || text.includes('required'));
+      }
+      break;
+    }
+    return false;
   }
 
   private sendStoredText(message: string): void {

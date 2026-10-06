@@ -398,9 +398,16 @@ class WorkflowOrchestrator:
             return await self._finalize_response(response, context=context, state=state, session_id=session_id)
 
         self.confirmation_store.consume(record.confirmation_id)
+        # Enrich leave creation with justificatif from confirmation metadata
+        tool_input = dict(record.tool_input)
+        if record.tool_name == "leave.create_request":
+            ctx_meta = context.metadata if isinstance(getattr(context, "metadata", None), dict) else {}
+            justificatif_url = ctx_meta.get("justificatif_url") or ctx_meta.get("justificatifUrl")
+            if justificatif_url and not tool_input.get("justificatif_url"):
+                tool_input["justificatif_url"] = justificatif_url
         result = await self.executor.execute(
             record.tool_name,
-            record.tool_input,
+            tool_input,
             context,
             confirmed=True,
             request_id=state.request_id,

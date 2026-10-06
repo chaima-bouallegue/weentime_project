@@ -147,6 +147,11 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
                 "type_conge_id": payload.get("type_conge_id"),
                 "leave_type_label": payload.get("leave_type_label"),
             }
+            # Include justificatif URL from request metadata (pending attachment)
+            ctx_meta = context.metadata if isinstance(getattr(context, "metadata", None), dict) else {}
+            justificatif_url = ctx_meta.get("justificatif_url") or ctx_meta.get("justificatifUrl")
+            if justificatif_url:
+                tool_input["justificatif_url"] = justificatif_url
             risk_analysis = await LeaveRiskAnalyzer(self.executor).analyze(tool_input, context)
             confirmation_text = LeaveRiskAnalyzer.build_confirmation_text(
                 "Confirmez-vous la creation de cette demande de conge ?",

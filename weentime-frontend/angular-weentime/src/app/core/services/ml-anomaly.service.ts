@@ -1014,9 +1014,8 @@ export class MlAnomalyService {
 
   private fetchDashboard(url: string, scope: string): Observable<AnomalyDashboardResponse> {
     return this.http.get<RawAnomalyDashboardResponse>(url, { headers: this.authHeaders(scope) }).pipe(
-      timeout(3000),
+      timeout(30000),
       map(response => mapDashboard(response)),
-      catchError(() => of(mapDashboard(null)))
     );
   }
 

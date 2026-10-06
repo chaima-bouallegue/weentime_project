@@ -34,6 +34,7 @@ class CreateLeaveInput(BaseModel):
     type_conge_id: int | None = Field(default=None, gt=0)
     leave_type_label: str | None = None
     justificatif_fourni: bool | None = None
+    justificatif_url: str | None = None
 
 
 class DecideLeaveInput(BaseModel):
@@ -322,6 +323,10 @@ class LeaveTools:
         justificatif = getattr(payload, "justificatif_fourni", None)
         if justificatif is not None:
             body["justificatifFourni"] = justificatif
+        justificatif_url = getattr(payload, "justificatif_url", None)
+        if justificatif_url:
+            body["justificatifUrl"] = justificatif_url
+            body["justificatifFourni"] = True
         return await self.backend_client.post("/rh/conges", context=context, json=body)
 
     async def manager_decide(self, payload: BaseModel, context: CurrentUserContext) -> ToolResult:
