@@ -840,6 +840,15 @@
       color: var(--surface);
     }
   }
+
+  &--orange {
+    background: var(--orange-bg);
+    color: var(--orange-text);
+    .mp-chip-btn--active & {
+      background: var(--orange);
+      color: var(--surface);
+    }
+  }
 }
 
 /* Helper Stylings inside row cells */
@@ -1116,7 +1125,8 @@
 
   &--bureau { color: var(--emerald-text); }
   &--teletravail { color: var(--blue-text); }
-  &--hors-zone { color: var(--orange-text); }
+  &--hors-zone,
+  &--hors-bureau { color: var(--orange-text); }
   &--unknown { color: var(--text-muted); }
 }
 
@@ -1438,6 +1448,35 @@
   background: var(--bg-page);
   padding: 6px 10px;
   border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mp-kanban-location-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &--checkout {
+    margin-top: 2px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border-subtle);
+  }
+}
+
+.mp-kanban-location-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.mp-kanban-location-sub {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mp-kanban-card__footer {

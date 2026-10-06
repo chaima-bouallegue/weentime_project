@@ -10,10 +10,31 @@ import { animate, style, transition, trigger, query, stagger } from '@angular/an
 import { OvertimeRequestDto, OvertimeService } from '../../presence/services/overtime.service';
 import { LocationDisplayComponent } from '../../../shared/components/location-display/location-display.component';
 
-export type KpiFilterType = 'all' | 'present' | 'teletravail' | 'late' | 'absent' | 'leave' | null;
+export const IT_SERV_HQ = {
+  name: 'Siège IT SERV',
+  address: '5 Impasse Chahrazed, Tunis',
+  fullAddress: '5 Impasse Chahrazed, Mutuelleville, 1082 Tunis, Tunisie',
+  latitude: 36.8306,
+  longitude: 10.1783,
+  radiusKm: 0.6, // 600 mètres de tolérance géographique autour de Mutuelleville
+  keywords: [
+    'chahrazed',
+    'chahrazad',
+    'chahrazede',
+    'mutuelleville',
+    'mutuelle ville',
+    'it serv',
+    'itserv',
+    'impasse chahrazed',
+    'siège',
+    'siege'
+  ]
+};
+
+export type KpiFilterType = 'all' | 'present' | 'hors-bureau' | 'teletravail' | 'late' | 'absent' | 'leave' | null;
 
 export interface LocationInfo {
-  type: 'bureau' | 'teletravail' | 'hors-zone' | 'unknown';
+  type: 'bureau' | 'teletravail' | 'hors-bureau' | 'hors-zone' | 'unknown';
   label: string;
   icon: string;
 }
@@ -117,7 +138,9 @@ export class ManagerPresenceComponent implements OnInit {
 
     // Apply KPI filter
     if (kpiFilter === 'present') {
-      members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type !== 'teletravail');
+      members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'bureau');
+    } else if (kpiFilter === 'hors-bureau') {
+      members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'hors-bureau');
     } else if (kpiFilter === 'teletravail') {
       members = members.filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'teletravail');
     } else if (kpiFilter === 'late') {
@@ -163,7 +186,11 @@ export class ManagerPresenceComponent implements OnInit {
   }
 
   getOfficePresentCount(): number {
-    return this.teamStatus().filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type !== 'teletravail').length;
+    return this.teamStatus().filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'bureau').length;
+  }
+
+  getOutOfOfficeCount(): number {
+    return this.teamStatus().filter(m => m.status === 'ACTIVE' && this.getLocationType(m.checkInLocation).type === 'hors-bureau').length;
   }
 
   getTeleworkCount(): number {
@@ -228,11 +255,14 @@ export class ManagerPresenceComponent implements OnInit {
 
       if (member.arrivalTime) {
         const actionType = member.status === 'LATE' ? 'late' as const : 'checkin' as const;
+        const locType = this.getLocationType(member.checkInLocation).type;
         const action = member.status === 'LATE'
           ? 'a pointé son entrée (en retard)'
-          : (this.getLocationType(member.checkInLocation).type === 'teletravail'
+          : (locType === 'teletravail'
             ? 'a démarré le télétravail'
-            : 'a pointé son entrée');
+            : (locType === 'hors-bureau'
+              ? 'a pointé son entrée (hors bureau)'
+              : 'a pointé son entrée au bureau'));
 
         events.push({
           id: member.id * 10 + 1,
@@ -477,44 +507,100 @@ export class ManagerPresenceComponent implements OnInit {
 
   // Presentation-only: classify location text into a type
   getLocationType(location: string | null): LocationInfo {
-    if (!location) {
+    if (!location || !location.trim()) {
       return { type: 'unknown', label: '--', icon: '' };
     }
-    const lower = location.toLowerCase();
+    const trimmed = location.trim();
+    const lower = trimmed.toLowerCase();
 
-    // Check for télétravail patterns
+    // 1. Télétravail déclaré
     if (lower.includes('télétravail') || lower.includes('teletravail') ||
         lower.includes('domicile') || lower.includes('remote') ||
         lower.includes('maison') || lower.includes('home')) {
       return { type: 'teletravail', label: 'Télétravail', icon: '🔵' };
     }
 
-    // Check for out-of-zone patterns
+    // 2. Pointage explicitement hors zone
     if (lower.includes('hors zone') || lower.includes('hors-zone') ||
         lower.includes('out of zone') || lower.includes('hors du périmètre')) {
-      return { type: 'hors-zone', label: `Hors zone`, icon: '🟠' };
+      return { type: 'hors-bureau', label: 'Hors zone', icon: '🟠' };
     }
 
-    // Default: Bureau with location details
-    // Extract a short label from the location string
-    const shortLabel = this.extractShortLocation(location);
-    return { type: 'bureau', label: `Bureau ${shortLabel}`.trim(), icon: '🟢' };
+    // 3. Détection du siège unique IT SERV (5 Impasse Chahrazed, Tunis)
+    if (this.isOfficeLocation(trimmed)) {
+      return { type: 'bureau', label: 'Au bureau', icon: '🟢' };
+    }
+
+    // 4. Tout autre lieu (ex: Bahra, Sousse, etc.) est hors bureau
+    return { type: 'hors-bureau', label: 'Hors bureau', icon: '🟠' };
   }
 
-  private extractShortLocation(location: string): string {
+  getLocationTooltip(location: string | null): string {
     if (!location) return '';
-    // If it looks like coordinates (lat,lon), return empty (location-display handles geocoding)
-    if (/^-?\d+(\.\d+)?[,\s]+-?\d+(\.\d+)?$/.test(location.trim())) {
-      return '';
+    const info = this.getLocationType(location);
+    if (info.type === 'bureau') {
+      return 'Présence confirmée au siège IT SERV (5 Impasse Chahrazed, Mutuelleville, Tunis)';
     }
-    // If it's a comma-separated location, take the first part (usually city)
-    const parts = location.split(',');
-    if (parts.length > 0) {
-      const first = parts[0].trim();
-      // Limit length
-      return first.length > 20 ? first.substring(0, 20) + '…' : first;
+    if (info.type === 'teletravail') {
+      return 'Pointage en télétravail déclaré';
     }
-    return location.length > 20 ? location.substring(0, 20) + '…' : location;
+    if (info.type === 'hors-bureau') {
+      return 'Pointage hors du siège IT SERV';
+    }
+    return location;
+  }
+
+  private isOfficeLocation(location: string): boolean {
+    if (!location) return false;
+    const lower = location.toLowerCase().trim();
+
+    // 1. Détection textuelle par mots-clés du siège
+    for (const kw of IT_SERV_HQ.keywords) {
+      if (lower.includes(kw)) {
+        return true;
+      }
+    }
+
+    // 2. Détection géodésique GPS si des coordonnées numériques sont détectées
+    const coords = this.parseCoordinates(location);
+    if (coords) {
+      const distanceKm = this.calculateDistanceKm(
+        coords.lat,
+        coords.lon,
+        IT_SERV_HQ.latitude,
+        IT_SERV_HQ.longitude
+      );
+      if (distanceKm <= IT_SERV_HQ.radiusKm) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private parseCoordinates(location: string): { lat: number; lon: number } | null {
+    if (!location) return null;
+    const match = location.match(/(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)/);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lon = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon };
+      }
+    }
+    return null;
+  }
+
+  private calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Rayon moyen de la Terre en kilomètres
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   // Presentation-only: toggle KPI filter

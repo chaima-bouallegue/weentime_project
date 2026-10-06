@@ -86,11 +86,12 @@
               </div>
             </div>
             <div class="mp-kpi-subdetails">
-              <span>{{ getMembersCountByStatus('ACTIVE') }} présents</span>
+              <span>{{ getOfficePresentCount() }} au bureau</span>
+              <span>•</span>
+              <span *ngIf="getOutOfOfficeCount() > 0">{{ getOutOfOfficeCount() }} hors bureau • </span>
+              <span>{{ getTeleworkCount() }} télétravail</span>
               <span>•</span>
               <span>{{ getMembersCountByStatus('ABSENT') }} absents</span>
-              <span>•</span>
-              <span>{{ getMembersCountByStatus('LATE') }} retards</span>
             </div>
           </div>
         </div>
@@ -241,8 +242,11 @@
         <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === null" (click)="toggleKpiFilter(null)">
           Tous <span class="mp-chip-badge">{{ teamStatus().length }}</span>
         </button>
-        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'present'" (click)="toggleKpiFilter('present')">
-          Présents <span class="mp-chip-badge mp-chip-badge--emerald">{{ getOfficePresentCount() }}</span>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'present'" (click)="toggleKpiFilter('present')" title="Présents au siège IT SERV">
+          Au bureau <span class="mp-chip-badge mp-chip-badge--emerald">{{ getOfficePresentCount() }}</span>
+        </button>
+        <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'hors-bureau'" (click)="toggleKpiFilter('hors-bureau')" title="Pointages hors du siège">
+          Hors bureau <span class="mp-chip-badge mp-chip-badge--orange">{{ getOutOfOfficeCount() }}</span>
         </button>
         <button class="mp-chip-btn" [class.mp-chip-btn--active]="activeKpiFilter() === 'teletravail'" (click)="toggleKpiFilter('teletravail')">
           Télétravail <span class="mp-chip-badge mp-chip-badge--blue">{{ getTeleworkCount() }}</span>
@@ -335,13 +339,18 @@
 
                 <!-- Localisation -->
                 <td>
-                  <div class="mp-location-container" *ngIf="member.checkInLocation; else noLocation">
+                  <div class="mp-location-container" *ngIf="member.checkInLocation; else noLocation" [title]="getLocationTooltip(member.checkInLocation)">
                     <div class="mp-location-main mp-location-main--{{ getLocationType(member.checkInLocation).type }}">
                       <span class="mp-location-icon">{{ getLocationType(member.checkInLocation).icon }}</span>
                       <span class="mp-location-text">{{ getLocationType(member.checkInLocation).label }}</span>
                     </div>
                     <span class="mp-location-sub" *ngIf="getLocationType(member.checkInLocation).type !== 'unknown'">
-                      <app-location-display [locationText]="member.checkInLocation"></app-location-display>
+                      <ng-container *ngIf="getLocationType(member.checkInLocation).type === 'bureau'; else otherLocation">
+                        5 Impasse Chahrazed, Tunis
+                      </ng-container>
+                      <ng-template #otherLocation>
+                        <app-location-display [locationText]="member.checkInLocation"></app-location-display>
+                      </ng-template>
                     </span>
                   </div>
                   <ng-template #noLocation>
@@ -427,9 +436,23 @@
               </div>
 
               <div *ngIf="member.checkInLocation || member.checkOutLocation" class="mp-kanban-card__location">
-                <span *ngIf="member.checkInLocation">📍 Entrée: <app-location-display [locationText]="member.checkInLocation"></app-location-display></span>
-                <br *ngIf="member.checkInLocation && member.checkOutLocation">
-                <span *ngIf="member.checkOutLocation">📍 Sortie: <app-location-display [locationText]="member.checkOutLocation"></app-location-display></span>
+                <div *ngIf="member.checkInLocation" class="mp-kanban-location-row" [title]="getLocationTooltip(member.checkInLocation)">
+                  <span class="mp-location-main mp-location-main--{{ getLocationType(member.checkInLocation).type }}">
+                    {{ getLocationType(member.checkInLocation).icon }} {{ getLocationType(member.checkInLocation).label }}
+                  </span>
+                  <span class="mp-kanban-location-sub">
+                    <ng-container *ngIf="getLocationType(member.checkInLocation).type === 'bureau'; else kanbanOtherLocation">
+                      5 Impasse Chahrazed, Tunis
+                    </ng-container>
+                    <ng-template #kanbanOtherLocation>
+                      <app-location-display [locationText]="member.checkInLocation"></app-location-display>
+                    </ng-template>
+                  </span>
+                </div>
+                <div *ngIf="member.checkOutLocation" class="mp-kanban-location-row mp-kanban-location-row--checkout">
+                  <span class="mp-kanban-location-label">Sortie:</span>
+                  <app-location-display [locationText]="member.checkOutLocation"></app-location-display>
+                </div>
               </div>
 
               <div class="mp-kanban-card__footer">
