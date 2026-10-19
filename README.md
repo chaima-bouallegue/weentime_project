@@ -24,7 +24,7 @@
 
 **WeenTime** est une solution complète de **Gestion des Ressources Humaines (SIRH)** en mode **SaaS Multi-Tenant**, couplée à un écosystème d'**Intelligence Artificielle générative, conversationnelle et prédictive**.
 
-Conçue pour répondre aux défis organisationnels des entreprises modernes et éprouvée dans le cadre de partenariat avec **IT SERV**, la plateforme unifie le suivi des présences, la gestion des congés et documents administratifs, le recrutement automatisé, la communication interne et la prise de décision assistée par IA.
+Conçue pour répondre aux défis organisationnels des entreprises modernes, la plateforme unifie le suivi des présences, la gestion des congés et documents administratifs, le recrutement automatisé, la communication interne et la prise de décision assistée par IA.
 
 ---
 
@@ -40,7 +40,7 @@ Conçue pour répondre aux défis organisationnels des entreprises modernes et �
 
 ### 2. 📍 Présence, Pointage & Geofencing Temps Réel
 * **Pointage intelligent** (Check-in / Check-out) supportant le mode **multi-sessions journalières**.
-* **Moteur de Geofencing IT SERV HQ** :
+* **Moteur de Geofencing** :
   * Calcul de distance géodésique (formule de Haversine) autour du siège (`36.899450, 10.188448`, rayon de 200m).
   * Classification automatique des statuts : `OFFICE` (Siège), `REMOTE` (Télétravail autorisé), `OUT_OF_BOUNDS` (Hors périmètre).
 * Calcul automatique du temps de présence effectif, des retards, des départs anticipés et des heures supplémentaires.
@@ -222,9 +222,6 @@ ng test --watch=false
 ---
 
 ## 🎓 Soutenance & Validation
-
-Ce projet a été présenté et validé avec succès lors de la soutenance officielle de fin d'études :
-* **Date de validation** : 19 Octobre 2026
 * **Rapport d'audit complet** : Voir [`AUDIT_SOUTENANCE_FINAL.md`](./AUDIT_SOUTENANCE_FINAL.md)
 
 ---
@@ -232,7 +229,7 @@ Ce projet a été présenté et validé avec succès lors de la soutenance offic
 ## 👩‍💻 Auteur
 
 * **Chaima Bouallegue** — Concepteur & Développeur
-* Projet réalisé en collaboration avec **IT SERV**
+
 
 ---
 
