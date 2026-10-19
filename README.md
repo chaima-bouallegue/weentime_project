@@ -1,7 +1,6 @@
 # 🏢 WeenTime — Plateforme SIRH Intelligente & Distribuée
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Soutenance%20Valid%C3%A9e%20%F0%9F%8E%93-success?style=for-the-badge&logo=checkmarx" alt="Soutenance Validée" />
   <img src="https://img.shields.io/badge/Release-v2.4.0-blue?style=for-the-badge" alt="Release v2.4.0" />
   <img src="https://img.shields.io/badge/Architecture-Microservices-orange?style=for-the-badge&logo=apache" alt="Microservices" />
 </p>
