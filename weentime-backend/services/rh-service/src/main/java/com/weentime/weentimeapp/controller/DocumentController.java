@@ -315,11 +315,11 @@ public class DocumentController {
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<Map<String, Object>> generateTemplateWithAI(@RequestBody Map<String, String> request) {
         String description = request.get("description");
-        if (description == null || description.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La description du document est requise.");
-        }
+        String sampleDocument = request.get("sampleDocument");
 
-        log.info("Génération de modèle IA à partir de la description : {}", description);
+        if ((description == null || description.isBlank()) && (sampleDocument == null || sampleDocument.isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une description ou un document d'exemple est requis.");
+        }
 
         // Build the list of available variables for the system prompt
         StringBuilder variablesList = new StringBuilder();
@@ -327,23 +327,50 @@ public class DocumentController {
             variablesList.append("  - {{").append(v.get("key")).append("}} → ").append(v.get("label")).append("\n");
         }
 
-        String systemPrompt = """
-            Tu es un expert en rédaction de documents RH administratifs français.
-            
-            MISSION : Génère un MODÈLE de document (template) à partir de la description de l'utilisateur.
-            
-            RÈGLES CRITIQUES :
-            1. Utilise UNIQUEMENT les variables suivantes entourées de doubles accolades {{variable}} :
-            %s
-            2. N'invente JAMAIS de nouvelles variables. Si une donnée n'a pas de variable correspondante, écris le texte en dur ou utilise [À COMPLÉTER].
-            3. Le document doit être formel, professionnel, en français.
-            4. Retourne UNIQUEMENT le texte brut du modèle, sans balises markdown, sans titres avec #, sans explication.
-            5. Utilise des retours à la ligne pour structurer le document.
-            6. Inclus les formules de politesse et mentions légales appropriées.
-            7. RÈGLE D'OR : Assure-toi de clore proprement toutes les balises HTML ouvertes (comme <table>, <tr>, <td>, <div>, etc.) pour éviter tout contenu tronqué.
-            """.formatted(variablesList.toString());
+        String systemPrompt;
+        String userPrompt;
 
-        String userPrompt = "Génère un modèle de document pour : " + description;
+        if (sampleDocument != null && !sampleDocument.isBlank()) {
+            log.info("Conversion intelligente d'un document existant en modèle dynamique (Longueur: {} caractères)", sampleDocument.length());
+            systemPrompt = """
+                Tu es un expert RH et ingénieur de templates documentaires administratifs français.
+                
+                MISSION : L'utilisateur te fournit le texte d'un VRAI document RH existant (ex: une attestation, une lettre officielle ou un contrat réel avec des noms, prénoms, dates, postes ou salaires déjà écrits en dur).
+                Ton rôle est de transformer ce document spécifique en un MODÈLE RÉUTILISABLE (template).
+                
+                RÈGLES CRITIQUES :
+                1. Détecte toutes les données spécifiques à une personne ou à une entreprise et remplace-les par les variables autorisées suivantes :
+                %s
+                2. Exemples de substitutions :
+                   - Nom et prénom de l'employé → {{employee.nomComplet}} ou {{employee.prenom}} et {{employee.nom}}
+                   - Poste / Titre professionnel → {{employee.poste}}
+                   - Département / Service → {{employee.departement}}
+                   - Nom de l'entreprise → {{company.name}}
+                   - Ville de l'entreprise → {{company.city}}
+                   - Date de signature / délivrance → {{document.date}}
+                3. Conserve rigoureusement toute la formulation juridique, le style officiel, les paragraphes, les mentions légales et les formules de politesse du document original.
+                4. N'invente JAMAIS de variables non listées ci-dessus. Si une information spécifique n'a pas de variable correspondante, laisse le texte ou utilise [À COMPLÉTER].
+                5. Retourne UNIQUEMENT le texte brut du modèle produit, sans balises markdown, sans commentaires, sans titres avec #.
+                """.formatted(variablesList.toString());
+            userPrompt = "Transforme ce document réel en modèle dynamique prêt à l'emploi :\n\n" + sampleDocument;
+        } else {
+            log.info("Génération de modèle IA à partir de la description : {}", description);
+            systemPrompt = """
+                Tu es un expert en rédaction de documents RH administratifs français.
+                
+                MISSION : Génère un MODÈLE de document (template) à partir de la description de l'utilisateur.
+                
+                RÈGLES CRITIQUES :
+                1. Utilise UNIQUEMENT les variables suivantes entourées de doubles accolades {{variable}} :
+                %s
+                2. N'invente JAMAIS de nouvelles variables. Si une donnée n'a pas de variable correspondante, écris le texte en dur ou utilise [À COMPLÉTER].
+                3. Le document doit être formel, professionnel, en français.
+                4. Retourne UNIQUEMENT le texte brut du modèle, sans balises markdown, sans titres avec #, sans explication.
+                5. Utilise des retours à la ligne pour structurer le document.
+                6. Inclus les formules de politesse et mentions légales appropriées.
+                """.formatted(variablesList.toString());
+            userPrompt = "Génère un modèle de document pour : " + description;
+        }
 
         try {
             AiService.AiResponse aiResponse = aiService.generatePlainText(systemPrompt, userPrompt, 0.3f);

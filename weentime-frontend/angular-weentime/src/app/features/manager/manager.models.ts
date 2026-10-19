@@ -1,4 +1,4 @@
-import { PresenceMemberStatus, PresenceOverview, PresenceStats } from '../presence/models/presence.model';
+import { LocationStatus, PresenceMemberStatus, PresenceOverview, PresenceStats } from '../presence/models/presence.model';
 
 export interface ManagerUserRef {
   id: number;
@@ -80,6 +80,9 @@ export interface ManagerPresenceMember {
   totalMinutes: number;
   overtimeMinutes: number;
   lastActivity: string;
+  checkInLocationStatus: string | null;
+  checkInDistanceToWorkplace: number | null;
+  checkInGpsSpoofingSuspected: boolean | null;
 }
 
 export interface ManagerPresenceKpis {

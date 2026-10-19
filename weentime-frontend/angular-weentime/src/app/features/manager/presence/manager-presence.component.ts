@@ -505,7 +505,35 @@ export class ManagerPresenceComponent implements OnInit {
     return parts[0].substring(0, 2).toUpperCase();
   }
 
-  // Presentation-only: classify location text into a type
+  // Backend-authoritative: use geofencing status from backend when available
+  getLocationTypeFromStatus(member: TeamMemberStatus): LocationInfo {
+    const backendStatus = member.checkInLocationStatus;
+    if (backendStatus) {
+      switch (backendStatus) {
+        case 'IN_ZONE':
+          return { type: 'bureau', label: 'Au bureau', icon: '🟢' };
+        case 'OUT_OF_ZONE':
+          return { type: 'hors-bureau', label: 'Hors zone', icon: '🟠' };
+        case 'LOW_ACCURACY':
+          return { type: 'hors-bureau', label: 'GPS imprécis', icon: '🟡' };
+        case 'NO_GPS':
+          return { type: 'unknown', label: 'Pas de GPS', icon: '⚪' };
+        default:
+          break;
+      }
+    }
+    // Fallback to text-based detection
+    return this.getLocationType(member.checkInLocation);
+  }
+
+  getDistanceLabel(member: TeamMemberStatus): string | null {
+    if (member.checkInDistanceToWorkplace == null) return null;
+    const d = member.checkInDistanceToWorkplace;
+    if (d < 1000) return `${d}m du bureau`;
+    return `${(d / 1000).toFixed(1)}km du bureau`;
+  }
+
+  // Presentation-only: classify location text into a type (fallback)
   getLocationType(location: string | null): LocationInfo {
     if (!location || !location.trim()) {
       return { type: 'unknown', label: '--', icon: '' };

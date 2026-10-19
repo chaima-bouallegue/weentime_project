@@ -30,8 +30,10 @@ import {
   CalendarDays,
   Flame,
   Shield,
+  X,
 } from 'lucide-angular';
 import { catchError, forkJoin, interval, of, startWith, Subscription, switchMap } from 'rxjs';
+import { ModalService } from '../../../core/services/modal.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AssistantSyncService } from '../../../core/services/assistant-sync.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -59,6 +61,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly assistantSync = inject(AssistantSyncService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly modalService = inject(ModalService);
   private readonly horaireService = inject(HoraireService);
 
   private readonly todayHoraire = signal<Horaire | null>(null);
@@ -88,6 +91,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   readonly iconCalendarDays = CalendarDays;
   readonly iconFlame = Flame;
   readonly iconShield = Shield;
+  readonly iconX = X;
 
   readonly isTrajetMode = signal(false);
   readonly isPaused = signal(false);
@@ -332,8 +336,10 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     }
     return '0 min';
   });
+  readonly isOvertimeDismissed = signal(false);
   readonly showOvertimeConfirmationModal = computed(() =>
-    this.overtimeMode() === 'WAITING_CONFIRMATION'
+    !this.isOvertimeDismissed()
+    && this.overtimeMode() === 'WAITING_CONFIRMATION'
     && this.todaySummary()?.showCheckoutAlert === true
     && this.attendanceState() === 'ACTIVE'
   );
@@ -379,6 +385,34 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   });
   readonly latestCoordinatesLabel = computed(() => this.formatLocationCoordinates(this.latestLocation()));
 
+  readonly currentZoneStatus = computed(() => {
+    const summary = this.todaySummary();
+    const raw = (summary?.checkInLocationStatus as string) ?? null;
+    const distance = summary?.checkInDistanceToWorkplace;
+    if (raw === 'LOW_ACCURACY' && distance != null && Number(distance) > 500) {
+      return 'OUT_OF_ZONE';
+    }
+    return raw;
+  });
+
+  readonly currentDistanceToWorkplace = computed(() => {
+    const summary = this.todaySummary();
+    const d = summary?.checkInDistanceToWorkplace;
+    return d != null ? Number(d) : null;
+  });
+
+  readonly isGpsSpoofingSuspected = computed(() => {
+    const summary = this.todaySummary();
+    return Boolean(summary?.checkInGpsSpoofingSuspected);
+  });
+
+  readonly distanceLabel = computed(() => {
+    const d = this.currentDistanceToWorkplace();
+    if (d == null) return '';
+    if (d >= 1000) return `${(d / 1000).toFixed(1)} km du bureau`;
+    return `${Math.round(d)} m du bureau`;
+  });
+
   private clockSub?: Subscription;
   private statsSub?: Subscription;
 
@@ -412,6 +446,7 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.clockSub?.unsubscribe();
     this.statsSub?.unsubscribe();
+    this.modalService.close();
   }
 
   onCheckIn(): void {
@@ -427,15 +462,18 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     }
 
     this.showCheckInConfirmModal.set(true);
+    this.modalService.open();
   }
 
   confirmCheckIn(): void {
     this.showCheckInConfirmModal.set(false);
+    this.modalService.close();
     this.performPointageAction(true);
   }
 
   cancelCheckInModal(): void {
     this.showCheckInConfirmModal.set(false);
+    this.modalService.close();
   }
 
   onCheckOut(): void {
@@ -444,22 +482,32 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
     }
 
     this.showCheckOutConfirmModal.set(true);
+    this.modalService.open();
   }
 
   confirmCheckOut(): void {
     this.showCheckOutConfirmModal.set(false);
+    this.modalService.close();
     this.performPointageAction(false);
   }
 
   cancelCheckOutModal(): void {
     this.showCheckOutConfirmModal.set(false);
+    this.modalService.close();
   }
 
   onCheckoutFromOvertimeModal(): void {
     if (this.isLoading()) {
       return;
     }
+    this.isOvertimeDismissed.set(true);
     this.showCheckOutConfirmModal.set(true);
+    this.modalService.open();
+  }
+
+  dismissOvertimeModal(): void {
+    this.isOvertimeDismissed.set(true);
+    this.modalService.close();
   }
 
   onContinueOvertime(): void {
@@ -467,6 +515,8 @@ export class EmployeePointageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.isOvertimeDismissed.set(true);
+    this.modalService.close();
     this.isLoading.set(true);
     this.statusMessage.set(null);
     this.pointageService.continueOvertime().subscribe({

@@ -70,9 +70,11 @@ class VoiceRequestProcessor:
 
         stt_started = perf_counter()
         with start_span("voice.stt", {"size_bytes": stored.size_bytes}):
-            normalized_lang = _canonical_voice_language(language_hint)
-            whisper_lang = "ar" if normalized_lang == "tn" else normalized_lang
-            stt_result = await self.stt_service.aprocess(stored.path, language=whisper_lang)
+            # Run Whisper STT with language=None for automatic language detection.
+            # Forcing language="fr" based on the UI language_hint causes Whisper to act as a
+            # translator: English speech ("I want a leave...") was translated into French ("Je veux un congé...").
+            # With language=None, Whisper transcribes verbatim in whatever language was spoken.
+            stt_result = await self.stt_service.aprocess(stored.path, language=None)
             stt_duration_ms = round((perf_counter() - stt_started) * 1000, 2)
             log_event(
                 "voice.stt",
@@ -193,7 +195,7 @@ class VoiceRequestProcessor:
         preferred = [_canonical_voice_language(item) for item in (preferred_languages or ["fr", "ar", "en"])]
         preferred = [item for item in preferred if item]
         transcript_language = detect_language(transcript)
-        if transcript_language in {"tn", "ar"}:
+        if transcript_language in {"tn", "ar", "en"}:
             return transcript_language
 
         stt_detected = _canonical_voice_language(stt_language)

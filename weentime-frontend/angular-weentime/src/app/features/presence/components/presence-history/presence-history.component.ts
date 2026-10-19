@@ -27,6 +27,7 @@ import { PresenceService } from '../../services/presence.service';
               <th>Check-in</th>
               <th>Check-out</th>
               <th>Duree</th>
+              <th>Zone</th>
               <th>Etat</th>
             </tr>
           </thead>
@@ -36,6 +37,13 @@ import { PresenceService } from '../../services/presence.service';
               <td data-label="Check-in">{{ formatDateTime(item.checkInTime) }}</td>
               <td data-label="Check-out">{{ item.checkOutTime ? formatDateTime(item.checkOutTime) : '--:--' }}</td>
               <td data-label="Duree">{{ formatDuration(item.duration) }}</td>
+              <td data-label="Zone">
+                <span *ngIf="item.checkInLocationStatus === 'IN_ZONE'" class="zone-badge zone-in">🏢 Au bureau</span>
+                <span *ngIf="item.checkInLocationStatus === 'OUT_OF_ZONE'" class="zone-badge zone-out">
+                  📍 Hors zone <small *ngIf="item.checkInDistanceToWorkplace">({{ formatDistance(item.checkInDistanceToWorkplace) }})</small>
+                </span>
+                <span *ngIf="!item.checkInLocationStatus || item.checkInLocationStatus === 'NO_GPS'" class="zone-badge zone-unknown">—</span>
+              </td>
               <td data-label="Etat">
                 <span class="status-badge" [ngClass]="item.status === openStatus ? 'status-open' : 'status-closed'">
                   {{ item.status === openStatus ? 'Ouverte' : 'Cloturee' }}
@@ -62,6 +70,10 @@ import { PresenceService } from '../../services/presence.service';
     .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 6px; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
     .status-open { background: #dbeafe; color: #1d4ed8; }
     .status-closed { background: #dcfce7; color: #166534; }
+    .zone-badge { display: inline-flex; align-items: center; gap: 4px; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 600; font-size: 0.75rem; }
+    .zone-in { background: #dcfce7; color: #166534; }
+    .zone-out { background: #ffedd5; color: #c2410c; }
+    .zone-unknown { color: #9ca3af; }
     @media (max-width: 768px) {
       .history-table thead { display: none; }
       .history-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; }
@@ -101,5 +113,11 @@ export class PresenceHistoryComponent implements OnInit {
     const hours = Math.floor(duration / 3600);
     const minutes = Math.floor((duration % 3600) / 60);
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  }
+
+  formatDistance(meters?: number | null): string {
+    if (meters == null) return '';
+    if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+    return `${Math.round(meters)} m`;
   }
 }

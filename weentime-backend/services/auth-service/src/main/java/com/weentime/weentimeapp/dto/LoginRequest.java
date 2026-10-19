@@ -16,4 +16,13 @@ public class LoginRequest {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    private Boolean rememberMe;
+    private Boolean trustDevice;
+
+    public Boolean getRememberMe() { return rememberMe; }
+    public void setRememberMe(Boolean rememberMe) { this.rememberMe = rememberMe; }
+
+    public Boolean getTrustDevice() { return trustDevice; }
+    public void setTrustDevice(Boolean trustDevice) { this.trustDevice = trustDevice; }
 }

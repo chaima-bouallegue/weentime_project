@@ -11,7 +11,9 @@ import {
   AlertTriangle,
   Braces,
   Sparkles,
-  Loader2
+  Loader2,
+  Upload,
+  Wand2
 } from 'lucide-angular';
 import { environment } from '../../../../../environments/environment';
 
@@ -55,6 +57,13 @@ interface TemplateVariable {
                   class="tab-btn">
             <lucide-icon [img]="SparklesIcon" size="14"></lucide-icon>
             Aide IA
+          </button>
+          <button type="button"
+                  (click)="activeTab.set('sample')"
+                  [class.active]="activeTab() === 'sample'"
+                  class="tab-btn">
+            <lucide-icon [img]="Wand2Icon" size="14"></lucide-icon>
+            Convertir un document réel
           </button>
         </div>
 
@@ -142,6 +151,63 @@ interface TemplateVariable {
                   } @else {
                     <lucide-icon [img]="SparklesIcon" size="14"></lucide-icon>
                     Générer le modèle
+                  }
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- 3. Convert Existing Document (Sample to Template) -->
+          @if (activeTab() === 'sample') {
+            <div class="space-y-3 animate-in fade-in duration-200">
+              <div class="flex items-start gap-2">
+                <lucide-icon [img]="Wand2Icon" size="16" class="text-indigo-500 mt-0.5 flex-shrink-0"></lucide-icon>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p class="font-bold text-slate-700 dark:text-slate-300">Modèle à partir d'un document existant :</p>
+                  Collez le texte d'un document réel (attestation, contrat, lettre déjà signée...) ou importez un fichier <span class="font-semibold text-slate-600 dark:text-slate-300">.txt</span>.
+                  L'IA va détecter automatiquement les données nominatives en dur (noms, postes, dates, entreprise) et les remplacer par les variables dynamiques (ex: <code class="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1 rounded">{{ '{{employee.nomComplet}}' }}</code>) tout en préservant le texte juridique officiel.
+                </div>
+              </div>
+
+              <!-- File upload shortcut -->
+              <div class="flex items-center gap-2">
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-xl cursor-pointer border border-indigo-200/60 dark:border-indigo-800/40 transition-all">
+                  <lucide-icon [img]="UploadIcon" size="13"></lucide-icon>
+                  Importer un fichier texte (.txt)
+                  <input type="file" accept=".txt" class="hidden" (change)="onSampleFileUpload($event)" />
+                </label>
+                <span class="text-[10px] text-slate-400">ou collez le texte directement ci-dessous :</span>
+              </div>
+
+              <textarea
+                [value]="sampleDocText()"
+                (input)="onSampleDocChange($event)"
+                rows="4"
+                placeholder="Exemple de document réel avec vraies données :
+Nous soussignés, IT SERV SARL, attestons par la présente que M. Jean Dupont, domicilié à Tunis, occupe actuellement le poste de Chef de Projet au sein du département Informatique depuis le 01/01/2022..."
+                class="ai-prompt-input font-mono text-[11px]"
+                [disabled]="aiConvertingSample()"
+              ></textarea>
+
+              @if (sampleError()) {
+                <div class="flex items-center gap-2 text-[11px] font-bold text-red-500 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl border border-red-100 dark:border-red-900/40">
+                  <lucide-icon [img]="AlertIcon" size="12"></lucide-icon>
+                  {{ sampleError() }}
+                </div>
+              }
+
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] text-slate-400 italic">Le document converti remplacera le modèle dans l'éditeur ci-dessous</span>
+                <button type="button"
+                        (click)="convertSampleWithAI()"
+                        [disabled]="aiConvertingSample() || !sampleDocText().trim()"
+                        class="ai-generate-btn">
+                  @if (aiConvertingSample()) {
+                    <lucide-icon [img]="Loader2Icon" size="14" class="animate-spin"></lucide-icon>
+                    Conversion intelligente en cours...
+                  } @else {
+                    <lucide-icon [img]="Wand2Icon" size="14"></lucide-icon>
+                    Convertir en modèle automatique
                   }
                 </button>
               </div>
@@ -401,11 +467,13 @@ export class DocumentTemplateEditorComponent implements OnInit {
   readonly SearchIcon = Search;
   readonly AlertIcon = AlertTriangle;
   readonly Loader2Icon = Loader2;
+  readonly Wand2Icon = Wand2;
+  readonly UploadIcon = Upload;
 
   private http = inject(HttpClient);
 
   // Signals
-  activeTab = signal<'variables' | 'ai'>('variables');
+  activeTab = signal<'variables' | 'ai' | 'sample'>('variables');
   variables = signal<TemplateVariable[]>([]);
   searchQuery = signal<string>('');
 
@@ -413,6 +481,11 @@ export class DocumentTemplateEditorComponent implements OnInit {
   aiPrompt = signal<string>('');
   aiGenerating = signal<boolean>(false);
   aiError = signal<string>('');
+
+  // Sample document conversion signals
+  sampleDocText = signal<string>('');
+  aiConvertingSample = signal<boolean>(false);
+  sampleError = signal<string>('');
 
   // Premium Pre-defined Mock Data for Live Preview
   private readonly PREVIEW_DATA: Record<string, string> = {
@@ -574,6 +647,56 @@ export class DocumentTemplateEditorComponent implements OnInit {
         console.error(err);
         this.aiError.set("Une erreur est survenue lors de la génération. Veuillez réessayer.");
         this.aiGenerating.set(false);
+      }
+    });
+  }
+
+  onSampleDocChange(event: Event) {
+    const textarea = event.target as HTMLTextAreaElement;
+    this.sampleDocText.set(textarea.value);
+  }
+
+  onSampleFileUpload(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        if (text) {
+          this.sampleDocText.set(text);
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  convertSampleWithAI() {
+    const sampleDocument = this.sampleDocText().trim();
+    if (!sampleDocument) return;
+
+    this.aiConvertingSample.set(true);
+    this.sampleError.set('');
+
+    this.http.post<{ template: string }>(
+      `${environment.apiUrl}/documents/rh/generate-template-ai`,
+      { sampleDocument }
+    ).subscribe({
+      next: (res) => {
+        if (res && res.template) {
+          this.control.setValue(res.template);
+          this.control.markAsDirty();
+          this.sampleDocText.set('');
+          this.activeTab.set('variables'); // switch tab automatically to show variables & preview
+        } else {
+          this.sampleError.set("La réponse de l'assistant IA est vide.");
+        }
+        this.aiConvertingSample.set(false);
+      },
+      error: (err) => {
+        console.error(err);
+        this.sampleError.set("Une erreur est survenue lors de la conversion du document. Veuillez réessayer.");
+        this.aiConvertingSample.set(false);
       }
     });
   }

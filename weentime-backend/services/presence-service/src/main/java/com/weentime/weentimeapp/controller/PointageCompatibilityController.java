@@ -243,7 +243,7 @@ public class PointageCompatibilityController {
             case LATE -> "RETARD";
             case ABSENT -> "ABSENT";
             case HOLIDAY -> "OFF";
-            case WORKING, IDLE, REMOTE, ON_LEAVE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE -> "OK";
+            case WORKING, IDLE, REMOTE, ON_LEAVE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE, PRESENT -> "OK";
         };
     }
 

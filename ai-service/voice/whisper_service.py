@@ -109,10 +109,12 @@ def preload_model(
 
 
 DEFAULT_HR_INITIAL_PROMPT = (
-    "WeenTime, congé, maladie, télétravail, pointage, solde de congés, "
-    "créer un utilisateur, créer une entreprise, ajouter un employé, "
-    "politique de congé, chnowa, nheb, demande congé, autorisation, 💡"
+    "WeenTime, leave, day off, sick leave, attendance, clock in, clock out, vacation balance, "
+    "create user, add employee, HR policy, request leave, "
+    "congé, maladie, télétravail, pointage, solde de congés, créer un utilisateur, "
+    "créer une entreprise, ajouter un employé, politique de congé, chnowa, nheb, demande congé, autorisation."
 )
+
 
 
 def transcribe_audio_result(

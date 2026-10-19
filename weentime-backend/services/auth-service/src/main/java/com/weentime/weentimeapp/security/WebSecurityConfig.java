@@ -69,6 +69,7 @@ public class WebSecurityConfig {
                                             "/api/v1/auth/2fa/send",
                                             "/api/v1/auth/validate",
                                             "/api/v1/auth/refresh",
+                                            "/api/v1/auth/devices/revoke-current",
                                             "/health"
                                     ).permitAll()
                                     .requestMatchers(

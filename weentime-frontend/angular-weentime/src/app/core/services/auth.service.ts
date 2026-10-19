@@ -165,9 +165,13 @@ export class AuthService {
     );
   }
 
-  verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod): Observable<any> {
+  verify2fa(code: string, temporaryToken: string, rememberMe?: boolean, method?: TwoFactorMethod, trustDevice = true): Observable<any> {
     this.startPerf('mfa_verify_api');
-    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, { code, mfaToken: temporaryToken }, {
+    return this.http.post<any>(this.apiConfig.AUTH.VERIFY_2FA, {
+      code,
+      mfaToken: temporaryToken,
+      trustDevice
+    }, {
       withCredentials: true
     }).pipe(
       tap({

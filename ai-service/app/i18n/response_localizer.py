@@ -499,13 +499,22 @@ def localize_agent_response(response: AgentResponse, context: CurrentUserContext
     response.text = _localize_known_text(response.text, render_locale)
     if isinstance(response.actionResult, dict):
         response.actionResult = _localize_action_result(response.actionResult, render_locale)
+    is_policy_response = bool(
+        isinstance(response.actionResult, dict)
+        and (
+            response.actionResult.get("citations")
+            or response.actionResult.get("suggested_action")
+            or response.actionResult.get("kind") in {"policy_answer", "hybrid_policy_action"}
+            or response.actionResult.get("policyAvailable")
+        )
+    )
     if response.type == "error" and _should_use_generic_backend_unavailable(response.text):
         response.text = translate("backend_unavailable", render_locale)
-    elif render_locale == "en" and response.type == "ask" and "motif" in response.text.lower():
+    elif not is_policy_response and render_locale == "en" and response.type == "ask" and "motif" in response.text.lower():
         response.text = "What reason should I add?"
-    elif render_locale == "ar" and response.type == "ask" and "motif" in response.text.lower():
+    elif not is_policy_response and render_locale == "ar" and response.type == "ask" and "motif" in response.text.lower():
         response.text = "ما هو السبب؟"
-    elif render_locale == "tn" and response.type == "ask" and "motif" in response.text.lower():
+    elif not is_policy_response and render_locale == "tn" and response.type == "ask" and "motif" in response.text.lower():
         response.text = "Chnowa el motif?"
     _tag_response_language(response, locale)
     return response
@@ -522,26 +531,57 @@ def _render_locale(locale: str, context: CurrentUserContext) -> str:
 
 
 def _template_key(response: AgentResponse) -> str | None:
+    action_res = response.actionResult if isinstance(response.actionResult, dict) else {}
+    if (
+        action_res.get("citations")
+        or action_res.get("suggested_action")
+        or action_res.get("kind") in {"policy_answer", "hybrid_policy_action"}
+        or action_res.get("policyAvailable")
+    ):
+        return None
+
     text = (response.text or "").lower()
     intent = response.intent or ""
     if intent == "attendance.unknown":
         return "ask.attendance.choice"
+
+    # Extract missing slot hint if present
+    pending_flow = action_res.get("pendingFlow") if isinstance(action_res.get("pendingFlow"), dict) else {}
+    missing_fields = pending_flow.get("missingFields") or pending_flow.get("requiredSlots") or []
+    first_missing = missing_fields[0] if isinstance(missing_fields, list) and missing_fields else None
+
     if intent == "leave.create":
-        if "type" in text:
-            return "ask.type.leave"
-        if "date" in text:
+        if first_missing == "date":
             return "ask.date.leave"
-        if "motif" in text:
+        if first_missing == "type":
+            return "ask.type.leave"
+        if first_missing == "reason":
             return "ask.reason.leave"
+        if any(w in text for w in ("type", "نوع")):
+            return "ask.type.leave"
+        if any(w in text for w in ("date", "dates", "تاريخ", "تواريخ")):
+            return "ask.date.leave"
+        if any(w in text for w in ("motif", "reason", "سبب")):
+            return "ask.reason.leave"
+
     if intent == "authorization.create":
-        if "type" in text:
-            return "ask.type.authorization"
-        if "heures" in text or "heure" in text:
-            return "ask.time.authorization"
-        if "date" in text:
+        if first_missing == "date":
             return "ask.date.authorization"
-        if "motif" in text:
+        if first_missing in ("time", "start_time"):
+            return "ask.time.authorization"
+        if first_missing == "type":
+            return "ask.type.authorization"
+        if first_missing == "reason":
             return "ask.reason.authorization"
+        if any(w in text for w in ("type", "نوع")):
+            return "ask.type.authorization"
+        if any(w in text for w in ("heures", "heure", "time", "ساعة", "وقت")):
+            return "ask.time.authorization"
+        if any(w in text for w in ("date", "dates", "تاريخ")):
+            return "ask.date.authorization"
+        if any(w in text for w in ("motif", "reason", "سبب")):
+            return "ask.reason.authorization"
+
     if intent == "planning.unavailable":
         return "unavailable.planning"
     if intent == "meeting.unavailable":

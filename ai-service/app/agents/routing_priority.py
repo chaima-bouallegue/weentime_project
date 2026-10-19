@@ -184,30 +184,32 @@ def choose_priority_route(
             )
         return RoutingDecision("reunion", "reunion", "meeting_or_planning_marker", 0.9, force=True)
 
-    # 6. Documents before leave. "demande de document" contains "demande" but
+    # 6. Policy / RAG. Must be evaluated before transactional write actions
+    # so prompts like "quelles sont les règles de télétravail" or "politique congés"
+    # consult the HR policy knowledge base instead of asking for dates/inputs.
+    if matched_intent == "hr.policy_question" or _is_policy(text):
+        return RoutingDecision("policy", "hr_policy", "policy_marker", 0.95, force=True)
+
+    # 7. Documents before leave. "demande de document" contains "demande" but
     # must never be routed to LeaveAgent just because leave also creates requests.
     if _is_document(text):
         return RoutingDecision("document", "document", "document_marker", 0.94, force=True)
 
-    # 7. Authorization info/list/create before telework/leave.
+    # 8. Authorization info/list/create before telework/leave.
     if _is_authorization(text):
         return RoutingDecision("authorization", "authorization", "authorization_marker", 0.93, force=True)
 
-    # 8. Telework before leave because Tunisian/FR prompts can say "demande".
+    # 9. Telework before leave because Tunisian/FR prompts can say "demande".
     if _is_telework(text):
         return RoutingDecision("telework", "telework", "telework_marker", 0.92, force=True)
 
-    # 9. Leave / absence.
+    # 10. Leave / absence.
     if _is_leave(text):
         return RoutingDecision("leave", "leave", "leave_marker", 0.91, force=True)
 
-    # 10. Communication.
+    # 11. Communication.
     if _is_communication(text):
         return RoutingDecision("communication", "communication", "communication_marker", 0.88, force=True)
-
-    # 11. Policy / RAG.
-    if _is_policy(text):
-        return RoutingDecision("policy", "hr_policy", "policy_marker", 0.86, force=True)
 
     # 12. Manager workflows.
     if role == "MANAGER" and _is_manager_workflow(text):
@@ -362,6 +364,8 @@ _CREATE_TERMS = (
 
 
 def _is_role_digest(text: str) -> bool:
+    if any(term in text for term in ("malade", "maladie", "sick", "mridh")):
+        return False
     return _has_any(
         text,
         (
@@ -458,6 +462,8 @@ def _is_document(text: str) -> bool:
 
 
 def _is_authorization(text: str) -> bool:
+    if _is_policy(text):
+        return False
     return _has_any(
         text,
         (
@@ -470,6 +476,8 @@ def _is_authorization(text: str) -> bool:
 
 
 def _is_telework(text: str) -> bool:
+    if _is_policy(text):
+        return False
     return _has_any(
         text,
         (
@@ -479,8 +487,20 @@ def _is_telework(text: str) -> bool:
     )
 
 
+_PROCEDURAL_POLICY_TERMS = (
+    "comment declarer", "comment déclarer", "how to declare",
+    "politique", "policy", "faq", "procedure", "procédure",
+    "regle", "règle", "regles", "règles", "rule", "rules",
+    "charte", "chartes", "condition", "conditions", "modalite", "modalité", "modalites", "modalités",
+    "eligibilite", "éligibilité", "eligible", "éligible",
+    "que faire", "que dois-je faire", "que dois je faire", "quoi faire", "comment faire",
+    "what should i do", "what to do", "chnowa naamel", "achnowa naamel", "chnawa naamel", "kifech",
+    "سياسة", "قانون", "قواعد", "شروط", "ميثاق", "ماذا أفعل", "ماذا افعل", "كيف",
+)
+
+
 def _is_leave(text: str) -> bool:
-    if _has_any(text, ("comment declarer", "comment déclarer", "how to declare", "politique", "policy", "faq", "سياسة", "قانون")):
+    if _has_any(text, _PROCEDURAL_POLICY_TERMS) or _is_policy(text):
         return False
     return _has_any(
         text,
@@ -509,9 +529,17 @@ def _is_policy(text: str) -> bool:
     return _has_any(
         text,
         (
-            "politique", "policy", "regle", "règle", "faq", "comment fonctionne", "comment declarer",
+            "politique", "policy", "regle", "règle", "regles", "règles", "rule", "rules",
+            "charte", "chartes", "condition", "conditions", "modalite", "modalité", "modalites", "modalités",
+            "eligibilite", "éligibilité", "eligible", "éligible",
+            "faq", "comment fonctionne", "comment declarer",
             "comment déclarer", "jours feries", "jours fériés", "maternite", "maternité", "remboursement",
-            "سياسة", "قانون", "كيف",
+            "que faire", "que dois-je faire", "que dois je faire", "quoi faire", "comment faire",
+            "procedure", "procédure", "what should i do", "what to do", "chnowa naamel", "achnowa naamel",
+            "chnawa naamel", "kifech", "quelles sont les", "quelle est la", "quels sont les",
+            "ai-je droit", "ai je droit", "ai-je le droit", "ai je le droit", "a-t-on le droit", "a t on le droit",
+            "can i", "is it allowed", "quota", "quotas", "volume autorise", "volume autorisé",
+            "سياسة", "قانون", "قواعد", "شروط", "ميثاق", "كيف", "ماذا أفعل", "ماذا افعل",
         ),
     )
 

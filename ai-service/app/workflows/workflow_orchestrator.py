@@ -6,6 +6,7 @@ from app.agents.document_request_flow import localized_no_pending_confirmation
 from app.agents.response_composer import enhance_safe_response_wording
 from app.context.context_builder import ContextBuilder, ContextError
 from app.context.current_user import CurrentUserContext
+from app.core.copilot_cache import CopilotCacheService
 from app.core.conversation_state import PendingConversationFlow
 from app.core.deterministic_fallback import deterministic_fallback_response
 from app.core.slot_filling import capture_pending_flow, continue_pending_flow
@@ -52,6 +53,7 @@ class WorkflowOrchestrator:
         response_guard: ResponseGuard,
         provider_router: ProviderRouter,
         session_store: SessionStore | None = None,
+        cache_service: CopilotCacheService | None = None,
     ) -> None:
         self.context_builder = context_builder
         self.router_agent = router_agent
@@ -61,6 +63,7 @@ class WorkflowOrchestrator:
         self.response_guard = response_guard
         self.provider_router = provider_router
         self.session_store = session_store or SessionStore()
+        self.cache_service = cache_service or CopilotCacheService()
 
     async def process_message(
         self,
@@ -284,6 +287,21 @@ class WorkflowOrchestrator:
                 session_id=session_id,
             )
             if response is None:
+                cached_entry = await self.cache_service.get(
+                    message=message,
+                    context=context,
+                )
+                if cached_entry is not None:
+                    state.intent = cached_entry.intent or cached_entry.response.intent
+                    state.selected_agent = cached_entry.selected_agent or "copilot_cache"
+                    return WorkflowResult(
+                        response=cached_entry.response,
+                        state=state,
+                        context=context,
+                        warnings=[],
+                        http_status=200,
+                    )
+
                 response = await self.router_agent.handle(message, context)
                 response = capture_pending_flow(
                     message=message,
@@ -412,6 +430,12 @@ class WorkflowOrchestrator:
             confirmed=True,
             request_id=state.request_id,
         )
+        if record.tool_name == "leave.create_request" and result.success:
+            try:
+                from app.agents.leave_planner import get_default_leave_risk_cache
+                await get_default_leave_risk_cache().invalidate_user(context.tenant_id, context.user_id)
+            except Exception:  # noqa: BLE001
+                pass
         response = build_confirmation_execution_response(record, result)
         log_event(
             "confirmation.executed",
@@ -502,6 +526,8 @@ class WorkflowOrchestrator:
             return None
         if recovered_session is None:
             if recovery_action in {"approve", "reject"}:
+                if self.conversation_store.get(context, session_id) is not None:
+                    return None
                 response = AgentResponse(
                     type="answer",
                     text=localized_no_pending_confirmation(context.language),
@@ -523,6 +549,8 @@ class WorkflowOrchestrator:
         if recovery_action in {"approve", "reject"}:
             confirmation_id = _session_confirmation_id(recovered_session)
             if confirmation_id is None:
+                if self.conversation_store.get(context, session_id) is not None:
+                    return None
                 response = AgentResponse(
                     type="answer",
                     text=localized_no_pending_confirmation(context.language),
@@ -674,6 +702,20 @@ class WorkflowOrchestrator:
             provider_router=self.provider_router,
             intent_before_llm=state.intent,
         )
+
+        if message and not state.fallback_used:
+            try:
+                await self.cache_service.set(
+                    message=message,
+                    context=context,
+                    response=guarded_response,
+                    selected_agent=state.selected_agent,
+                    pending_confirmation=bool(state.pending_confirmation),
+                    fallback_used=state.fallback_used,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
         return WorkflowResult(
             response=guarded_response,
             state=state,

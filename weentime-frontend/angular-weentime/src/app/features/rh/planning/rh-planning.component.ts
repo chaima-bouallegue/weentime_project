@@ -72,22 +72,115 @@ export class RhPlanningComponent implements OnInit {
 
   // ── Holidays ──
   holidays = signal<Record<string, string>>({
-    '2026-05-01': 'Fête du Travail', '2026-05-08': 'Victoire 1945', '2026-05-14': 'Ascension',
-    '2026-07-14': 'Fête Nationale', '2026-08-15': 'Assomption', '2026-11-01': 'Toussaint',
-    '2026-11-11': 'Armistice', '2026-12-25': 'Noël'
+    '2026-01-01': "Jour de l'An",
+    '2026-03-20': "Fête de l'Indépendance",
+    '2026-04-09': "Jour des Martyrs",
+    '2026-05-01': "Fête du Travail",
+    '2026-07-25': "Fête de la République",
+    '2026-08-13': "Fête de la Femme",
+    '2026-10-15': "Fête de l'Évacuation",
+    '2026-11-01': "Toussaint",
+    '2026-11-11': "Armistice",
+    '2026-12-25': "Noël"
   });
 
-  // ── Mock AI & Conflicts ──
-  conflicts = signal<any[]>([]);
-  aiRecommendations = signal<any[]>([]);
-  pendingRequests = signal<any[]>([]);
+  // ── Mock AI & Conflicts (IT SERV) ──
+  conflicts = signal<any[]>([
+    {
+      id: 1,
+      title: 'Chevauchement télétravail critique',
+      team: 'Frontend',
+      department: 'Informatique',
+      date: 'Demain',
+      description: 'Chaima Bouallegue (Lead Frontend) et Mayar Dhif sont programmées en télétravail simultané lors de la MEP v2.4.',
+      severity: 'medium',
+      suggestedAction: 'Basculer Mayar Dhif sur site'
+    },
+    {
+      id: 2,
+      title: 'Alerte couverture Backend',
+      team: 'Backend',
+      department: 'Informatique',
+      date: 'Vendredi',
+      description: 'Taux de présence projeté à 40% (2 congés simultanés). Couverture minimale requise : 60%.',
+      severity: 'high',
+      suggestedAction: 'Reporter 1 demande de RTT'
+    }
+  ]);
 
+  aiRecommendations = signal<any[]>([
+    {
+      id: 101,
+      title: 'Optimisation présence Frontend',
+      description: 'Déplacer le télétravail de Mayar Dhif du jeudi au mardi pour garantir 100% de présence sur site au Sprint Planning.',
+      confidence: 96,
+      impact: '+25% disponibilité équipe',
+      applied: false
+    },
+    {
+      id: 102,
+      title: 'Régulation des heures supplémentaires',
+      description: 'Molka Bouallegue cumule 16h sup ce mois. Recommandation : accorder une demi-journée de repos vendredi après-midi.',
+      confidence: 92,
+      impact: 'Conformité RH & QVT',
+      applied: false
+    },
+    {
+      id: 103,
+      title: 'Validation intelligente des demandes',
+      description: '2 demandes de télétravail respectent parfaitement la politique interne IT SERV (2j/semaine max). Auto-validation recommandée.',
+      confidence: 99,
+      impact: 'Gain de 15 min de gestion',
+      applied: false
+    }
+  ]);
+
+  pendingRequests = signal<any[]>([
+    {
+      id: 201,
+      employeeName: 'Mayar Dhif',
+      poste: 'React Developer',
+      team: 'Frontend',
+      type: 'Télétravail',
+      date: 'Demain',
+      motif: 'Focus développement composants WeenTime',
+      status: 'En attente'
+    },
+    {
+      id: 202,
+      employeeName: 'Assia Sannen',
+      poste: 'Java Developer',
+      team: 'Backend',
+      type: 'Congé annuel',
+      date: '28–30 Octobre',
+      motif: 'Congés annuels reliquat 2026',
+      status: 'En attente'
+    },
+    {
+      id: 203,
+      employeeName: 'Firas Bouallegue',
+      poste: 'API Developer',
+      team: 'Backend',
+      type: 'Autorisation absence',
+      date: 'Vendredi 14h–16h',
+      motif: 'Rendez-vous médical spécialiste',
+      status: 'En attente'
+    }
+  ]);
 
   auditLogs = signal<any[]>([
-    { time: '14:23', action: 'Shift modifié', user: 'Admin RH', details: 'Lucas Martin → Télétravail' },
-    { time: '11:05', action: 'Congé approuvé', user: 'Système IA', details: 'Sarah Elise — auto-validé' },
-    { time: 'Hier', action: 'Alerte générée', user: 'Moteur de règles', details: 'Couverture critique 03/07' }
+    { time: '14:23', action: 'Validation Télétravail', user: 'Chaima Blg (RH)', details: 'Hayet Medini → Télétravail validé pour jeudi' },
+    { time: '11:05', action: 'Badgeage automatique', user: 'Badgeuse IT SERV', details: 'Molka Bouallegue — Arrivée 08:18' },
+    { time: '09:12', action: 'Détection IA', user: 'WeenTime AI Pilot', details: 'Alerte sous-effectif Backend signalée' },
+    { time: 'Hier 17:30', action: 'Clôture journalière', user: 'Chaima Blg (RH)', details: 'Rapport présences IT SERV validé (taux : 86%)' }
   ]);
+
+  // Modal states for soutenance demo
+  showConflictsModal = signal(false);
+  showAiModal = signal(false);
+  showPendingModal = signal(false);
+  newNoteText = signal('');
+  showAddNoteInput = signal(false);
 
   // Saved views
   savedViews = ['Défaut', 'Operations', 'Mon Équipe', 'Executive'];
@@ -509,29 +602,114 @@ export class RhPlanningComponent implements OnInit {
   fetchEmployeeDetails(userId: number, date: string) {
     this.detailLoading.set(false);
     const emp = this.panelSelectedEmployee();
-    const arr = emp?.detail?.match(/\d{2}:\d{2}/)?.[0] || '08:32';
+    const arr = emp?.detail?.match(/\d{2}:\d{2}/)?.[0] || '08:24';
+    const isPresent = emp?.status === 'PRESENT';
+    const isRemote = emp?.status === 'REMOTE';
+    const isLeave = emp?.status === 'LEAVE';
+
     this.detailedStatus.set({
-      arrivalTime: emp?.status === 'PRESENT' ? arr : (emp?.status === 'REMOTE' ? '08:45 (Télétravail)' : '—'),
-      departureTime: emp?.status === 'PRESENT' || emp?.status === 'REMOTE' ? '17:30' : '—',
-      totalMinutes: emp?.status === 'PRESENT' || emp?.status === 'REMOTE' ? 480 : 0,
-      overtimeMinutes: emp?.status === 'PRESENT' ? 15 : 0,
-      lastActivity: emp?.status === 'PRESENT' ? 'Badgeuse IT SERV' : emp?.status === 'REMOTE' ? 'Connexion VPN' : 'Absence enregistrée'
+      arrivalTime: isPresent ? arr : (isRemote ? '08:30 (VPN IT SERV)' : isLeave ? '—' : 'Non pointé'),
+      departureTime: isPresent || isRemote ? '17:30' : '—',
+      totalMinutes: isPresent || isRemote ? 480 : 0,
+      overtimeMinutes: emp?.id === 10 ? 45 : (emp?.id === 8 ? 20 : 0),
+      lastActivity: isPresent 
+        ? 'Badgeuse Entrée Principale IT SERV' 
+        : isRemote 
+        ? 'Connexion VPN Sécurisé (IP 192.168.10.45)' 
+        : isLeave 
+        ? 'Congé validé par Chaima Blg (RH)' 
+        : 'En attente de pointage',
+      contractType: 'CDI — Cadre',
+      leaveBalance: emp?.id === 6 ? 24.5 : (emp?.id === 8 ? 18.0 : (emp?.id === 10 ? 14.5 : 12.0)),
+      rttBalance: emp?.id === 8 ? 4.0 : 3.5,
+      workload: emp?.id === 10 ? 92 : (emp?.id === 8 ? 85 : 78),
+      weeklyAttendance: [
+        { day: 'Lundi', date: '12 Oct', inTime: '08:20', outTime: '17:35', status: 'PRESENT', duration: '8h 15m', badge: 'Badgeuse IT SERV' },
+        { day: 'Mardi', date: '13 Oct', inTime: '08:30', outTime: '17:30', status: 'REMOTE', duration: '8h 00m', badge: 'VPN Sécurisé' },
+        { day: 'Mercredi', date: '14 Oct', inTime: '08:15', outTime: '17:45', status: 'PRESENT', duration: '8h 30m', badge: 'Badgeuse IT SERV' },
+        { day: 'Jeudi', date: '15 Oct', inTime: isPresent ? arr : (isRemote ? '08:30' : '—'), outTime: isPresent || isRemote ? '17:30' : '—', status: emp?.status || 'PRESENT', duration: isPresent || isRemote ? '8h 00m' : '—', badge: isPresent ? 'Badgeuse IT SERV' : 'VPN' },
+        { day: 'Vendredi', date: '16 Oct', inTime: 'Planifié', outTime: '17:30', status: 'SCHEDULED', duration: '8h 00m', badge: 'Prévisionnel' }
+      ],
+      leaveHistory: [
+        { type: 'Congé annuel', dates: '18–22 Août 2026', days: '5 jours', status: 'Validé', validator: 'Chaima Blg (RH)' },
+        { type: 'RTT Employeur', dates: '11 Septembre 2026', days: '1 jour', status: 'Validé', validator: 'Chaima Blg (RH)' },
+        { type: 'Télétravail exceptionnel', dates: '02 Octobre 2026', days: '1 jour', status: 'Validé', validator: 'Chaima Blg (RH)' }
+      ],
+      notes: [
+        { author: 'Chaima Blg (RH)', text: 'Entretien annuel d\'évaluation très positif. Objectifs T3 atteints avec succès.', date: '05 Oct 2026' },
+        { author: 'Direction Technique', text: 'Référent technique clé sur le module WeenTime. Excellente dynamique d\'équipe.', date: '18 Sept 2026' }
+      ]
     });
   }
 
   // Mock recent requests for employee detail
   getEmployeeRequests(empId: number) {
+    if (empId === 15) {
+      return [
+        { type: 'Télétravail', range: 'Demain', status: 'En attente' },
+        { type: 'Congé annuel', range: '14–16 Août', status: 'Approuvé' }
+      ];
+    }
+    if (empId === 23) {
+      return [
+        { type: 'Congé annuel', range: '28–30 Oct.', status: 'En attente' },
+        { type: 'RTT', range: '04 Sept.', status: 'Approuvé' }
+      ];
+    }
     return [
-      { type: 'Congé', range: '14–16 juil.', status: 'En attente' },
-      { type: 'Télétravail', range: '10 juil.', status: 'Approuvé' }
+      { type: 'Télétravail', range: 'Jeudi', status: 'Approuvé' },
+      { type: 'Congé', range: '10–14 Juil.', status: 'Approuvé' }
     ];
   }
 
   // Mock notes for employee detail
   getEmployeeNotes(empId: number) {
-    return [
-      { author: 'Sarah B.', text: 'Retard récurrent signalé en mai', date: '28 mai 2026' }
+    return this.detailedStatus()?.notes || [
+      { author: 'Chaima Blg (RH)', text: 'Entretien annuel très satisfaisant. Objectifs atteints.', date: '05 Oct 2026' }
     ];
+  }
+
+  // ── Modal Actions for Soutenance Demo ──
+  openConflictsModal() { this.showConflictsModal.set(true); }
+  closeConflictsModal() { this.showConflictsModal.set(false); }
+
+  openAiModal() { this.showAiModal.set(true); }
+  closeAiModal() { this.showAiModal.set(false); }
+
+  openPendingModal() { this.showPendingModal.set(true); }
+  closePendingModal() { this.showPendingModal.set(false); }
+
+  approvePendingRequest(id: number) {
+    const req = this.pendingRequests().find(r => r.id === id);
+    this.pendingRequests.update(list => list.filter(r => r.id !== id));
+    if (req) {
+      this.toast.success(`Demande de ${req.employeeName} approuvée avec succès ✨`);
+    }
+  }
+
+  rejectPendingRequest(id: number) {
+    const req = this.pendingRequests().find(r => r.id === id);
+    this.pendingRequests.update(list => list.filter(r => r.id !== id));
+    if (req) {
+      this.toast.info(`Demande de ${req.employeeName} refusée`);
+    }
+  }
+
+  addEmployeeNote() {
+    const text = this.newNoteText().trim();
+    if (!text) return;
+    const current = this.detailedStatus();
+    if (current && current.notes) {
+      current.notes.unshift({
+        author: 'Chaima Blg (RH)',
+        text,
+        date: "Aujourd'hui"
+      });
+      this.detailedStatus.set({ ...current });
+      this.newNoteText.set('');
+      this.showAddNoteInput.set(false);
+      this.toast.success('Note RH enregistrée avec succès');
+    }
   }
 
   // ════════════════════════════════════════════════════════════

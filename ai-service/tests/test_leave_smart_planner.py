@@ -73,3 +73,63 @@ async def test_leave_risk_does_not_invent_when_data_unavailable() -> None:
     assert result["risks"] == []
     assert result["warnings"]
     assert result["canAssess"] is False
+
+
+@pytest.mark.asyncio
+async def test_leave_risk_analyzer_uses_cache_on_repeat_call() -> None:
+    from app.agents.leave_planner import LeaveRiskCache
+
+    cache = LeaveRiskCache(enabled=True, ttl_seconds=60)
+    executor = FakeExecutor(
+        {
+            "leave.get_balance": ToolResult.ok(
+                {
+                    "read_result": build_read_result(
+                        tool_name="leave.get_balance",
+                        summary="Il vous reste 15 jours.",
+                        items=[{"libelle": "Conge paye", "joursRestants": 15}],
+                        data={"total": 15, "balances": [{"libelle": "Conge paye", "joursRestants": 15}]},
+                    )
+                }
+            ),
+            "leave.list_my_requests": ToolResult.ok(
+                {
+                    "read_result": build_read_result(
+                        tool_name="leave.list_my_requests",
+                        summary="0 demande.",
+                        items=[],
+                    )
+                }
+            ),
+        }
+    )
+
+    ctx = context()
+    analyzer = LeaveRiskAnalyzer(executor, cache=cache)
+
+    # 1er appel: appel backend réel (2 requêtes)
+    result1 = await analyzer.analyze(
+        {"start_date": "2026-06-01", "end_date": "2026-06-05", "leave_type_label": "Conge paye"},
+        ctx,
+    )
+    assert result1["canAssess"] is True
+    assert len(executor.calls) == 2
+
+    # 2eme appel (ajustement de date ou reformulation vocale): servi depuis le cache, 0 appel supplémentaire !
+    result2 = await analyzer.analyze(
+        {"start_date": "2026-06-02", "end_date": "2026-06-06", "leave_type_label": "Conge paye"},
+        ctx,
+    )
+    assert result2["canAssess"] is True
+    assert len(executor.calls) == 2  # Le cache a absorbé la requête !
+
+    # Invalidation lors de la soumission/approbation
+    await cache.invalidate_user(ctx.tenant_id, ctx.user_id)
+
+    # 3eme appel après invalidation: nouveau rafraîchissement depuis le backend
+    result3 = await analyzer.analyze(
+        {"start_date": "2026-06-02", "end_date": "2026-06-06", "leave_type_label": "Conge paye"},
+        ctx,
+    )
+    assert result3["canAssess"] is True
+    assert len(executor.calls) == 4

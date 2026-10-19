@@ -14,16 +14,6 @@
         </div>
       </div>
       <div class="page-header__actions">
-        <!-- Live pointage status chip -->
-        <div class="pointage-live-chip"
-             [class.is-active]="isCheckedIn()"
-             [class.is-closed]="attendanceState() === 'CLOSED'"
-             [class.is-idle]="!isCheckedIn() && attendanceState() !== 'CLOSED'">
-          <span class="live-dot" [class.live-pulse]="isCheckedIn()"></span>
-          <span class="live-text">{{ isCheckedIn() ? 'En activité' : (attendanceState() === 'CLOSED' ? 'Journée clôturée' : 'Hors session') }}</span>
-          <span *ngIf="isCheckedIn()" class="live-timer">{{ dailyDuration() }}</span>
-        </div>
-
         <!-- Date & Time chip -->
         <div class="pointage-datetime-chip">
           <lucide-angular *ngIf="iconCalendar" [img]="iconCalendar" size="14"></lucide-angular>
@@ -135,13 +125,28 @@
               <app-location-display [locationText]="latestLocationLabel()"></app-location-display>
             </span>
             <span class="pill-sep"></span>
-            <span class="pill-validation">
+            <span class="pill-validation" [class.pill-out-of-zone]="currentZoneStatus() === 'OUT_OF_ZONE'" [class.pill-in-zone]="currentZoneStatus() === 'IN_ZONE'">
               <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              GPS Actif
+              <ng-container *ngIf="currentZoneStatus() === 'IN_ZONE'">Au bureau</ng-container>
+              <ng-container *ngIf="currentZoneStatus() === 'OUT_OF_ZONE'">Hors zone</ng-container>
+              <ng-container *ngIf="!currentZoneStatus() || currentZoneStatus() === 'NO_GPS' || currentZoneStatus() === 'LOW_ACCURACY'">GPS Actif</ng-container>
+              <span *ngIf="isGpsSpoofingSuspected()" title="GPS suspect">⚠️</span>
             </span>
+          </div>
+
+          <!-- Zone info notice -->
+          <div *ngIf="currentZoneStatus() === 'OUT_OF_ZONE'" class="pointage-zone-notice pointage-zone-notice--out">
+            <span class="notice-badge">📍 Hors zone</span>
+            <span class="notice-text">
+              Pointage enregistré à <strong>{{ distanceLabel() }}</strong>. Pointage accepté et tracé pour le RH.
+            </span>
+          </div>
+          <div *ngIf="currentZoneStatus() === 'IN_ZONE'" class="pointage-zone-notice pointage-zone-notice--in">
+            <span class="notice-badge">🏢 Au bureau</span>
+            <span class="notice-text">Pointage validé dans le rayon autorisé du siège (200m).</span>
           </div>
           <div class="location-validation-pill pill-no-location" *ngIf="!latestLocationLabel()">
             <span class="pill-validation">
@@ -281,16 +286,7 @@
             <span>Pause prévue : {{ todayBreakWindow()!.start.slice(0, 5) }} – {{ todayBreakWindow()!.end.slice(0, 5) }}</span>
           </div>
         </div>
-        <div class="control-segment-actions">
-          <button class="segment-btn trajet-mode-btn" [class.active]="isTrajetMode()"
-            (click)="isTrajetMode.set(!isTrajetMode())">
-            <lucide-angular *ngIf="iconCar" [img]="iconCar" size="16"></lucide-angular>
-            <div class="btn-texts">
-              <span class="btn-title">Mode trajet</span>
-              <span class="btn-state">{{ isTrajetMode() ? 'Activé' : 'Désactivé' }}</span>
-            </div>
-          </button>
-        </div>
+
       </div>
 
       <!-- Right Block: Weekly Summary (Bento Summary) -->
@@ -632,103 +628,281 @@
         </button>
       </div>
     </section>
-
-    <!-- Check-In Confirmation Modal -->
-    <div *ngIf="showCheckInConfirmModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
-      aria-labelledby="checkin-modal-title">
-      <section class="overtime-modal pointage-confirm-modal">
-        <div class="overtime-modal-icon pointage-modal-icon--checkin">
-          <lucide-angular *ngIf="iconPlay" [img]="iconPlay" size="22"></lucide-angular>
-        </div>
-        <div class="overtime-modal-copy">
-          <h2 id="checkin-modal-title">Confirmation du pointage d'entrée</h2>
-          <p class="pointage-modal-subtitle">Vous allez démarrer votre session de travail pour la journée.</p>
-          
-          <div class="pointage-modal-details">
-            <div class="pointage-detail-row">
-              <lucide-angular *ngIf="iconClock" [img]="iconClock" size="16"></lucide-angular>
-              <span><strong>Horodatage :</strong> {{ currentDateTimeFormatted() }}</span>
-            </div>
-            <div *ngIf="latestLocationLabel()" class="pointage-detail-row">
-              <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="16"></lucide-angular>
-              <span><strong>Localisation :</strong> {{ latestLocationLabel() }}</span>
-            </div>
-          </div>
-
-          <p class="pointage-confirm-question">Voulez-vous confirmer votre pointage d'entrée ?</p>
-        </div>
-        <div class="overtime-modal-actions">
-          <button type="button" class="secondary-action" (click)="cancelCheckInModal()" [disabled]="isLoading()">
-            Annuler
-          </button>
-          <button type="button" class="primary-action btn-confirm-checkin" (click)="confirmCheckIn()" [disabled]="isLoading()">
-            Confirmer
-          </button>
-        </div>
-      </section>
-    </div>
-
-    <!-- Check-Out Confirmation Modal -->
-    <div *ngIf="showCheckOutConfirmModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
-      aria-labelledby="checkout-modal-title">
-      <section class="overtime-modal pointage-confirm-modal">
-        <div class="overtime-modal-icon pointage-modal-icon--checkout">
-          <lucide-angular *ngIf="iconSquare" [img]="iconSquare" size="20"></lucide-angular>
-        </div>
-        <div class="overtime-modal-copy">
-          <h2 id="checkout-modal-title">Confirmation du pointage de sortie</h2>
-          <p class="pointage-modal-subtitle">Vous allez clôturer votre session de travail actuelle.</p>
-          
-          <div class="pointage-modal-details">
-            <div class="pointage-detail-row">
-              <lucide-angular *ngIf="iconClock" [img]="iconClock" size="16"></lucide-angular>
-              <span><strong>Horodatage :</strong> {{ currentDateTimeFormatted() }}</span>
-            </div>
-            <div class="pointage-detail-row">
-              <lucide-angular *ngIf="iconHourglass" [img]="iconHourglass" size="16"></lucide-angular>
-              <span><strong>Durée de session :</strong> {{ dailyDuration() }}</span>
-            </div>
-            <div *ngIf="latestLocationLabel()" class="pointage-detail-row">
-              <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="16"></lucide-angular>
-              <span><strong>Localisation :</strong> {{ latestLocationLabel() }}</span>
-            </div>
-          </div>
-
-          <p class="pointage-confirm-question">Voulez-vous confirmer votre pointage de sortie ?</p>
-        </div>
-        <div class="overtime-modal-actions">
-          <button type="button" class="secondary-action" (click)="cancelCheckOutModal()" [disabled]="isLoading()">
-            Annuler
-          </button>
-          <button type="button" class="primary-action btn-confirm-checkout" (click)="confirmCheckOut()" [disabled]="isLoading()">
-            Confirmer
-          </button>
-        </div>
-      </section>
-    </div>
-
-    <!-- Overtime modal backdrop -->
-    <div *ngIf="showOvertimeConfirmationModal()" class="overtime-modal-backdrop" role="dialog" aria-modal="true"
-      aria-labelledby="overtime-modal-title">
-      <section class="overtime-modal">
-        <div class="overtime-modal-icon">
-          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="22"></lucide-angular>
-        </div>
-        <div class="overtime-modal-copy">
-          <h2 id="overtime-modal-title">Horaire terminé</h2>
-          <p>Votre horaire prévu est terminé. Souhaitez-vous clôturer votre journée ou continuer à travailler ?</p>
-        </div>
-        <div class="overtime-modal-actions">
-          <button type="button" class="secondary-action" (click)="onCheckoutFromOvertimeModal()"
-            [disabled]="isLoading()">
-            Pointer ma sortie
-          </button>
-          <button type="button" class="primary-action" (click)="onContinueOvertime()" [disabled]="isLoading()">
-            Continuer à travailler
-          </button>
-        </div>
-      </section>
-    </div>
     </div>
   </ng-container>
+</div>
+
+<!-- ══ POINTAGE CONFIRMATION MODALS (Root Level, outside .pointage-page) ══ -->
+<!-- Check-In Confirmation Modal -->
+<div
+  *ngIf="showCheckInConfirmModal()"
+  class="pointage-modal-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="checkin-modal-title"
+  (click)="cancelCheckInModal()"
+>
+  <div class="pointage-modal-card animate-scale-in" (click)="$event.stopPropagation()">
+    <!-- Close button -->
+    <button
+      type="button"
+      class="close-btn"
+      (click)="cancelCheckInModal()"
+      [disabled]="isLoading()"
+      title="Fermer"
+    >
+      <lucide-angular *ngIf="iconX" [img]="iconX" size="18"></lucide-angular>
+    </button>
+
+    <!-- Header & Icon -->
+    <div class="modal-header">
+      <div class="pointage-icon-wrapper checkin-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="icon-circle">
+          <lucide-angular *ngIf="iconPlay" [img]="iconPlay" size="22"></lucide-angular>
+        </div>
+      </div>
+
+      <h3 class="modal-title" id="checkin-modal-title">Confirmation du pointage d'entrée</h3>
+      <p class="modal-message">
+        Vous allez démarrer votre session de travail pour la journée.
+      </p>
+    </div>
+
+    <!-- Preview Items Box -->
+    <div class="preview-box">
+      <div class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="14"></lucide-angular>
+          Horodatage
+        </span>
+        <span class="preview-value highlight-emerald">
+          {{ currentDateTimeFormatted() }}
+        </span>
+      </div>
+
+      <div *ngIf="latestLocationLabel()" class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="14"></lucide-angular>
+          Localisation
+        </span>
+        <span class="preview-value">
+          {{ latestLocationLabel() }}
+        </span>
+      </div>
+
+      <div *ngIf="latestCoordinatesLabel()" class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconLocate" [img]="iconLocate" size="14"></lucide-angular>
+          Coordonnées GPS
+        </span>
+        <span class="preview-value font-mono">
+          {{ latestCoordinatesLabel() }}
+        </span>
+      </div>
+    </div>
+
+    <p class="modal-question">Voulez-vous confirmer votre pointage d'entrée ?</p>
+
+    <!-- Footer Actions -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="cancelCheckInModal()"
+        [disabled]="isLoading()"
+      >
+        Annuler
+      </button>
+
+      <button
+        type="button"
+        class="btn-primary btn-confirm-checkin"
+        (click)="confirmCheckIn()"
+        [disabled]="isLoading()"
+      >
+        <lucide-angular *ngIf="iconCheck" [img]="iconCheck" size="16"></lucide-angular>
+        Confirmer l'entrée
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Check-Out Confirmation Modal -->
+<div
+  *ngIf="showCheckOutConfirmModal()"
+  class="pointage-modal-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="checkout-modal-title"
+  (click)="cancelCheckOutModal()"
+>
+  <div class="pointage-modal-card animate-scale-in" (click)="$event.stopPropagation()">
+    <!-- Close button -->
+    <button
+      type="button"
+      class="close-btn"
+      (click)="cancelCheckOutModal()"
+      [disabled]="isLoading()"
+      title="Fermer"
+    >
+      <lucide-angular *ngIf="iconX" [img]="iconX" size="18"></lucide-angular>
+    </button>
+
+    <!-- Header & Icon -->
+    <div class="modal-header">
+      <div class="pointage-icon-wrapper checkout-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="icon-circle">
+          <lucide-angular *ngIf="iconSquare" [img]="iconSquare" size="20"></lucide-angular>
+        </div>
+      </div>
+
+      <h3 class="modal-title" id="checkout-modal-title">Confirmation du pointage de sortie</h3>
+      <p class="modal-message">
+        Vous allez clôturer votre session de travail actuelle.
+      </p>
+    </div>
+
+    <!-- Preview Items Box -->
+    <div class="preview-box">
+      <div class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="14"></lucide-angular>
+          Horodatage
+        </span>
+        <span class="preview-value highlight-amber">
+          {{ currentDateTimeFormatted() }}
+        </span>
+      </div>
+
+      <div class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconHourglass" [img]="iconHourglass" size="14"></lucide-angular>
+          Durée de session
+        </span>
+        <span class="preview-value highlight-indigo">
+          {{ dailyDuration() }}
+        </span>
+      </div>
+
+      <div *ngIf="latestLocationLabel()" class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconMapPin" [img]="iconMapPin" size="14"></lucide-angular>
+          Localisation
+        </span>
+        <span class="preview-value">
+          {{ latestLocationLabel() }}
+        </span>
+      </div>
+    </div>
+
+    <p class="modal-question">Voulez-vous confirmer votre pointage de sortie ?</p>
+
+    <!-- Footer Actions -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="cancelCheckOutModal()"
+        [disabled]="isLoading()"
+      >
+        Annuler
+      </button>
+
+      <button
+        type="button"
+        class="btn-primary btn-confirm-checkout"
+        (click)="confirmCheckOut()"
+        [disabled]="isLoading()"
+      >
+        <lucide-angular *ngIf="iconCheck" [img]="iconCheck" size="16"></lucide-angular>
+        Confirmer la sortie
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Overtime Confirmation Modal -->
+<div
+  *ngIf="showOvertimeConfirmationModal()"
+  class="pointage-modal-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="overtime-modal-title"
+  (click)="dismissOvertimeModal()"
+>
+  <div class="pointage-modal-card animate-scale-in" (click)="$event.stopPropagation()">
+    <!-- Close button -->
+    <button
+      type="button"
+      class="close-btn"
+      (click)="dismissOvertimeModal()"
+      [disabled]="isLoading()"
+      title="Fermer"
+    >
+      <lucide-angular *ngIf="iconX" [img]="iconX" size="18"></lucide-angular>
+    </button>
+
+    <!-- Header & Icon -->
+    <div class="modal-header">
+      <div class="pointage-icon-wrapper overtime-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="icon-circle">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="22"></lucide-angular>
+        </div>
+      </div>
+
+      <h3 class="modal-title" id="overtime-modal-title">Horaire de travail terminé</h3>
+      <p class="modal-message">
+        Votre horaire prévu est terminé. Souhaitez-vous clôturer votre journée ou continuer à travailler en heures supplémentaires ?
+      </p>
+    </div>
+
+    <!-- Preview Box -->
+    <div class="preview-box">
+      <div class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconClock" [img]="iconClock" size="14"></lucide-angular>
+          Horodatage
+        </span>
+        <span class="preview-value">
+          {{ currentDateTimeFormatted() }}
+        </span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-label">
+          <lucide-angular *ngIf="iconHourglass" [img]="iconHourglass" size="14"></lucide-angular>
+          Temps effectué
+        </span>
+        <span class="preview-value highlight-indigo">
+          {{ dailyDuration() }}
+        </span>
+      </div>
+    </div>
+
+    <p class="modal-question">Quelle action souhaitez-vous effectuer ?</p>
+
+    <!-- Footer Actions -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="onCheckoutFromOvertimeModal()"
+        [disabled]="isLoading()"
+      >
+        Pointer ma sortie
+      </button>
+
+      <button
+        type="button"
+        class="btn-primary btn-confirm-overtime"
+        (click)="onContinueOvertime()"
+        [disabled]="isLoading()"
+      >
+        <lucide-angular *ngIf="iconFlame" [img]="iconFlame" size="16"></lucide-angular>
+        Continuer à travailler
+      </button>
+    </div>
+  </div>
 </div>

@@ -138,10 +138,17 @@ async def _generate_gemini(
     
     last_call_time = time.time()
 
-    # Modèle configuré : gemini-3.8-flash par défaut, avec fallback automatique (gemini-3.6-flash, etc.)
-    primary_model = settings.gemini_model or "gemini-3.8-flash"
+    # Modèle configuré : gemini-3.5-flash par défaut, avec cascade de secours automatique
+    primary_model = settings.gemini_model or "gemini-3.5-flash"
     models_to_try = [primary_model]
-    for candidate in ["gemini-3.8-flash", "gemini-3.6-flash"]:
+    candidate_fallback_models = [
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-flash-latest",
+    ]
+    for candidate in candidate_fallback_models:
         if candidate not in models_to_try:
             models_to_try.append(candidate)
 
@@ -168,7 +175,7 @@ async def _generate_gemini(
     if response_mime_type:
         payload["generationConfig"]["responseMimeType"] = response_mime_type
 
-    max_retries = 4
+    max_retries = max(5, len(models_to_try))
     current_model_idx = 0
     for attempt in range(max_retries):
         model_name = models_to_try[min(current_model_idx, len(models_to_try) - 1)]
@@ -179,35 +186,39 @@ async def _generate_gemini(
                 response = await client.post(url, json=payload, headers=headers)
                 
                 if response.status_code == 429:
-                    wait_time = (attempt + 1) * 8
+                    wait_time = (attempt + 1) * 4
                     try:
                         err_data = response.json()
                         details = err_data.get("error", {}).get("details", [])
                         for detail in details:
                             if "retryDelay" in detail:
                                 delay_str = str(detail["retryDelay"]).rstrip("s")
-                                wait_time = max(int(float(delay_str)) + 1, 5)
+                                wait_time = max(int(float(delay_str)) + 1, 3)
                                 break
                     except Exception:
                         pass
                     
-                    if attempt < max_retries - 1:
+                    if current_model_idx + 1 < len(models_to_try):
+                        current_model_idx += 1
+                        logger.warning(f"Quota Gemini dépassé (429) pour {model_name}. Basculement immédiat vers le modèle de secours : {models_to_try[current_model_idx]}")
+                        await asyncio.sleep(1)
+                        continue
+                    elif attempt < max_retries - 1:
                         logger.warning(f"Quota Gemini dépassé (429) pour {model_name}. Pause de {wait_time}s avant nouvel essai ({attempt + 1}/{max_retries})...")
-                        if current_model_idx + 1 < len(models_to_try):
-                            current_model_idx += 1
-                            logger.info(f"Basculement vers le modèle de secours : {models_to_try[current_model_idx]}")
                         await asyncio.sleep(wait_time)
                         continue
                     else:
                         logger.error(f"Quota Gemini dépassé (429) après {max_retries} essais.")
                         raise HTTPException(429, f"Quota Gemini dépassé (429). Réessayez dans quelques secondes.")
 
-                if response.status_code == 503:
-                    logger.warning(f"Modèle Gemini {model_name} indisponible / surchargé (503).")
+                if response.status_code in (502, 503, 504):
+                    logger.warning(f"Modèle Gemini {model_name} indisponible / surchargé ({response.status_code}).")
                     if current_model_idx + 1 < len(models_to_try):
                         current_model_idx += 1
                         logger.info(f"Basculement automatique vers le modèle de secours : {models_to_try[current_model_idx]}")
-                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)
+                        continue
+                    elif attempt < max_retries - 1:
                         await asyncio.sleep(2)
                         continue
                 
@@ -233,6 +244,8 @@ async def _generate_gemini(
             if current_model_idx + 1 < len(models_to_try):
                 current_model_idx += 1
                 logger.info(f"Basculement vers le modèle de secours suite à l'erreur : {models_to_try[current_model_idx]}")
+                await asyncio.sleep(1)
+                continue
             if attempt < max_retries - 1:
                 await asyncio.sleep(2)
                 continue

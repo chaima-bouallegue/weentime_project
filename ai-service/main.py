@@ -369,6 +369,7 @@ register_routers(
         RouterSpec(name="chat_v2", module_path="app.api.chat_v2", critical=True),
         RouterSpec(name="health_v2", module_path="app.api.health_v2", critical=True),
         RouterSpec(name="voice_v2", module_path="app.api.voice_v2", critical=True),
+        RouterSpec(name="external_copilot", module_path="app.api.external_copilot", critical=True),
         RouterSpec(name="document_generation", module_path="app.api.document_generation", critical=False),
         RouterSpec(name="recruitment_ia", module_path="app.api.recruitment_ia", critical=False),
     ],

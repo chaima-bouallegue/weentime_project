@@ -10,6 +10,9 @@ export interface TeamMemberStatus {
   departureTime: string | null;
   checkInLocation: string | null;
   checkOutLocation: string | null;
+  checkInLocationStatus: string | null;
+  checkInDistanceToWorkplace: number | null;
+  checkInGpsSpoofingSuspected: boolean | null;
   totalMinutes: number;
   overtimeMinutes: number;
   lastActivity: string;

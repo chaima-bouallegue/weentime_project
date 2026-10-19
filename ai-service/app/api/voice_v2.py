@@ -206,7 +206,7 @@ async def voice_v2(
                 stt_result = processed.stt
                 transcript_for_language = (stt_result.cleaned_text or stt_result.raw_text or "").strip()
                 parsed_metadata["original_text"] = transcript_for_language
-                if processed.detected_language in {"tn", "ar"}:
+                if processed.detected_language in {"tn", "ar", "en"}:
                     response_language = processed.detected_language
                 else:
                     response_language = resolve_response_language(

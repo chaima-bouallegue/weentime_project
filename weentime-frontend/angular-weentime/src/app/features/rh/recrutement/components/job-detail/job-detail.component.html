@@ -129,11 +129,47 @@
                       </div>
                     }
 
-                    <!-- AI Summary -->
+                    <!-- AI Summary & Decision Brief -->
                     @if (app.aiRecommendationSummary) {
-                      <blockquote class="ai-summary">
-                        "{{ app.aiRecommendationSummary }}"
-                      </blockquote>
+                      <div class="ai-summary-card">
+                        <div class="ai-summary-header">
+                          <i-lucide [img]="Brain" class="w-3.5 h-3.5"></i-lucide>
+                          <span>Synthèse d'aide à la décision RH</span>
+                        </div>
+                        <p class="ai-summary-text">{{ app.aiRecommendationSummary }}</p>
+                      </div>
+                    }
+
+                    <!-- Points Forts & Points d'Attention -->
+                    @if (parseJsonArray(app.aiPointsForts).length || parseJsonArray(app.aiPointsFaibles).length) {
+                      <div class="ai-details-grid">
+                        @if (parseJsonArray(app.aiPointsForts).length) {
+                          <div class="ai-box strengths-box">
+                            <div class="box-title text-emerald-700 dark:text-emerald-400">
+                              <i-lucide [img]="CheckCircle" class="w-3.5 h-3.5"></i-lucide>
+                              <span>Atouts & Points forts</span>
+                            </div>
+                            <ul class="points-bullets">
+                              @for (pf of parseJsonArray(app.aiPointsForts); track pf) {
+                                <li>{{ pf }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                        @if (parseJsonArray(app.aiPointsFaibles).length) {
+                          <div class="ai-box warnings-box">
+                            <div class="box-title text-amber-700 dark:text-amber-400">
+                              <i-lucide [img]="AlertTriangle" class="w-3.5 h-3.5"></i-lucide>
+                              <span>Axes de vigilance / Écarts</span>
+                            </div>
+                            <ul class="points-bullets">
+                              @for (pw of parseJsonArray(app.aiPointsFaibles); track pw) {
+                                <li>{{ pw }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                      </div>
                     }
                   </div>
                 }

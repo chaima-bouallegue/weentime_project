@@ -426,6 +426,7 @@ export class RhParametresComponent implements OnInit {
       placeholder: "Générez un document RH professionnel pour...",
       hideInTable: true
     },
+    { key: 'requireSignature', label: 'Apposer cachet & signature officielle ?', type: 'boolean' },
     { key: 'delaiTraitementJours', label: 'Délai (jours)', type: 'number', required: true },
     { key: 'maxDemandesParMois', label: 'Quota mensuel', type: 'number' }
   ];

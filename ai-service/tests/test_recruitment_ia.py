@@ -151,10 +151,10 @@ async def test_generate_gemini_falls_back_on_503(monkeypatch):
     result = await document_generation._generate_gemini(req)
 
     assert result.content == "Document genere"
-    assert result.model_used == "gemini-3.6-flash"
+    assert result.model_used == "gemini-3.5-flash"
     assert len(calls) == 2
     assert "gemini-3.8-flash" in calls[0]
-    assert "gemini-3.6-flash" in calls[1]
+    assert "gemini-3.5-flash" in calls[1]
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,7 @@ import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
 import com.weentime.weentimeapp.service.RefreshTokenService;
 import com.weentime.weentimeapp.service.TokenBlacklistService;
+import com.weentime.weentimeapp.service.TrustedDeviceService;
 import feign.FeignException;
 import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
@@ -86,6 +87,7 @@ public class AuthController {
     private final SmsOtpSender smsOtpSender;
     private final TokenBlacklistService tokenBlacklistService;
     private final RefreshTokenService refreshTokenService;
+    private final TrustedDeviceService trustedDeviceService;
 
     @Value("${jwt.expirationMs}")
     private long jwtExpirationMs;
@@ -94,7 +96,8 @@ public class AuthController {
     private boolean cookieSecure;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<ApiResponse<Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest,
+                                                                 jakarta.servlet.http.HttpServletRequest servletRequest) {
         log.info("LOGIN request received");
 
         Authentication authentication;
@@ -115,29 +118,34 @@ public class AuthController {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         if (userDetails.isTwoFactorEnabled()) {
-            String method = normalizeTwoFactorMethod(userDetails.getTwoFactorType());
-            if (!isTotpMethod(method)) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(ApiResponse.failure("MFA_TOTP_REQUIRED", "La configuration MFA doit utiliser TOTP."));
-            }
-            String tempToken = jwtUtils.generateMfaLoginToken(userDetails.getEmail(), "TOTP");
+            Optional<String> deviceTokenOpt = getCookieValue(servletRequest, TrustedDeviceService.COOKIE_TRUSTED_DEVICE);
+            if (deviceTokenOpt.isPresent() && trustedDeviceService.isDeviceTrusted(userDetails.getEmail(), deviceTokenOpt.get())) {
+                log.info("MFA skipped: device is trusted for user={}", userDetails.getEmail());
+            } else {
+                String method = normalizeTwoFactorMethod(userDetails.getTwoFactorType());
+                if (!isTotpMethod(method)) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(ApiResponse.failure("MFA_TOTP_REQUIRED", "La configuration MFA doit utiliser TOTP."));
+                }
+                String tempToken = jwtUtils.generateMfaLoginToken(userDetails.getEmail(), "TOTP");
 
-            return ResponseEntity.ok(ApiResponse.success(
-                    JwtResponse.builder()
-                            .mfaRequired(true)
-                            .mfaToken(tempToken)
-                            .message("MFA_REQUIRED")
-                            .requires2FA(true)
-                            .requiresTwoFactor(true)
-                            .tempToken(tempToken)
-                            .temporaryToken(tempToken)
-                            .id(userDetails.getId())
-                            .userId(userDetails.getId())
-                            .email(userDetails.getEmail())
-                            .availableMethods(List.of("TOTP"))
-                            .build(),
-                    "MFA_REQUIRED"
-            ));
+                return ResponseEntity.ok(ApiResponse.success(
+                        JwtResponse.builder()
+                                .mfaRequired(true)
+                                .mfaToken(tempToken)
+                                .message("MFA_REQUIRED")
+                                .requires2FA(true)
+                                .requiresTwoFactor(true)
+                                .tempToken(tempToken)
+                                .temporaryToken(tempToken)
+                                .id(userDetails.getId())
+                                .userId(userDetails.getId())
+                                .email(userDetails.getEmail())
+                                .availableMethods(List.of("TOTP"))
+                                .build(),
+                        "MFA_REQUIRED"
+                ));
+            }
         }
 
         String jwt = jwtUtils.generateJwtToken(authentication);
@@ -289,18 +297,21 @@ public class AuthController {
     }
 
     @PostMapping("/mfa/verify")
-    public ResponseEntity<ApiResponse<Object>> verifyMfa(@Valid @RequestBody Verify2faRequest request) {
-        return verifyTotpMfaLogin(request);
+    public ResponseEntity<ApiResponse<Object>> verifyMfa(@Valid @RequestBody Verify2faRequest request,
+                                                         jakarta.servlet.http.HttpServletRequest servletRequest) {
+        return verifyTotpMfaLogin(request, servletRequest);
     }
 
     @PostMapping("/verify-2fa")
-    public ResponseEntity<ApiResponse<Object>> verify2fa(@Valid @RequestBody Verify2faRequest request) {
-        return verifyTotpMfaLogin(request);
+    public ResponseEntity<ApiResponse<Object>> verify2fa(@Valid @RequestBody Verify2faRequest request,
+                                                         jakarta.servlet.http.HttpServletRequest servletRequest) {
+        return verifyTotpMfaLogin(request, servletRequest);
     }
 
     @PostMapping("/2fa/verify")
-    public ResponseEntity<ApiResponse<Object>> verify2faCanonical(@Valid @RequestBody Verify2faRequest request) {
-        return verifyTotpMfaLogin(request);
+    public ResponseEntity<ApiResponse<Object>> verify2faCanonical(@Valid @RequestBody Verify2faRequest request,
+                                                                  jakarta.servlet.http.HttpServletRequest servletRequest) {
+        return verifyTotpMfaLogin(request, servletRequest);
     }
 
     private boolean isMfaTempTokenInvalid(String token) {
@@ -318,7 +329,8 @@ public class AuthController {
                 || (dto.getLockoutEnd() != null && dto.getLockoutEnd().isAfter(LocalDateTime.now()));
     }
 
-    private ResponseEntity<ApiResponse<Object>> verifyTotpMfaLogin(Verify2faRequest request) {
+    private ResponseEntity<ApiResponse<Object>> verifyTotpMfaLogin(Verify2faRequest request,
+                                                                   jakarta.servlet.http.HttpServletRequest servletRequest) {
         String temporaryToken = request.resolveTemporaryToken();
         if (isMfaTempTokenInvalid(temporaryToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -370,9 +382,22 @@ public class AuthController {
             String refreshToken = refreshTokenService.generate(
                     email, dto.getId(), dto.getEntrepriseId(), roles);
             log.info("2FA success for userId={}", dto.getId());
-            return ResponseEntity.ok()
+
+            var responseBuilder = ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, buildJwtCookie(jwt))
-                    .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(refreshToken))
+                    .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(refreshToken));
+
+            if (Boolean.TRUE.equals(request.getTrustDevice())) {
+                String rawDeviceToken = trustedDeviceService.registerTrustedDevice(
+                        dto.getEmail(),
+                        dto.getId(),
+                        getClientIp(servletRequest),
+                        servletRequest != null ? servletRequest.getHeader(HttpHeaders.USER_AGENT) : null
+                );
+                responseBuilder.header(HttpHeaders.SET_COOKIE, buildTrustedDeviceCookie(rawDeviceToken));
+            }
+
+            return responseBuilder
                     .body(ApiResponse.success(new JwtResponse(null, dto.getId(), dto.getEmail(), dto.getEntrepriseId(), roles, false, null), "2FA verifie avec succes"));
         }
 
@@ -646,6 +671,26 @@ public class AuthController {
                 .build();
     }
 
+    @PostMapping("/devices/revoke-current")
+    public ResponseEntity<ApiResponse<Void>> revokeCurrentDevice(jakarta.servlet.http.HttpServletRequest request) {
+        getCookieValue(request, TrustedDeviceService.COOKIE_TRUSTED_DEVICE)
+                .ifPresent(trustedDeviceService::revokeDevice);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, clearTrustedDeviceCookie())
+                .body(ApiResponse.success(null, "Appareil revoque avec succes"));
+    }
+
+    @PostMapping("/devices/revoke-all")
+    public ResponseEntity<ApiResponse<Void>> revokeAllDevices(Authentication authentication) {
+        String email = getEmailFromAuthentication(authentication);
+        if (email != null) {
+            trustedDeviceService.revokeAllUserDevices(email);
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, clearTrustedDeviceCookie())
+                .body(ApiResponse.success(null, "Tous les appareils de confiance ont ete revoques"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()
@@ -807,6 +852,26 @@ public class AuthController {
                 .sameSite(COOKIE_SAME_SITE_STRICT)
                 .path("/api/v1/auth/refresh")
                 .maxAge(Duration.ofDays(30))
+                .build().toString();
+    }
+
+    private String buildTrustedDeviceCookie(String token) {
+        return ResponseCookie.from(TrustedDeviceService.COOKIE_TRUSTED_DEVICE, token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(COOKIE_SAME_SITE_STRICT)
+                .path("/api/v1/auth")
+                .maxAge(Duration.ofDays(TrustedDeviceService.DEFAULT_TRUST_DURATION_DAYS))
+                .build().toString();
+    }
+
+    private String clearTrustedDeviceCookie() {
+        return ResponseCookie.from(TrustedDeviceService.COOKIE_TRUSTED_DEVICE, "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(COOKIE_SAME_SITE_STRICT)
+                .path("/api/v1/auth")
+                .maxAge(0)
                 .build().toString();
     }
 

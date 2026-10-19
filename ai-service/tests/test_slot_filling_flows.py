@@ -4,6 +4,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
+from app.context.current_user import CurrentUserContext
 from app.core.copilot_engine import process_copilot_message
 from app.tools.result import ToolResult
 
@@ -35,7 +36,16 @@ def make_state() -> SimpleNamespace:
     )
 
 
-async def send(state: SimpleNamespace, message: str, session_id: str = "s1"):
+async def send(state: SimpleNamespace, message: str, session_id: str = "s1", context: CurrentUserContext | None = None):
+    ctx = context or CurrentUserContext(
+        user_id=12,
+        role="EMPLOYEE",
+        entreprise_id=9,
+        token="test-token",
+        locale="fr-FR",
+        language="fr",
+        metadata={"jwt_verified": True},
+    )
     return await process_copilot_message(
         12,
         message,
@@ -47,6 +57,7 @@ async def send(state: SimpleNamespace, message: str, session_id: str = "s1"):
             "session_id": session_id,
             "entreprise_id": 9,
         },
+        context=ctx,
     )
 
 
@@ -117,3 +128,22 @@ def test_nn_after_sick_leave_confirmation_does_not_break() -> None:
     # Either deterministic fallback, or a leftover prompt from the previous
     # flow — what matters is that we don't crash and don't fabricate data.
     assert response.type in {"ask", "answer", "error", "confirm_action"}
+
+
+def test_hybrid_sick_rag_to_action_followup_flow() -> None:
+    state = make_state()
+
+    # Tour 1 : Question ouverte de l'employé malade -> Explication RAG + Next Best Action proactive
+    first = asyncio.run(send(state, "Je suis malade, que dois-je faire ?"))
+    print("DEBUG_FIRST:", first)
+    assert first.type == "ask"
+    assert first.intent == "leave.create"
+    assert "certificat" in first.text.lower()
+    assert "Souhaitez-vous que je déclare votre congé maladie pour aujourd'hui ?" in first.text
+
+    # Tour 2 : L'employé dit simplement "oui" -> Création et confirmation immédiate du congé
+    second = asyncio.run(send(state, "oui"))
+    assert second.type == "confirm_action"
+    assert second.requiresConfirmation is True
+    assert second.toolCalls[0].name == "leave.create_request"
+    assert second.toolCalls[0].arguments.get("leave_type_label") == "maladie"

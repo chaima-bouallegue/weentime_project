@@ -50,6 +50,8 @@ class IntentMatch:
     route_intent: str
 
 
+HR_POLICY_QUESTION = "HR_POLICY_QUESTION"
+
 INTENT_ROUTE_MAP = {
     CREATE_LEAVE: CREATE_LEAVE,
     CHECK_IN: "attendance.check_in",
@@ -57,9 +59,16 @@ INTENT_ROUTE_MAP = {
     REQUEST_DOCUMENT: REQUEST_DOCUMENT,
     CREATE_TELEWORK: CREATE_TELEWORK,
     GET_STATUS: "attendance.status",
+    HR_POLICY_QUESTION: "hr.policy_question",
 }
 
 INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
+    HR_POLICY_QUESTION: (
+        r"\b(politique|policy|règle|regle|règles|regles|charte|chartes|procédure|procedure|faq)\b",
+        r"\b(comment fonctionne|comment déclarer|comment declarer|que faire|que dois-je faire|que dois je faire)\b",
+        r"\b(conditions?|modalités?|modalites?)\b.*\b(télétravail|teletravail|congé|conge|leave|telework|presence|pointage)\b",
+        r"(سياسة|قانون|شروط|ميثاق|كيفية|ماذا أفعل)",
+    ),
     CREATE_LEAVE: (
         r"\b(je veux|je souhaite|je voudrais|j ai besoin|demande|demander|prendre|create|request|want|need)\b.*\b(congé|conge)\b",
         r"\b(congé|conge)\b.*\b(demain|aujourd hui|\d{1,2}[/-]\d{1,2}|from|tomorrow|today)\b",
@@ -110,9 +119,10 @@ def match_intent(text: str | None) -> IntentMatch | None:
     if not value:
         return None
 
-    # GET_STATUS is tried first so question forms like "did i check in?" are
-    # not hijacked by the CHECK_IN substring "check in".
-    for intent in (GET_STATUS, CHECK_IN, CHECK_OUT, CREATE_LEAVE, CREATE_TELEWORK, REQUEST_DOCUMENT):
+    # GET_STATUS and HR_POLICY_QUESTION are tried first so question/inquiry forms like
+    # "did i check in?" or "quelles sont les règles de télétravail" are not hijacked
+    # by the CHECK_IN / CREATE_TELEWORK substrings.
+    for intent in (GET_STATUS, HR_POLICY_QUESTION, CHECK_IN, CHECK_OUT, CREATE_LEAVE, CREATE_TELEWORK, REQUEST_DOCUMENT):
         for pattern in INTENT_PATTERNS[intent]:
             if re.search(pattern, value, flags=re.IGNORECASE | re.UNICODE):
                 return IntentMatch(intent=intent, confidence=0.94, route_intent=INTENT_ROUTE_MAP[intent])

@@ -84,7 +84,7 @@ def test_answer_uses_approved_source() -> None:
     assert response.actionResult["policyAvailable"] is True
     assert "tenant42-sick-leave" == response.actionResult["citations"][0]["sourceId"]
     assert response.actionResult["citations"][0]["chunkId"] == "tenant42-sick-leave:keyword"
-    assert "tenant42-sick-leave" in response.text
+    assert "Politique conge maladie" in response.text
     assert "certificat" in response.text.lower()
     assert ResponseGuard().validate(response, context()).allowed is True
 
@@ -182,3 +182,18 @@ def test_legacy_fallback_still_handles_unrelated_prompt() -> None:
     response = asyncio.run(router.handle("message hors domaine", context()))
 
     assert response.intent == "legacy.intent"
+
+
+def test_hybrid_sick_query_combines_rag_and_action_prompt() -> None:
+    agent = HRPolicyAgent(make_executor())
+
+    response = asyncio.run(agent.handle("Je suis malade, que dois-je faire ?", context()))
+
+    assert response.type == "ask"
+    assert response.intent == "leave.create"
+    assert "certificat" in response.text.lower()
+    assert "Souhaitez-vous que je déclare votre congé maladie pour aujourd'hui ?" in response.text
+    assert response.actionResult is not None
+    assert response.actionResult["kind"] == "hybrid_policy_action"
+    assert response.actionResult["leave_type_label"] == "maladie"
+    assert response.actionResult["start_date"] is not None

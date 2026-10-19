@@ -66,6 +66,9 @@ export class ManagerPresenceService {
       departureTime: this.formatTime(member.heureSortie),
       checkInLocation: this.extractText(member.checkInLocation),
       checkOutLocation: this.extractText(member.checkOutLocation),
+      checkInLocationStatus: (member['checkInLocationStatus'] as string) ?? null,
+      checkInDistanceToWorkplace: member['checkInDistanceToWorkplace'] != null ? Number(member['checkInDistanceToWorkplace']) : null,
+      checkInGpsSpoofingSuspected: member['checkInGpsSpoofingSuspected'] != null ? Boolean(member['checkInGpsSpoofingSuspected']) : null,
       totalMinutes: durationMinutes,
       overtimeMinutes: Math.max(Number(member.overtimeMinutes ?? 0), 0),
       lastActivity: this.resolveLastActivity(member.heureSortie ?? member.heureEntree)

@@ -12,5 +12,7 @@ public enum AttendanceDayStatus {
     EARLY_LEAVE,
     AUTO_CLOSED,
     MISSING_CHECKOUT,
-    OUT_OF_ZONE
+    OUT_OF_ZONE,
+    /** Valeur historique présente dans d'anciennes lignes de la base de données. */
+    PRESENT
 }

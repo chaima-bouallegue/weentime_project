@@ -75,6 +75,12 @@ export interface TodayPointageSummary {
   checkInLocationLabel?: string | null;
   checkOutLocation?: string | PointageLocation | null;
   checkOutLocationLabel?: string | null;
+  checkInLocationStatus?: 'IN_ZONE' | 'OUT_OF_ZONE' | 'NO_GPS' | 'LOW_ACCURACY' | string | null;
+  checkInDistanceToWorkplace?: number | null;
+  checkInGpsSpoofingSuspected?: boolean | null;
+  checkOutLocationStatus?: 'IN_ZONE' | 'OUT_OF_ZONE' | 'NO_GPS' | 'LOW_ACCURACY' | string | null;
+  checkOutDistanceToWorkplace?: number | null;
+  checkOutGpsSpoofingSuspected?: boolean | null;
   leaveOrHolidayInfo?: string | null;
   latestAlert?: string | null;
   [key: string]: unknown;

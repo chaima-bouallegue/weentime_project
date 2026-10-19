@@ -175,6 +175,8 @@ def _relative_date_range(normalized: str) -> tuple[str | None, str | None, str |
         ("ghodwa", 1),
         ("today", 0),
         ("aujourd hui", 0),
+        ("lyoum", 0),
+        ("اليوم", 0),
     )
     for token, offset in mapping:
         if token in normalized:

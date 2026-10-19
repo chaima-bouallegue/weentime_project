@@ -7,7 +7,6 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement depuis .env
 env_path = Path(__file__).parent / '.env'
 if env_path.exists():
     load_dotenv(dotenv_path=env_path, override=False)
@@ -65,7 +64,7 @@ class Settings:
         self.backend_base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8222/api/v1").rstrip("/")
         self.java_rh_service_url = os.getenv("JAVA_RH_SERVICE_URL", "http://rh-service:8192").rstrip("/")
 
-        # ML service (anomaly detection) -- separate port, no /api/v1 prefix.
+
         self.ml_service_base_url = os.getenv("ML_SERVICE_BASE_URL", "http://localhost:8001").rstrip("/")
         self.ml_service_timeout_seconds = float(os.getenv("ML_SERVICE_TIMEOUT_SECONDS", "15"))
 
@@ -161,11 +160,6 @@ class Settings:
         self.rag_tenant_filter_required = _to_bool(os.getenv("RAG_TENANT_FILTER_REQUIRED"), True)
         self.cors_origins = _safe_cors_origins(os.getenv("CORS_ORIGINS"))
 
-        # Demo/public mode for the AI chatbot endpoints only.
-        # When true, /v2/chat, /v2/chat/confirm, /v2/voice accept requests without
-        # a verified Authorization header by building an anonymous context from
-        # the request metadata (role, userId, entrepriseId). All other endpoints
-        # and the Spring backend remain JWT-protected.
         self.chatbot_public_mode = _to_bool(os.getenv("CHATBOT_PUBLIC_MODE"), False)
 
         self.braintrust_enabled = _to_bool(os.getenv("BRAINTRUST_ENABLED"), False)
@@ -195,13 +189,23 @@ class Settings:
             max(900, int(os.getenv("WORKFLOW_SESSION_TTL_SECONDS", "1800"))),
         )
 
-        # ── AI Providers Configuration ──
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash").strip()
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.default_ai_provider = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
         self.internal_secret = os.getenv("INTERNAL_SECRET", "WeenTimeInternalSecretKey2026")
+
+        self.external_api_enabled = _to_bool(os.getenv("EXTERNAL_API_ENABLED"), True)
+        self.external_api_keys = _split_csv(
+            os.getenv("EXTERNAL_API_KEYS", "weentime_dev_secret_key_2026,client_app_demo_key")
+        )
+        self.external_api_default_role = os.getenv("EXTERNAL_API_DEFAULT_ROLE", "EMPLOYEE").strip().upper()
+
+     
+        self.ai_cache_enabled = _to_bool(os.getenv("AI_CACHE_ENABLED"), True)
+        self.ai_cache_ttl_seconds = max(30, int(os.getenv("AI_CACHE_TTL_SECONDS", "86400")))
+        self.ai_cache_max_memory_items = max(100, int(os.getenv("AI_CACHE_MAX_MEMORY_ITEMS", "1000")))
 
 
         self.data_dir.mkdir(parents=True, exist_ok=True)

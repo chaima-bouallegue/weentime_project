@@ -41,3 +41,22 @@ def test_leave_create_requires_confirmation_when_complete() -> None:
     assert response.type == "confirm_action"
     assert response.requiresConfirmation is True
     assert response.toolCalls[0].name == "leave.create_request"
+
+
+def test_sick_leave_empathetic_prompt_when_sick_today() -> None:
+    agent = LeaveAgent(FakeExecutor(), ConfirmationStore())  # type: ignore[arg-type]
+
+    # Test en Français
+    response = asyncio.run(agent.handle("je suis malade aujourd'hui", context()))
+
+    assert response.type == "confirm_action"
+    assert response.requiresConfirmation is True
+    assert "Je suis désolé de l'apprendre. Souhaitez-vous déclarer un congé maladie pour aujourd'hui ?" in response.text
+    assert response.toolCalls[0].name == "leave.create_request"
+    assert response.toolCalls[0].arguments.get("leave_type_label") == "maladie"
+
+    # Test en Tunisien / Arabe
+    ctx_tn = CurrentUserContext(user_id=1, role="EMPLOYEE", entreprise_id=2, token="token", language="tn")
+    response_tn = asyncio.run(agent.handle("ena mridh lyoum", ctx_tn))
+    assert response_tn.type == "confirm_action"
+    assert "Nchallah labes. Theb n3adilek congé maladie lyoum?" in response_tn.text

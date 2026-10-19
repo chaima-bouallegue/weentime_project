@@ -20,7 +20,7 @@ from app.agents.router_agent import RouterAgent
 from app.agents.telework_agent import TeleworkAgent
 from app.agents.role_copilots import AdminCopilot, EmployeeCopilot, ManagerCopilot, RHCopilot
 from app.context.context_builder import ContextBuilder, ContextError
-from app.context.jwt_parser import JwtClaims
+from app.core.copilot_cache import CopilotCacheService
 from app.core.conversation_state import ConversationStateStore
 from app.core.slot_filling import capture_pending_flow, continue_pending_flow
 from app.memory.confirmation_store import ConfirmationStore
@@ -89,6 +89,24 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
                 redis_enabled=bool(getattr(settings, "redis_enabled", False)),
                 redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
             )
+        if not hasattr(state, "copilot_cache_service"):
+            state.copilot_cache_service = CopilotCacheService(
+                enabled=bool(getattr(settings, "ai_cache_enabled", True)),
+                ttl_seconds=int(getattr(settings, "ai_cache_ttl_seconds", 3600)),
+                redis_enabled=bool(getattr(settings, "redis_enabled", False)),
+                redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
+                max_memory_items=int(getattr(settings, "ai_cache_max_memory_items", 1000)),
+            )
+        if not hasattr(state, "copilot_leave_risk_cache"):
+            from app.agents.leave_planner import LeaveRiskCache, set_default_leave_risk_cache
+
+            state.copilot_leave_risk_cache = LeaveRiskCache(
+                enabled=bool(getattr(settings, "ai_cache_enabled", True)),
+                ttl_seconds=60,
+                redis_enabled=bool(getattr(settings, "redis_enabled", False)),
+                redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
+            )
+            set_default_leave_risk_cache(state.copilot_leave_risk_cache)
         if not hasattr(state, "copilot_workflow_orchestrator"):
             state.copilot_workflow_orchestrator = WorkflowOrchestrator(
                 context_builder=state.copilot_context_builder,
@@ -99,6 +117,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
                 response_guard=state.copilot_response_guard,
                 provider_router=state.copilot_provider_router,
                 session_store=state.copilot_session_store,
+                cache_service=state.copilot_cache_service,
             )
         return {
             "context_builder": state.copilot_context_builder,
@@ -109,6 +128,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
             "response_guard": state.copilot_response_guard,
             "provider_router": state.copilot_provider_router,
             "session_store": state.copilot_session_store,
+            "cache_service": state.copilot_cache_service,
             "workflow_orchestrator": state.copilot_workflow_orchestrator,
         }
 
@@ -190,7 +210,9 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         register_insight_tools(registry, executor, insight_engine)
         state.copilot_insight_tools_registered = True
     attendance_agent = getattr(state, "copilot_attendance_agent", None) or AttendanceAgent(executor, confirmation_store)
-    leave_agent = getattr(state, "copilot_leave_agent", None) or LeaveAgent(executor, confirmation_store)
+    leave_agent = getattr(state, "copilot_leave_agent", None) or LeaveAgent(
+        executor, confirmation_store, getattr(state, "copilot_leave_risk_cache", None)
+    )
     document_agent = getattr(state, "copilot_document_agent", None) or DocumentAgent(executor, confirmation_store)
     telework_agent = getattr(state, "copilot_telework_agent", None) or TeleworkAgent(executor, confirmation_store)
     authorization_agent = getattr(state, "copilot_authorization_agent", None) or AuthorizationAgent(executor, confirmation_store)
@@ -264,6 +286,14 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
     state.copilot_hr_policy_agent = hr_policy_agent
     state.copilot_legacy_agent = legacy_agent
     state.copilot_router_agent = router_agent
+    cache_service = getattr(state, "copilot_cache_service", None) or CopilotCacheService(
+        enabled=bool(getattr(settings, "ai_cache_enabled", True)),
+        ttl_seconds=int(getattr(settings, "ai_cache_ttl_seconds", 3600)),
+        redis_enabled=bool(getattr(settings, "redis_enabled", False)),
+        redis_url=str(getattr(settings, "redis_url", "redis://localhost:6379")),
+        max_memory_items=int(getattr(settings, "ai_cache_max_memory_items", 1000)),
+    )
+    state.copilot_cache_service = cache_service
     state.copilot_workflow_orchestrator = WorkflowOrchestrator(
         context_builder=context_builder,
         router_agent=router_agent,
@@ -273,6 +303,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         response_guard=response_guard,
         provider_router=provider_router,
         session_store=session_store,
+        cache_service=cache_service,
     )
     state.copilot_ready = True
     return {
@@ -284,6 +315,7 @@ def ensure_copilot_services(app_state: Any | None = None) -> dict[str, Any]:
         "response_guard": response_guard,
         "provider_router": provider_router,
         "session_store": session_store,
+        "cache_service": cache_service,
         "workflow_orchestrator": state.copilot_workflow_orchestrator,
     }
 

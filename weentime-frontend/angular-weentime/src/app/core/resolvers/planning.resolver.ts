@@ -9,8 +9,9 @@ import { Observable } from 'rxjs';
 export const planningResolver: ResolveFn<any> = (): Observable<any> => {
   const store = inject(PlanningStore);
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const formatIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const start = formatIso(new Date(now.getFullYear(), now.getMonth(), 1));
+  const end = formatIso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   return store.loadInitial(start, end);
 };

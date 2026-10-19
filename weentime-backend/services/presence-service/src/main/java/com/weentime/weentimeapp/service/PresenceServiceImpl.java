@@ -26,6 +26,7 @@ import com.weentime.weentimeapp.enums.PresenceSource;
 import com.weentime.weentimeapp.enums.PresenceStatus;
 import com.weentime.weentimeapp.exception.PresenceBusinessException;
 import com.weentime.weentimeapp.mapper.AttendanceSessionMapper;
+import com.weentime.weentimeapp.service.GeofenceService;
 import com.weentime.weentimeapp.repository.AttendanceSessionRepository;
 import com.weentime.weentimeapp.repository.OvertimeRepository;
 import com.weentime.weentimeapp.repository.WorkScheduleRepository;
@@ -75,6 +76,7 @@ public class PresenceServiceImpl implements PresenceService {
     private final PresenceProperties presenceProperties;
     private final HoraireManagementService horaireManagementService;
     private final LocationResolverService locationResolverService;
+    private final GeofenceService geofenceService;
 
     // --- Manual Thread-Safe Cache with 15s TTL ---
     private static class CacheEntry<T> {
@@ -127,6 +129,12 @@ public class PresenceServiceImpl implements PresenceService {
                 safeRequest.getLongitude(),
                 safeRequest.getAccuracy(),
                 safeRequest.getAddress()
+        );
+
+        // ── Geofencing evaluation (never blocks) ──
+        GeofenceService.GeofenceResult geofenceResult = geofenceService.evaluate(
+                safeRequest.getLatitude(), safeRequest.getLongitude(),
+                safeRequest.getAccuracy(), "check-in"
         );
 
         List<AttendanceSession> openSessions = attendanceSessionRepository
@@ -197,6 +205,9 @@ public class PresenceServiceImpl implements PresenceService {
                 .checkInCity(checkInLocation.city())
                 .checkInRegion(checkInLocation.region())
                 .checkInCountry(checkInLocation.country())
+                .checkInLocationStatus(geofenceResult.isEnabled() ? geofenceResult.status() : null)
+                .checkInDistanceToWorkplace(geofenceResult.isEnabled() ? geofenceResult.distanceToWorkplace() : null)
+                .checkInGpsSpoofingSuspected(geofenceResult.isEnabled() ? geofenceResult.gpsSpoofingSuspected() : null)
                 .lateArrival(lateArrival)
                 .dailyStatus((lateArrival || outOfScheduleCheckIn) ? AttendanceDayStatus.LATE : AttendanceDayStatus.WORKING)
                 .workedMinutes(0)
@@ -250,6 +261,13 @@ public class PresenceServiceImpl implements PresenceService {
                 safeRequest.getAccuracy(),
                 safeRequest.getAddress()
         );
+
+        // ── Geofencing evaluation (never blocks) ──
+        GeofenceService.GeofenceResult checkOutGeofence = geofenceService.evaluate(
+                safeRequest.getLatitude(), safeRequest.getLongitude(),
+                safeRequest.getAccuracy(), "check-out"
+        );
+
         LocalDate today = currentDate();
 
         AttendanceSession openSession = attendanceSessionRepository
@@ -314,6 +332,12 @@ public class PresenceServiceImpl implements PresenceService {
         openSession.setCheckOutCity(checkOutLocation.city());
         openSession.setCheckOutRegion(checkOutLocation.region());
         openSession.setCheckOutCountry(checkOutLocation.country());
+        // ── Geofencing fields for check-out ──
+        if (checkOutGeofence.isEnabled()) {
+            openSession.setCheckOutLocationStatus(checkOutGeofence.status());
+            openSession.setCheckOutDistanceToWorkplace(checkOutGeofence.distanceToWorkplace());
+            openSession.setCheckOutGpsSpoofingSuspected(checkOutGeofence.gpsSpoofingSuspected());
+        }
         openSession.setEntrepriseId(openSession.getEntrepriseId() != null ? openSession.getEntrepriseId() : currentUser.getEntrepriseId());
         openSession.setScheduleId(openSession.getScheduleId() != null || schedule == null ? openSession.getScheduleId() : schedule.getId());
         openSession.setWorkedMinutes(workedMinutes);
@@ -2190,7 +2214,7 @@ public class PresenceServiceImpl implements PresenceService {
 
     private PresenceStatus mapTeamStatus(AttendanceDayStatus status) {
         return switch (status) {
-            case WORKING, IDLE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE -> PresenceStatus.PRESENT;
+            case WORKING, IDLE, PARTIAL, EARLY_LEAVE, AUTO_CLOSED, MISSING_CHECKOUT, OUT_OF_ZONE, PRESENT -> PresenceStatus.PRESENT;
             case LATE -> PresenceStatus.LATE;
             case REMOTE -> PresenceStatus.REMOTE;
             case ON_LEAVE, HOLIDAY -> PresenceStatus.ON_LEAVE;

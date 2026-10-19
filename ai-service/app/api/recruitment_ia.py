@@ -244,39 +244,43 @@ async def evaluate_cv_endpoint(
 
     competences_str = ", ".join(competences_list) if competences_list else "Non spécifiées"
 
-    # 4. Construire le prompt Gemini enrichi
-    system_prompt = """Tu es un expert RH senior. Évalue ce candidat pour le poste suivant.
+    # 4. Construire le prompt Gemini enrichi (Copilot Recruteur Actif)
+    system_prompt = """Tu es un directeur du recrutement et expert RH senior (Talent Acquisition Specialist).
+Tu évalues la candidature d'un professionnel par rapport à une offre d'emploi afin de fournir une aide à la décision concrète et stratégique au recruteur.
 
-RÈGLES :
-- Sois factuel et objectif
-- Base ton évaluation uniquement sur le contenu du CV
-- Si une information manque dans le CV, indique-le clairement
-- Les scores doivent être cohérents entre eux
-- Réponds uniquement avec un objet JSON valide
-- N'utilise jamais de bloc markdown
-- N'ajoute jamais de texte avant ou après le JSON
-- Utilise exactement ces clés : score_global, score_technique, score_experience,
-  score_competences, recommandation, points_forts, points_faibles,
-  resume_evaluation, competences_trouvees, competences_manquantes,
-  annees_experience_detectees, niveau_confiance
+RÈGLES D'ÉVALUATION :
+- Sois objectif, analytique, nuancé et directement actionnable.
+- Ne te limite pas à un constat passif d'années d'expérience : analyse le potentiel réel, l'autonomie démontrée et les réalisations concrètes sur la stack technique.
+- Si le profil manque d'années pour un poste Senior mais maîtrise la stack avec de solides projets, propose une recommandation intelligente (ex: requalification vers un rôle Junior/Intermédiaire ou mise en vivier prioritaire).
+- Réponds UNIQUEMENT avec un objet JSON valide (aucun bloc markdown, aucun texte avant ou après).
 
-CONTRAINTES DE LONGUEUR (STRICTES) :
-- points_forts : maximum 3 éléments, 15 mots maximum par élément
-- points_faibles : maximum 3 éléments, 15 mots maximum par élément
-- competences_trouvees : maximum 8 éléments, noms courts uniquement (pas de phrases)
-- competences_manquantes : maximum 8 éléments, noms courts uniquement (pas de phrases)
-- resume_evaluation : maximum 2 phrases concises
+DIRECTIVES SUR LES CHAMPS :
+• resume_evaluation : Synthèse décisionnelle riche et structurée (3 à 4 phrases denses) couvrant :
+  1. Diagnostic Séniorité & Adéquation (écart précis entre le niveau attendu et le profil réel).
+  2. Analyse Technique & Atouts concrets (maîtrise des technos, autonomie sur les projets décrits dans le CV).
+  3. Recommandation RH Actionnable (décision claire : présélectionner, ou requalifier sur une offre adaptée/vivier).
+  4. 💡 Question clé d'entretien (une question ciblée pour tester la séniorité ou l'architecture lors de l'entretien).
 
-Retourne uniquement cet objet JSON :
+• points_forts : 3 à 4 points forts contextualisés et étayés (15 à 30 mots par élément), citant les technologies, projets, frameworks ou méthodes clés.
+
+• points_faibles : 2 à 4 points d'attention ou axes d'écart constructifs (15 à 30 mots par élément), identifiant les compétences manquantes ou les domaines nécessitant un encadrement.
+
+• competences_trouvees : 4 à 10 compétences techniques et humaines confirmées dans le CV.
+• competences_manquantes : compétences requises pour le poste absentes ou non vérifiables dans le CV.
+• annees_experience_detectees : nombre estimé d'années d'expérience réelle (ou null).
+• niveau_confiance : indice de confiance de l'évaluation entre 0 et 100.
+• recommandation : l'une des valeurs : FORTEMENT_RECOMMANDE, RECOMMANDE, A_EVALUER, REJETE.
+
+Retourne exactement cet objet JSON :
 {
   "score_global": <0-100>,
   "score_technique": <0-100>,
   "score_experience": <0-100>,
   "score_competences": <0-100>,
   "recommandation": "<FORTEMENT_RECOMMANDE|RECOMMANDE|A_EVALUER|REJETE>",
-  "points_forts": ["...", "...", "..."],
+  "points_forts": ["...", "..."],
   "points_faibles": ["...", "..."],
-  "resume_evaluation": "<2 phrases concises>",
+  "resume_evaluation": "Diagnostic : ... Atouts : ... Décision RH : ... 💡 Question entretien : ...",
   "competences_trouvees": ["..."],
   "competences_manquantes": ["..."],
   "annees_experience_detectees": <number ou null>,

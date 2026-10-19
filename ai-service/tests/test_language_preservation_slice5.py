@@ -238,3 +238,41 @@ def test_F_french_input_text_unchanged() -> None:
     out = localize_agent_response(response, ctx)
 
     assert out.text == response.text
+
+
+def test_G_multi_turn_language_switch_leave_request() -> None:
+    """When a pending flow started in Arabic, switching to English must respond in English."""
+    from app.core.conversation_state import ConversationStateStore, PendingConversationFlow
+    from app.core.slot_filling import continue_pending_flow
+
+    store = ConversationStateStore()
+    ctx_ar = _ctx("ar", "أريد طلب إجازة")
+    flow = PendingConversationFlow(
+        intent="leave.create",
+        agent="leave",
+        language="ar",
+        missing_fields=["date", "type"],
+        last_question="ما هي التواريخ التي ترغب في طلب الإجازة خلالها؟",
+    )
+    store.save(ctx_ar, flow, session_id="test-session-switch")
+
+    # Turn 2: User switches to English
+    ctx_en = _ctx("en", "hey i want to create a leave")
+    resp = asyncio.run(
+        continue_pending_flow(
+            message="hey i want to create a leave",
+            context=ctx_en,
+            store=store,
+            executor=_FakeExecutor(),  # type: ignore[arg-type]
+            confirmation_store=ConfirmationStore(),
+            session_id="test-session-switch",
+        )
+    )
+
+    assert resp is not None
+    assert resp.type == "ask"
+    # Localize response with the English context
+    localized = localize_agent_response(resp, ctx_en)
+    assert not _has_arabic(localized.text)
+    assert "date" in localized.text.lower() or "leave" in localized.text.lower()
+

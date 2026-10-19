@@ -79,6 +79,7 @@ export class LoginComponent implements AfterViewInit {
               state: {
                 fromLogin: true,
                 rememberMe: formValue.rememberMe,
+                trustDevice: formValue.rememberMe,
                 tempToken: response.mfaToken ?? response.temporaryToken ?? response.tempToken ?? null,
                 availableMethods: ['TOTP']
               }

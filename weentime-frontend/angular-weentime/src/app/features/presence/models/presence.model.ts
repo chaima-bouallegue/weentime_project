@@ -20,6 +20,8 @@ export enum AttendanceDayStatus {
   OUT_OF_ZONE = 'OUT_OF_ZONE',
 }
 
+export type LocationStatus = 'IN_ZONE' | 'OUT_OF_ZONE' | 'NO_GPS' | 'LOW_ACCURACY';
+
 export enum PresenceSource {
   WEB = 'WEB',
   MOBILE = 'MOBILE',
@@ -85,6 +87,12 @@ export interface AttendanceSession {
   checkOutAddress?: string | null;
   checkOutLocation?: string | AttendanceLocation | null;
   checkOutLocationLabel?: string | null;
+  checkInLocationStatus?: LocationStatus | null;
+  checkInDistanceToWorkplace?: number | null;
+  checkInGpsSpoofingSuspected?: boolean | null;
+  checkOutLocationStatus?: LocationStatus | null;
+  checkOutDistanceToWorkplace?: number | null;
+  checkOutGpsSpoofingSuspected?: boolean | null;
   autoClosed?: boolean;
   autoClosedReason?: string | null;
   overtimeMinutes?: number;

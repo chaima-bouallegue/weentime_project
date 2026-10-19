@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from .embeddings import get_embedding_function
@@ -137,7 +138,7 @@ class ChromaPolicyRetriever:
                 )
         except Exception as exc:  # noqa: BLE001 - vector store is optional
             raise ChromaUnavailableError(str(exc)) from exc
-        citations = _citations_from_query_result(result, tenant_id=tenant_id, language=language)
+        citations = _citations_from_query_result(result, query=query, tenant_id=tenant_id, language=language)
         logger.info(
             "[AUDIT] Chroma raw query -> tenant_id=%s, language=%s, found_before_threshold=%d, min_score=%.2f, scores=%s",
             tenant_id,
@@ -233,7 +234,32 @@ def _tenant_where(*, tenant_id: int, language: str | None) -> dict[str, Any]:
     return {"$and": filters}
 
 
-def _citations_from_query_result(result: dict[str, Any], *, tenant_id: int, language: str | None) -> list[PolicyCitation]:
+def _extract_document_excerpt(document: str, query: str | None = None, max_len: int = 500) -> str:
+    text = str(document or "").strip()
+    if not text:
+        return ""
+    if query:
+        query_words = {
+            w.lower()
+            for w in re.findall(r"\w+", query)
+            if len(w) >= 3 and w.lower() not in {"les", "des", "pour", "dans", "que", "qui", "est", "une", "par", "avec", "sur"}
+        }
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for idx, line in enumerate(lines):
+            line_words = {w.lower() for w in re.findall(r"\w+", line)}
+            if query_words & line_words:
+                matched_lines = lines[idx:idx + 4]
+                return "\n".join(matched_lines)[:max_len]
+    return text[:max_len]
+
+
+def _citations_from_query_result(
+    result: dict[str, Any],
+    *,
+    query: str | None = None,
+    tenant_id: int,
+    language: str | None,
+) -> list[PolicyCitation]:
     documents = _first_list(result.get("documents"))
     metadatas = _first_list(result.get("metadatas"))
     distances = _first_list(result.get("distances"))
@@ -252,7 +278,7 @@ def _citations_from_query_result(result: dict[str, Any], *, tenant_id: int, lang
             PolicyCitation(
                 source_id=source_id,
                 title=title,
-                excerpt=str(document or "").strip()[:420],
+                excerpt=_extract_document_excerpt(document, query=query),
                 score=score,
                 location=str(metadata.get("citation_label") or metadata.get("source_location") or "") or None,
                 chunk_id=str(metadata.get("chunk_id") or "") or None,

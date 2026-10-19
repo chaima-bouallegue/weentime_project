@@ -38,6 +38,7 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly digits = signal<string[]>(['', '', '', '', '', '']);
+  readonly trustDevice = signal<boolean>(true);
 
   private readonly inputElements = viewChildren<ElementRef<HTMLInputElement>>('digitInput');
   private rememberMe = true;
@@ -57,6 +58,14 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
     this.rememberMe = typeof navigationState?.rememberMe === 'boolean'
       ? navigationState.rememberMe
       : storedChallenge?.rememberMe !== false;
+
+    if (typeof navigationState?.trustDevice === 'boolean') {
+      this.trustDevice.set(navigationState.trustDevice);
+    }
+  }
+
+  toggleTrustDevice(): void {
+    this.trustDevice.update(v => !v);
   }
 
   ngAfterViewInit(): void {
@@ -103,7 +112,7 @@ export class Verify2faComponent implements OnInit, AfterViewInit {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.authService.verify2fa(code, token, this.rememberMe).subscribe({
+    this.authService.verify2fa(code, token, this.rememberMe, undefined, this.trustDevice()).subscribe({
       next: response => {
         this.isLoading.set(false);
         this.redirectByUserRole(response);

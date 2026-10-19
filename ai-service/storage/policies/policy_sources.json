@@ -29,6 +29,36 @@
       "approved": true,
       "path": "general-hr-policy.md",
       "citation_label": "Règlement intérieur"
+    },
+    {
+      "source_id": "telework-policy",
+      "tenant_id": 9,
+      "title": "Politique et Charte du Télétravail",
+      "language": "fr",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "telework-policy.md",
+      "citation_label": "Charte du Télétravail"
+    },
+    {
+      "source_id": "authorization-policy",
+      "tenant_id": 9,
+      "title": "Politique des Autorisations de Sortie",
+      "language": "fr",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "authorization-policy.md",
+      "citation_label": "Politique des Autorisations"
+    },
+    {
+      "source_id": "document-request-policy",
+      "tenant_id": 9,
+      "title": "Politique de Délivrance des Documents RH",
+      "language": "fr",
+      "source_type": "hr_policy",
+      "approved": true,
+      "path": "document-request-policy.md",
+      "citation_label": "Politique des Documents RH"
     }
   ]
 }

@@ -2,6 +2,7 @@ package com.weentime.weentimeapp.entity;
 
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
 import com.weentime.weentimeapp.enums.AttendanceSessionStatus;
+import com.weentime.weentimeapp.enums.LocationStatus;
 import com.weentime.weentimeapp.enums.OvertimeMode;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import jakarta.persistence.Column;
@@ -129,6 +130,28 @@ public class AttendanceSession {
 
     @Column(name = "check_out_country", length = 128)
     private String checkOutCountry;
+
+    // ──────────────────────── Geofencing Fields ────────────────────────
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "check_in_location_status", length = 16)
+    private LocationStatus checkInLocationStatus;
+
+    @Column(name = "check_in_distance_to_workplace")
+    private Long checkInDistanceToWorkplace;
+
+    @Column(name = "check_in_gps_spoofing_suspected")
+    private Boolean checkInGpsSpoofingSuspected;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "check_out_location_status", length = 16)
+    private LocationStatus checkOutLocationStatus;
+
+    @Column(name = "check_out_distance_to_workplace")
+    private Long checkOutDistanceToWorkplace;
+
+    @Column(name = "check_out_gps_spoofing_suspected")
+    private Boolean checkOutGpsSpoofingSuspected;
 
     @Column(name = "late_arrival", nullable = false)
     private Boolean lateArrival;

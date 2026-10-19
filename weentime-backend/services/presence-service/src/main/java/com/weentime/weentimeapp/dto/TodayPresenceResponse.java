@@ -1,6 +1,7 @@
 package com.weentime.weentimeapp.dto;
 
 import com.weentime.weentimeapp.enums.AttendanceDayStatus;
+import com.weentime.weentimeapp.enums.LocationStatus;
 import com.weentime.weentimeapp.enums.OvertimeMode;
 import com.weentime.weentimeapp.enums.PresenceSource;
 import lombok.AllArgsConstructor;
@@ -55,6 +56,12 @@ public class TodayPresenceResponse {
     private String checkInLocationLabel;
     private PointageLocationDTO checkOutLocation;
     private String checkOutLocationLabel;
+    private LocationStatus checkInLocationStatus;
+    private Long checkInDistanceToWorkplace;
+    private Boolean checkInGpsSpoofingSuspected;
+    private LocationStatus checkOutLocationStatus;
+    private Long checkOutDistanceToWorkplace;
+    private Boolean checkOutGpsSpoofingSuspected;
     private PresenceSource source;
     private PresenceSessionResponse activeSession;
     private List<PresenceSessionResponse> sessions;

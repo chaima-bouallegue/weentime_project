@@ -14,6 +14,7 @@ import com.weentime.weentimeapp.security.services.TwoFactorService;
 import com.weentime.weentimeapp.security.services.UserDetailsImpl;
 import com.weentime.weentimeapp.service.TokenBlacklistService;
 import com.weentime.weentimeapp.service.RefreshTokenService;
+import com.weentime.weentimeapp.service.TrustedDeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -64,6 +65,8 @@ class AuthControllerTest {
     TokenBlacklistService tokenBlacklistService;
     @MockitoBean
     RefreshTokenService refreshTokenService;
+    @MockitoBean
+    TrustedDeviceService trustedDeviceService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private UserDetailsImpl userDetails;
@@ -371,6 +374,61 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error").value("MFA_NOT_ENABLED"));
+    }
+
+    @Test
+    void login_whenTwoFactorEnabled_andDeviceIsTrusted_bypassesMfa() throws Exception {
+        UserDetailsImpl mfaUserDetails = new UserDetailsImpl(
+                1L, "user@test.com", "pass", "ACTIF", 10L,
+                List.of(new SimpleGrantedAuthority("ROLE_EMPLOYEE")),
+                true, "TOTP", null
+        );
+        Authentication mfaAuth = new UsernamePasswordAuthenticationToken(mfaUserDetails, null, mfaUserDetails.getAuthorities());
+        Mockito.when(authenticationManager.authenticate(any(Authentication.class))).thenReturn(mfaAuth);
+        Mockito.when(trustedDeviceService.isDeviceTrusted("user@test.com", "trusted-token-123")).thenReturn(true);
+        Mockito.when(jwtUtils.generateJwtToken(mfaAuth)).thenReturn("direct-jwt-token");
+
+        LoginRequest req = new LoginRequest();
+        req.setEmail("user@test.com");
+        req.setPassword("secret");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .cookie(new jakarta.servlet.http.Cookie("device_trust_token", "trusted-token-123"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.requires2FA").value(false));
+    }
+
+    @Test
+    void verify2fa_withTrustDevice_setsTrustedDeviceCookie() throws Exception {
+        UtilisateurAuthDTO dto = totpUser(true);
+        UtilisateurAuthDTO.RoleDTO role = new UtilisateurAuthDTO.RoleDTO();
+        role.setNom("ROLE_EMPLOYEE");
+        dto.setRoles(java.util.Set.of(role));
+        Mockito.when(jwtUtils.validateJwtToken("temp-token")).thenReturn(true);
+        Mockito.when(jwtUtils.isMfaLoginToken("temp-token")).thenReturn(true);
+        Mockito.when(jwtUtils.getUserNameFromJwtToken("temp-token")).thenReturn("user@test.com");
+        Mockito.when(organisationServiceClient.getUserByEmail("user@test.com")).thenReturn(ResponseEntity.ok(dto));
+        Mockito.when(twoFactorService.resolveTotpSecret("stored-secret", "user@test.com")).thenReturn(Optional.of("JBSWY3DPEHPK3PXP"));
+        Mockito.when(twoFactorService.verifyTotpCode("JBSWY3DPEHPK3PXP", "123456")).thenReturn(true);
+        Mockito.when(jwtUtils.generateToken(any(), any(), any(), any())).thenReturn("jwt-token");
+        Mockito.when(refreshTokenService.generate(any(), any(), any(), any())).thenReturn("refresh-token");
+        Mockito.when(trustedDeviceService.registerTrustedDevice(Mockito.eq("user@test.com"), any(), any(), any()))
+                .thenReturn("new-device-token");
+
+        mockMvc.perform(post("/api/v1/auth/verify-2fa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "tempToken": "temp-token",
+                                  "code": "123456",
+                                  "trustDevice": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     private UtilisateurAuthDTO totpUser(boolean enabled) {

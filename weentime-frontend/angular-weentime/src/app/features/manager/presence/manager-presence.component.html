@@ -339,18 +339,22 @@
 
                 <!-- Localisation -->
                 <td>
-                  <div class="mp-location-container" *ngIf="member.checkInLocation; else noLocation" [title]="getLocationTooltip(member.checkInLocation)">
-                    <div class="mp-location-main mp-location-main--{{ getLocationType(member.checkInLocation).type }}">
-                      <span class="mp-location-icon">{{ getLocationType(member.checkInLocation).icon }}</span>
-                      <span class="mp-location-text">{{ getLocationType(member.checkInLocation).label }}</span>
+                  <div class="mp-location-container" *ngIf="member.checkInLocation || member.checkInLocationStatus; else noLocation" [title]="getLocationTooltip(member.checkInLocation)">
+                    <div class="mp-location-main mp-location-main--{{ getLocationTypeFromStatus(member).type }}">
+                      <span class="mp-location-icon">{{ getLocationTypeFromStatus(member).icon }}</span>
+                      <span class="mp-location-text">{{ getLocationTypeFromStatus(member).label }}</span>
+                      <span class="mp-spoofing-badge" *ngIf="member.checkInGpsSpoofingSuspected" title="GPS potentiellement falsifié">⚠️</span>
                     </div>
-                    <span class="mp-location-sub" *ngIf="getLocationType(member.checkInLocation).type !== 'unknown'">
-                      <ng-container *ngIf="getLocationType(member.checkInLocation).type === 'bureau'; else otherLocation">
+                    <span class="mp-location-sub" *ngIf="getLocationTypeFromStatus(member).type !== 'unknown'">
+                      <ng-container *ngIf="getLocationTypeFromStatus(member).type === 'bureau'; else otherLocation">
                         5 Impasse Chahrazed, Tunis
                       </ng-container>
                       <ng-template #otherLocation>
                         <app-location-display [locationText]="member.checkInLocation"></app-location-display>
                       </ng-template>
+                    </span>
+                    <span class="mp-location-distance" *ngIf="getDistanceLabel(member)">
+                      {{ getDistanceLabel(member) }}
                     </span>
                   </div>
                   <ng-template #noLocation>
@@ -435,18 +439,22 @@
                 </div>
               </div>
 
-              <div *ngIf="member.checkInLocation || member.checkOutLocation" class="mp-kanban-card__location">
-                <div *ngIf="member.checkInLocation" class="mp-kanban-location-row" [title]="getLocationTooltip(member.checkInLocation)">
-                  <span class="mp-location-main mp-location-main--{{ getLocationType(member.checkInLocation).type }}">
-                    {{ getLocationType(member.checkInLocation).icon }} {{ getLocationType(member.checkInLocation).label }}
+              <div *ngIf="member.checkInLocation || member.checkInLocationStatus || member.checkOutLocation" class="mp-kanban-card__location">
+                <div *ngIf="member.checkInLocation || member.checkInLocationStatus" class="mp-kanban-location-row" [title]="getLocationTooltip(member.checkInLocation)">
+                  <span class="mp-location-main mp-location-main--{{ getLocationTypeFromStatus(member).type }}">
+                    {{ getLocationTypeFromStatus(member).icon }} {{ getLocationTypeFromStatus(member).label }}
+                    <span class="mp-spoofing-badge" *ngIf="member.checkInGpsSpoofingSuspected" title="GPS potentiellement falsifié">⚠️</span>
                   </span>
-                  <span class="mp-kanban-location-sub">
-                    <ng-container *ngIf="getLocationType(member.checkInLocation).type === 'bureau'; else kanbanOtherLocation">
+                  <span class="mp-kanban-location-sub" *ngIf="getLocationTypeFromStatus(member).type !== 'unknown'">
+                    <ng-container *ngIf="getLocationTypeFromStatus(member).type === 'bureau'; else kanbanOtherLocation">
                       5 Impasse Chahrazed, Tunis
                     </ng-container>
                     <ng-template #kanbanOtherLocation>
                       <app-location-display [locationText]="member.checkInLocation"></app-location-display>
                     </ng-template>
+                  </span>
+                  <span class="mp-location-distance" *ngIf="getDistanceLabel(member)">
+                    {{ getDistanceLabel(member) }}
                   </span>
                 </div>
                 <div *ngIf="member.checkOutLocation" class="mp-kanban-location-row mp-kanban-location-row--checkout">

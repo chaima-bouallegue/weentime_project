@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app.context.current_user import CurrentUserContext
 from app.memory.confirmation_store import ConfirmationStore
 from app.models.agent_models import AgentResponse
@@ -8,15 +10,21 @@ from app.tools.leave_tools import list_type_conges
 
 from .base_domain_agent import DomainAgent
 from .hr_agent_utils import ConfirmationMixin, extract_payload, has_any
-from .leave_planner import LeaveRiskAnalyzer
+from .leave_planner import LeaveRiskAnalyzer, LeaveRiskCache, get_default_leave_risk_cache
 
 
 class LeaveAgent(ConfirmationMixin, DomainAgent):
     name = "leave"
 
-    def __init__(self, executor: ToolExecutor, confirmation_store: ConfirmationStore) -> None:
+    def __init__(
+        self,
+        executor: ToolExecutor,
+        confirmation_store: ConfirmationStore,
+        risk_cache: LeaveRiskCache | None = None,
+    ) -> None:
         self.executor = executor
         self.confirmation_store = confirmation_store
+        self.risk_cache = risk_cache or get_default_leave_risk_cache()
 
     def can_handle(self, message: str, context: CurrentUserContext) -> float:
         intent, confidence = self.detect_intent(message, context)
@@ -152,9 +160,36 @@ class LeaveAgent(ConfirmationMixin, DomainAgent):
             justificatif_url = ctx_meta.get("justificatif_url") or ctx_meta.get("justificatifUrl")
             if justificatif_url:
                 tool_input["justificatif_url"] = justificatif_url
-            risk_analysis = await LeaveRiskAnalyzer(self.executor).analyze(tool_input, context)
+            risk_analysis = await LeaveRiskAnalyzer(self.executor, cache=self.risk_cache).analyze(tool_input, context)
+            if _looks_like_sick_leave(message):
+                lang = getattr(context, "language", "fr")
+                today_str = date.today().isoformat()
+                is_today = payload.get("start_date") == today_str and payload.get("end_date") == today_str
+                if is_today:
+                    if lang == "en":
+                        base_text = "I'm sorry to hear that. Would you like me to submit a sick leave request for today?"
+                    elif lang == "ar":
+                        base_text = "سلامتك، يؤسفني سماع ذلك. هل ترغب في تسجيل إجازة مرضية لهذا اليوم؟"
+                    elif lang == "tn":
+                        base_text = "Nchallah labes. Theb n3adilek congé maladie lyoum?"
+                    else:
+                        base_text = "Je suis désolé de l'apprendre. Souhaitez-vous déclarer un congé maladie pour aujourd'hui ?"
+                else:
+                    s_date = payload.get("start_date")
+                    e_date = payload.get("end_date")
+                    if lang == "en":
+                        base_text = f"I'm sorry to hear that. Would you like me to submit a sick leave request from {s_date} to {e_date}?"
+                    elif lang == "ar":
+                        base_text = f"سلامتك، يؤسفني سماع ذلك. هل ترغب في تسجيل إجازة مرضية من {s_date} إلى {e_date}؟"
+                    elif lang == "tn":
+                        base_text = f"Nchallah labes. Theb n3adilek congé maladie men {s_date} l {e_date}?"
+                    else:
+                        base_text = f"Je suis désolé de l'apprendre. Souhaitez-vous déclarer un congé maladie du {s_date} au {e_date} ?"
+            else:
+                base_text = "Confirmez-vous la creation de cette demande de conge ?"
+
             confirmation_text = LeaveRiskAnalyzer.build_confirmation_text(
-                "Confirmez-vous la creation de cette demande de conge ?",
+                base_text,
                 risk_analysis,
             )
             return self.confirmation_response(

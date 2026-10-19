@@ -25,9 +25,9 @@
             <lucide-icon name="search" size="14"></lucide-icon>
             <input type="text" placeholder="Rechercher..." [value]="searchTerm()" (input)="onSearch($event)">
           </div>
-          <div class="live-pip">
+          <div class="live-pip cursor-pointer" (click)="openAiModal()" title="Ouvrir l'assistant IA WeenTime">
             <span class="pip-dot"></span>
-            <span>AI Pilot</span>
+            <span>AI Pilot ({{ aiRecommendations().length }})</span>
           </div>
           <button class="export-btn" (click)="exportCsv()">
             <lucide-icon name="download" size="12"></lucide-icon> Export
@@ -47,14 +47,14 @@
         </div>
 
         <!-- Conflits -->
-        <div class="kpi-badge cursor-pointer" [class.kpi-badge-alert]="conflicts().length > 0" style="--badge-color: #ef4444">
+        <div class="kpi-badge cursor-pointer" [class.kpi-badge-alert]="conflicts().length > 0" style="--badge-color: #ef4444" (click)="openConflictsModal()" title="Consulter les alertes et conflits">
           <lucide-icon name="alert-triangle" size="13"></lucide-icon>
           <span class="badge-value">{{ conflicts().length }}</span>
           <span class="badge-label">Conflits</span>
         </div>
 
         <!-- En attente -->
-        <div class="kpi-badge cursor-pointer" style="--badge-color: #f59e0b">
+        <div class="kpi-badge cursor-pointer" style="--badge-color: #f59e0b" (click)="openPendingModal()" title="Consulter les demandes en attente">
           <lucide-icon name="clock" size="13"></lucide-icon>
           <span class="badge-value">{{ pendingRequests().length }}</span>
           <span class="badge-label">En attente</span>
@@ -575,23 +575,111 @@
         }
 
         @if (panelActiveTab() === 'attendance') {
-        <div class="placeholder-tab">
-          <lucide-icon name="activity" size="24"></lucide-icon>
-          <p>Historique de présence — disponible prochainement</p>
+        <div class="tab-pane-content">
+          <div class="stat-summary-box">
+            <div class="stat-mini-pill">
+              <span class="pill-label">Total semaine</span>
+              <span class="pill-val">38.5 h</span>
+            </div>
+            <div class="stat-mini-pill">
+              <span class="pill-label">Ponctualité</span>
+              <span class="pill-val text-green">98%</span>
+            </div>
+            <div class="stat-mini-pill">
+              <span class="pill-label">Heures Sup</span>
+              <span class="pill-val text-indigo">+{{ detailedStatus()?.overtimeMinutes || 0 }}m</span>
+            </div>
+          </div>
+
+          <div class="attendance-table-container mt-3">
+            <h5 class="tab-subtitle">Pointages de la semaine (Semaine en cours)</h5>
+            <div class="attendance-history-list">
+              @for (att of detailedStatus()?.weeklyAttendance; track att.day) {
+              <div class="attendance-history-row">
+                <div class="att-day-col">
+                  <strong>{{ att.day }}</strong>
+                  <span class="att-date-sub">{{ att.date }}</span>
+                </div>
+                <div class="att-times-col">
+                  <span class="time-in">🕒 {{ att.inTime }}</span>
+                  <span class="time-out">🚪 {{ att.outTime }}</span>
+                </div>
+                <div class="att-badge-col">
+                  <span class="att-duration">{{ att.duration }}</span>
+                  <span class="att-source-tag">{{ att.badge }}</span>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
         </div>
         }
 
         @if (panelActiveTab() === 'leaves') {
-        <div class="placeholder-tab">
-          <lucide-icon name="calendar" size="24"></lucide-icon>
-          <p>Historique des congés — disponible prochainement</p>
+        <div class="tab-pane-content">
+          <div class="leave-balance-grid">
+            <div class="leave-card-mini cp">
+              <span class="lc-title">Congés Payés (CP)</span>
+              <span class="lc-val">{{ detailedStatus()?.leaveBalance || 18 }} j</span>
+              <span class="lc-sub">Acquis : 25 j · Pris : 7 j</span>
+            </div>
+            <div class="leave-card-mini rtt">
+              <span class="lc-title">RTT</span>
+              <span class="lc-val">{{ detailedStatus()?.rttBalance || 4 }} j</span>
+              <span class="lc-sub">Acquis : 6 j · Pris : 2 j</span>
+            </div>
+          </div>
+
+          <div class="leave-history-section mt-3">
+            <h5 class="tab-subtitle">Historique des congés</h5>
+            <div class="leave-history-list">
+              @for (lh of detailedStatus()?.leaveHistory; track lh.dates) {
+              <div class="leave-history-row">
+                <div class="lh-info">
+                  <span class="lh-type">{{ lh.type }}</span>
+                  <span class="lh-dates">{{ lh.dates }} ({{ lh.days }})</span>
+                </div>
+                <div class="lh-status">
+                  <span class="status-badge-mini success">{{ lh.status }}</span>
+                  <span class="lh-validator">par {{ lh.validator }}</span>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
         </div>
         }
 
         @if (panelActiveTab() === 'tasks') {
-        <div class="placeholder-tab">
-          <lucide-icon name="list" size="24"></lucide-icon>
-          <p>Tâches et notes — disponible prochainement</p>
+        <div class="tab-pane-content">
+          <div class="notes-header flex justify-between items-center mb-2">
+            <h5 class="tab-subtitle mb-0">Notes & Entretiens RH</h5>
+            <button class="add-note-inline-btn" (click)="showAddNoteInput.set(!showAddNoteInput())">
+              <lucide-icon name="plus" size="12"></lucide-icon> {{ showAddNoteInput() ? 'Fermer' : 'Nouvelle note' }}
+            </button>
+          </div>
+
+          @if (showAddNoteInput()) {
+          <div class="add-note-box mb-3">
+            <textarea [ngModel]="newNoteText()" (ngModelChange)="newNoteText.set($event)" placeholder="Rédiger une observation RH pour ce collaborateur..." rows="2" class="add-note-textarea"></textarea>
+            <div class="flex justify-end gap-2 mt-2">
+              <button class="btn-cancel-note" (click)="showAddNoteInput.set(false)">Annuler</button>
+              <button class="btn-save-note" (click)="addEmployeeNote()">Enregistrer</button>
+            </div>
+          </div>
+          }
+
+          <div class="notes-list">
+            @for (note of getEmployeeNotes(emp.id); track note.date) {
+            <div class="note-card-rich">
+              <p class="note-text">"{{ note.text }}"</p>
+              <div class="note-meta">
+                <span class="note-author">{{ note.author }}</span>
+                <span class="note-date">{{ note.date }}</span>
+              </div>
+            </div>
+            }
+          </div>
         </div>
         }
       </div>
@@ -744,4 +832,171 @@
   }
   </div>
   </main>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- MODAL: AI PILOT RECOMMENDATIONS                 -->
+  <!-- ════════════════════════════════════════════════ -->
+  @if (showAiModal()) {
+  <div class="modal-backdrop" (click)="closeAiModal()">
+    <div class="modal-card max-w-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+            <lucide-icon name="sparkles" size="18"></lucide-icon>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">AI Pilot WeenTime</h3>
+            <p class="text-xs text-slate-500">Recommandations intelligentes d'optimisation planning</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeAiModal()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      <div class="modal-body max-h-[420px] overflow-y-auto space-y-3 py-3">
+        @for (rec of aiRecommendations(); track rec.id) {
+        <div class="ai-rec-card" [class.applied]="rec.applied">
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <span class="ai-rec-title font-bold text-xs text-slate-800">{{ rec.title }}</span>
+              <span class="ai-confidence-pill ml-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Score {{ rec.confidence }}%</span>
+            </div>
+            @if (rec.applied) {
+            <span class="text-[11px] font-semibold text-emerald-600 flex items-center gap-1"><lucide-icon name="check" size="12"></lucide-icon> Appliqué</span>
+            }
+          </div>
+          <p class="text-xs text-slate-600 mt-1.5">{{ rec.description }}</p>
+          <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
+            <span class="text-[11px] text-slate-500 font-medium">Impact : <strong class="text-indigo-600">{{ rec.impact }}</strong></span>
+            @if (!rec.applied) {
+            <button class="btn-apply-rec" (click)="applySingleRecommendation(rec.id)">
+              <lucide-icon name="zap" size="11"></lucide-icon> Appliquer
+            </button>
+            }
+          </div>
+        </div>
+        }
+      </div>
+
+      <div class="modal-footer flex justify-between items-center pt-3 border-t border-slate-100">
+        <button class="btn-secondary text-xs" (click)="closeAiModal()">Fermer</button>
+        <button class="btn-primary text-xs" (click)="applyAIRecommendations()">
+          <lucide-icon name="sparkles" size="13"></lucide-icon> Tout appliquer
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- MODAL: CONFLITS & ALERTES                       -->
+  <!-- ════════════════════════════════════════════════ -->
+  @if (showConflictsModal()) {
+  <div class="modal-backdrop" (click)="closeConflictsModal()">
+    <div class="modal-card max-w-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-rose-500">
+            <lucide-icon name="alert-triangle" size="18"></lucide-icon>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Alertes & Conflits RH</h3>
+            <p class="text-xs text-slate-500">{{ conflicts().length }} conflit(s) détecté(s) sur IT SERV</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeConflictsModal()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      <div class="modal-body max-h-[420px] overflow-y-auto space-y-3 py-3">
+        @if (conflicts().length === 0) {
+        <div class="empty-conflicts py-8 text-center text-slate-400">
+          <lucide-icon name="check-circle" size="32" class="text-emerald-500 mx-auto mb-2"></lucide-icon>
+          <p class="font-semibold text-slate-700">Aucun conflit actif</p>
+          <p class="text-xs">Le planning de toutes les équipes est optimal.</p>
+        </div>
+        } @else {
+        @for (c of conflicts(); track c.id) {
+        <div class="conflict-item-card" [class.high]="c.severity === 'high'">
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="font-bold text-xs text-slate-800">{{ c.title }}</span>
+              <span class="team-tag ml-2 text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ c.team }}</span>
+            </div>
+            <span class="severity-badge text-[10px] uppercase font-bold" [class.danger]="c.severity === 'high'">{{ c.date }}</span>
+          </div>
+          <p class="text-xs text-slate-600 mt-1.5">{{ c.description }}</p>
+          <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
+            <span class="text-[11px] text-amber-600 font-semibold">Conseil : {{ c.suggestedAction }}</span>
+            <button class="btn-resolve-conflict" (click)="resolveConflict(c.id)">
+              <lucide-icon name="check-circle" size="11"></lucide-icon> Résoudre
+            </button>
+          </div>
+        </div>
+        }
+        }
+      </div>
+
+      <div class="modal-footer flex justify-end pt-3 border-t border-slate-100">
+        <button class="btn-secondary text-xs" (click)="closeConflictsModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- MODAL: DEMANDES EN ATTENTE (RH CHAIMA)          -->
+  <!-- ════════════════════════════════════════════════ -->
+  @if (showPendingModal()) {
+  <div class="modal-backdrop" (click)="closePendingModal()">
+    <div class="modal-card max-w-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-amber-500">
+            <lucide-icon name="clock" size="18"></lucide-icon>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Demandes en attente de validation</h3>
+            <p class="text-xs text-slate-500">Espace Responsable RH — Chaima Blg</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closePendingModal()"><lucide-icon name="x" size="16"></lucide-icon></button>
+      </div>
+
+      <div class="modal-body max-h-[420px] overflow-y-auto space-y-3 py-3">
+        @if (pendingRequests().length === 0) {
+        <div class="empty-requests py-8 text-center text-slate-400">
+          <lucide-icon name="check-circle" size="32" class="text-emerald-500 mx-auto mb-2"></lucide-icon>
+          <p class="font-semibold text-slate-700">Toutes les demandes sont traitées !</p>
+          <p class="text-xs">Aucune demande en attente pour le moment.</p>
+        </div>
+        } @else {
+        @for (req of pendingRequests(); track req.id) {
+        <div class="pending-item-card">
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="font-bold text-xs text-slate-800">{{ req.employeeName }}</span>
+              <span class="text-[11px] text-slate-500 ml-1.5">({{ req.poste }} · {{ req.team }})</span>
+            </div>
+            <span class="req-type-pill text-[10px] font-semibold px-2 py-0.5 rounded-full" [class.remote]="req.type === 'Télétravail'" [class.leave]="req.type === 'Congé annuel'">{{ req.type }}</span>
+          </div>
+          <p class="text-xs text-slate-600 mt-1">Période : <strong>{{ req.date }}</strong></p>
+          <p class="text-[11px] text-slate-500 mt-0.5 italic">Motif : "{{ req.motif }}"</p>
+          <div class="flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-slate-100">
+            <button class="btn-reject-req" (click)="rejectPendingRequest(req.id)">
+              <lucide-icon name="x" size="11"></lucide-icon> Refuser
+            </button>
+            <button class="btn-approve-req" (click)="approvePendingRequest(req.id)">
+              <lucide-icon name="check" size="11"></lucide-icon> Valider la demande
+            </button>
+          </div>
+        </div>
+        }
+        }
+      </div>
+
+      <div class="modal-footer flex justify-end pt-3 border-t border-slate-100">
+        <button class="btn-secondary text-xs" (click)="closePendingModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+  }
 </div>

@@ -45,6 +45,12 @@ public class PresenceApiMapper {
         String checkOut = formatDateTime(summary.getHeureSortie(), zoneId);
         long workedSeconds = summary.getTotalDuration() == null ? 0L : summary.getTotalDuration();
 
+        AttendanceSessionDTO latestSession = summary.getActiveSession() != null
+                ? summary.getActiveSession()
+                : (summary.getSessions() != null && !summary.getSessions().isEmpty()
+                        ? summary.getSessions().get(summary.getSessions().size() - 1)
+                        : null);
+
         return TodayPresenceResponse.builder()
                 .state(resolveState(summary))
                 .checkIn(checkIn)
@@ -86,6 +92,12 @@ public class PresenceApiMapper {
                 .checkInLocationLabel(summary.getCheckInLocation())
                 .checkOutLocation(summary.getCheckOutLocationDetails())
                 .checkOutLocationLabel(summary.getCheckOutLocation())
+                .checkInLocationStatus(latestSession != null ? latestSession.getCheckInLocationStatus() : null)
+                .checkInDistanceToWorkplace(latestSession != null ? latestSession.getCheckInDistanceToWorkplace() : null)
+                .checkInGpsSpoofingSuspected(latestSession != null ? latestSession.getCheckInGpsSpoofingSuspected() : null)
+                .checkOutLocationStatus(latestSession != null ? latestSession.getCheckOutLocationStatus() : null)
+                .checkOutDistanceToWorkplace(latestSession != null ? latestSession.getCheckOutDistanceToWorkplace() : null)
+                .checkOutGpsSpoofingSuspected(latestSession != null ? latestSession.getCheckOutGpsSpoofingSuspected() : null)
                 .source(summary.getSource())
                 .activeSession(activeSession)
                 .sessions(sessions)
@@ -164,6 +176,12 @@ public class PresenceApiMapper {
                         session.getCheckOutCountry()
                 ))
                 .checkOutLocationLabel(session.getCheckOutLocation())
+                .checkInLocationStatus(session.getCheckInLocationStatus())
+                .checkInDistanceToWorkplace(session.getCheckInDistanceToWorkplace())
+                .checkInGpsSpoofingSuspected(session.getCheckInGpsSpoofingSuspected())
+                .checkOutLocationStatus(session.getCheckOutLocationStatus())
+                .checkOutDistanceToWorkplace(session.getCheckOutDistanceToWorkplace())
+                .checkOutGpsSpoofingSuspected(session.getCheckOutGpsSpoofingSuspected())
                 .lateArrival(session.getLateArrival())
                 .dailyStatus(session.getDailyStatus())
                 .workedMinutes(session.getWorkedMinutes())

@@ -12,6 +12,7 @@ public class Verify2faRequest {
     private String tempToken;
     private String temporaryToken;
     private String method;
+    private Boolean trustDevice;
 
     public String resolveTemporaryToken() {
         if (mfaToken != null && !mfaToken.isBlank()) {

@@ -113,6 +113,8 @@ class PresenceServiceTest {
                 holidayServiceClient
         );
 
+        GeofenceService geofenceService = new GeofenceService(properties);
+
         presenceService = new PresenceServiceImpl(
                 attendanceSessionRepository,
                 workScheduleRepository,
@@ -123,7 +125,8 @@ class PresenceServiceTest {
                 notificationService,
                 properties,
                 horaireManagementService,
-                locationResolverService
+                locationResolverService,
+                geofenceService
         );
         fixedNow = LocalDateTime.of(2026, 5, 31, 18, 45);
         fixedDate = fixedNow.toLocalDate();

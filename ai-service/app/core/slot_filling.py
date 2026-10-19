@@ -123,16 +123,19 @@ async def continue_pending_flow(
         store.clear(context, session_id)
         return None
 
+    if getattr(context, "language", None):
+        flow.language = context.language
+
     _merge_flow_fields(flow, message, context)
     missing = _missing_fields(flow)
     if missing:
         flow.missing_fields = missing
         action_result = _slot_result(flow)
+        lang = getattr(context, "language", None) or getattr(flow, "language", "fr")
         if flow.intent == "leave.create" and missing[0] == "type":
             backend_client = getattr(executor, "backend_client", None)
             types = await list_type_conges(backend_client, context) if backend_client else []
             labels = [t.get("libelle") for t in types if isinstance(t, dict) and t.get("libelle")]
-            lang = getattr(flow, "language", "fr")
             if labels:
                 example_text = ", ".join(labels[:3])
                 options = [{"label": label, "value": label} for label in labels]
@@ -158,7 +161,7 @@ async def continue_pending_flow(
                 else:
                     flow.last_question = "Quel type de conge souhaitez-vous demander ?"
         else:
-            flow.last_question = _question_for_missing(flow.intent, missing[0], flow)
+            flow.last_question = _question_for_missing(flow.intent, missing[0], flow, lang=lang)
 
         store.save(context, flow, session_id)
         return AgentResponse(
@@ -218,6 +221,11 @@ def capture_pending_flow(
         current_page=str(context.metadata.get("current_page") or "global") if isinstance(context.metadata, dict) else "global",
         last_action=response.intent,
     )
+    if isinstance(response.actionResult, dict):
+        for k in ("start_date", "end_date", "leave_type_label", "reason", "type_conge_id"):
+            val = response.actionResult.get(k)
+            if val:
+                flow.collected_fields[k] = val
     _merge_flow_fields(flow, message, context)
     flow.missing_fields = _missing_fields(flow)
     store.save(context, flow, session_id)
@@ -294,7 +302,7 @@ def _merge_leave_fields(fields: dict[str, Any], payload: dict[str, Any], origina
             fields[key] = payload[key]
     if payload.get("reason"):
         fields["reason"] = payload["reason"]
-    elif "reason" not in fields and had_leave_type and not _is_no_reason(original) and not _has_date_or_time(payload):
+    elif "reason" not in fields and had_leave_type and not _is_no_reason(original) and not _has_date_or_time(payload) and _looks_like_reason_followup(original, payload):
         fields["reason"] = original
     elif "reason" not in fields and _looks_like_reason_followup(original, payload):
         fields["reason"] = original
@@ -461,61 +469,103 @@ def _missing_fields(flow: PendingConversationFlow) -> list[str]:
     return []
 
 
-def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow) -> str:
+def _question_for_missing(intent: str, field: str, flow: PendingConversationFlow, lang: str | None = None) -> str:
+    active_lang = lang or getattr(flow, "language", None) or "fr"
     if intent == "leave.create":
-        lang = getattr(flow, "language", "fr")
         if field == "date":
-            if lang == "en":
+            if active_lang == "en":
                 return "Which dates would you like to request for this leave?"
-            if lang == "ar":
+            if active_lang == "ar":
                 return "ما هي التواريخ التي ترغب في طلب الإجازة خلالها؟"
-            if lang == "tn":
+            if active_lang == "tn":
                 return "anehi date theb tekhedh feha congé?"
             return "Pour quelle date souhaitez-vous demander ce conge ?"
         if field == "type":
-            if lang == "en":
+            if active_lang == "en":
                 return "Which leave type would you like to request?"
-            if lang == "ar":
+            if active_lang == "ar":
                 return "ما نوع الإجازة التي ترغب في طلبها؟"
-            if lang == "tn":
+            if active_lang == "tn":
                 return "Chnowa l type de conge?"
             return "Quel type de conge souhaitez-vous demander ?"
         if field == "reason" and _is_no_reason(flow.collected_fields.get("raw_last_message")):
-            if lang == "en":
+            if active_lang == "en":
                 return "Reason is required for this request. What reason would you like to provide?"
-            if lang == "ar":
+            if active_lang == "ar":
                 return "السبب مطلوب لهذا الطلب. ما هو السبب الذي ترغب في تقديمه؟"
-            if lang == "tn":
+            if active_lang == "tn":
                 return "El motif obligatoire. Chnowa l motif mte3ek?"
             return "Le motif est requis pour cette demande. Quel motif souhaitez-vous indiquer ?"
-        if lang == "en":
+        if active_lang == "en":
             return "What reason would you like to provide for this leave request?"
-        if lang == "ar":
+        if active_lang == "ar":
             return "ما هو السبب الذي ترغب في تقديمه لطلب الإجازة هذا؟"
-        if lang == "tn":
+        if active_lang == "tn":
             return "Chnowa l motif mte3ek leconge hedha?"
         return "Quel motif souhaitez-vous indiquer pour cette demande de conge ?"
     if intent == "authorization.create":
         if field == "date":
+            if active_lang == "en":
+                return "For which date would you like to request this authorization?"
+            if active_lang == "ar":
+                return "ما هو تاريخ الإذن الذي ترغب في طلبه؟"
+            if active_lang == "tn":
+                return "L nhar chnowa theb taamel autorisation?"
             return "Pour quelle date souhaitez-vous demander cette autorisation ?"
         if field == "time":
             if flow.collected_fields.get("duration_hours"):
+                if active_lang == "en":
+                    return "What time does this authorization start?"
+                if active_lang == "ar":
+                    return "في أي وقت يبدأ هذا الإذن؟"
+                if active_lang == "tn":
+                    return "Waqtech yabda l'autorisation?"
                 return "A quelle heure commence cette autorisation ?"
+            if active_lang == "en":
+                return "Please specify the start and end hours for this authorization."
+            if active_lang == "ar":
+                return "يرجى تحديد وقت بداية ونهاية الإذن."
+            if active_lang == "tn":
+                return "Merci theded waqtech tebda w toufa l'autorisation."
             return "Merci de preciser les heures de debut et de fin de l'autorisation."
         if field == "type":
+            if active_lang == "en":
+                return "Which authorization type? For example: early departure, late arrival, or temporary absence."
+            if active_lang == "ar":
+                return "ما نوع الإذن؟ مثلا: خروج مبكر، تأخر، أو غياب مؤقت."
+            if active_lang == "tn":
+                return "Chnowa l type mtaa l autorisation? Mathalan: sortie anticipee, retard, walla absence temporaire."
             return "Quel type d'autorisation souhaitez-vous demander ? Par exemple: sortie anticipee, arrivee tardive ou absence temporaire."
+        if active_lang == "en":
+            return "What reason would you like to give for this authorization?"
+        if active_lang == "ar":
+            return "ما هو سبب هذا الإذن؟"
+        if active_lang == "tn":
+            return "Chnowa l motif mtaa l autorisation?"
         return "Quel motif souhaitez-vous indiquer pour cette autorisation ?"
     if intent == "telework.create":
         if field == "date":
+            if active_lang == "en":
+                return "For which date would you like to request telework?"
+            if active_lang == "ar":
+                return "ما هو التاريخ الذي ترغب في طلب العمل عن بعد له؟"
+            if active_lang == "tn":
+                return "L nhar chnowa theb taamel teletravail?"
             return "Pour quelle date souhaitez-vous demander le teletravail ?"
         if field == "type":
+            if active_lang == "en":
+                return "Would you like a full day, morning, afternoon, or full week?"
+            if active_lang == "ar":
+                return "هل ترغب في يوم كامل، صباح، بعد الظهر أو أسبوع كامل؟"
+            if active_lang == "tn":
+                return "Theb nhar kemel, sbe7, 3cheya walla jem3a kemla?"
             return "Souhaitez-vous une journee complete, une matinee, un apres-midi ou une semaine complete ?"
         return "Pouvez-vous preciser cette information ?"
     if intent == "document.create":
         if field == "type":
-            return localized_document_type_question(flow.language)
+            return localized_document_type_question(active_lang)
         if field == "month":
-            return localized_month_question(flow.language, invalid=flow.collected_fields.get("month_parse_failed") is True)
+            return localized_month_question(active_lang, invalid=flow.collected_fields.get("month_parse_failed") is True)
         return "Pouvez-vous preciser cette information ?"
     if intent == "rh.document_generate":
         if field == "type":
@@ -902,8 +952,17 @@ def _looks_like_reason_followup(original: str, payload: dict[str, Any]) -> bool:
     if not original.strip() or _is_no_reason(original):
         return False
     text = original.strip().lower()
-    generic_request_terms = ("je veux", "je souhaite", "demande", "demander", "autorisation", "conge", "congé", "teletravail", "document")
-    reason_terms = ("motif", "raison", "repos", "medical", "médical", "rdv", "rendez", "familial", "personnel", "maladie")
+    generic_request_terms = (
+        "je veux", "je souhaite", "demande", "demander", "autorisation", "conge", "congé", "teletravail", "document",
+        "i want", "i wish", "i need", "create", "request", "leave", "vacation", "holiday", "telework", "remote", "permission",
+        "nheb", "n7eb", "aamel", "3amel", "demandi",
+        "اريد", "أريد", "طلب", "إجازة", "اجازة", "عطلة", "اذن", "إذن", "عمل عن بعد",
+    )
+    reason_terms = (
+        "motif", "raison", "repos", "medical", "médical", "rdv", "rendez", "familial", "personnel", "maladie",
+        "reason", "sick", "doctor", "appointment", "family", "personal", "illness", "rest",
+        "مرض", "طبيب", "موعد", "عائلي", "شخصي", "راحة", "سبب",
+    )
     if any(term in text for term in generic_request_terms) and not any(term in text for term in reason_terms):
         return False
     structured_keys = {

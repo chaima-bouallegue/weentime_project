@@ -301,6 +301,11 @@ def action_success_text(tool_name: str, tool_input: dict[str, Any] | None = None
         return "C'est fait ! Le manager a été assigné avec succès."
     if tool_name in {"admin.assign_rh_owner"}:
         return "C'est fait ! Le responsable RH a été assigné à l'entreprise avec succès."
+    if tool_name == "leave.create_request":
+        leave_label = str(tool_input.get("leave_type_label") or tool_input.get("reason") or "").lower()
+        if "maladie" in leave_label:
+            return "C'est fait ! Votre demande de congé maladie a bien été enregistrée et transmise à votre manager. Prenez soin de vous !"
+        return "C'est fait ! Votre demande de congé a bien été enregistrée et transmise à votre manager."
     return "Action confirmee."
 
 
