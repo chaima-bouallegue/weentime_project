@@ -23,7 +23,7 @@ WeenTime est une plateforme d'entreprise distribuée répondant aux exigences mo
 1. Une architecture en **microservices Spring Boot 3** distribuée, scalable et résiliente.
 2. Un module d'**Intelligence Artificielle & Machine Learning (FastAPI, PyTorch, Scikit-learn, LangChain, ChromaDB)** offrant un copilote RH vocal/texte multilingue, le parsing automatisé de CV et la détection prédictive d'anomalies de présence.
 3. Une interface utilisateur **Angular 17+** ergonomique, temps réel et responsive, adaptée aux profils Employé, Manager et Administrateur RH.
-4. Des mécanismes avancés de **sécurité** (JWT sans état, authentification double facteur TOTP/Email/SMS, gestion des appareils de confiance) et de **géolocalisation / Geofencing** (détection automatique du siège IT SERV HQ).
+4. Des mécanismes avancés de **sécurité** (JWT sans état, authentification double facteur TOTP/Email/SMS, gestion des appareils de confiance) et de **géolocalisation / Geofencing** 
 
 L'ensemble des objectifs fixés dans le cahier des charges a été rigoureusement atteint et validé en conditions réelles.
 
@@ -182,4 +182,4 @@ Pour le passage de l'environnement de validation / soutenance vers l'exploitatio
 
 Le projet **WeenTime** est officiellement **achevé, validé et scellé**. L'ensemble du code source, des scripts de migration, des configurations de déploiement et des modèles d'intelligence artificielle est intègre, testé et prêt pour l'intégration continue.
 
-Félicitations pour la réussite de la soutenance ! 🎓✨
+
